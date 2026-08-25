@@ -1,0 +1,60 @@
+## A chat box is not a harness
+
+A chat box sends messages to a model and prints the reply. A <Term id="harness">harness</Term> is a **loop**:
+
+user → <Term id="thread">thread</Term> → prefill / decode → maybe <Term id="tool">tools</Term> → maybe a <Term id="subagent">subagent</Term> → cache hit or miss → <Term id="compaction">compaction</Term> → back to the user.
+
+The model is a token engine inside that loop. Swap the engine; the loop remains. That is the whole point of this module.
+
+<VisualSlot caption="The agent loop. The pulse is one turn travelling the harness — not a second brain." />
+
+<Myth>
+“Hermes is the harness.” <Term id="nous-hermes">Nous Hermes</Term> is a **model family** (open-weight chat models from Nous Research). People type “Hermess” when they mean the loop: profiles, tools, threads. Keep the names apart or you will debug the wrong layer.
+</Myth>
+
+## Profiles and the system prompt
+
+A <Term id="system-prompt">profile / system prompt</Term> is the standing text: who the agent is, what it must not do, which tools exist, how to format. It is injected every turn or held in a <Term id="prompt-cache">prefix cache</Term>. It is not “memory of this user.” It is policy.
+
+Good profiles are short, testable, and versioned. A 20k-token manifesto costs prefill on every new prefix and still gets ignored when the thread is noisy.
+
+## Tools
+
+A tool is a function the model may *request*: a name, a JSON schema for arguments, and code **you** run. The model does not magically have bash. The harness parses a <Term id="tool-call">tool_call</Term>, checks <Term id="permissions">permissions</Term>, executes, and appends a tool-result message.
+
+If you skip permissions, you built a remote-control for whoever can talk to the model.
+
+## Threads, not vibes
+
+A thread is the durable unit: messages, tool results, sometimes a working directory. It is not a <Term id="session">session</Term> cookie. Design for “this thread is the context,” then admit you will compact it.
+
+## Subagents
+
+A subagent is a nested loop: narrower tools, narrower prompt, usually a fresh or sliced context, returns a summary. Isolation is the feature (a wild glob does not flood the parent). Cost is the tax (another prefill, another cache). Use them when the parent would drown in raw output, not as a personality pack.
+
+## Saving tokens on purpose
+
+Three honest tactics:
+
+1. **Prefix / prompt cache** — keep the long, stable prefix identical so the engine can reuse work across turns.
+2. **Retrieve vs stuff** — do not paste the wiki. Fetch the one page you need.
+3. **Compaction** — summarise old turns before the window snaps. Compaction is lossy; log what you drop.
+
+## Kernel means two things
+
+In GPU land a <Term id="kernel">kernel</Term> is the compiled program that runs on the device (attention, matmul). In harness land people say “kernel” for the inner runtime: the piece that streams, calls tools, and decides to stop. Same English word. Different layer. If someone says “the kernel crashed,” ask which one.
+
+## A worked loop
+
+1. User message lands on a thread.
+2. Harness builds messages: profile, compacted history, new user text, tool schemas.
+3. Prefill the prefix (cache hit if the prefix byte-matched).
+4. Decode until a stop or a tool call.
+5. If tool call: permission check → run → append result → go to 3.
+6. If a subagent is spawned: run 1–5 in a child, append a summary, continue.
+7. If the window is tight: compact, then continue.
+8. Stream the visible answer. Persist the thread.
+
+<TryThis>
+Write the loop above as pseudocode in your language, with a fake `runTool(name, args)` and a hard allowlist. Do not connect a real model yet. The harness is testable without weights.
+</TryThis>

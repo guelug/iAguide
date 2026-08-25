@@ -1,0 +1,39 @@
+## What this is
+
+iAguide is a visual course on how AI systems work **in practice** in 2026: the loop around a model (the <Term id="harness">harness</Term>), the weights, how those weights were trained, how you run them locally, and the memory that holds a thought while it is being generated.
+
+It is not a vendor tutorial. It is not a research paper. It will go stale — CLIs rename, cards change, a number that was true on one GPU is a lie on another. When we give a figure, we mark it as a **rule of thumb** or we omit it.
+
+## What you will be able to do
+
+By the field guide you should be able to:
+
+- Pick a model from a <Term id="model-card">model card</Term>, not from a screenshot of a leaderboard.
+- Run <Term id="open-weights">open weights</Term> on a machine you control and read a <Term id="gguf">GGUF</Term> filename.
+- Sketch an agent as a loop: user → thread → prefill/decode → tools → maybe a subagent → cache → compaction.
+- Decide whether a <Term id="lora">LoRA</Term> is the right next step, or whether a better prompt and a smaller context would do.
+
+## How the map works
+
+Twelve modules. The [course map](/course) is the index: a constellation, not a locked sequence. Orientation is the porch. The language of models and the harness are the two spines. Training and fine-tuning sit together. Local inference, quantization, and hardware are the workshop. Maths is a lantern, not a gate. The field guide is a checklist, not a diploma.
+
+WIP modules, if any appear later, show as teasers. Dropping a thirteenth folder is documented on the About page.
+
+## How to read a lesson
+
+Each lesson is 8–20 minutes. Diagrams are one canvas, not a carnival. <Term id="token">Tokens</Term> in orange-dotted links jump to the glossary.
+
+Commands are **outlines**: the binary name and the idea. Flags move. Paste into a terminal only after you read the current `--help`.
+
+<TryThis>
+Open the course map. Click any star. Come back here with one sentence: what would “done” look like for you in this course — a local model, a tiny LoRA, or a harness that can call a tool without wrecking the thread?
+</TryThis>
+
+## What we will not do
+
+- Invent APIs or benchmark numbers.
+- Pretend a chat box is an agent.
+- Treat <Term id="nous-hermes">Nous Hermes</Term> (or any named family) as the harness. Hermes is a **model family**. The harness is the loop you wrap around *any* model.
+- Promise that quantization is free, or that unified memory makes VRAM limits vanish.
+
+Curriculum dated 2026. If a page disagrees with the tool in your path, trust the tool, then send a patch.

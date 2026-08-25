@@ -1,0 +1,59 @@
+## Tres formas de mover pesos
+
+- **<Term id="full-ft">Ajuste completo</Term>** — se mueven casi todos los parámetros. Máxima capacidad, máxima memoria, fácil de sobreajustar un set pequeño.
+- **<Term id="lora">LoRA</Term>** — congelar el base; aprender un par de rango bajo cuyo producto es ΔW. El movimiento <Term id="peft">PEFT</Term> por defecto.
+- **<Term id="qlora">QLoRA</Term>** — LoRA con el base en 4 bits (típicamente <Term id="nf4">NF4</Term>) para que un modelo más grande quepa en una GPU. El adapter que guardas sigue siendo pequeño; luego lo fusionas o lo cargas encima del base.
+
+LoRA no es más débil “por definición”. Lo es cuando el rango es demasiado pequeño para la conducta que quieres, o cuando los datos se contradicen.
+
+## La calidad del dato gana a las épocas extra
+
+Unos cientos de ejemplos *limpios*, con esquema estable, en la **misma plantilla que servirás**, ganan a un volcado raspado. Deduplica. Pon la instrucción en el turno de usuario si así lo vas a llamar. Incluye un poco de “decir que no / preguntar” para que no cumpla siempre.
+
+Evalúa antes de publicar: un set aparte de prompts que te importen, juzgados por ti o por un script, no por un ranking público.
+
+## Hiperparámetros que de verdad tocas
+
+Los nombres cambian de herramienta; las ideas no:
+
+- **rango (`r`)** — dimensión interna de LoRA. Empezar en 8–16 es habitual; súbelo si se queda corto.
+- **alpha** — escala la actualización. Muchas recetas usan `alpha ≈ 2r` o `alpha = r`. Sigue la receta que copias y luego cambia una cosa.
+- **learning rate** — LoRA suele ir con LR más alto que el ajuste completo. Si la pérdida explota, bájalo.
+- **épocas / pasos** — los sets pequeños se sobreajustan rápido. Mejor parar con un eval minúsculo.
+- **módulos objetivo** — como mínimo las proyecciones de atención; algunas recetas añaden MLP. Más módulos = más capacidad y memoria.
+
+No imprimimos un LR “universal”. Lee el ejemplo actual de la herramienta para tu modelo base.
+
+## Herramientas con nombre real (2026)
+
+Siguen siendo las tres que te encuentras:
+
+- **Unsloth** — LoRA/QLoRA rápido en NVIDIA, una GPU, camino corto a un GGUF. No es una historia de CUDA en Mac; en Apple Silicon mira MLX.
+- **Axolotl** — primero YAML, muchas recetas (SFT, DPO, …), más fuerte cuando quieres una cocina de opciones o varias GPU.
+- **torchtune** — recetas PyTorch que puedes leer como Python. Historia MPS en Apple Silicon más decente que el stack centrado en CUDA.
+
+Hugging Face TRL sostiene buena parte de esto. Usa un stack de punta a punta; mezclar un export de Unsloth con un YAML de Axolotl que no entiendes es cómo se evaporan los fines de semana.
+
+## Esquema de comandos (no para pegar y rezar)
+
+Lee siempre el README actual del proyecto. La *forma* es:
+
+```bash
+# 1. Consigue un base (instruct) legal que puedas ajustar.
+# 2. Pon filas JSONL o estilo sharegpt en un archivo.
+# 3. Lanza el trainer con rango, ruta de datos, directorio de salida.
+# Forma de ejemplo — las flags cambian:
+# unsloth / axolotl / tune run ...
+# 4. Evalúa con prompts reservados.
+# 5. Exporta: adapter, hf fusionado, o GGUF.
+```
+
+El camino de Unsloth suele terminar en un GGUF para llama.cpp u Ollama. Axolotl y torchtune suelen dejar pesos Hugging Face; conviertes después si necesitas GGUF.
+
+<TryThis>
+Antes de instalar nada, escribe 20 prompts de eval que tu LoRA no deba fallar. Si no puedes escribir veinte, aún no tienes una tarea: tienes un humor.
+</TryThis>
+
+<Myth>
+“QLoRA es un modelo de 4 bits para siempre.” QLoRA es cómo *entrenas*. Puedes fusionar a un artefacto de más precisión para servir, o dejar el adapter aparte. Servir un GGUF de 4 bits es otra decisión (módulo de cuantización).
+</Myth>

@@ -1,0 +1,53 @@
+## Atención, como imagen
+
+La <Term id="attention">atención</Term> es un paso de mezcla. Para cada token, el modelo arma una **query**. Cada token (en la ventana) ofrece una **key** y un **value**. Las puntuaciones dicen cuánto le importa esta query a cada key; los values se mezclan con esas puntuaciones.
+
+Un croquis, no un paper:
+
+$$
+\mathrm{Attention}(Q,K,V) = \mathrm{softmax}\!\left(\frac{QK^\top}{\sqrt{d}}\right) V
+$$
+
+$d$ es la dimensión de la key; la raíz es un truco de escala para que las puntuaciones no exploten al crecer $d$. Multi-head son varios de estos en paralelo, luego concatenados. GQA / MQA comparten keys y values entre cabezas para achicar la caché KV — mismo dibujo, ingeniería distinta.
+
+No hace falta derivar esto para usar un modelo. Hace falta: **cada token nuevo atiende sobre las keys cacheadas**, y por eso existe la caché KV.
+
+## Softmax
+
+El <Term id="softmax">softmax</Term> convierte un vector de puntuaciones $z$ en una distribución:
+
+$$
+\mathrm{softmax}(z)_i = \frac{e^{z_i}}{\sum_j e^{z_j}}
+$$
+
+Puntuación grande → masa cerca de 1. La temperatura en el muestreo es (intuitivamente) dividir los logits antes: $z / T$. $T \to 0$ es greedy.
+
+## Entropía cruzada
+
+Entrenar el siguiente token es “sorprenderse menos del token verdadero”. La <Term id="cross-entropy">entropía cruzada</Term> contra un one-hot (o un id de etiqueta) es la pérdida habitual. Pérdida baja en un token significa que el modelo ya le daba alta probabilidad. No es una nota moral.
+
+Si haces LoRA en un set minúsculo hasta pérdida ~0, memorizaste. Puede ser lo que querías (un formato) o un desastre (un nombre).
+
+## Gradientes, un párrafo
+
+Un <Term id="gradient">gradiente</Term> es la dirección para mover parámetros y reducir la pérdida. El backprop lo calcula desde la pérdida hacia atrás. Un optimizador (AdamW, etc.) da el paso. Casi nunca lo escribirás a mano. Te encontrarás **NaNs** (LR alto, datos malos) y **sobreajuste** (demasiados pasos). Esas son historias de gradiente en el campo.
+
+## LoRA como un delta de rango bajo
+
+Una capa lineal es $y = W x$ con $W$ una matriz grande. LoRA congela $W$ y aprende
+
+$$
+\Delta W = BA
+$$
+
+donde $B$ es $d \times r$, $A$ es $r \times k$, y $r$ (el <Term id="rank">rango</Term>) es pequeño. La capa servida es $W + \frac{\alpha}{r} BA$ (las convenciones de escala varían; sigue a tu trainer).
+
+Por qué cabe en una GPU: guardas dos rectángulos finos en vez de un cuadrado. Por qué puede fallar: si la conducta que quieres no es de rango bajo en esa capa, $r$ es demasiado pequeño.
+
+<TryThis>
+En papel, para un peso $4096 \times 4096$, compara parámetros de $W$ completa frente a LoRA $r=16$: $2 \times 4096 \times 16$. Ese ratio es por qué QLoRA-más-LoRA es un proyecto de fin de semana y el ajuste completo de la misma capa no lo es.
+</TryThis>
+
+<Callout>
+Esta página es un farol. Si necesitas pruebas, un curso de aprendizaje profundo trata la atención y el backprop con el respeto que merecen. Aquí solo hace falta mates para no tenerle miedo a un nombre GGUF o a un config de LoRA.
+</Callout>

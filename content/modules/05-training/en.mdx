@@ -1,0 +1,52 @@
+## The stack, in order
+
+Most chat models you meet were not born in one run. A typical stack:
+
+1. **<Term id="pretrain">Pretrain</Term>** — next-token on a huge corpus. Produces a <Term id="base-model">base</Term>.
+2. **<Term id="sft">SFT</Term>** — imitate (prompt, completion) pairs. Produces an instruct-ish model.
+3. Preference / RL — make it pick answers humans (or a judge) prefer: <Term id="rlhf">RLHF</Term>, <Term id="dpo">DPO</Term>, <Term id="rlaif">RLAIF</Term>, and more recently RL on tool traces.
+
+You can stop after SFT. Many local models do.
+
+## Pretrain is not a laptop sport
+
+Pretraining reads staggering amounts of text and updates all the weights, for a long time, on a cluster. A laptop can *run* a 7B–8B model. It cannot honestly pretrain one. If a README says “pretrain on your Mac,” they mean a toy, a continued pretrain on a tiny corpus, or marketing.
+
+Continued pretrain (more next-token on domain text) is a real technique. It still wants a serious GPU budget once the model is not tiny, and it can overwrite chat manners if you are not careful.
+
+## SFT
+
+Supervised fine-tuning is imitation. Garbage pairs → a model that imitates garbage with confidence. Format must match the chat template you will use at inference. Mix a little general data if you do not want the model to forget how to say hello.
+
+## RLHF, DPO, RLAIF
+
+- **RLHF** — humans rank or rate outputs → train a reward model → update the policy, classically with <Term id="ppo">PPO</Term> (small, clipped steps so the policy does not leap off a cliff).
+- **DPO** — skip the separate reward model. Preference pairs push the policy directly. Simpler plumbing; still needs good pairs.
+- **RLAIF** — the preference labels come from an AI judge. Cheaper, biased like the judge.
+
+None of these “add a truth module.” They change which completions are likely.
+
+## RL for tools (PPO / GRPO intuition)
+
+When the task is a *trace* — think, call a tool, read the result — people train with RL on outcomes (unit tests passed, judge score, human thumbs).
+
+**PPO intuition:** sample rollouts, score them, nudge the policy a little toward better ones, clip so one lucky batch does not dominate.
+
+**<Term id="grpo">GRPO</Term> intuition:** sample a *group* of traces for the same prompt, score them relative to each other, skip a heavy critic. Used in several 2025–2026 reasoning/tool recipes. Details differ by repo; the idea is “learn from the better sibling in the group.”
+
+<Callout>
+We are not quoting a GRPO paper's equations here. If you implement it, read the trainer you actually use (TRL, Axolotl, a vendor recipe) — names and losses drift.
+</Callout>
+
+## What a laptop cannot do
+
+| Job | Laptop? |
+| --- | --- |
+| Inference of a quantized 7B–8B | Yes, often |
+| LoRA / QLoRA on a small instruct model | Often, with a discrete GPU or fat unified memory |
+| Full fine-tune of a 7B+ at native precision | Usually no |
+| Honest pretrain of a frontier-class base | No |
+
+<TryThis>
+Write your goal as one of: inference, LoRA, full FT, pretrain. If it is the last two, you are shopping for a cluster or a vendor, not a new laptop cooler.
+</TryThis>

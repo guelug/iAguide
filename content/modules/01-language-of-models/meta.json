@@ -1,0 +1,23 @@
+{
+  "id": "language-of-models",
+  "order": 1,
+  "slug": "language-of-models",
+  "title": {
+    "en": "The language of models",
+    "es": "El lenguaje de los modelos"
+  },
+  "summary": {
+    "en": "Tokens, context, next-token prediction, sampling, and the KV cache.",
+    "es": "Tokens, contexto, predicción del siguiente token, muestreo y la caché KV."
+  },
+  "status": "complete",
+  "prereqs": [
+    "orientation"
+  ],
+  "durationMin": 14,
+  "tags": [
+    "tokens",
+    "sampling",
+    "kv-cache"
+  ]
+}

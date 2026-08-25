@@ -1,0 +1,37 @@
+## Tres máquinas, tres historias de memoria
+
+<VisualSlot caption="Cambia la topología y arrastra el contexto. El relleno es un croquis: los pesos están quietos, la KV crece. No es una hoja de datos." />
+
+- **NVIDIA discreta (y similares)** — pesos y KV quieren vivir en <Term id="vram">VRAM</Term>. La RAM del host es otro planeta. Cruzar <Term id="pcie">PCIe</Term> para traer una capa es mucho más lento que quedarse en el dispositivo. Descarga de capas a RAM (llama.cpp `-ngl`) funciona; es un compromiso.
+- **<Term id="unified-memory">Memoria unificada</Term> de Apple Silicon** — CPU y GPU comparten un pool. No hay copia PCIe del modelo entero para “ponerlo en la GPU”. Sigues teniendo un pool *finito* (los 16 / 32 / 64 / 128 GB que compraste) y límites de **ancho de banda**. Unificado no significa infinito.
+- **RAM + CPU** — llama.cpp corre solo en RAM. La capacidad es más fácil; el <Term id="bandwidth">ancho de banda</Term> es peor. Vale para lotes y experimentos; duele como chat ágil.
+
+## Pesos frente a KV frente a contexto
+
+Los pesos son (casi) un impuesto fijo una vez cargado el modelo. La <Term id="kv-cache">caché KV</Term> crece con longitud × capas × cabezas × … — la fórmula exacta depende de la arquitectura (GQA reduce KV; algunos motores la paginan). El contexto largo es una decisión de *memoria* tanto como de calidad.
+
+Las activaciones en el prefill pegan un pico y bajan. La fragmentación y el contexto CUDA se comen un trozo que no verás en un `params × bytes` de servilleta.
+
+## Ancho de banda frente a capacidad
+
+Capacidad es “¿cabe?”. Ancho de banda es “¿qué tan rápido lo recorremos?”. El decode lee los pesos una y otra vez para un solo token nuevo. Por eso un modelo que *cabe* en VRAM puede ser lento en una GPU con relojes de memoria modestos, y por eso 4 bits puede sentirse más rápido que 8.
+
+El prefill es más pesado en FLOPs: muchos tokens a la vez. Otro cuello, misma máquina.
+
+## Reglas prácticas (marcadas como tales)
+
+Son **reglas prácticas** para un instruct dense, 2026, no una calculadora:
+
+- Pesos FP16 ≈ 2 bytes × parámetros. Un 8B son ~16 GB de pesos. KV y runtime van aparte.
+- Q4_K_M suele caer cerca de medio byte a ~0,6 bytes por parámetro *en disco* — mira `ls -lh`, no el folklore.
+- Si cabe en VRAM a tu contexto real, quédate. Si no: cuantiza, luego reduce contexto, luego descarga capas, luego un modelo más chico.
+- Memoria unificada: deja margen para macOS y el navegador. Un Mac de “32 GB” no es una GPU de 32 GB.
+- MoE: la memoria sigue más a los parámetros *totales* que a los FLOPs *activos*. No dimensionas VRAM con el “active 3B” de marketing.
+
+<TryThis>
+Elige el modelo que de verdad quieres correr. Escribe: bytes de pesos (tamaño de archivo) + “KV desconocida.” Cárgalo, pon contexto 4k y luego 32k si arranca, y mira la memoria residente. El delta es tu KV (más extras). Esa medida gana a cualquier blog.
+</TryThis>
+
+<Myth>
+“La memoria unificada de Apple hace de un M-series de 24 GB un 4090 de 24 GB.” Otro ancho de banda, otros kernels, sin copias PCIe, y también sin ecosistema CUDA. Es otro computador que casualmente corre muchos de los mismos GGUF.
+</Myth>

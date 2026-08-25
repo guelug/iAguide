@@ -1,0 +1,71 @@
+## Capstone
+
+You now have the vocabulary. This page is a loop you can run on a real machine without inventing numbers. Tick them in order; skip with a reason, not a vibe.
+
+## 1. Pick a model
+
+- Must it stay local? If yes, <Term id="open-weights">open weights</Term> only.
+- Read the <Term id="model-card">card</Term>: license, context, chat template, dense vs <Term id="moe">MoE</Term>, file types.
+- Choose instruct/chat unless you are explicitly completing a prefix.
+- Write five smoke prompts *before* you download.
+
+## 2. Estimate memory (rule of thumb, then measure)
+
+- File size ≈ weight memory at that quant. KV is extra and grows with context.
+- Prefer a quant that **fits in VRAM or unified memory at the context you will actually send**.
+- Measure resident memory at 4k context, then at your target. Believe that, not a tweet.
+
+## 3. Quantize (only if you must)
+
+- Serving on llama.cpp / Ollama: start <Term id="q4km">Q4_K_M</Term> unless your smoke test fails.
+- GPU server: follow vLLM's current docs for AWQ / GPTQ / FP8 — do not convert to GGUF “because that is what the laptop used.”
+- Training: <Term id="nf4">NF4</Term> is QLoRA's 4-bit, not a GGUF tag.
+
+## 4. Run local
+
+```bash
+# Shape only — read --help
+# llama-cli -m your-Q4_K_M.gguf -c 8192 -ngl 99
+# ollama run <name>
+```
+
+Confirm the **chat template** is applied (Ollama Modelfile / llama.cpp chat flags). A raw completion of an instruct model looks “dumb” and is your bug.
+
+## 5. Tiny LoRA (optional)
+
+Only if the smoke test fails in a way *data can fix* (a format, a jargon, a refusal policy you own). Not for “be smarter.”
+
+- 20 eval prompts you wrote in step 1.
+- One stack: Unsloth *or* Axolotl *or* torchtune / MLX — not all three.
+- Rank 8–16, one epoch, look at eval. Export an adapter or a GGUF. Re-run the five smokes.
+
+## 6. Minimal harness (pseudocode)
+
+```
+allow = {"search", "read_file"}  # permissions
+
+def turn(thread, user_text):
+    thread.messages.append({"role": "user", "content": user_text})
+    while True:
+        prefix = apply_template(profile, compact(thread), tools)
+        out = model.generate(prefix)          # prefill + decode
+        if out.tool_call:
+            if out.tool_call.name not in allow:
+                thread.messages.append(deny(out.tool_call))
+                continue
+            result = run(out.tool_call)       # your code, not the model
+            thread.messages.append(tool_msg(result))
+            continue
+        thread.messages.append({"role": "assistant", "content": out.text})
+        return out.text
+```
+
+That is the loop from module 02. The model is one line. The rest is the product.
+
+<TryThis>
+Run the checklist on *one* model this week. Write down file name, context, resident memory, and whether the five smokes passed. That notebook is iAguide working — not a screenshot of a leaderboard.
+</TryThis>
+
+## When this page goes stale
+
+2026 will not last. If a flag in this outline 404s, the *structure* is still the course: card → memory → quant → engine → maybe LoRA → harness with permissions. Patch the outline. Keep the loop.

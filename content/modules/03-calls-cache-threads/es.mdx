@@ -1,0 +1,46 @@
+## Messages frente a completions
+
+Dos formas de petición, un mismo trabajo (completar los siguientes tokens):
+
+- **<Term id="messages-api">Messages</Term>** — una lista `{role, content}` (y a menudo tool calls). Así hablan casi todos los chats.
+- **<Term id="completions-api">Completions</Term>** — un prefijo en crudo. Los servidores locales y algunos arneses de eval aún lo usan. Las plantillas de chat *son* el truco para convertir messages en un prefijo.
+
+Si te saltas la plantilla en un modelo instruct, le hablas en un dialecto que no entrenó.
+
+## tool_call es un mensaje, no un canal paralelo
+
+Un <Term id="tool-call">tool_call</Term> es salida estructurada: id, nombre, argumentos (casi siempre JSON). El arnés ejecuta y devuelve un mensaje **tool** (o `tool_result`) con el mismo id. Luego el modelo sigue. Varias rondas pueden vivir dentro de un <Term id="turn">turno</Term> de usuario.
+
+El streaming lo pone delicado: los argumentos pueden llegar a trozos. Acumula hasta que la llamada esté completa. No ejecutes JSON a medias.
+
+## Tres cachés que se confunden
+
+| Caché | Dónde vive | Qué reutiliza |
+| --- | --- | --- |
+| <Term id="kv-cache">Caché KV</Term> | Dentro de una generación | Keys/values de atención de tokens ya vistos |
+| <Term id="prompt-cache">Caché de prompt / prefijo</Term> | Entre peticiones, si el prefijo coincide | El prefill de un system prompt o prefijo estable |
+| <Term id="http-cache">Caché HTTP</Term> | La web | Respuestas GET. Casi nunca el modelo |
+
+<Myth>
+“Activé la caché para que el modelo recuerde al usuario.” La caché de prefijo recuerda **cómputo**, no biografía. Si el prefijo cambia un carácter, fallas.
+</Myth>
+
+## Hilos, turnos, sesiones
+
+- **Hilo** — la conversación durable que el arnés persiste.
+- **Turno** — un mensaje de usuario más las rondas de herramientas que haga falta.
+- **Sesión** — un proceso, una pestaña, un login. No asumas que equivale al contexto.
+
+Una sesión nueva con el mismo `thread_id` debería recargar el hilo. Un hilo nuevo en la misma sesión debería nacer vacío. Mezclar esto es cómo aparecen a la vez “se olvidó” y “filtró al otro cliente”.
+
+## Subagentes: aislamiento y coste
+
+Un subagente es otra llamada (a veces otro modelo) con una vista más pequeña. Aislamiento: el padre ve un resumen, no 40 archivos de grep. Coste: pagas otro prefill. Modelos baratos para subagentes son una táctica válida; volcar todo el contexto del padre en el hijo no lo es.
+
+<TryThis>
+Registra tres ids en cada llamada: `session_id`, `thread_id`, `turn_id`. Reproduce un bug solo con eso. Si no puedes reconstruir el prompt que se envió de verdad, el arnés vuela a ciegas.
+</TryThis>
+
+## Streaming sin mentir
+
+El <Term id="streaming">streaming</Term> son tokens cuando existen. Los fragmentos de tool_call no son la respuesta. Ocúltalos o muestra un “ejecutando `search`…”. Nunca concatenes medio argumento en la burbuja del chat.

@@ -1,0 +1,23 @@
+{
+  "id": "fine-tuning",
+  "order": 6,
+  "slug": "fine-tuning",
+  "title": {
+    "en": "Fine-tuning",
+    "es": "Ajuste fino"
+  },
+  "summary": {
+    "en": "Full FT vs LoRA vs QLoRA. Data quality, eval, and current tools: Unsloth, Axolotl, torchtune.",
+    "es": "Ajuste completo frente a LoRA y QLoRA. Calidad de datos, evaluación y herramientas: Unsloth, Axolotl, torchtune."
+  },
+  "status": "complete",
+  "prereqs": [
+    "training"
+  ],
+  "durationMin": 16,
+  "tags": [
+    "lora",
+    "qlora",
+    "unsloth"
+  ]
+}

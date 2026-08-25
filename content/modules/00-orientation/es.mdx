@@ -1,0 +1,39 @@
+## Qué es esto
+
+iAguide es un curso visual sobre cómo funcionan los sistemas de IA **en la práctica** en 2026: el bucle alrededor de un modelo (el <Term id="harness">arnés</Term>), los pesos, cómo se entrenaron, cómo ejecutarlos en local y la memoria que sostiene un pensamiento mientras se genera.
+
+No es un tutorial de un proveedor. No es un paper. Se va a quedar viejo: los CLI cambian de nombre, las fichas se reescriben, una cifra cierta en una GPU es mentira en otra. Cuando damos un número, lo marcamos como **regla práctica** o lo omitimos.
+
+## Lo que sabrás hacer
+
+Al llegar a la guía de campo deberías poder:
+
+- Elegir un modelo leyendo una <Term id="model-card">ficha</Term>, no una captura de un ranking.
+- Ejecutar <Term id="open-weights">pesos abiertos</Term> en una máquina que controlas y leer un nombre <Term id="gguf">GGUF</Term>.
+- Dibujar un agente como un bucle: usuario → hilo → prefill/decode → herramientas → quizá un subagente → caché → compactación.
+- Decidir si un <Term id="lora">LoRA</Term> es el siguiente paso, o si basta un mejor prompt y un contexto más corto.
+
+## Cómo funciona el mapa
+
+Doce módulos. El [mapa del curso](/course) es el índice: una constelación, no una secuencia cerrada. La orientación es el porche. El lenguaje de los modelos y el arnés son las dos espinas. Entrenamiento y ajuste fino van juntos. Inferencia local, cuantización y hardware son el taller. Las mates son un farol, no una verja. La guía de campo es una lista, no un diploma.
+
+Los módulos en preparación, si aparecen, se ven como teasers. Cómo dejar una carpeta 13 está en Acerca de.
+
+## Cómo leer una lección
+
+Cada lección dura 8–20 minutos. Los diagramas son un lienzo, no un carnaval. Los <Term id="token">tokens</Term> con subrayado de puntos saltan al glosario.
+
+Los comandos son **esquemas**: el binario y la idea. Las flags se mueven. Pega en la terminal solo después de leer el `--help` actual.
+
+<TryThis>
+Abre el mapa del curso. Pulsa cualquier estrella. Vuelve con una frase: qué sería “terminado” para ti en este curso — un modelo local, un LoRA mínimo, o un arnés que llama a una herramienta sin romper el hilo.
+</TryThis>
+
+## Lo que no haremos
+
+- Inventar APIs ni cifras de benchmark.
+- Hacer pasar un chat por un agente.
+- Tratar a <Term id="nous-hermes">Nous Hermes</Term> (o a cualquier familia con nombre) como el arnés. Hermes es una **familia de modelos**. El arnés es el bucle que envuelves alrededor de *cualquier* modelo.
+- Prometer que la cuantización es gratis, o que la memoria unificada anula los límites de VRAM.
+
+Currículo de 2026. Si una página discrepa de la herramienta que tienes en el PATH, fíate de la herramienta y luego manda un parche.

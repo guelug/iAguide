@@ -1,0 +1,43 @@
+## Tres tipos de “abierto”
+
+- **<Term id="closed-model">Cerrado</Term>** — solo API. Alquilas tokens. Hardware, cuantización y a menudo el system prompt no son tuyos.
+- **<Term id="open-weights">Pesos abiertos</Term>** — puedes bajar parámetros. Datos, código de entrenamiento y licencia pueden seguir cerrados.
+- **<Term id="open-source-model">Código abierto</Term>** — una afirmación más fuerte. Lee la licencia. Busca código de entrenamiento y docs de datos. Muchos modelos “open” famosos son pesos abiertos con cláusula de investigación o no comercial.
+
+Si no puedes ejecutarlo sin una clave de proveedor, para *tus* fines es cerrado, aunque el paper sea público.
+
+## Dense frente a MoE
+
+Un modelo <Term id="dense">dense</Term> usa (más o menos) todos los parámetros en cada token. Un <Term id="moe">Mixture of Experts</Term> enruta cada token a unos pocos expertos. Los parámetros **totales** pueden parecer enormes; los **activos** por token son lo que pagas en cómputo. La memoria sigue teniendo que sostener los expertos que podrías tocar, así que “70B MoE” no es “70B dense” ni “7B”. Lee la ficha: activos frente a totales.
+
+## Los tamaños son un idioma, no una nota
+
+Se dice 3B, 8B, 70B. Es cuenta de parámetros, no inteligencia. Regla práctica: más pequeño y local va mejor para bucles privados, de baja latencia o con muchas herramientas; más grande (o una API cerrada) para prosa abierta y sucia. Mide en *tus* tareas. Los rankings son los deberes de otra persona.
+
+## Base, instruct, chat, razonamiento, coder
+
+- **<Term id="base-model">Base</Term>** — preentrenado para completar texto. Bien para completar; torpe como chat.
+- **<Term id="instruct">Instruct / chat</Term>** — SFT (y a menudo preferencias) más una **plantilla de chat**. Usa siempre la que indica la ficha.
+- **<Term id="reasoning-model">Razonamiento</Term>** — entrenado o moldeado para gastar tokens en trabajo intermedio. Esos tokens se pagan. No es otra física.
+- **Coder** — más datos de código y a menudo el hábito de rellenar en el medio. Sigue siendo siguiente-token.
+
+Un sufijo “Hermes” o “Instruct” es un **ajuste de un base**, no un arnés.
+
+## Cómo leer una ficha de Hugging Face
+
+Mira, en este orden:
+
+1. Licencia — ¿puedes usarlo en comercial y redistribuir pesos?
+2. Arquitectura y tamaño — dense/MoE, contexto, vocabulario.
+3. Plantilla de chat — `tokenizer.chat_template` o un ejemplo. La plantilla equivocada es un bug silencioso de calidad.
+4. Uso previsto y límites — casi siempre te dicen dónde falla.
+5. Archivos — `safetensors` frente a GGUF frente a EXL2. Casa el archivo con el motor (módulos siguientes).
+6. Evals publicadas — una pista, no tu test de aceptación.
+
+<TryThis>
+Abre cualquier ficha instruct que de verdad podrías ejecutar. Anota licencia, contexto, nombre de plantilla y formato de archivo. Si no encuentras la plantilla, no estás listo para servirla.
+</TryThis>
+
+## Un selector, no una corazonada
+
+Pregunta, en este orden: **¿tiene que quedarse en esta máquina?** **¿Qué contexto necesitas de verdad?** **¿Qué motor lo va a cargar?** Luego elige el modelo más pequeño que pase un humo de cinco prompts escritos por ti. Sube de tamaño solo cuando el humo falle por una razón que sepas nombrar.

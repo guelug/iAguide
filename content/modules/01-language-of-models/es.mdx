@@ -1,0 +1,55 @@
+## Los tokens no son palabras
+
+Un <Term id="token">token</Term> es el átomo que el modelo ve. En inglés suele caer cerca de 0,7–1 palabra por token; el código y otros idiomas se desvían. No hace falta una constante precisa. Hace falta el hábito: **cuenta tokens, no caracteres**, cuando pienses en coste, contexto y velocidad.
+
+El tokenizador forma parte del artefacto. Un GGUF o una carpeta de Hugging Face con el tokenizador equivocado es otro modelo, aunque los pesos te suenen.
+
+<Callout>
+Regla práctica, no ley: una página de prosa suele ser unos cientos de tokens; un volcado JSON o un stack trace gordo puede gastar miles sin parecer “largo”.
+</Callout>
+
+## El contexto es una ventana, no un archivador
+
+La <Term id="context-window">ventana de contexto</Term> es cuántos tokens el modelo puede atender **ahora**: system prompt, herramientas, el hilo hasta aquí y lo que va a escribir. No es memoria a largo plazo. Cuando se llena, algo tiene que salir: compactas, recuperas o abres otro hilo.
+
+Las ventanas grandes no son gratis. Cuestan memoria de <Term id="kv-cache">caché KV</Term> y suelen frenar el <Term id="prefill">prefill</Term>.
+
+## Embeddings, en breve
+
+Un <Term id="embedding">embedding</Term> es una lista de números. Las listas cercanas suelen significar cosas afines. Los embeddings de token son la primera mirada del modelo; las capas posteriores los mezclan. Los embeddings de pasaje son lo que guardan la mayoría de búsquedas vectoriales. No hace falta la geometría. Hace falta: **la similitud es una puntuación, no una prueba**.
+
+## El siguiente token, siempre
+
+La <Term id="next-token">predicción del siguiente token</Term> es el trabajo: dada la secuencia, producir <Term id="logits">logits</Term> — una puntuación por ítem del vocabulario —, pasarlos a probabilidades (softmax en el módulo de mates) y elegir.
+
+Eso es toda la generación. Planes, herramientas, trazas de “razonamiento”: más tokens, más bucles, más entrenamiento. El modelo sigue emitiendo un token cada vez.
+
+## Palancas de muestreo
+
+- **<Term id="greedy">Greedy</Term>** (temperatura 0, o argmax): siempre la puntuación más alta. Repetible si el runtime es determinista.
+- **<Term id="temperature">Temperatura</Term>**: baja afila la distribución; alta la aplana. Muy alta se vuelve balbuceo.
+- **<Term id="top-p">Top-p</Term>**: quédate con el conjunto más pequeño cuya masa sume p, y muestrea.
+- **<Term id="top-k">Top-k</Term>**: quédate con k tokens y muestrea.
+
+<Myth>
+“Temperatura 0 significa que el modelo es veraz.” No. Significa que es menos aleatorio. Un token equivocado y seguro sigue equivocado.
+</Myth>
+
+## Prefill frente a decode
+
+<VisualSlot caption="Izquierda: el prefill escribe un bloque de KV. Derecha: el decode añade un token cada vez." />
+
+Dos fases, una petición:
+
+1. **Prefill** — ingerir el prompt (casi siempre en paralelo). Construir la caché KV. Suele ser pesado en cómputo.
+2. **Decode** — emitir un token, añadir sus keys/values, repetir. Suele estar limitado por **ancho de banda de memoria**: recorres los pesos para muy poco trabajo nuevo.
+
+Por eso un system prompt largo duele en el primer token, y una *generación* larga duele en tokens por segundo a medida que crece la caché.
+
+<TryThis>
+En cualquier UI local que muestre conteos (llama.cpp server, Ollama, LM Studio), manda la misma pregunta corta dos veces: sola, y detrás de un archivo grande. Mira tiempo hasta el primer token frente a tokens/segundo. Estás viendo prefill frente a decode, no “al modelo confundiéndose”.
+</TryThis>
+
+## Determinismo
+
+Greedy + un kernel determinista + un prompt fijo puede repetirse. El muestreo no. Algunos kernels de GPU no son estables bit a bit entre ejecuciones. Si necesitas repetir — eval, tests — fija semilla, temperatura 0, y aun así trata la deriva de GPU como posible.

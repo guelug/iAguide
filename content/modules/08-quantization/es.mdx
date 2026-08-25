@@ -1,0 +1,47 @@
+## Por qué cuantizamos
+
+Los pesos en FP16/BF16 ocupan 2 bytes cada uno. Un dense 8B ya anda por 16 GB solo de pesos, más caché KV, más activaciones, más fragmentación. La <Term id="quantization">cuantización</Term> guarda (y a menudo computa) esos pesos con menos bits para que quepa y *se mueva* más rápido por memoria. El decode suele estar limitado por ancho de banda: pesos más pequeños pueden ser más tokens/segundo, no solo un archivo menor.
+
+<VisualSlot caption="Misma cantidad de pesos. FP16 son barras anchas; Q4/NF4 empaqueta muchas más en el mismo ancho. Metáfora de empaque, no un layout bit a bit." />
+
+La calidad es la factura. Algunas tareas (código justo, nombres exactos) notan los 4 bits más que un chat suelto. No hay un “Q4 pierde un X%” universal. Mide en tus prompts.
+
+## Cómo leer un nombre GGUF
+
+Un nombre como `Something-8B-Instruct-Q4_K_M.gguf` es una frase:
+
+- **Q4** — la mayoría de pesos andan por 4 bits.
+- **K** — familia K-quant de llama.cpp (por bloques, mixta; la K es el esquema, no k-means).
+- **M** — perfil de calidad medio (frente a S más chico/agresivo, L más grande). Algunos tensores se quedan con más bits.
+
+También habitual: `Q5_K_M`, `Q6_K`, `Q8_0` (8 bits más clásico), `F16`. `Q4_K_M` es un default frecuente porque es un *compromiso*, no porque sea siempre el mejor.
+
+```bash
+# esquema llama.cpp — lee el --help actual
+# ./llama-quantize model-f16.gguf model-Q4_K_M.gguf Q4_K_M
+```
+
+## GPTQ, AWQ, NF4 — no son apodos GGUF
+
+- **<Term id="gptq">GPTQ</Term>** — cuantización GPU post-entrenamiento, casi siempre 4 bits, con datos de calibración. Vive en stacks de servicio GPU (vLLM y compañía).
+- **<Term id="awq">AWQ</Term>** — activation-aware: protege los pesos que las activaciones marcan como importantes. También ciudadano de servidores GPU.
+- **<Term id="nf4">NF4</Term>** — 4-bit NormalFloat en bitsandbytes / <Term id="qlora">QLoRA</Term>. Un dtype de **entrenamiento**. No verás `NF4` como etiqueta `Q…` de GGUF.
+
+EXL2 (módulo anterior) es otra familia GPU con un *bitrate objetivo* que eliges. No mezcles estos archivos entre motores y esperes milagros.
+
+## Trueque de calidad, con honestidad
+
+| Quieres | Empieza por |
+| --- | --- |
+| Que quepa en GPU/CPU pequeña, el chat vale | Q4_K_M (regla práctica) |
+| Calidad notable en código / extracción | Q5_K_M o Q6_K, o un modelo más chico a más bits |
+| Casi FP16, aún GGUF | Q8_0 — grande; a menudo más lento que Q4 si el decode está limitado por bytes |
+| Servidor GPU, muchos usuarios | AWQ o GPTQ (o FP8 si el hardware lo tiene) como documente el motor |
+
+<Myth>
+“8 bits es siempre más listo que 4.” Suele ser más limpio, no siempre *útilmente* más limpio, y puede ser más lento porque mueves el doble de bytes. Si Q4 pasa tu eval, quédate.
+</Myth>
+
+<TryThis>
+Coge un instruct 8B en Q4_K_M y en Q8_0 si te cabe en disco. Haz las mismas cinco preguntas factuales y cinco de código. Quédate con el archivo más chico salvo que puedas *señalar* un fallo.
+</TryThis>

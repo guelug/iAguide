@@ -1,0 +1,52 @@
+## La pila, en orden
+
+La mayoría de modelos chat no nacen en una sola pasada. Una pila típica:
+
+1. **<Term id="pretrain">Preentrenamiento</Term>** — siguiente-token sobre un corpus enorme. Produce un <Term id="base-model">base</Term>.
+2. **<Term id="sft">SFT</Term>** — imitar pares (prompt, continuación). Produce algo instruct.
+3. Preferencias / RL — hacer que elija respuestas que humanos (o un juez) prefieren: <Term id="rlhf">RLHF</Term>, <Term id="dpo">DPO</Term>, <Term id="rlaif">RLAIF</Term> y, más recientemente, RL sobre trazas de herramientas.
+
+Puedes parar tras el SFT. Muchos modelos locales lo hacen.
+
+## El preentrenamiento no es deporte de portátil
+
+El preentrenamiento lee cantidades brutales de texto y actualiza todos los pesos, durante mucho tiempo, en un clúster. Un portátil puede *ejecutar* un 7B–8B. No puede preentrenar uno de verdad. Si un README dice “preentrena en tu Mac”, hablan de un juguete, de un preentrenamiento continuado sobre un corpus minúsculo, o de marketing.
+
+El preentrenamiento continuado (más siguiente-token en texto de dominio) es una técnica real. Sigue queriendo GPU en serio cuando el modelo no es pequeño, y puede machacar los modales de chat si no tienes cuidado.
+
+## SFT
+
+El ajuste supervisado es imitación. Pares basura → un modelo que imita basura con seguridad. El formato tiene que coincidir con la plantilla de chat que usarás al inferir. Mezcla un poco de dato general si no quieres que olvide decir hola.
+
+## RLHF, DPO, RLAIF
+
+- **RLHF** — humanos ordenan o puntúan salidas → se entrena un modelo de recompensa → se actualiza la política, clásicamente con <Term id="ppo">PPO</Term> (pasos pequeños y recortados para que no se tire por un acantilado).
+- **DPO** — sin modelo de recompensa aparte. Los pares de preferencia empujan la política. Menos tubería; siguen haciendo falta buenos pares.
+- **RLAIF** — las etiquetas vienen de un juez de IA. Más barato, sesgado como el juez.
+
+Nada de esto “añade un módulo de verdad”. Cambian qué continuaciones son probables.
+
+## RL para herramientas (intuición PPO / GRPO)
+
+Cuando la tarea es una *traza* — pensar, llamar una herramienta, leer el resultado — se entrena con RL sobre resultados (tests que pasan, nota de juez, pulgares).
+
+**Intuición PPO:** muestrear rollouts, puntuarlos, empujar un poco la política hacia los mejores, recortar para que un lote suertudo no mande.
+
+**Intuición <Term id="grpo">GRPO</Term>:** muestrear un *grupo* de trazas para el mismo prompt, puntuarlas entre sí, ahorrarse un crítico pesado. Aparece en varias recetas de razonamiento/herramientas de 2025–2026. Los detalles cambian de repo; la idea es “aprender del hermano mejor del grupo”.
+
+<Callout>
+No citamos aquí las ecuaciones de un paper de GRPO. Si lo implementas, lee el trainer que uses de verdad (TRL, Axolotl, una receta de proveedor): nombres y pérdidas se mueven.
+</Callout>
+
+## Lo que un portátil no puede
+
+| Trabajo | ¿Portátil? |
+| --- | --- |
+| Inferencia de un 7B–8B cuantizado | Sí, a menudo |
+| LoRA / QLoRA en un instruct pequeño | A menudo, con GPU discreta o memoria unificada holgada |
+| Ajuste completo de un 7B+ a precisión nativa | Casi nunca |
+| Preentrenamiento honesto de un base de frontera | No |
+
+<TryThis>
+Escribe tu meta como una de: inferencia, LoRA, ajuste completo, preentrenamiento. Si es de las dos últimas, buscas un clúster o un proveedor, no un ventilador nuevo.
+</TryThis>

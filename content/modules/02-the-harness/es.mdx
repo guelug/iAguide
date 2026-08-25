@@ -1,0 +1,60 @@
+## Un chat no es un arnés
+
+Un chat manda mensajes a un modelo e imprime la respuesta. Un <Term id="harness">arnés</Term> es un **bucle**:
+
+usuario → <Term id="thread">hilo</Term> → prefill / decode → quizá <Term id="tool">herramientas</Term> → quizá un <Term id="subagent">subagente</Term> → acierto o fallo de caché → <Term id="compaction">compactación</Term> → de vuelta al usuario.
+
+El modelo es un motor de tokens dentro de ese bucle. Cambias el motor; el bucle sigue. Eso es todo este módulo.
+
+<VisualSlot caption="El bucle del agente. El pulso es un turno recorriendo el arnés, no un segundo cerebro." />
+
+<Myth>
+“Hermes es el arnés.” <Term id="nous-hermes">Nous Hermes</Term> es una **familia de modelos** (chat de pesos abiertos de Nous Research). La gente escribe “Hermess” cuando quiere decir el bucle: perfiles, herramientas, hilos. Separa los nombres o depurarás la capa equivocada.
+</Myth>
+
+## Perfiles y el system prompt
+
+Un <Term id="system-prompt">perfil / system prompt</Term> es el texto permanente: quién es el agente, qué no debe hacer, qué herramientas hay, cómo formatear. Se inyecta cada turno o se sostiene en una <Term id="prompt-cache">caché de prefijo</Term>. No es “memoria de este usuario”. Es política.
+
+Los buenos perfiles son cortos, comprobables y versionados. Un manifiesto de 20k tokens cuesta prefill en cada prefijo nuevo y aun así se ignora cuando el hilo es ruidoso.
+
+## Herramientas
+
+Una herramienta es una función que el modelo puede *pedir*: un nombre, un esquema JSON de argumentos y código que **tú** ejecutas. El modelo no tiene bash por arte de magia. El arnés parsea un <Term id="tool-call">tool_call</Term>, mira <Term id="permissions">permisos</Term>, ejecuta y añade un mensaje de resultado.
+
+Si omites permisos, construiste un control remoto para quien hable con el modelo.
+
+## Hilos, no corazonadas
+
+Un hilo es la unidad durable: mensajes, resultados, a veces un directorio de trabajo. No es una cookie de <Term id="session">sesión</Term>. Diseña como si “este hilo fuera el contexto” y admite que lo vas a compactar.
+
+## Subagentes
+
+Un subagente es un bucle anidado: menos herramientas, prompt más estrecho, casi siempre un contexto nuevo o recortado, devuelve un resumen. El aislamiento es la virtud (un glob salvaje no inunda al padre). El coste es el impuesto (otro prefill, otra caché). Úsalos cuando el padre se ahogaría en bruto, no como pack de personalidad.
+
+## Ahorrar tokens a propósito
+
+Tres tácticas honestas:
+
+1. **Caché de prefijo / prompt** — deja el prefijo largo e idéntico para reutilizar trabajo entre turnos.
+2. **Recuperar frente a empujar** — no pegues el wiki. Trae la página que hace falta.
+3. **Compactación** — resume turnos viejos antes de que la ventana reviente. Es con pérdida; registra lo que tiras.
+
+## Kernel significa dos cosas
+
+En GPU, un <Term id="kernel">kernel</Term> es el programa compilado que corre en el dispositivo (atención, matmul). En arneses, la gente dice “kernel” al runtime interno: el que hace stream, llama herramientas y decide parar. Misma palabra. Capa distinta. Si alguien dice “el kernel ha petado”, pregunta cuál.
+
+## Un bucle trabajado
+
+1. El mensaje de usuario aterriza en un hilo.
+2. El arnés arma mensajes: perfil, historia compactada, texto nuevo, esquemas de herramientas.
+3. Prefill del prefijo (acierto de caché si el prefijo coincidió byte a byte).
+4. Decode hasta un stop o un tool call.
+5. Si hay tool call: permisos → ejecutar → añadir resultado → ir a 3.
+6. Si nace un subagente: corre 1–5 en un hijo, añade un resumen, sigue.
+7. Si la ventana aprieta: compacta y sigue.
+8. Stream de la respuesta visible. Persistir el hilo.
+
+<TryThis>
+Escribe el bucle de arriba en pseudocódigo, con un `runTool(name, args)` falso y una allowlist estricta. No conectes un modelo de verdad todavía. El arnés se puede testear sin pesos.
+</TryThis>

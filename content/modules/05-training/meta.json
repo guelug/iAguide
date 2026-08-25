@@ -1,0 +1,23 @@
+{
+  "id": "training",
+  "order": 5,
+  "slug": "training",
+  "title": {
+    "en": "Training",
+    "es": "Entrenamiento"
+  },
+  "summary": {
+    "en": "Pretrain, SFT, RLHF, DPO, RLAIF, and RL for tools — plus what a laptop cannot do.",
+    "es": "Preentrenamiento, SFT, RLHF, DPO, RLAIF y RL para herramientas — y lo que un portátil no puede hacer."
+  },
+  "status": "complete",
+  "prereqs": [
+    "model-zoo"
+  ],
+  "durationMin": 14,
+  "tags": [
+    "pretrain",
+    "rlhf",
+    "dpo"
+  ]
+}

@@ -1,0 +1,52 @@
+## Cuatro runtimes, cuatro trabajos
+
+- **<Term id="llamacpp">llama.cpp</Term>** — motor C/C++ para <Term id="gguf">GGUF</Term>. CPU, Metal, CUDA y más. Máximo control (`n-gpu-layers`, contexto, batch). Muchas apps de escritorio son una piel encima.
+- **<Term id="ollama">Ollama</Term>** — CLI + servidor HTTP local. Baja modelos, API estilo OpenAI, menos palancas. Bien para un equipo que quiere un modelo en un comando.
+- **<Term id="vllm">vLLM</Term>** — servidor GPU para *muchos usuarios a la vez*: KV cache paginada, batching continuo. Típico en cajas NVIDIA. No es la primera opción para un chat de portátil.
+- **<Term id="mlx">MLX</Term> / MLX-LM** — arrays nativos de Apple Silicon. Buen throughput en memoria unificada; también puede ajustar. Los pesos son formato MLX, no GGUF.
+
+Son complementos. Un equipo mixto Mac/Linux suele usar Ollama al día a día, llama.cpp cuando importa una flag, MLX cuando el Mac tiene que ser rápido, vLLM cuando una caja GPU tiene tráfico de verdad.
+
+## Formatos de archivo
+
+| Formato | Qué es | Motor típico |
+| --- | --- | --- |
+| <Term id="gguf">GGUF</Term> | Un archivo: pesos + tokenizador + metadatos, casi siempre cuantizado | llama.cpp, Ollama, LM Studio |
+| <Term id="safetensors">safetensors</Term> | Contenedor de tensores, no un esquema de cuantización | vLLM, Hugging Face, entrenamiento |
+| <Term id="exl2">EXL2</Term> | Cuantización GPU de ExLlamaV2 con un bitrate objetivo | ExLlamaV2 / TabbyAPI |
+
+No renombres `.safetensors` a `.gguf`. Convierte con la herramienta que documenta el motor (`convert_hf_to_gguf.py` / `llama-quantize` en llama.cpp, o el exportador de tu trainer).
+
+## Esquema de comandos
+
+```bash
+# llama.cpp — cuando ya tienes un GGUF
+# ./llama-cli -m model-Q4_K_M.gguf -c 8192 -ngl 99
+# ./llama-server -m model-Q4_K_M.gguf -c 8192
+
+# Ollama
+# ollama run llama3.1
+# ollama serve   # HTTP en 11434 por defecto
+
+# vLLM (servidor GPU)
+# vllm serve <org/model> --max-model-len 8192
+
+# MLX-LM
+# python -m mlx_lm.generate --model <mlx-or-hf-id> --prompt "..."
+```
+
+Las flags cambian. `llama-cli` antes era `main`. Lee `--help` del binario que compilaste.
+
+## Contexto frente a velocidad
+
+Más <Term id="context-window">contexto</Term> es más <Term id="kv-cache">caché KV</Term> y un prefill más pesado. Los tokens/segundo en decode suelen caer a medida que crece la caché. Si pides 128k “por si acaso”, lo pagas en cada prompt largo aunque el usuario haya hecho una pregunta de una línea.
+
+Regla práctica: pon el contexto en lo que tu arnés envía de verdad, más un margen para la respuesta — no en el máximo de marketing del modelo.
+
+<TryThis>
+Ejecuta el mismo prompt de 50 tokens con contexto 4k y con el máximo del modelo, mismo GGUF. Compara el tiempo hasta el primer token. Ese delta es sobre todo prefill y reserva de caché, no “pensamiento más listo”.
+</TryThis>
+
+<Callout>
+Ollama esconde `n_gpu_layers`. llama.cpp te deja poner unas capas en GPU y el resto en RAM. Así un GGUF de 30B cojea en una tarjeta de 12 GB. Lento, pero corre.
+</Callout>

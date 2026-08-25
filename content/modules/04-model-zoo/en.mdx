@@ -1,0 +1,43 @@
+## Three kinds of “open”
+
+- **<Term id="closed-model">Closed</Term>** — API only. You rent tokens. Hardware, quant, and often the system prompt are not yours.
+- **<Term id="open-weights">Open weights</Term>** — you can download parameters. Data, training code, and license may still be tight.
+- **<Term id="open-source-model">Open source</Term>** — a stronger claim. Read the license. Look for training code and data docs. Many famous “open” models are open weights with a research or non-commercial clause.
+
+If you cannot run it without a vendor key, it is closed *for your purposes*, even if a paper is public.
+
+## Dense vs MoE
+
+A <Term id="dense">dense</Term> model uses (roughly) all parameters on every token. A <Term id="moe">Mixture of Experts</Term> routes each token to a few expert MLPs. **Total** parameters can look huge; **active** parameters per token are what you pay in compute. Memory still has to hold the experts you might touch (plus routing), so “70B MoE” is not “70B dense” and also not “7B.” Read the card: active vs total.
+
+## Sizes as a language, not a score
+
+People say 3B, 8B, 70B. That is parameter count, not intelligence. Rule of thumb: smaller and local is better for private, latency-sensitive, or tool-heavy loops; larger (or a closed API) for messy open-ended prose. Measure on *your* tasks. Leaderboards are someone else's homework.
+
+## Base, instruct, chat, reasoning, coder
+
+- **<Term id="base-model">Base</Term>** — pretrained to complete text. Fine if you are completing; awkward as a chat bot.
+- **<Term id="instruct">Instruct / chat</Term>** — SFT (and often preference training) plus a **chat template**. Always use the template the card specifies.
+- **<Term id="reasoning-model">Reasoning</Term>** — trained or shaped to spend tokens on intermediate work. You pay those tokens. It is not a separate physics.
+- **Coder** — extra code data and often a fill-in-the-middle habit. Still next-token.
+
+A “Hermes” or “Instruct” suffix is a **fine-tune of a base**, not a harness.
+
+## How to read a Hugging Face card
+
+Look, in order:
+
+1. License — can you use this commercially, and may you ship the weights?
+2. Architecture and size — dense/MoE, context length, vocab.
+3. Chat template — `tokenizer.chat_template` or an example. Wrong template is a silent quality bug.
+4. Intended use and limits — the authors usually tell you where it fails.
+5. Files — `safetensors` vs GGUF vs EXL2. Match the file to the engine (next modules).
+6. Published evals — useful as a hint, not as your acceptance test.
+
+<TryThis>
+Open any instruct card you actually might run. Write down license, context length, template name, and file format. If you cannot find the template, you are not ready to serve it.
+</TryThis>
+
+## A chooser, not a vibe
+
+Ask, in this order: **must it stay on this machine?** **What is the context you really need?** **What engine will load it?** Then pick the smallest model that passes a five-prompt smoke test you wrote. Upgrade only when the smoke test fails for a reason you can name.

@@ -1,0 +1,55 @@
+## Tokens are not words
+
+A <Term id="token">token</Term> is the atom the model actually sees. English often lands near 0.7–1 word per token; code and other languages wander. You do not need a precise constant. You need the habit: **count tokens, not characters**, when you think about cost, context, and speed.
+
+Tokenizers are part of the model artefact. A GGUF or a Hugging Face folder that ships the wrong tokenizer is a different model, even if the weights look familiar.
+
+<Callout>
+Rule of thumb, not a law: a page of English prose is often a few hundred tokens; a fat stack trace or a dumped JSON blob can burn thousands without looking “long” to your eye.
+</Callout>
+
+## Context is a window, not a filing cabinet
+
+The <Term id="context-window">context window</Term> is how many tokens the model can attend over **right now**: system prompt, tools, the thread so far, and the tokens it is about to write. It is not long-term memory. When the window fills, something has to go — you compact, retrieve, or start a new thread.
+
+Bigger windows are not free. They cost <Term id="kv-cache">KV cache</Term> memory and usually slow <Term id="prefill">prefill</Term>.
+
+## Embeddings, briefly
+
+An <Term id="embedding">embedding</Term> is a list of numbers. Nearby lists tend to mean related things. Token embeddings are the model's first look at each token; later layers mix them. Passage embeddings are what most “vector search” stacks store. You do not need the geometry. You need: **similarity is a score, not a proof**.
+
+## Next token, forever
+
+<Term id="next-token">Next-token prediction</Term> is the job: given the sequence so far, produce <Term id="logits">logits</Term> — a score per vocabulary item — then turn those into probabilities (see softmax in the maths module) and pick.
+
+That is all generation is. Planning, tools, “reasoning” traces: extra tokens, extra loops, extra training. The model still emits one token at a time.
+
+## Sampling knobs
+
+- **<Term id="greedy">Greedy</Term>** (temperature 0, or argmax): always the top score. Repeatable if the runtime is deterministic.
+- **<Term id="temperature">Temperature</Term>**: low sharpens the distribution; high flattens it. Very high becomes babble.
+- **<Term id="top-p">Top-p</Term>**: keep the smallest set of tokens whose mass sums to p, then sample.
+- **<Term id="top-k">Top-k</Term>**: keep only k tokens, then sample.
+
+<Myth>
+“Temperature 0 means the model is truthful.” No. It means the model is less random. A confident wrong token stays wrong.
+</Myth>
+
+## Prefill vs decode
+
+<VisualSlot caption="Left: prefill writes a block of KV. Right: decode appends one token at a time." />
+
+Two phases, one request:
+
+1. **Prefill** — ingest the prompt (often in parallel). Build the KV cache. This is usually compute-heavy.
+2. **Decode** — emit one token, append its keys/values, repeat. This is often **memory-bandwidth** heavy: you stream weights for a tiny amount of new work.
+
+That is why a long system prompt hurts the first token, and why a long *generation* hurts tokens-per-second as the cache grows.
+
+<TryThis>
+In any local UI that shows token counts (llama.cpp server, Ollama, LM Studio), send the same short question twice: once alone, once after pasting a large file. Watch time-to-first-token vs tokens/second. You are looking at prefill vs decode, not at “the model getting confused.”
+</TryThis>
+
+## Determinism
+
+Greedy + a deterministic kernel + a fixed prompt can replay. Sampling will not. Some GPU kernels are not bit-stable across runs. If you need replay — eval, tests — pin seed, temperature 0, and still treat GPU drift as possible.

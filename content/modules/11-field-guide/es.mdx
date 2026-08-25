@@ -1,0 +1,71 @@
+## Cierre
+
+Ya tienes el vocabulario. Esta página es un bucle que puedes correr en una máquina real sin inventar cifras. Márcalas en orden; sáltate con un motivo, no con una corazonada.
+
+## 1. Elige un modelo
+
+- ¿Tiene que quedarse en local? Si sí, solo <Term id="open-weights">pesos abiertos</Term>.
+- Lee la <Term id="model-card">ficha</Term>: licencia, contexto, plantilla de chat, dense frente a <Term id="moe">MoE</Term>, tipos de archivo.
+- Elige instruct/chat salvo que estés completando un prefijo a propósito.
+- Escribe cinco prompts de humo *antes* de descargar.
+
+## 2. Estima memoria (regla práctica, luego mide)
+
+- Tamaño de archivo ≈ memoria de pesos a esa cuantización. La KV va aparte y crece con el contexto.
+- Prefiere un quant que **quepa en VRAM o memoria unificada al contexto que de verdad vas a enviar**.
+- Mide la memoria residente a 4k de contexto y luego a tu objetivo. Cree eso, no un tuit.
+
+## 3. Cuantiza (solo si hace falta)
+
+- Servicio en llama.cpp / Ollama: empieza por <Term id="q4km">Q4_K_M</Term> salvo que el humo falle.
+- Servidor GPU: sigue los docs actuales de vLLM para AWQ / GPTQ / FP8 — no conviertas a GGUF “porque eso usaba el portátil”.
+- Entrenamiento: <Term id="nf4">NF4</Term> es el 4 bits de QLoRA, no una etiqueta GGUF.
+
+## 4. Ejecuta en local
+
+```bash
+# Solo la forma — lee --help
+# llama-cli -m tu-Q4_K_M.gguf -c 8192 -ngl 99
+# ollama run <nombre>
+```
+
+Confirma que se aplica la **plantilla de chat** (Modelfile de Ollama / flags de chat de llama.cpp). Una completion cruda de un instruct se ve “tonta” y el bug es tuyo.
+
+## 5. LoRA mínimo (opcional)
+
+Solo si el humo falla de un modo que *el dato puede arreglar* (un formato, una jerga, una política de rechazo que te pertenece). No para “ser más listo”.
+
+- 20 prompts de eval del paso 1.
+- Un stack: Unsloth *o* Axolotl *o* torchtune / MLX — no los tres.
+- Rango 8–16, una época, mira el eval. Exporta adapter o GGUF. Repite los cinco humos.
+
+## 6. Arnés mínimo (pseudocódigo)
+
+```
+allow = {"search", "read_file"}  # permisos
+
+def turn(thread, user_text):
+    thread.messages.append({"role": "user", "content": user_text})
+    while True:
+        prefix = apply_template(profile, compact(thread), tools)
+        out = model.generate(prefix)          # prefill + decode
+        if out.tool_call:
+            if out.tool_call.name not in allow:
+                thread.messages.append(deny(out.tool_call))
+                continue
+            result = run(out.tool_call)       # tu código, no el modelo
+            thread.messages.append(tool_msg(result))
+            continue
+        thread.messages.append({"role": "assistant", "content": out.text})
+        return out.text
+```
+
+Ese es el bucle del módulo 02. El modelo es una línea. El resto es el producto.
+
+<TryThis>
+Corre la lista con *un* modelo esta semana. Anota nombre de archivo, contexto, memoria residente y si pasaron los cinco humos. Ese cuaderno es iAguide funcionando — no una captura de un ranking.
+</TryThis>
+
+## Cuando esta página se quede vieja
+
+2026 no dura. Si una flag de este esquema da 404, la *estructura* sigue siendo el curso: ficha → memoria → quant → motor → quizá LoRA → arnés con permisos. Parchea el esquema. Quédate con el bucle.

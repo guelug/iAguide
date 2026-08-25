@@ -1,0 +1,52 @@
+## Four runtimes, four jobs
+
+- **<Term id="llamacpp">llama.cpp</Term>** — C/C++ engine for <Term id="gguf">GGUF</Term>. CPU, Metal, CUDA, others. Maximum control (`n-gpu-layers`, context, batch). Many desktop apps are a skin on it.
+- **<Term id="ollama">Ollama</Term>** — CLI + local HTTP server. Pulls models, OpenAI-ish API, fewer knobs. Fine for a team that wants a model in one command.
+- **<Term id="vllm">vLLM</Term>** — GPU server for *many concurrent users*: paged KV cache, continuous batching. Typical on NVIDIA boxes. Not the first choice for a laptop chat.
+- **<Term id="mlx">MLX</Term> / MLX-LM** — Apple Silicon native arrays. Strong throughput on unified memory; can also fine-tune. Weights are MLX-format, not GGUF.
+
+They are complements. A mixed Mac/Linux team often uses Ollama for daily drive, llama.cpp when a flag matters, MLX when the Mac must be fast, vLLM when a GPU box has real traffic.
+
+## File formats
+
+| Format | What it is | Typical engine |
+| --- | --- | --- |
+| <Term id="gguf">GGUF</Term> | One file: weights + tokenizer + metadata, usually quantized | llama.cpp, Ollama, LM Studio |
+| <Term id="safetensors">safetensors</Term> | Tensor container, not a quant scheme | vLLM, Hugging Face, training |
+| <Term id="exl2">EXL2</Term> | ExLlamaV2 GPU quant with a target bitrate | ExLlamaV2 / TabbyAPI |
+
+Do not rename `.safetensors` to `.gguf`. Convert with the tool the engine documents (`convert_hf_to_gguf.py` / `llama-quantize` in llama.cpp land, or the exporter your trainer ships).
+
+## Command outline
+
+```bash
+# llama.cpp — after you have a GGUF
+# ./llama-cli -m model-Q4_K_M.gguf -c 8192 -ngl 99
+# ./llama-server -m model-Q4_K_M.gguf -c 8192
+
+# Ollama
+# ollama run llama3.1
+# ollama serve   # HTTP on 11434 by default
+
+# vLLM (GPU server)
+# vllm serve <org/model> --max-model-len 8192
+
+# MLX-LM
+# python -m mlx_lm.generate --model <mlx-or-hf-id> --prompt "..."
+```
+
+Flags change. `llama-cli` used to be `main`. Read `--help` on the binary you built.
+
+## Context vs speed
+
+Longer <Term id="context-window">context</Term> means a bigger <Term id="kv-cache">KV cache</Term> and a heavier prefill. Tokens/second during decode often drop as the cache grows. If you need 128k “just in case,” you pay for it on every long prompt even when the user asked a one-liner.
+
+Rule of thumb: set context to what your harness actually sends, plus a margin for the answer — not to the model's marketing maximum.
+
+<TryThis>
+Run the same 50-token prompt at context 4k and at the model's max, on the same GGUF. Compare time-to-first-token. That delta is mostly prefill and cache allocation, not “smarter thinking.”
+</TryThis>
+
+<Callout>
+Ollama hides `n_gpu_layers`. llama.cpp lets you put some layers on GPU and leave the rest on CPU RAM. That is how a 30B GGUF limps along on a 12 GB card. Slow, but it runs.
+</Callout>

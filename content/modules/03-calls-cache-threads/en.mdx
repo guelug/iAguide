@@ -1,0 +1,46 @@
+## Messages vs completions
+
+Two request shapes, one underlying job (complete the next tokens):
+
+- **<Term id="messages-api">Messages</Term>** — a list of `{role, content}` (and often tool calls). This is how almost every chat product talks.
+- **<Term id="completions-api">Completions</Term>** — a raw string prefix. Local servers and some eval harnesses still use it. Chat templates *are* a way of turning messages into a completion prefix.
+
+If you bypass the chat template on an instruct model, you are speaking a dialect it was not trained to expect.
+
+## tool_call is a message, not a side channel
+
+A <Term id="tool-call">tool_call</Term> is structured output: an id, a name, arguments (usually JSON). The harness runs the function and returns a **tool** (or `tool_result`) message with the same id. Then the model continues. Several rounds can live inside one user <Term id="turn">turn</Term>.
+
+Streaming makes this fiddly: arguments may arrive in pieces. Buffer until the call is complete before executing. Do not execute partial JSON.
+
+## Three caches people mix up
+
+| Cache | Lives where | Reuses what |
+| --- | --- | --- |
+| <Term id="kv-cache">KV cache</Term> | Inside one generation | Attention keys/values for tokens already seen |
+| <Term id="prompt-cache">Prompt / prefix cache</Term> | Across requests, if the prefix matches | Prefill work for a stable system prompt or thread prefix |
+| <Term id="http-cache">HTTP cache</Term> | The web | GET responses. Almost never the model |
+
+<Myth>
+“I turned on caching so the model remembers the user.” Prefix cache remembers **compute**, not biography. If the prefix changes by one character, you miss.
+</Myth>
+
+## Threads, turns, sessions
+
+- **Thread** — the durable conversation the harness persists.
+- **Turn** — one user message plus however many tool rounds it takes.
+- **Session** — a process, a tab, a login. Do not assume it equals context.
+
+A new session with the same thread id should reload the thread. A new thread in the same session should start empty. Mixing these is how “it forgot” and “it leaked the other customer” both happen.
+
+## Subagents: isolation and cost
+
+A subagent is another call (sometimes another model) with a smaller view. Isolation: the parent sees a summary, not 40 files of grep. Cost: you pay another prefill. Cheap models for subagents are a valid tactic; dumping the whole parent context into the child is not.
+
+<TryThis>
+Log three ids on every call: `session_id`, `thread_id`, `turn_id`. Replay a bug report with only those. If you cannot reconstruct the prompt that was actually sent, the harness is flying blind.
+</TryThis>
+
+## Streaming without lying
+
+<Term id="streaming">Streaming</Term> is tokens as they exist. Tool-call fragments are not user-visible answers. Hide them, or show a “running `search`…” placeholder. Never concatenate a half-argument into the chat bubble.

@@ -1,0 +1,65 @@
+{
+  "meta": {
+    "title": "iAguide",
+    "description": "A visual course on how AI actually works: agent harnesses, models, training, local inference, quantization, and hardware memory."
+  },
+  "nav": {
+    "course": "Course",
+    "glossary": "Glossary",
+    "about": "About",
+    "skip": "Skip to content"
+  },
+  "locale": {
+    "en": "English",
+    "es": "Español",
+    "switch": "Language"
+  },
+  "home": {
+    "kicker": "Night classroom · 2026",
+    "title": "iAguide",
+    "promise": "How AI actually works in practice — the harness around the model, the weights, the training loop, and the memory that holds a thought in flight.",
+    "cta": "Open the course map",
+    "ctaSecondary": "What you will be able to do",
+    "outcomes": [
+      "Pick a model from a card, not a vibe.",
+      "Run open weights locally and read a GGUF name.",
+      "See an agent harness as a loop, not a chat box.",
+      "Know when LoRA is worth it — and when it is not."
+    ]
+  },
+  "course": {
+    "title": "Course map",
+    "lede": "Twelve modules. One constellation. Start at orientation, or jump to the star you came for.",
+    "wip": "Coming soon",
+    "complete": "Ready",
+    "min": "{n} min",
+    "prereq": "Before this"
+  },
+  "lesson": {
+    "prev": "Previous",
+    "next": "Next",
+    "minutes": "{n} min read",
+    "visual": "Figure",
+    "contents": "In this module"
+  },
+  "glossary": {
+    "title": "Glossary",
+    "lede": "Terms used in the course. Each one links back to the module that introduced it.",
+    "from": "From"
+  },
+  "about": {
+    "title": "About",
+    "oss": "Open source",
+    "add": "How to add a module",
+    "disclaimer": "Education disclaimer"
+  },
+  "mdx": {
+    "tryThis": "Try this",
+    "myth": "Myth",
+    "callout": "Note"
+  },
+  "footer": {
+    "license": "MIT License",
+    "stale": "This is a 2026 snapshot. The field moves. Treat numbers as rules of thumb unless you measure them."
+  }
+}

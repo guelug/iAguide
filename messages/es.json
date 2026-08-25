@@ -1,0 +1,65 @@
+{
+  "meta": {
+    "title": "iAguide",
+    "description": "Un curso visual sobre cómo funciona de verdad la IA: arneses de agentes, modelos, entrenamiento, inferencia local, cuantización y memoria de hardware."
+  },
+  "nav": {
+    "course": "Curso",
+    "glossary": "Glosario",
+    "about": "Acerca de",
+    "skip": "Saltar al contenido"
+  },
+  "locale": {
+    "en": "English",
+    "es": "Español",
+    "switch": "Idioma"
+  },
+  "home": {
+    "kicker": "Aula nocturna · 2026",
+    "title": "iAguide",
+    "promise": "Cómo funciona de verdad la IA en la práctica: el arnés alrededor del modelo, los pesos, el bucle de entrenamiento y la memoria que sostiene un pensamiento en vuelo.",
+    "cta": "Abrir el mapa del curso",
+    "ctaSecondary": "Lo que sabrás hacer",
+    "outcomes": [
+      "Elegir un modelo leyendo su ficha, no por intuición.",
+      "Ejecutar pesos abiertos en local y leer un nombre GGUF.",
+      "Ver un arnés de agente como un bucle, no como un chat.",
+      "Saber cuándo merece la pena un LoRA — y cuándo no."
+    ]
+  },
+  "course": {
+    "title": "Mapa del curso",
+    "lede": "Doce módulos. Una constelación. Empieza por la orientación, o salta a la estrella que buscas.",
+    "wip": "En preparación",
+    "complete": "Listo",
+    "min": "{n} min",
+    "prereq": "Antes de esto"
+  },
+  "lesson": {
+    "prev": "Anterior",
+    "next": "Siguiente",
+    "minutes": "{n} min de lectura",
+    "visual": "Figura",
+    "contents": "En este módulo"
+  },
+  "glossary": {
+    "title": "Glosario",
+    "lede": "Términos del curso. Cada uno enlaza al módulo que lo introduce.",
+    "from": "De"
+  },
+  "about": {
+    "title": "Acerca de",
+    "oss": "Código abierto",
+    "add": "Cómo añadir un módulo",
+    "disclaimer": "Aviso educativo"
+  },
+  "mdx": {
+    "tryThis": "Prueba esto",
+    "myth": "Mito",
+    "callout": "Nota"
+  },
+  "footer": {
+    "license": "Licencia MIT",
+    "stale": "Instantánea de 2026. El campo se mueve. Trata las cifras como reglas prácticas salvo que las midas tú."
+  }
+}

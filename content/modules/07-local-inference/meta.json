@@ -1,0 +1,24 @@
+{
+  "id": "local-inference",
+  "order": 7,
+  "slug": "local-inference",
+  "title": {
+    "en": "Local inference",
+    "es": "Inferencia local"
+  },
+  "summary": {
+    "en": "llama.cpp, Ollama, vLLM, MLX. GGUF vs safetensors vs EXL2. Context versus speed.",
+    "es": "llama.cpp, Ollama, vLLM, MLX. GGUF frente a safetensors y EXL2. Contexto frente a velocidad."
+  },
+  "status": "complete",
+  "prereqs": [
+    "model-zoo"
+  ],
+  "durationMin": 14,
+  "tags": [
+    "llamacpp",
+    "ollama",
+    "vllm",
+    "mlx"
+  ]
+}

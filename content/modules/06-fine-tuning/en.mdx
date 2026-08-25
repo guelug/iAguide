@@ -1,0 +1,59 @@
+## Three ways to change weights
+
+- **<Term id="full-ft">Full fine-tune</Term>** — most parameters move. Maximum capacity, maximum memory, easy to overfit a small set.
+- **<Term id="lora">LoRA</Term>** — freeze the base; learn a low-rank pair whose product is ΔW. This is the default <Term id="peft">PEFT</Term> move.
+- **<Term id="qlora">QLoRA</Term>** — LoRA while the base sits in 4-bit (typically <Term id="nf4">NF4</Term>) so a larger model fits on one GPU. The adapter you save is still small; you merge or load it on top of the base later.
+
+LoRA is not weaker “by definition.” It is weaker when the rank is too small for the behaviour you want, or when the data disagrees with itself.
+
+## Data quality beats extra epochs
+
+A few hundred *clean*, schema-stable examples in the **same template you will serve** will beat a scraped dump. Deduplicate. Put the instruction in the user turn if that is how you will call the model. Include a little “say no / ask a question” so it does not always comply.
+
+Eval before you ship: a held-out set of prompts you care about, judged by you or a script, not by a public leaderboard.
+
+## Hyperparameters you actually touch
+
+Names differ by tool; the ideas do not:
+
+- **rank (`r`)** — inner LoRA dimension. Small (8–16) is common to start; raise if underfitting.
+- **alpha** — scales the update. Many recipes use `alpha ≈ 2r` or `alpha = r`. Follow the recipe you copy, then change one thing.
+- **learning rate** — LoRA often uses a higher LR than full FT. If loss explodes, go down.
+- **epochs / steps** — small datasets overfit fast. Prefer early stop on a tiny eval.
+- **target modules** — attention projections at least; some recipes add MLP. More modules = more capacity and memory.
+
+We are not printing a “universal” LR. Read the tool's current example for your base model.
+
+## Tools with real names (2026)
+
+Still the three you will actually meet:
+
+- **Unsloth** — fast LoRA/QLoRA on NVIDIA, single GPU, short path to a GGUF. Not a CUDA-on-Mac story; on Apple Silicon look at MLX instead.
+- **Axolotl** — YAML-first, many recipes (SFT, DPO, …), stronger when you need a kitchen of options or several GPUs.
+- **torchtune** — PyTorch-first recipes you can read as Python. Decent MPS story on Apple Silicon compared to the CUDA-centric stack.
+
+Hugging Face TRL sits under a lot of this. Use one stack end-to-end; mixing Unsloth export with an Axolotl config you do not understand is how weekends vanish.
+
+## Command outline (not a paste-and-pray)
+
+Always read the project's current README. The *shape* is:
+
+```bash
+# 1. Get a legal base (instruct) you can fine-tune.
+# 2. Put JSONL or sharegpt-style rows in one file.
+# 3. Launch the trainer with rank, data path, output dir.
+# Example *shape* — flags will differ:
+# unsloth / axolotl / tune run ...
+# 4. Eval on held-out prompts.
+# 5. Export: adapter, merged hf, or GGUF.
+```
+
+Unsloth's own path often ends in a GGUF you can drop into llama.cpp or Ollama. Axolotl and torchtune usually leave Hugging Face weights; you convert afterwards if you need GGUF.
+
+<TryThis>
+Before installing anything, write 20 eval prompts your LoRA must not fail. If you cannot write twenty, you do not have a task yet — you have a mood.
+</TryThis>
+
+<Myth>
+“QLoRA is a 4-bit model forever.” QLoRA is how you *train*. You can merge back to a higher-precision artefact for serving, or keep the adapter separate. Serving 4-bit GGUF is a different decision (quantization module).
+</Myth>

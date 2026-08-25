@@ -1,0 +1,47 @@
+## Why we quantize
+
+Weights in FP16/BF16 take 2 bytes each. A dense 8B model is already on the order of 16 GB for weights alone, plus KV cache, plus activations, plus fragmentation. <Term id="quantization">Quantization</Term> stores (and often computes) those weights in fewer bits so the model fits and *moves* through memory faster. Decode is frequently bandwidth-bound: smaller weights can mean more tokens/second, not just a smaller file.
+
+<VisualSlot caption="Same count of weights. FP16 is wide bars; Q4/NF4 packs many more into the same width. A packing metaphor, not a bit-exact layout." />
+
+Quality is the bill. Some tasks (tight code, exact names) notice 4-bit more than casual chat does. There is no universal “Q4 loses X%.” Measure on your prompts.
+
+## How to read a GGUF name
+
+A name like `Something-8B-Instruct-Q4_K_M.gguf` is a sentence:
+
+- **Q4** — most weights around 4 bits.
+- **K** — K-quant family in llama.cpp (block-wise, mixed; “K” is the scheme, not k-means).
+- **M** — medium quality profile (vs S smaller/more aggressive, L larger). Some tensors keep extra bits.
+
+Also common: `Q5_K_M`, `Q6_K`, `Q8_0` (legacy-ish 8-bit), `F16`. `Q4_K_M` is a frequent default because it is a *compromise*, not because it is always best.
+
+```bash
+# llama.cpp outline — read current --help
+# ./llama-quantize model-f16.gguf model-Q4_K_M.gguf Q4_K_M
+```
+
+## GPTQ, AWQ, NF4 — not GGUF nicknames
+
+- **<Term id="gptq">GPTQ</Term>** — post-training GPU quant, usually 4-bit, uses calibration data. Lives in GPU serving stacks (vLLM and friends).
+- **<Term id="awq">AWQ</Term>** — activation-aware: protect weights that activations say matter. Also a GPU-serving citizen.
+- **<Term id="nf4">NF4</Term>** — 4-bit NormalFloat in bitsandbytes / <Term id="qlora">QLoRA</Term>. A **training** dtype. You will not see `NF4` as a GGUF `Q…` tag.
+
+EXL2 (previous module) is another GPU family with a *target bitrate* you choose. Do not mix these files across engines and hope.
+
+## Quality tradeoff, honestly
+
+| You want | Start from |
+| --- | --- |
+| Fits a small GPU / CPU, chat is fine | Q4_K_M (rule of thumb) |
+| Noticeable quality on code / extraction | Q5_K_M or Q6_K, or a smaller model at higher bits |
+| Almost FP16, still GGUF | Q8_0 — large; often slower than Q4 on bandwidth-bound decode |
+| GPU server, many users | AWQ or GPTQ (or FP8 on hardware that has it) as the engine documents |
+
+<Myth>
+“8-bit is always smarter than 4-bit.” Usually cleaner, not always *usefully* cleaner, and it may be slower because you move twice the bytes. If Q4 passes your eval, keep it.
+</Myth>
+
+<TryThis>
+Take one 8B instruct GGUF in Q4_K_M and Q8_0 if you have disk. Ask the same five factual and five code prompts. Prefer the smaller file unless you can *point at* a failure.
+</TryThis>

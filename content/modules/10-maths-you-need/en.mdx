@@ -1,0 +1,53 @@
+## Attention, as a picture
+
+<Term id="attention">Attention</Term> is a mixing step. For each token, the model builds a **query**. Every token (in the window) offers a **key** and a **value**. Scores say how much this query cares about each key; values are blended with those scores.
+
+A sketch, not a paper:
+
+$$
+\mathrm{Attention}(Q,K,V) = \mathrm{softmax}\!\left(\frac{QK^\top}{\sqrt{d}}\right) V
+$$
+
+$d$ is the key dimension; the square root is a scaling hack so the scores do not explode as $d$ grows. Multi-head means several of these in parallel, then concatenated. GQA / MQA share keys and values across heads to shrink the KV cache — that is an engineering diagram, same idea.
+
+You do not need to derive this to use a model. You need: **every new token attends over the cached keys**, which is why the KV cache exists.
+
+## Softmax
+
+<Term id="softmax">Softmax</Term> turns a vector of scores $z$ into a distribution:
+
+$$
+\mathrm{softmax}(z)_i = \frac{e^{z_i}}{\sum_j e^{z_j}}
+$$
+
+Big score → mass near 1. Temperature in sampling is (intuitively) dividing the logits before this step: $z / T$. $T \to 0$ is greedy.
+
+## Cross-entropy
+
+Training next-token is “be less surprised by the true next token.” <Term id="cross-entropy">Cross-entropy</Term> against a one-hot (or a label id) is the usual loss. Low loss on a token means the model already assigned it high probability. It is not a moral score.
+
+If you LoRA on a tiny set until loss is ~0, you memorised. That can be what you wanted (a format) or a disaster (a name).
+
+## Gradients, one paragraph
+
+A <Term id="gradient">gradient</Term> is the direction to move parameters to reduce loss. Backprop computes it from the loss backward through the graph. An optimizer (AdamW, etc.) takes a step. You will almost never write this by hand. You will hit **NaNs** (LR too high, bad data) and **overfit** (too many steps). Those are gradient stories in the wild.
+
+## LoRA as a low-rank delta
+
+A linear layer is $y = W x$ with $W$ a big matrix. LoRA freezes $W$ and learns
+
+$$
+\Delta W = BA
+$$
+
+where $B$ is $d \times r$, $A$ is $r \times k$, and $r$ (the <Term id="rank">rank</Term>) is small. The served layer is $W + \frac{\alpha}{r} BA$ (scale conventions vary; follow your trainer).
+
+Why it fits a GPU: you store two thin rectangles instead of a square. Why it can fail: if the behaviour you want is not low-rank in that layer, $r$ is too small.
+
+<TryThis>
+On paper, for a $4096 \times 4096$ weight, compare parameters of full $W$ vs LoRA $r=16$: $2 \times 4096 \times 16$. That ratio is why QLoRA-plus-LoRA is a weekend project and full FT of the same layer is not.
+</TryThis>
+
+<Callout>
+This page is a lantern. If you need proofs, a proper deep-learning course will treat attention and backprop with the respect they deserve. Here we only need enough maths to not fear a GGUF name or a LoRA config.
+</Callout>

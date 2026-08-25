@@ -1,0 +1,24 @@
+{
+  "id": "maths-you-need",
+  "order": 10,
+  "slug": "maths-you-need",
+  "title": {
+    "en": "The maths you need",
+    "es": "Las mates que necesitas"
+  },
+  "summary": {
+    "en": "Attention, softmax, cross-entropy, gradients, and LoRA as a low-rank delta — intuition, not a textbook.",
+    "es": "Atención, softmax, entropía cruzada, gradientes y LoRA como un delta de rango bajo — intuición, no un libro."
+  },
+  "status": "complete",
+  "prereqs": [
+    "language-of-models",
+    "fine-tuning"
+  ],
+  "durationMin": 16,
+  "tags": [
+    "attention",
+    "softmax",
+    "lora"
+  ]
+}

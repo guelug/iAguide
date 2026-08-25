@@ -1,0 +1,37 @@
+## Three machines, three memory stories
+
+<VisualSlot caption="Toggle the topology, then drag context. Fill is a sketch: weights sit still, KV grows. Not a datasheet." />
+
+- **Discrete NVIDIA (and similar)** — weights and KV want to live in <Term id="vram">VRAM</Term>. Host RAM is another planet. Crossing <Term id="pcie">PCIe</Term> to fetch a layer is much slower than staying on-device. Offloading layers to RAM (llama.cpp `-ngl`) works; it is a compromise.
+- **Apple Silicon <Term id="unified-memory">unified memory</Term>** — CPU and GPU share one pool. There is no PCIe copy of the whole model just to “put it on the GPU.” You still have a *finite* pool (the 16 / 32 / 64 / 128 GB you bought), and you still have **bandwidth** limits. Unified does not mean infinite.
+- **RAM + CPU** — llama.cpp will run on CPU RAM alone. Capacity is easier; <Term id="bandwidth">bandwidth</Term> is worse. Fine for batch jobs and experiments; painful as a snappy chat.
+
+## Weights vs KV vs context
+
+Weights are (mostly) a fixed tax once the model is loaded. The <Term id="kv-cache">KV cache</Term> grows with sequence length × layers × heads × … — the exact formula depends on architecture (GQA shrinks KV; some engines page it). Long context is a *memory* decision as much as a quality one.
+
+Activations during prefill spike and then fall. Fragmentation and CUDA context steal a slice you will not see in a naive `params × bytes` back-of-envelope.
+
+## Bandwidth vs capacity
+
+Capacity is “does it fit.” Bandwidth is “how fast can we stream it.” Decode reads the weights over and over for a single new token. That is why a model that *fits* in VRAM can still be slow on a GPU with modest memory clocks, and why 4-bit can feel faster than 8-bit.
+
+Prefill is more FLOP-heavy: lots of tokens at once. Different bottleneck, same machine.
+
+## Rules of thumb (labelled as such)
+
+These are **rules of thumb** for a dense instruct model, 2026, not a calculator:
+
+- FP16 weights ≈ 2 bytes × parameters. An 8B is ~16 GB weights. KV and runtime are extra.
+- Q4_K_M often lands near half a byte to ~0.6 bytes per parameter *on disk* — check `ls -lh`, do not trust folklore.
+- If it fits in VRAM at your real context, stay there. If it does not, quantize first, then shrink context, then offload layers, then pick a smaller model.
+- Unified memory: leave headroom for macOS and the browser. A “32 GB” Mac is not a 32 GB GPU.
+- MoE: memory follows *total* parameters more than *active* FLOPs. Do not size VRAM from the marketing “active 3B.”
+
+<TryThis>
+Pick the model you actually want to run. Write: weight bytes (from the file size) + “KV unknown.” Load it, set context to 4k, then 32k if it starts, and watch resident memory. The delta is your KV (plus extras). That measurement beats any blog.
+</TryThis>
+
+<Myth>
+“Apple unified memory means I can treat a 24 GB M-series like a 24 GB 4090.” Different bandwidth, different kernels, no PCIe copies, also no CUDA ecosystem. It is a different computer that happens to run many of the same GGUFs.
+</Myth>

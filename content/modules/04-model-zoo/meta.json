@@ -1,0 +1,23 @@
+{
+  "id": "model-zoo",
+  "order": 4,
+  "slug": "model-zoo",
+  "title": {
+    "en": "The model zoo",
+    "es": "El zoo de modelos"
+  },
+  "summary": {
+    "en": "Closed vs open weights, dense vs MoE, sizes, variants, and how to read a model card.",
+    "es": "Cerrado frente a pesos abiertos, dense frente a MoE, tamaños, variantes y cómo leer una ficha."
+  },
+  "status": "complete",
+  "prereqs": [
+    "language-of-models"
+  ],
+  "durationMin": 12,
+  "tags": [
+    "models",
+    "huggingface",
+    "moe"
+  ]
+}
