@@ -109,7 +109,14 @@
   "mdx": {
     "tryThis": "Try this",
     "myth": "Myth",
-    "callout": "Note"
+    "callout": "Note",
+    "quiz": "Quiz",
+    "quizSaved": "Saved in this browser",
+    "quizHint": "Pick an option. The explanation appears immediately.",
+    "quizScore": "{correct} of {total} correct · {answered} answered",
+    "quizRetry": "Retry",
+    "quizCorrect": "Correct",
+    "quizWrong": "Not that one"
   },
   "footer": {
     "license": "MIT License",

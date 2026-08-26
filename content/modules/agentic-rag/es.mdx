@@ -140,6 +140,15 @@ Consejo práctico: respuestas cortas y fácticas para puntuar exact match, como 
 
 El RAG agéntico es retrieve como herramienta, no como destino. La gala necesita historias de invitados, web, tiempo y stats del Hub, y una lista de rechazo. Las pestañas son codificaciones del mismo ciclo. El texto recuperado es Observation, no política. La inyección es el incidente que parece una búsqueda exitosa.
 
+## Cuestionario (Unidad 3)
+
+<Quiz id="agentic-rag">
+  <Q id="classic" prompt="RAG clásico frente a RAG agéntico" a="Agéntico usa un modelo más grande" b="El clásico recupera siempre; el agéntico decide si recuperar, con qué tool y cuándo parar" c="Agéntico no usa embeddings" d="Clásico es LlamaIndex; agéntico es smolagents" answer="b" why="La gala de Alfred no dispara el retriever en cada turno. El agente elige la tool (historias, web, tiempo, stats)." missA="El tamaño del modelo no define el patrón." missC="Cuando recupera, sigue habiendo embeddings / índice." missD="Los tres frameworks pueden hacer los dos RAG. El corte es el bucle, no la marca." />
+  <Q id="gala" prompt="Las tools de la gala (historias, web, tiempo, Hub) deben verse como" a="Un prompt largo con todas las bios" b="Una allowlist: el agente solo puede esas capacidades" c="Un fine-tune de function calling" d="GAIA nivel 3" answer="b" why="La unidad construye tools y luego el agente. Lo que no está en la lista no existe. Pegar bios es RAG naive y además inyectable." missA="Eso agota contexto y no escala." missC="Puedes afinar, pero la unidad 3 es composición de tools." missD="GAIA es la unidad 4." />
+  <Q id="inject" prompt="El fallo que parece RAG funcionando es" a="Un 429 del proveedor" b="Inyección: la bio recuperada manda sobre las instrucciones del sistema" c="Un embedding desactualizado" d="Usar Chroma en vez de FAISS" answer="b" why="El caso GalaFlow: el retriever devuelve texto que el modelo obedece como si fuera el system prompt. Evalúa eso, no solo recall." missA="429 es cuota, no inyección." missC="Stale index es otro bug, más honesto." missD="El motor vectorial no es el vector de ataque." />
+  <Q id="eval-gala" prompt="Una pregunta de eval que casa con la gala" a="Cualquier trivia de Wikipedia" b="Una que exija la tool correcta (historia de invitado frente a tiempo frente a Hub)" c="Un JSON schema de bonus 1" d="Un combate Pokémon" answer="b" why="Si la eval no distingue tools, un RAG naive saca la misma nota. Diseña preguntas que fallen si siempre recuperas bios." missA="Wikipedia no mide la gala." missC="Eso es function-calling FT." missD="Eso es bonus 3." />
+</Quiz>
+
 ## Fuentes
 
 Burtenshaw, B., Thomas, J., Simonini, T. y Paniego, S. (s. f.). Hugging Face Agents Course (Apache-2.0). https://huggingface.co/learn/agents-course · https://github.com/huggingface/agents-course

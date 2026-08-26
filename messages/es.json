@@ -109,7 +109,14 @@
   "mdx": {
     "tryThis": "Prueba esto",
     "myth": "Mito",
-    "callout": "Nota"
+    "callout": "Nota",
+    "quiz": "Cuestionario",
+    "quizSaved": "Guardado en este navegador",
+    "quizHint": "Elige una opción. La explicación aparece al momento.",
+    "quizScore": "{correct} de {total} bien · {answered} respondidas",
+    "quizRetry": "Rehacer",
+    "quizCorrect": "Correcto",
+    "quizWrong": "No es esa"
   },
   "footer": {
     "license": "Licencia MIT",

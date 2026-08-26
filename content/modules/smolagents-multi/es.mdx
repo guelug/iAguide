@@ -180,6 +180,15 @@ Puedes esbozar un árbol manager/worker, nombrar cada herramienta una vez, fijar
 
 Los smolagents anidados son bucles dummy anidados. El aislamiento es la virtud; los prefills extra son el impuesto. La recuperación es RAG como herramienta. La visión es un álbum cerrado en `run(...)` o un flujo de capturas que debes podar. Los modales de cookies son herramientas, no fallos del modelo. Dale al worker menos pasos y menos herramientas que al manager. LlamaIndex es lo siguiente si el producto es un índice; LangGraph si el producto es un grafo.
 
+## Cuestionario (smolagents: multi, retrieval, visión)
+
+<Quiz id="smolagents-multi">
+  <Q id="retrieval" prompt="En smolagents, la recuperación debe ser" a="El primer salto obligatorio de cada turno" b="Una herramienta que el agente decide llamar" c="Un índice LlamaIndex escondido" d="Un prompt con los PDF pegados" answer="b" why="La unidad trata retrieval como tool, no como pipeline fijo. Si recuperas siempre, no es un agente: es RAG clásico." missA="Eso es RAG naive. Agéntico es decidir si recuperar." missC="Puedes envolver un índice como tool; no vive escondido dentro de smolagents." missD="Pegar PDF agota el contexto y no es retrieval." />
+  <Q id="vision" prompt="Visión en smolagents: el corte que importa" a="Cualquier modelo ve imágenes si pegas un data URI" b="Hay que distinguir imágenes al inicio del run frente a imágenes que entran en el log" c="Solo funciona con GPT-4o" d="La visión sustituye a las tools" answer="b" why="La lección separa imágenes de sistema (al arrancar) de las que el entorno observa después. Mezclarlas es el caso Sightline." missA="El modelo y el harness tienen que aceptar visión de verdad, no un string." missC="El proveedor cambia. El corte es de harness, no de marca." missD="Ver no ejecuta. Sigue haciendo falta una acción." />
+  <Q id="manager" prompt="Qué tiene prohibido hacer el manager en un sistema multi-agente smolagents" a="Llamar al worker" b="Hacer el trabajo del worker (buscar, ejecutar código, ver) en vez de delegar" c="Escribir final_answer" d="Tener un prompt" answer="b" why="Si el manager ejecuta las tools del hijo, el anidado es teatro. El manager coordina; el worker actúa." missA="Llamar al worker es el punto." missC="final_answer es del manager cuando el plan está cerrado." missD="Sin prompt no hay manager." />
+  <Q id="checks" prompt="final_answer_checks son" a="Adorno de la demo" b="Tests sobre la respuesta final, no un segundo LLM juez" c="El leaderboard de GAIA" d="Un planning_interval más bajo" answer="b" why="Son predicados que tú escribes (formato, rango, prohibiciones). No sustituyen evaluación offline." missA="Si los quitas, el manager da por bueno cualquier string." missC="GAIA puntúa otro corpus." missD="planning_interval es frecuencia de plan, no un check." />
+</Quiz>
+
 ## Fuentes
 
 Burtenshaw, B., Thomas, J., Simonini, T. y Paniego, S. (s. f.). *Hugging Face Agents Course* (Apache-2.0). https://huggingface.co/learn/agents-course · https://github.com/huggingface/agents-course

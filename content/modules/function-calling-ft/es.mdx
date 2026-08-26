@@ -179,6 +179,15 @@ Consejo práctico: vuelca una cadena de entrenamiento renderizada y una de servi
 
 No inventes un tercer dialecto de plantilla en el notebook y un cuarto al servir. Dos volcados, un diff, luego entrena.
 
+## Cuestionario (Bonus 1)
+
+<Quiz id="function-calling-ft">
+  <Q id="when" prompt="Cuándo SÍ afinar para function calling" a="Siempre: el adapter mágico arregla el bucle" b="Cuando el modelo instruct no respeta el esquema y ya mediste el fallo en el harness" c="En cuanto tienes un GPU" d="Para sustituir las tools" answer="b" why="La bonus unit empieza en instruct, no en base, y avisa: a menudo no deberías afinar. Mide el parseo primero." missA="El caso SchemaPatch: LoRA prematuro, bucle igual de roto." missC="El hardware no es el criterio." missD="El FT enseña el formato de la Action, no borra las tools." />
+  <Q id="roles" prompt="Los roles nuevos que la unidad nombra de verdad" a="system, user, assistant únicamente" b="Además, tool / function: el mensaje que cierra la observación de la llamada" c="planner y critic" d="image y audio" answer="b" why="Function calling añade el rol de la tool al hilo. Sin ese mensaje, el SFT enseña un diálogo cojo." missA="Eso es chat plano. No basta." missC="No son roles de esta unidad." missD="Multimodal es otra lección." />
+  <Q id="lora" prompt="LoRA en este bonus es" a="El producto final que sirves como agente" b="El adapter que enseña el esquema; el producto sigue siendo el bucle" c="Un sustituto de smolagents" d="Obligatorio en 4-bit" answer="b" why="LoRA es el método. El agente sigue siendo Thought-Action-Observation. Servir el adapter sin harness no certifica nada." missA="Sin harness no hay agente." missC="smolagents puede llamar al modelo afinado. No se sustituyen." missD="La cuantización es ortogonal." />
+  <Q id="templates" prompt="El dataset de function-calling es sobre todo" a="Párrafos de Wikipedia" b="Plantillas de chat con llamadas y observaciones bien formadas" c="Imágenes de Pokémon" d="Traces de LangSmith sin filtrar" answer="b" why="Las plantillas de chat son el dataset. Basura en los roles = basura en los pesos." missA="No es un SFT de conocimiento general." missC="Bonus 3." missD="Las traces sirven si las limpias; no son el corpus por defecto." />
+</Quiz>
+
 ## Fuentes
 
 Burtenshaw, B., Thomas, J., Simonini, T. y Paniego, S. (s. f.). *Hugging Face Agents Course* (Apache-2.0). https://huggingface.co/learn/agents-course · https://github.com/huggingface/agents-course

@@ -171,6 +171,15 @@ Puedes nombrar loader, splitter, embedder, store y la interfaz (retriever / quer
 
 LlamaIndex es ReAct con forma de recuperación. LlamaHub es cómo instalas las piezas. Cargar, partir, embeber, guardar, consultar, evaluar. Un query engine no es un agente. Un `QueryEngineTool` sobre `AgentWorkflow` sí. Function-calling frente a ReAct depende del modelo; registra qué camino te tocó. `Context` es memoria. Los workflows son pasos por eventos para cuando el pipeline mismo ramifica. LangGraph es lo siguiente si el flujo de control es el producto. La Unidad 3 es la gala encima de esta geometría.
 
+## Cuestionario (Unidad 2.2)
+
+<Quiz id="llamaindex">
+  <Q id="hub" prompt="LlamaHub es" a="Un cargador mágico que entiende cualquier PDF" b="Un registro de conectores, no un parser omnisciente" c="El QueryEngine por defecto" d="Un agente ReAct" answer="b" why="LlamaHub lista readers e integraciones. Tú eliges el conector y sus límites. No hay magia de PDF." missA="Cada reader tiene un contrato (páginas, tablas, OCR). El Hub no los unifica." missC="QueryEngine viene después de indexar." missD="ReAct es un tipo de agente, no el Hub." />
+  <Q id="query-vs-agent" prompt="Un QueryEngine de LlamaIndex es ya un agente" a="Sí: si hay LLM, hay agente" b="No: consultar un índice no es Thought-Action-Observation con tools" c="Sí, porque usa embeddings" d="Solo si persistes Chroma" answer="b" why="La unidad separa interfaces de consulta (retriever, query engine) de agentes (function-calling, ReAct, workflow). Embeddings no conceden bucle." missA="El LLM como reranker sigue siendo RAG." missC="Embeddings son la etapa 2 del RAG, no el agente." missD="Persistir el vector store no cambia el tipo." />
+  <Q id="workflow" prompt="Un workflow en LlamaIndex es" a="Un agente escondido con otro nombre" b="Un grafo de eventos y pasos, no un ReAct disfrazado" c="Un CodeAgent de smolagents" d="Obligatorio para cualquier tool" answer="b" why="Workflows: eventos, ramas, estado. Puedes meter un agente en un paso. El workflow no es el agente." missA="Si lo tratas como ReAct, pierdes el control del grafo." missC="Eso es 2.1." missD="Una FunctionTool no exige workflow." />
+  <Q id="tools-li" prompt="En LlamaIndex, FunctionTool / QueryEngineTool / etc. comparten" a="El mismo embedding" b="Un contrato de tool: nombre, descripción, llamada" c="El mismo LLM" d="LlamaHub" answer="b" why="Cuatro tipos, un contrato. El agente las ve como tools, da igual si por debajo hay una función o un query engine." missA="Solo las de retrieval tocan embeddings." missC="El LLM es intercambiable." missD="El Hub provee readers, no el contrato de tool." />
+</Quiz>
+
 ## Fuentes
 
 Burtenshaw, B., Thomas, J., Simonini, T. y Paniego, S. (s. f.). *Hugging Face Agents Course* (Apache-2.0). https://huggingface.co/learn/agents-course · https://github.com/huggingface/agents-course

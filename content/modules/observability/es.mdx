@@ -207,6 +207,15 @@ Consejo práctico: si un worker anidado no tiene span, depurarás al manager y p
 
 Inicio del curso: https://huggingface.co/learn/agents-course · repo: https://github.com/huggingface/agents-course · docs: https://huggingface.co/docs
 
+## Cuestionario (Bonus 2)
+
+<Quiz id="observability">
+  <Q id="trace" prompt="Un turno de agente, en observabilidad, es" a="Un print en la consola" b="Una traza: spans del LLM, tools, errores, tokens" c="El system prompt" d="El certificado de HF" answer="b" why="La unidad pide traces, no folklore. Si no puedes abrir el turno, no estás observando." missA="print no agrega ni se busca." missC="El prompt es un campo de la traza, no la traza." missD="El certificado no instrumenta." />
+  <Q id="offline" prompt="Qué va primero, según la unidad" a="A/B en producción con usuarios reales" b="Evaluación offline con un set que tú controlas" c="Un juez LLM sin rúbrica" d="Subir la temperatura" answer="b" why="Offline primero (casos fijos, asserts). Online después (latencia, errores, feedback). Invertir el orden te hace optimizar ruido." missA="Online sin offline es teatro." missC="Los jueces se nombran y se miden; no van sueltos." missD="La temperatura no es un dashboard." />
+  <Q id="judge" prompt="El acierto de un agente lo define" a="El proveedor del modelo" b="Tú: la métrica y, si hay juez, su nombre y su rúbrica" c="El like del usuario únicamente" d="El color verde de Langfuse" answer="b" why="«El acierto lo defines tú; los jueces, los nombras.» Un thumbs-up es un canal de feedback, no la métrica." missA="El proveedor no puntúa tu tarea." missC="El like es un canal (online), incompleto." missD="La UI no es la métrica." />
+  <Q id="cost" prompt="Cinco llamadas al LLM en un turno son" a="Normal, no se mira" b="Un bucle de coste que tienes que ver en la traza" c="Señal de que hace falta LoRA" d="El planning_interval correcto" answer="b" why="La unidad enseña a leer coste y latencia junto a errores. Cinco completions pueden ser un retry silencioso." missA="Si no lo miras, pagas el doble y no lo sabes." missC="Antes de afinar, corta el bucle." missD="planning_interval es smolagents, otro eje." />
+</Quiz>
+
 ## Fuentes
 
 Burtenshaw, B., Thomas, J., Simonini, T. y Paniego, S. (s. f.). *Hugging Face Agents Course* (Apache-2.0). https://huggingface.co/learn/agents-course · https://github.com/huggingface/agents-course
