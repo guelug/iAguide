@@ -1,29 +1,38 @@
-import type { Metadata } from "next";
-import { IBM_Plex_Mono, IBM_Plex_Sans, Newsreader } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Fraunces, Inter, JetBrains_Mono } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 import "./globals.css";
 
-const newsreader = Newsreader({
+/**
+ * Fraunces for display: a warm, high-contrast serif that reads as a
+ * textbook rather than a dashboard. Inter for body because it is the most
+ * legible screen sans at classroom distance. JetBrains Mono for anything
+ * you would type.
+ */
+const fraunces = Fraunces({
   subsets: ["latin", "latin-ext"],
-  variable: "--font-newsreader",
+  variable: "--font-fraunces",
   display: "swap",
-  style: ["normal", "italic"],
+  axes: ["SOFT", "WONK", "opsz"],
 });
 
-const ibm = IBM_Plex_Sans({
+const inter = Inter({
   subsets: ["latin", "latin-ext"],
-  weight: ["400", "500", "600"],
-  variable: "--font-ibm",
+  variable: "--font-inter",
   display: "swap",
 });
 
-const ibmMono = IBM_Plex_Mono({
+const jetbrains = JetBrains_Mono({
   subsets: ["latin", "latin-ext"],
-  weight: ["400", "500"],
-  variable: "--font-ibm-mono",
+  variable: "--font-jetbrains",
   display: "swap",
 });
+
+export const viewport: Viewport = {
+  themeColor: "#fbfaf6",
+  colorScheme: "light",
+};
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("meta");
@@ -45,10 +54,10 @@ export default async function RootLayout({
   return (
     <html
       lang={locale}
-      className={`${newsreader.variable} ${ibm.variable} ${ibmMono.variable} h-full antialiased`}
+      className={`${fraunces.variable} ${inter.variable} ${jetbrains.variable} h-full antialiased`}
       suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col bg-void text-paper font-sans">
+      <body className="flex min-h-full flex-col bg-paper font-sans text-ink">
         <NextIntlClientProvider>{children}</NextIntlClientProvider>
       </body>
     </html>

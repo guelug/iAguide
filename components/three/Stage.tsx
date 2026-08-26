@@ -6,7 +6,6 @@ import {
   PerformanceMonitor,
   Preload,
 } from "@react-three/drei";
-import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
 import { Canvas, type CanvasProps } from "@react-three/fiber";
 import {
   Suspense,
@@ -19,13 +18,6 @@ import {
   type ReactNode,
 } from "react";
 import { P } from "@/lib/palette";
-
-type BloomConfig = {
-  intensity?: number;
-  threshold?: number;
-  smoothing?: number;
-  radius?: number;
-};
 
 type ControlsConfig = {
   autoRotate?: boolean;
@@ -43,12 +35,10 @@ type Props = {
   className?: string;
   camera?: CanvasProps["camera"];
   orthographic?: boolean;
-  /** Solid clear colour. Omit for a transparent canvas over page background. */
+  /** Solid clear colour. Omit for a transparent canvas over the page. */
   background?: string;
-  /** [colour, near, far] exponential-free linear fog. */
+  /** [colour, near, far] linear fog, for depth on a light backdrop. */
   fog?: [string, number, number];
-  bloom?: BloomConfig | false;
-  vignette?: boolean;
   controls?: boolean | ControlsConfig;
   /** Max device pixel ratio before the perf monitor claws it back. */
   maxDpr?: number;
@@ -76,17 +66,19 @@ export function useStillness() {
   return still;
 }
 
-const LIGHTS_KEY = "iaguide-stage-lights";
-
+/**
+ * Studio lighting for a white room. Bright and even, with one key light
+ * so volumes still read, because a diagram lit from everywhere is flat
+ * and a diagram lit from one side is dramatic instead of legible.
+ */
 function DefaultLights() {
   return (
-    <group key={LIGHTS_KEY}>
-      <ambientLight intensity={0.45} />
-      <hemisphereLight args={[P.teal, P.void, 0.5]} />
-      <directionalLight position={[4, 6, 6]} intensity={1.1} color={P.paper} />
-      <pointLight position={[-5, -2, 4]} intensity={22} color={P.violet} distance={22} decay={2} />
-      <pointLight position={[5, 3, -3]} intensity={16} color={P.amber} distance={20} decay={2} />
-    </group>
+    <>
+      <ambientLight intensity={1.35} />
+      <hemisphereLight args={[P.paper, P.sunken, 1.1]} />
+      <directionalLight position={[3.5, 6, 5]} intensity={1.5} color="#ffffff" />
+      <directionalLight position={[-5, 2, -3]} intensity={0.5} color={P.tealWash} />
+    </>
   );
 }
 
@@ -97,10 +89,8 @@ export function Stage({
   orthographic,
   background,
   fog,
-  bloom = { intensity: 0.85, threshold: 0.22, smoothing: 0.5 },
-  vignette = true,
   controls = false,
-  maxDpr = 1.9,
+  maxDpr = 2,
 }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const [onScreen, setOnScreen] = useState(false);
@@ -112,7 +102,7 @@ export function Stage({
     if (!el) return;
     const io = new IntersectionObserver(
       ([entry]) => setOnScreen(entry.isIntersecting),
-      { threshold: 0.02, rootMargin: "200px 0px" },
+      { threshold: 0.02, rootMargin: "220px 0px" },
     );
     io.observe(el);
     return () => io.disconnect();
@@ -120,12 +110,14 @@ export function Stage({
 
   const env = useMemo<StageEnv>(() => ({ quality, still }), [quality, still]);
   const ctl = typeof controls === "object" ? controls : {};
-  const heavy = quality > 0.55 && !still;
 
   return (
     <div ref={host} className={className}>
       {onScreen || still ? (
         <Canvas
+          /* `flat` disables tone mapping: diagram colours must match the
+             CSS swatches beside them exactly, or the legend lies. */
+          flat
           dpr={[1, still ? 1.5 : maxDpr * quality]}
           frameloop={still ? "demand" : onScreen ? "always" : "never"}
           gl={{
@@ -150,24 +142,12 @@ export function Stage({
                 enablePan={ctl.enablePan ?? false}
                 autoRotate={(ctl.autoRotate ?? false) && !still}
                 autoRotateSpeed={ctl.autoRotateSpeed ?? 0.35}
-                minPolarAngle={ctl.minPolarAngle ?? Math.PI * 0.22}
-                maxPolarAngle={ctl.maxPolarAngle ?? Math.PI * 0.78}
+                minPolarAngle={ctl.minPolarAngle ?? Math.PI * 0.2}
+                maxPolarAngle={ctl.maxPolarAngle ?? Math.PI * 0.8}
                 minDistance={ctl.minDistance ?? 3}
                 maxDistance={ctl.maxDistance ?? 24}
                 dampingFactor={0.08}
               />
-            ) : null}
-            {bloom && heavy ? (
-              <EffectComposer enableNormalPass={false}>
-                <Bloom
-                  mipmapBlur
-                  intensity={bloom.intensity ?? 0.85}
-                  luminanceThreshold={bloom.threshold ?? 0.22}
-                  luminanceSmoothing={bloom.smoothing ?? 0.5}
-                  radius={bloom.radius ?? 0.72}
-                />
-                {vignette ? <Vignette eskil={false} offset={0.22} darkness={0.72} /> : <></>}
-              </EffectComposer>
             ) : null}
             <AdaptiveDpr pixelated={false} />
             <Preload all />
@@ -179,7 +159,7 @@ export function Stage({
           className="h-full w-full"
           style={{
             background:
-              "radial-gradient(ellipse at 38% 32%, rgba(94,184,174,0.14), transparent 58%), radial-gradient(ellipse at 72% 66%, rgba(139,123,216,0.10), transparent 52%)",
+              "radial-gradient(ellipse at 40% 34%, var(--teal-wash), transparent 62%), radial-gradient(ellipse at 72% 68%, var(--violet-wash), transparent 55%)",
           }}
         />
       )}
@@ -205,7 +185,7 @@ function PerfGovernor({
       factor={1}
       flipflops={3}
       onDecline={() => {
-        q.current = Math.max(0.42, q.current - 0.18);
+        q.current = Math.max(0.45, q.current - 0.18);
         onChange(q.current);
       }}
       onIncline={() => {
