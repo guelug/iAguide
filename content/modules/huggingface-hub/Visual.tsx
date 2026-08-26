@@ -68,7 +68,7 @@ export default function Visual() {
   );
 }
 
-function Scene({ active, t }: { active: Step; t: any }) {
+function Scene({ active, t }: { active: Step; t: Record<string, string> }) {
   return (
     <group>
       {active === "repos" ? <ReposScene /> : null}
@@ -110,7 +110,7 @@ function ReposScene() {
   );
 }
 
-function TokensScene({ t }: { t: any }) {
+function TokensScene({ t }: { t: Record<string, string> }) {
   const bars = [
     { x: -2.1, h: 0.9, label: t.fine_grained, color: P.teal, tone: "teal" as const, fill: 0.55 },
     { x: 0.0, h: 1.35, label: "read", color: P.amber, tone: "amber" as const, fill: 0.5 },
@@ -160,7 +160,7 @@ function CliScene() {
   );
 }
 
-function CacheScene({ t }: { t: any }) {
+function CacheScene({ t }: { t: Record<string, string> }) {
   const items: { x: number; label: string; tone: "teal" | "amber" | "violet"; color: string }[] = [
     { x: -2.15, label: "HF_HOME", tone: "teal", color: P.teal },
     { x: 0.0, label: t.hub_cache, tone: "amber", color: P.amber },

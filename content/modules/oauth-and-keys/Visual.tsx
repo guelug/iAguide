@@ -65,7 +65,7 @@ export default function Visual() {
   );
 }
 
-function Scene({ active, t }: { active: Step; t: any }) {
+function Scene({ active, t }: { active: Step; t: Record<string, string> }) {
   return (
     <group>
       {active === "two" ? <TwoScene /> : null}
@@ -166,7 +166,7 @@ function SinkScene() {
   );
 }
 
-function PoolScene({ t }: { t: any }) {
+function PoolScene({ t }: { t: Record<string, string> }) {
   const keys = [
     { x: -2.0, label: t.key_a, tone: "teal" as const, color: P.teal },
     { x: 0.0, label: t.key_b, tone: "amber" as const, color: P.amber },

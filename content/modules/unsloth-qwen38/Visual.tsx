@@ -70,7 +70,7 @@ export default function Visual() {
   );
 }
 
-function Scene({ active, t }: { active: Step; t: any }) {
+function Scene({ active, t }: { active: Step; t: Record<string, string> }) {
   return (
     <group>
       {active === "path" ? <PathScene /> : null}
@@ -107,7 +107,7 @@ function PathScene() {
   );
 }
 
-function QloraScene({ t }: { t: any }) {
+function QloraScene({ t }: { t: Record<string, string> }) {
   const bars = [
     { x: -2.1, h: 0.85, label: "QLoRA 24G", color: P.teal, tone: "teal" as const, fill: 0.55 },
     { x: 0.0, h: 1.35, label: "LoRA >36G", color: P.amber, tone: "amber" as const, fill: 0.5 },
@@ -162,7 +162,7 @@ function MixScene() {
   );
 }
 
-function ExportScene({ t }: { t: any }) {
+function ExportScene({ t }: { t: Record<string, string> }) {
   const items: { x: number; label: string; tone: "teal" | "amber" | "violet"; color: string }[] = [
     { x: -2.15, label: t.adapters, tone: "teal", color: P.teal },
     { x: 0.0, label: t.gguf_q4, tone: "amber", color: P.amber },

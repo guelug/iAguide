@@ -65,7 +65,7 @@ export default function Visual() {
   );
 }
 
-function Scene({ active, t }: { active: Step; t: any }) {
+function Scene({ active, t }: { active: Step; t: Record<string, string> }) {
   return (
     <group>
       {active === "ldm" ? <LdmScene t={t} /> : null}
@@ -77,7 +77,7 @@ function Scene({ active, t }: { active: Step; t: any }) {
   );
 }
 
-function LdmScene({ t }: { t: any }) {
+function LdmScene({ t }: { t: Record<string, string> }) {
   return (
     <group>
       <Wire points={[[-2.5, 0.1, 0], [2.5, 0.1, 0]]} color={P.line} opacity={0.5} />
@@ -134,7 +134,7 @@ function ClipScene() {
   );
 }
 
-function VaeScene({ t }: { t: any }) {
+function VaeScene({ t }: { t: Record<string, string> }) {
   return (
     <group>
       <Slab position={[-1.7, 0.6, 0]} size={[2.0, 0.9, 0.14]} color={P.teal} fill={0.5} />

@@ -71,7 +71,7 @@ export default function Visual() {
   );
 }
 
-function Scene({ active, t }: { active: Step; t: any }) {
+function Scene({ active, t }: { active: Step; t: Record<string, string> }) {
   return (
     <group>
       {active === "three" ? <ThreeScene t={t} /> : null}
@@ -83,7 +83,7 @@ function Scene({ active, t }: { active: Step; t: any }) {
   );
 }
 
-function ThreeScene({ t }: { t: any }) {
+function ThreeScene({ t }: { t: Record<string, string> }) {
   const cols = [
     { x: -2.15, h: 1.1, label: "sub quota", color: P.teal, tone: "teal" as const },
     { x: 0.0, h: 1.55, label: t.api_token, color: P.amber, tone: "amber" as const },
@@ -104,7 +104,7 @@ function ThreeScene({ t }: { t: any }) {
   );
 }
 
-function TurnScene({ t }: { t: any }) {
+function TurnScene({ t }: { t: Record<string, string> }) {
   return (
     <group>
       <Wire points={[[-2.5, 0.2, 0], [2.5, 0.2, 0]]} color={P.line} opacity={0.5} />

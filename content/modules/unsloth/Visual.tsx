@@ -68,7 +68,7 @@ export default function Visual() {
   );
 }
 
-function Scene({ active, t }: { active: Step; t: any }) {
+function Scene({ active, t }: { active: Step; t: Record<string, string> }) {
   return (
     <group>
       {active === "surfaces" ? <SurfacesScene /> : null}
@@ -103,7 +103,7 @@ function SurfacesScene() {
   );
 }
 
-function MethodsScene({ t }: { t: any }) {
+function MethodsScene({ t }: { t: Record<string, string> }) {
   const bars = [
     { x: -2.1, h: 0.85, label: "QLoRA", color: P.teal, tone: "teal" as const, fill: 0.55 },
     { x: 0.0, h: 1.35, label: "LoRA 16b", color: P.amber, tone: "amber" as const, fill: 0.5 },
@@ -153,7 +153,7 @@ function GgufScene() {
   );
 }
 
-function ExportScene({ t }: { t: any }) {
+function ExportScene({ t }: { t: Record<string, string> }) {
   const items: { x: number; label: string; tone: "teal" | "amber" | "violet"; color: string }[] = [
     { x: -2.15, label: t.adapters, tone: "teal", color: P.teal },
     { x: 0.0, label: "q4_k_m", tone: "amber", color: P.amber },

@@ -62,7 +62,7 @@ export default function Visual() {
   );
 }
 
-function Scene({ active, t }: { active: Step; t: any }) {
+function Scene({ active, t }: { active: Step; t: Record<string, string> }) {
   return (
     <group>
       {active === "local" ? <LocalScene /> : null}
@@ -145,7 +145,7 @@ function EndpointsScene() {
   );
 }
 
-function JobsScene({ t }: { t: any }) {
+function JobsScene({ t }: { t: Record<string, string> }) {
   const items: { x: number; label: string; tone: "teal" | "amber" | "violet"; color: string }[] = [
     { x: -2.15, label: "hf jobs", tone: "teal", color: P.teal },
     { x: 0.0, label: "TGI / vLLM", tone: "amber", color: P.amber },

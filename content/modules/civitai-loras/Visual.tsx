@@ -69,7 +69,7 @@ export default function Visual() {
   );
 }
 
-function Scene({ active, t }: { active: Step; t: any }) {
+function Scene({ active, t }: { active: Step; t: Record<string, string> }) {
   return (
     <group>
       {active === "adapter" ? <AdapterScene t={t} /> : null}
@@ -81,7 +81,7 @@ function Scene({ active, t }: { active: Step; t: any }) {
   );
 }
 
-function AdapterScene({ t }: { t: any }) {
+function AdapterScene({ t }: { t: Record<string, string> }) {
   return (
     <group>
       <Slab position={[0, 0.35, 0]} size={[3.2, 1.4, 0.14]} color={P.teal} fill={0.35} />
@@ -94,7 +94,7 @@ function AdapterScene({ t }: { t: any }) {
   );
 }
 
-function SlotScene({ t }: { t: any }) {
+function SlotScene({ t }: { t: Record<string, string> }) {
   return (
     <group>
       <Wire points={[[-2.5, 0.15, 0], [2.5, 0.15, 0]]} color={P.line} opacity={0.5} />

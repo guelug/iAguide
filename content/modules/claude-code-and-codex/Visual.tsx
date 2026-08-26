@@ -62,7 +62,7 @@ export default function Visual() {
   );
 }
 
-function Scene({ active, t }: { active: Step; t: any }) {
+function Scene({ active, t }: { active: Step; t: Record<string, string> }) {
   return (
     <group>
       {active === "two" ? <TwoScene /> : null}
@@ -97,7 +97,7 @@ function TwoScene() {
   );
 }
 
-function ViewScene({ t }: { t: any }) {
+function ViewScene({ t }: { t: Record<string, string> }) {
   const rows = [
     { x: -2.1, label: t.working, tone: "teal" as const, color: P.teal },
     { x: 0.0, label: t.needs_input, tone: "amber" as const, color: P.amber },
