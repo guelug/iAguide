@@ -1,0 +1,25 @@
+## Three knobs, three answers
+
+Sandbox (agents.defaults.sandbox.mode off/non-main/all) is WHERE tools run. Tool policy (allow/deny, profiles, group:runtime/fs/...) is WHICH tools exist. Elevated is exec-only: run outside the sandbox when already sandboxed — it does not grant extra tools.
+
+deny always wins. If allow is non-empty, everything else is blocked. /exec cannot override a denied exec tool. group:runtime is exec/process/code_execution.
+
+Debug: openclaw sandbox explain --json.
+
+<VisualSlot caption="sandbox where, tool policy which, elevated exec hatch, groups, explain." />
+
+## Compare vs Hermes
+
+Hermes: toolsets + check_fn + iron_proxy egress. OpenClaw: sandbox location vs allow/deny vs elevated, with group:* shorthands.
+
+## Case: I thought this was main
+
+**Case.** Slack channel is sandboxed under mode non-main; exec blocked.
+
+**Fix.** Channel keys are not main. Use sandbox explain; allow the tool or change mode.
+
+<TryThis>
+Map a blocked exec to the exact config key you would change (sandbox vs deny vs elevated).
+</TryThis>
+
+Source: https://docs.openclaw.ai/gateway/sandbox-vs-tool-policy-vs-elevated

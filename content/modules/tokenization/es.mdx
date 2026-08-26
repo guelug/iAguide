@@ -1,0 +1,33 @@
+## El tokenizador es parte del modelo
+
+El <Term id="token">tokenizador</Term> no es un extra. Es el dialecto con el que se entrenaron los pesos. Cámbialo y tienes otro modelo, aunque los tensores te suenen. El inglés suele caer cerca de un token por palabra; el código, las URLs y otros alfabetos se desvían. Cuenta tokens, no caracteres.
+
+El BPE (y sus primos) cortan por frecuencia, no por lingüística. Por eso `strawberry` puede ser tres piezas y el modelo no “ve” tres erres como tres erres.
+
+<Callout>
+Un GGUF o una carpeta de Hugging Face con el `tokenizer.json` equivocado se verá “tonto”. Arregla el artefacto antes de hacer fine-tune.
+</Callout>
+
+## Los mensajes son la UI. El modelo ve una cadena
+
+Los chats intercambian **mensajes**: `system`, `user`, `assistant` y luego `tool`. Antes del forward, una **plantilla de chat** los concatena en un solo prompt, envolviendo cada turno en **tokens especiales** que *este* modelo esperaba.
+
+SmolLM2 habla `<|im_start|>role … <|im_end|>`. Llama 3 habla `<|eot_id|>`. Gemma habla `<end_of_turn>`. No memorices el zoo. Llama a `tokenizer.apply_chat_template(...)` (o el equivalente en llama.cpp / Ollama) y no inventes los delimitadores a mano.
+
+<VisualSlot caption="Tres dimensiones del mismo prompt: roles que muestra la UI, tokens especiales que el modelo necesita, la cadena renderizada a la que atiende." />
+
+Los modelos base completan texto. Los instruct se ajustaron a una plantilla. Si le das a un instruct una completion cruda, se pierde: el bug es tuyo.
+
+## Los turnos de herramienta viven en la misma cadena
+
+Cuando el arnés ejecuta una tool, la observación es otro mensaje, delimitado como los demás. El modelo no tiene un canal paralelo. Si olvidas la plantilla de los resultados, tratará el JSON como prosa.
+
+<TryThis>
+Elige un instruct que de verdad corras. Imprime `tokenizer.chat_template` (o la plantilla del Modelfile). Escribe a mano la misma conversación de tres turnos como la plantilla la haría. Llama a `apply_chat_template` y compara. Los desajustes son los bugs de producción.
+</TryThis>
+
+## Caso — el 8B “tonto” de NovaDesk
+
+NovaDesk cambió un GGUF instruct de Qwen por un quant “más rápido” de Llama 3 y dejó el wrapper ChatML de Qwen. El modelo contestaba a trozos e inventaba `<|im_end|>` a mitad de frase. Perdieron un día con la temperatura. El tokenizador y la plantilla eran de otra familia.
+
+Esta lección reescribe ideas del [curso de agentes de Hugging Face](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.

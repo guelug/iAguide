@@ -1,0 +1,44 @@
+## One turn, five verbs
+
+Every serious harness — Hermes Agent, OpenClaw, a chat-box you wrote on a Saturday — does the same dance:
+
+1. **Intake** a user message (and maybe a queued interrupt).
+2. **Assemble** context: system policy, skills, memory snapshots, recent turns.
+3. **Call the model** (chat completions, native Messages, Responses, or an embedded runtime).
+4. **Run tools** if the model asked for them; loop until text or budget.
+5. **Persist** the transcript and flush durable memory.
+
+The model is replaceable. The loop is the product.
+
+<VisualSlot caption="Step the five verbs of a turn. The pulse is work moving through the harness — not a second brain." />
+
+## Interrupt, budget, fallback (general ideas)
+
+- **Interruptible** — an HTTP call or tool batch can be abandoned when the user sends `/stop` or a new message. Partial assistant text must not pollute the transcript.
+- **Budget** — a hard iteration or wall-clock ceiling so a runaway tool loop cannot burn a weekend of tokens.
+- **Fallback** — when the primary provider returns 429/5xx/auth failure, try a configured chain. Subagents often do **not** inherit that chain (isolation beats cleverness).
+
+<Compare a="Chat box" b="Harness loop">
+<Side>
+Send message → print reply. No tool rounds, no interrupt model, no durable writer claim. Fine for demos.
+</Side>
+<Side>
+Serialize per session, assemble a stable prefix, execute tools with permissions, compact when the window fills, deliver back through an adapter.
+</Side>
+</Compare>
+
+## Hermes vs OpenClaw (light)
+
+Hermes puts the loop in one `AIAgent` class (`run_agent.py`) shared by CLI, gateway, ACP, cron, and library callers. OpenClaw owns a **Gateway** process: `agent` RPC accepts immediately, then an embedded run streams `assistant` / `tool` / `lifecycle` events and waits via `agent.wait`. Same verbs; different ownership of the process.
+
+## Case: the interrupted half-reply
+
+**Case.** A Telegram user hits send while the model is mid-stream. The harness injects the new text as a steer/interrupt but also appends the truncated assistant fragment as a finished turn. Next call: two assistant messages in a row → provider 400.
+
+**Fix pattern.** On interrupt: abandon the API thread, do not commit partial assistant content, queue or steer the new user text, then continue with valid alternation.
+
+<TryThis>
+Draw the five verbs on paper. Mark where you would put (a) an interrupt event, (b) a 500-iteration budget, (c) a fallback provider swap. No GPU required — the harness is testable as a state machine.
+</TryThis>
+
+Official maps: [Hermes agent loop](https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop), [OpenClaw agent loop](https://docs.openclaw.ai/concepts/agent-loop).

@@ -1,0 +1,15 @@
+## The part that decides quality
+
+Weights imitate what they see. A beautiful trainer on a dirty mix produces a confident mess. **Sourcing** (where text came from), **dedup** (near-duplicates inflate epochs), **filtering** (PII, spam, empty shells), **contamination** (eval leaked into train), **synthetic** data (useful, biased like the teacher), and **licences** (can you ship this) are the job. Not glamorous. Decisive.
+
+Pretrain corpora are industrial. For SFT and tool traces you can own the set: a few hundred clean pairs in the template you will serve beat a scraped dump.
+
+<VisualSlot caption="A raw dump of points versus a filtered mix landing in the train set. Contamination is the rose mode." />
+
+<TryThis>
+Take twenty of your own prompts. Mark each: keep, rewrite, drop. Then check whether any eval question appears almost verbatim in the train file. If yes, you are grading memorisation.
+</TryThis>
+
+## Case — EchoLab’s duplicated FAQ
+
+EchoLab fine-tuned on a support export. One FAQ was pasted 400 times. Loss looked great. The model answered that FAQ and shrugged everything else. Dedup would have shown a 12-file dataset, not a 5_000-row fantasy.

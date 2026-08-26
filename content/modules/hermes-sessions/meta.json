@@ -1,0 +1,24 @@
+{
+  "id": "hermes-sessions",
+  "order": 6.26,
+  "slug": "hermes-sessions",
+  "track": "harness",
+  "title": {
+    "en": "Hermes: state.db and FTS5",
+    "es": "Hermes: state.db y FTS5"
+  },
+  "summary": {
+    "en": "~/.hermes/state.db SQLite WAL + FTS5. Lineage vs in-place. Write retries. session_search.",
+    "es": "~/.hermes/state.db SQLite WAL + FTS5. Linaje frente a in-place. Reintentos de escritura. session_search."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "hermes-compression"
+  ],
+  "durationMin": 22,
+  "tags": [
+    "hermes",
+    "sqlite"
+  ]
+}

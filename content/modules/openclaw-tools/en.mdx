@@ -1,0 +1,23 @@
+## Tools vs skills vs plugins
+
+Tools are typed functions. Skills are SKILL.md packs. Plugins add tools from ClawHub.
+
+group:runtime, group:fs, group:web, group:ui. Policy filters what the model sees. Coding profile has web_search but not browser.
+
+<VisualSlot caption="builtin, groups, plugins, skills, policy." />
+
+## Compare vs Hermes
+
+Hermes uses named toolsets. OpenClaw uses groups plus allow/deny plus a sandbox tool gate.
+
+## Case: missing browser
+
+**Case.** Coding profile hides browser.
+
+**Fix.** alsoAllow browser; plugins.allow must include browser.
+
+<TryThis>
+Pick groups for a read-only research agent.
+</TryThis>
+
+Source: https://docs.openclaw.ai/tools

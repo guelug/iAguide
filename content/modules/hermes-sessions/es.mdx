@@ -1,0 +1,15 @@
+## Una base, CLI y gateway
+
+~/.hermes/state.db, WAL, FTS5, schema 23. Reintentos con jitter. Linaje o in-place. session_search consulta esta DB.
+
+<VisualSlot caption="state.db: WAL, FTS5, linaje frente a un id estable." />
+
+## Caso: tormenta de locks
+
+**Caso.** Gateway + CLI + worktrees. Timeout corto y jitter como en los docs.
+
+<TryThis>
+Esboza las claves de sessions: id, source, parent_session_id.
+</TryThis>
+
+Fuente: [Session storage](https://hermes-agent.nousresearch.com/docs/developer-guide/session-storage).

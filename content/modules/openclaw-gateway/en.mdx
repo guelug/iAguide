@@ -1,0 +1,25 @@
+## The waist is a process
+
+A single long-lived Gateway owns WhatsApp (Baileys), Telegram, Slack, Discord, Signal, iMessage, WebChat. Control-plane clients (macOS app, CLI, web UI) connect over WebSocket on 127.0.0.1:18789 by default.
+
+Nodes connect to the same WS with role: node. One Gateway per host — it is the only place that opens a WhatsApp session. Hosted widgets live under /__openclaw__/canvas/ on the same port.
+
+Start: openclaw gateway. Supervise with launchd/systemd. Preferred remote: Tailscale or SSH tunnel to loopback.
+
+<VisualSlot caption="Daemon, port 18789, clients, nodes, one Gateway per host." />
+
+## Compare vs Hermes
+
+Hermes GatewayRunner is an in-process loop inside the same Python app as AIAgent. OpenClaw Gateway is the product process: protocol, pairing, channels, agent RPC.
+
+## Case: two Gateways, one WhatsApp
+
+**Case.** Laptop and VPS both start openclaw gateway against the same Baileys session.
+
+**Invariant.** Exactly one Gateway controls a Baileys session per host. Pick one; tunnel the other.
+
+<TryThis>
+Write the default bind and the SSH tunnel one-liner from the docs.
+</TryThis>
+
+Source: https://docs.openclaw.ai/concepts/architecture

@@ -7,6 +7,9 @@ Dos formas de petición, un mismo trabajo (completar los siguientes tokens):
 
 Si te saltas la plantilla en un modelo instruct, le hablas en un dialecto que no entrenó.
 
+
+<VisualSlot caption="Un prefijo estable acierta la caché; un carácter la rompe. Los hilos anidados son prefijos hijos." />
+
 ## tool_call es un mensaje, no un canal paralelo
 
 Un <Term id="tool-call">tool_call</Term> es salida estructurada: id, nombre, argumentos (casi siempre JSON). El arnés ejecuta y devuelve un mensaje **tool** (o `tool_result`) con el mismo id. Luego el modelo sigue. Varias rondas pueden vivir dentro de un <Term id="turn">turno</Term> de usuario.
@@ -44,3 +47,17 @@ Registra tres ids en cada llamada: `session_id`, `thread_id`, `turn_id`. Reprodu
 ## Streaming sin mentir
 
 El <Term id="streaming">streaming</Term> son tokens cuando existen. Los fragmentos de tool_call no son la respuesta. Ocúltalos o muestra un “ejecutando `search`…”. Nunca concatenes medio argumento en la burbuja del chat.
+
+## Multi-agente son hilos anidados
+
+Un manager más un worker no es otra especie de memoria. Es otro <Term id="thread">hilo</Term> (casi siempre otro prefijo, otra caché) cuyo resumen es un mensaje en el padre. Los ejemplos multi-agente de Hugging Face son esto: aislar búsquedas ruidosas, pagar un segundo prefill. La caché de prefijo acierta solo si el system prompt del hijo es estable.
+
+<TryThis>
+Romper la caché de prefijo: escribe dos prompts que difieren en un timestamp en la línea system. Di qué cachés fallan (la KV de esta petición sigue; la de prefijo entre peticiones muere). Luego mueve el timestamp al turno *user* para que el prefijo pueda acertar.
+</TryThis>
+
+## Caso — el hijo que filtraba de TwinDesk
+
+TwinDesk lanzaba un worker web por consulta y pasaba **todo el hilo padre** “por contexto.” El email del cliente A aterrizó en el prefijo del cliente B cuando la clave de caché ignoraba `thread_id`. Los hilos anidados necesitan sus propios ids — los tres que registraste arriba.
+
+Esta lección reescribe ideas del [curso de agentes de Hugging Face](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.

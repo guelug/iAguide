@@ -11,7 +11,7 @@
     "en": "Vector space, cosine similarity, chunking, hybrid search, rerankers — and why naive RAG disappoints.",
     "es": "Espacio vectorial, similitud coseno, troceado, búsqueda híbrida, rerankers — y por qué el RAG ingenuo decepciona."
   },
-  "status": "wip",
+  "status": "complete",
   "prereqs": [
     "maths-you-need"
   ],

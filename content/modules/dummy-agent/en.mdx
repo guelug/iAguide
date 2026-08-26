@@ -1,0 +1,34 @@
+## Particularity — the loop in twenty lines of Python
+
+This is not a fifth track. It is the general ReAct cycle with the framework stripped off, the way the Hugging Face Agents Course teaches it before smolagents.
+
+You probably would not ship this. You should be able to write it, or you will not know what smolagents is hiding.
+
+## Stop before Observation
+
+The dummy system prompt lists tools in English, shows a JSON blob (`action`, `action_input`), and demands the format:
+
+```
+Thought: ...
+Action:
+{ "action": "get_weather", "action_input": { "location": "London" } }
+Observation: ...
+```
+
+If you let the model keep generating, it will **hallucinate the Observation** — sunny London invented in logits. The fix: `stop=["Observation:"]`, parse the JSON, run `get_weather` *yourself*, append the real string, then sample again until `Final Answer:`.
+
+<VisualSlot caption="Left: the model’s Thought and Action. Right: a fake Observation versus the real function. The stop sequence is the hinge." />
+
+A serverless chat API (Hugging Face Inference, or any OpenAI-shaped endpoint) is enough. The chat method applies the template; you still own the loop.
+
+The first “real” agent in that course is the same loop inside smolagents — [next particularity](/course/smolagents). LlamaIndex and LangGraph come later as other encodings, not as promotions.
+
+<TryThis>
+Implement a tiny thought-action-observation loop in Python with **fake** tools (`get_weather`, `clock`). No API key. Hard-code two model “replies” as strings: one Action JSON, one Final Answer. Your code must: stop-parse, refuse unknown names, append Observation, then print the final line. If the fake model emits Observation itself, your loop should ignore it.
+</TryThis>
+
+## Case — MeteoLite’s sunny hallucination
+
+MeteoLite demoed “agents” by printing the raw completion. London was always sunny because the 8B had seen that pattern. A reviewer asked them to `curl` the weather API. They added `stop=["Observation:"]` and the demo broke — they had never written `runTool`. The dummy loop was the product they skipped.
+
+This lesson rewrites ideas from the [Hugging Face Agents Course](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.

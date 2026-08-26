@@ -1,0 +1,27 @@
+## Native plugin contract
+
+plugin.yaml + register(ctx). ctx.register_tool, register_hook, register_cli_command, register_command, dispatch_tool, get_config, ctx.state.
+
+Discovery: ~/.hermes/plugins/, project .hermes/plugins/, pip. Opt-in via hermes plugins enable. Doctor checks manifests.
+
+tools.override needs capabilities plus allow_tool_override. Handlers return JSON strings.
+
+Specialized kinds: model-provider, platform, memory, context_engine.
+
+<VisualSlot caption="plugin.yaml, register(ctx), discovery, capabilities." />
+
+## Compare vs OpenClaw
+
+OpenClaw installs plugins on the Gateway. Hermes loads them in-process.
+
+## Case: shadowing web_search
+
+**Case.** Two plugins claim the same tool.
+
+**Fix.** Reject without override; ask for operator consent; run doctor.
+
+<TryThis>
+Write plugin.yaml for a calculator with provides_tools: [calculate].
+</TryThis>
+
+Source: https://hermes-agent.nousresearch.com/docs/developer-guide/plugins

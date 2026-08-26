@@ -1,0 +1,15 @@
+## Sistema dual
+
+Higiene gateway 85%. Compresor en bucle 50%. Cuatro fases. in_place por defecto. system_and_3 de Anthropic. /model rompe la cache.
+
+<VisualSlot caption="85%, 50%, cuatro fases, in-place, system_and_3." />
+
+## Caso: cache bust tras /model
+
+**Caso.** Cambio de modelo a mitad de hilo; la factura se dispara.
+
+<TryThis>
+Coloca cuatro marcadores cache_control en una peticion de 10 mensajes. Cual es el system prompt?
+</TryThis>
+
+Fuente: [Compression and caching](https://hermes-agent.nousresearch.com/docs/developer-guide/context-compression-and-caching).

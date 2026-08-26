@@ -1,0 +1,25 @@
+## Particularity — when the loop is a graph
+
+LangGraph encodes the general cycle as a **compiled state machine**. Use it when control flow is the product: branch on class, join parallel work, wait for a human, persist state. Do not use it because a blog post said “graphs.”
+
+Building blocks:
+
+- **State** — a typed dict (or reducer-backed fields) that every node reads and patches.
+- **Nodes** — Python functions: LLM call, tool, condition, human.
+- **Edges** — always-next, or conditional on state.
+- **Reducers** — how two writes to the same field merge (append messages, overwrite a flag).
+- **START / END** — the only honest exits.
+
+<VisualSlot caption="A four-node graph versus a plain loop. The last switch is a cycle with no END — the failure mode." />
+
+A first graph in the course: ingest email → classify → draft if genuine → END. A document-analysis graph adds retrieve and summarise nodes. If your only condition is “tool failed, retry,” you wanted a loop.
+
+<TryThis>
+Draw a graph for a three-step review: (1) retrieve the doc, (2) draft a summary, (3) a human ticks yes/no. Label state fields, the conditional edge after the human, and the END. Then write one sentence for a cycle that would never exit (missing END, or a retry with no counter).
+</TryThis>
+
+## Case — Reviewly’s cycle with no exit
+
+Reviewly’s document graph sent “needs more evidence” back to retrieve with no hop counter. One PDF with empty embeddings looped until the bill hurt. They added an `attempts` field and an edge to END when `attempts > 2`. The graph was fine. The missing reducer on `attempts` was the incident.
+
+This lesson rewrites ideas from the [Hugging Face Agents Course](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.

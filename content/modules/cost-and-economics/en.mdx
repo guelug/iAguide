@@ -1,0 +1,15 @@
+## Tokens are the unit of the bill
+
+Rough head arithmetic: cost ≈ (input tokens × input price) + (output tokens × output price), plus tool APIs, plus the machines you leave on. **Prefix cache** discounts the stable front of the prompt when the vendor supports it — you still pay for new tokens. Local is “free” until you amortise the box, power, and your time.
+
+Break-even is a spreadsheet, not a tweet. Measure your real mix of input/output and cache hit rate before you swear loyalty to an API or a GPU.
+
+<VisualSlot caption="Input bill versus output bill. Cache mode dims the prefix you already paid to compute." />
+
+<TryThis>
+Take last week’s usage (or invent honest numbers): 2M input, 500k output, 40% prefix hit. Price them at any public rate card. Then add €/month for a single 24GB GPU. Which story wins at your volume?
+</TryThis>
+
+## Case — CacheMiss Co.
+
+CacheMiss Co. paid full input rate because a timestamp in the system prompt changed every request. They “optimised” the model. Removing the timestamp restored cache hits and halved the bill. The weights were innocent.

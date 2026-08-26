@@ -1,0 +1,30 @@
+## Session ≠ browser cookie
+
+A **session** is the durable conversation unit the harness persists: messages, tool results, model/usage metadata. A **thread** in product language is often the same thing. A **process tab** is not.
+
+Routing keys decide *which* session an inbound message joins. Compaction changes *what the model sees next*, not necessarily the id you search later.
+
+<VisualSlot caption="Key → row → transcript → compact → search. Lineage chains vs one stable id." />
+
+## Shared patterns
+
+- **Per-surface keys** — DMs, groups, cron, webhooks isolate differently.
+- **SQLite** — Hermes `~/.hermes/state.db` (WAL + FTS5); OpenClaw per-agent `openclaw-agent.sqlite` under `~/.openclaw/agents/<id>/agent/`.
+- **Compaction modes** — rotate to a child id (lineage) **or** rewrite in place and soft-archive old turns (searchable, same id).
+- **Search** — FTS / session_search so the agent can recall across compressions.
+
+## Hermes vs OpenClaw (dmScope)
+
+Hermes gateway keys look like `agent:main:{platform}:{chat_type}:{chat_id}`. OpenClaw `session.dmScope` chooses whether all DMs share `main` or isolate `per-channel-peer` — critical when multiple humans can message the bot.
+
+## Case: Telegram overnight explosion
+
+**Case.** Overnight group chat fills the window; morning turn 400s on context length. Gateway hygiene (Hermes ~85%) or OpenClaw auto-compaction should have fired; someone disabled compression “to keep everything.”
+
+**Practice.** Compaction is lossy but searchable if you flush memory first and keep FTS / archives. Turning it off is how sessions die.
+
+<TryThis>
+Sketch two session keys: a private DM and a group. Write one sentence on whether they should share context. Then invent a third key for a cron job that must start empty.
+</TryThis>
+
+Docs: [Hermes session storage](https://hermes-agent.nousresearch.com/docs/developer-guide/session-storage), [OpenClaw sessions](https://docs.openclaw.ai/concepts/session).

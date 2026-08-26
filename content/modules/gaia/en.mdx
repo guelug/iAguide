@@ -1,0 +1,21 @@
+## What GAIA measures
+
+[GAIA](https://huggingface.co/papers/2311.12983) is a benchmark of **466 questions** that are conceptually easy for people (~92%) and hard for assistants (early GPT-4 + plugins ~15%). Tasks need multi-step reasoning, tools, sometimes multimodal hops. Levels 1–3 add steps and tool coordination. Answers are short and factual so scoring is simple — and so brute force fails.
+
+A public leaderboard on Hugging Face hosts testing questions. That is useful. **It is not your product.** iAguide does not host their certificate and will not pretend a quiz in this course equals GAIA.
+
+<VisualSlot caption="A multiple-choice quiz versus a multi-hop GAIA task. The middle node is your users — they are not the leaderboard." />
+
+Unit 4 of the Agents Course is “build an agent, submit to the leaderboard, maybe earn a certificate.” Steal the *shape*: pick hard, tool-using questions that match *your* domain. Skip Discord onboarding and live Q&A.
+
+What to learn next, in their words: MCP (tools as a socket) and A2A (agents talking to agents). We fold MCP into [tools](/course/tools-and-mcp); multi-agent into [patterns](/course/agent-patterns) and [smolagents-multi](/course/smolagents-multi).
+
+<TryThis>
+Pick three GAIA-*style* questions for a domain you know (not from the set if you will sit their exam). For each, list the tools required and whether a quiz without tools could fake the answer. If a quiz could fake it, the question is not GAIA-shaped.
+</TryThis>
+
+## Case — Quizly’s 9/10 and a silent GAIA
+
+Quizly trained support staff on a twenty-question multiple choice about their agent. Average 9/10. The same agent scored near zero on three internal GAIA-style tasks (need a PDF + a calendar + a calculator). The quiz measured vocabulary. GAIA measured the loop. They shipped on the quiz.
+
+This lesson rewrites ideas from the [Hugging Face Agents Course](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.

@@ -1,0 +1,24 @@
+{
+  "id": "hermes-plugins",
+  "order": 6.29,
+  "slug": "hermes-plugins",
+  "track": "harness",
+  "title": {
+    "en": "Hermes: plugin context API",
+    "es": "Hermes: API de contexto de plugins"
+  },
+  "summary": {
+    "en": "ctx.register_tool/hook/cli_command. Discovery user/project/pip. Capabilities and tool override consent.",
+    "es": "ctx.register_tool/hook/cli_command. Descubrimiento user/proyecto/pip. Capabilities y override."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "hermes-tools"
+  ],
+  "durationMin": 20,
+  "tags": [
+    "hermes",
+    "plugins"
+  ]
+}

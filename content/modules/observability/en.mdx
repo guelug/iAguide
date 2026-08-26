@@ -1,0 +1,17 @@
+## A turn is a trace
+
+Without observability, an agent is a black box that sometimes emails the customer. **Traces** are one user task end-to-end. **Spans** are the steps inside: prefill, decode, tool call, subagent, retrieve. OpenTelemetry is the usual wire; Langfuse, Arize, Phoenix are dashboards that speak it. smolagents can instrument with `SmolagentsInstrumentor`.
+
+Watch: latency (task and step), cost (tokens and tool APIs), request errors, explicit feedback (👍), implicit feedback (same question twice), accuracy labels you define, and automated judges (RAGAS for RAG, a guard for injection). Offline eval on a fixed set first; online monitoring after deploy; feed new failures back into the offline set.
+
+<VisualSlot caption="One turn as a trace bar; spans underneath. The error switch is a tool span failing while latency still looks fine." />
+
+<TryThis>
+List five spans you would trace on one turn of a support agent: e.g. `apply_template`, `model.generate`, `tool.search`, `tool.ticket_update`, `compact`. For each, one field you would log (tokens, ms, error class). No vendor account required.
+</TryThis>
+
+## Case — SignalOps’ calm latency
+
+SignalOps’ p95 was 1.8s — green on the dashboard. Tool error rate was 40% (timeout to the CRM). The model apologised quickly, so latency looked fine. They alerted on p95 alone. A span error ratio would have paged them on day one.
+
+This lesson rewrites ideas from the [Hugging Face Agents Course](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.

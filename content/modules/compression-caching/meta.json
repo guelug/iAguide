@@ -1,0 +1,25 @@
+{
+  "id": "compression-caching",
+  "order": 6.15,
+  "slug": "compression-caching",
+  "track": "harness",
+  "title": {
+    "en": "Compression and prompt cache",
+    "es": "Compresion y cache de prompt"
+  },
+  "summary": {
+    "en": "Dual thresholds, summarise the middle, keep the tail, prompt-cache breakpoints. Compaction is lossy; flush memory first.",
+    "es": "Umbrales dobles, resumir el medio, conservar la cola, breakpoints de cache. Compactar es con perdida; volcar memoria antes."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "gateway"
+  ],
+  "durationMin": 26,
+  "tags": [
+    "compression",
+    "cache",
+    "context"
+  ]
+}

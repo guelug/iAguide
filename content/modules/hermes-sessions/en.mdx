@@ -1,0 +1,27 @@
+## One database, CLI and gateway
+
+Default path ~/.hermes/state.db (HERMES_HOME). WAL for concurrent readers plus one writer. Tables include sessions, messages, FTS5 virtual tables (unicode, trigram, CJK), compression_locks, schema_version (currently 23).
+
+Writes: SQLite timeout 1s, app retry 15 times with 20-150ms jitter, BEGIN IMMEDIATE, WAL checkpoint every 50 writes -- avoids convoy effect.
+
+Lineage via parent_session_id when in_place is false. In-place compaction keeps one id; old messages active=0 compacted=1, still FTS-searchable.
+
+session_search is intercepted in the agent loop and queries this DB (sanitize FTS5 user input).
+
+<VisualSlot caption="state.db: WAL writers, FTS5, lineage chain versus one stable id." />
+
+## Compare vs OpenClaw
+
+OpenClaw stores per-agent openclaw-agent.sqlite plus a shared ~/.openclaw/state/openclaw.sqlite for pairing. Hermes uses one profile-scoped state.db.
+
+## Case: gateway plus CLI lock storm
+
+**Case.** Worktree agents plus gateway plus CLI all write; default 30s SQLite timeout piled up.
+
+**Fix.** Short timeout plus jittered retries as documented.
+
+<TryThis>
+If you have ~/.hermes/state.db, do not open it if you do not own the machine -- instead write the SQL you would use to list recent session titles. If not, sketch the sessions table keys: id, source, parent_session_id.
+</TryThis>
+
+Source: [Session storage](https://hermes-agent.nousresearch.com/docs/developer-guide/session-storage).

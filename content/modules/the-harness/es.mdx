@@ -58,3 +58,21 @@ En GPU, un <Term id="kernel">kernel</Term> es el programa compilado que corre en
 <TryThis>
 Escribe el bucle de arriba en pseudocódigo, con un `runTool(name, args)` falso y una allowlist estricta. No conectes un modelo de verdad todavía. El arnés se puede testear sin pesos.
 </TryThis>
+
+## Dónde fue el tutorial dummy
+
+El bucle de arriba se testa sin pesos. El curso de Hugging Face lo implementa primero como [librería dummy](/course/dummy-agent) (parar antes de Observation) y luego como particularidad [smolagents](/course/smolagents). Los patrones — ReAct frente a un grafo frente a un workflow de retrieval — viven en [patrones de agente](/course/agent-patterns). Son codificaciones de **este** bucle, no una quinta vía.
+
+<TryThis>
+Lab, aún sin modelo: implementa `runTool(name, args)` con allowlist dura y `max_steps` 4. Dale dos completions guionizadas (una Action, un Final Answer). Asegura que una tercera Action pararía. Comenta un puntero a dummy-agent para el mismo lab con JSON en el prompt.
+</TryThis>
+
+## Caso — Hermes-el-nombre frente a Hermes-el-bucle
+
+Un equipo abrió “Hermes ignora las tools” contra pesos de Nous. El perfil no listaba tools; el runtime no parseaba llamadas. Depuraban el motor. El arnés — esta página — estaba vacío. Quédate con el mito del principio cuando alguien diga “Hermess.”
+
+Esta lección reescribe ideas del [curso de agentes de Hugging Face](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.
+
+## Siguiente en esta vía
+
+El mapa del arnés sigue en dos capas. **Patrón general** (sin producto en el título): [bucle del agente](/course/agent-loop), [ensamblado de prompt](/course/prompt-assembly), [runtime de tools](/course/tools-runtime), [sesiones](/course/sessions), [gateway](/course/gateway), [compresión y caché](/course/compression-caching), [plugins y skills](/course/plugins-and-skills), [trabajos programados](/course/scheduled-jobs), [tools de browser](/course/browser-tools), [acceso programático](/course/programmatic-access). **Particularidades de producto** después: Hermes (`hermes-*`) y OpenClaw (`openclaw-*`). Las codificaciones Hugging Face (dummy-agent, smolagents, LangGraph, LlamaIndex) siguen en esta misma vía — no hay una quinta.

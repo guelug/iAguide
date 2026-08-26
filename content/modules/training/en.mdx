@@ -8,6 +8,9 @@ Most chat models you meet were not born in one run. A typical stack:
 
 You can stop after SFT. Many local models do.
 
+
+<VisualSlot caption="Pretrain, then SFT, then preference. A laptop can often LoRA; it cannot honestly pretrain a frontier base." />
+
 ## Pretrain is not a laptop sport
 
 Pretraining reads staggering amounts of text and updates all the weights, for a long time, on a cluster. A laptop can *run* a 7B–8B model. It cannot honestly pretrain one. If a README says “pretrain on your Mac,” they mean a toy, a continued pretrain on a tiny corpus, or marketing.
@@ -50,3 +53,7 @@ We are not quoting a GRPO paper's equations here. If you implement it, read the 
 <TryThis>
 Write your goal as one of: inference, LoRA, full FT, pretrain. If it is the last two, you are shopping for a cluster or a vendor, not a new laptop cooler.
 </TryThis>
+
+## Case — “pretrain on my Mac”
+
+A README promised pretraining a 7B on a laptop overnight. It was continued pretrain on a toy corpus that wiped chat manners. The stack above still applies; the marketing did not.

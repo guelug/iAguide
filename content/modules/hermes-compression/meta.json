@@ -1,0 +1,24 @@
+{
+  "id": "hermes-compression",
+  "order": 6.25,
+  "slug": "hermes-compression",
+  "track": "harness",
+  "title": {
+    "en": "Hermes: dual compression + system_and_3",
+    "es": "Hermes: doble compresion y system_and_3"
+  },
+  "summary": {
+    "en": "Gateway 85% vs in-loop 50%. Four-phase algorithm. In-place compaction. Anthropic system_and_3 breakpoints. Model identity is part of the cache key.",
+    "es": "Gateway 85% frente a bucle 50%. Algoritmo de cuatro fases. Compactacion in-place. Breakpoints system_and_3. La identidad del modelo entra en la clave de cache."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "hermes-assembly"
+  ],
+  "durationMin": 26,
+  "tags": [
+    "hermes",
+    "cache"
+  ]
+}

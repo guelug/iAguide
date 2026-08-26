@@ -1,0 +1,21 @@
+## One GPU is never enough (for pretrain)
+
+To train large models you **split work**:
+
+- **Data parallel** — copies of the model, different batches, gradient sync.
+- **Tensor parallel** — split a layer’s matmuls across devices.
+- **Pipeline parallel** — split layers into stages; microbatches keep the pipe full.
+- **Expert parallel** — MoE experts live on different devices.
+- **ZeRO / FSDP** — shard optimizer state (and often params) so memory fits.
+
+The interconnect (NVLink, InfiniBand) becomes the wall. A laptop can LoRA. It cannot honestly pretrain a frontier base.
+
+<VisualSlot caption="Four devices: data parallel shares a batch stream; tensor splits a layer; pipeline stacks stages." />
+
+<TryThis>
+Label your real goal: LoRA on one GPU, multi-GPU SFT, or pretrain. If it is the third, write the interconnect you would need before you write a shopping list for GPUs alone.
+</TryThis>
+
+## Case — Startup’s “8× GPU” with PCIe
+
+A startup striped an 8× consumer GPU box over PCIe and expected tensor-parallel 70B training. Gradient sync ate the week. They needed a machine with a fabric, or a smaller model. The parallelism diagram was right; the bus was not.

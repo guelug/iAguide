@@ -53,3 +53,21 @@ En cualquier UI local que muestre conteos (llama.cpp server, Ollama, LM Studio),
 ## Determinismo
 
 Greedy + un kernel determinista + un prompt fijo puede repetirse. El muestreo no. Algunos kernels de GPU no son estables bit a bit entre ejecuciones. Si necesitas repetir — eval, tests — fija semilla, temperatura 0, y aun así trata la deriva de GPU como posible.
+
+## Los modelos chat son el motor dentro del agente
+
+El curso de agentes de Hugging Face lo dice claro: el LLM es el **cerebro** del agente, no el agente. Los transformers decoder (Llama, Gemma, SmolLM, clase GPT) predicen el siguiente token. Los encoder (clase BERT) emiten embeddings. Los encoder–decoder (T5, BART) mapean secuencias. Los agentes casi siempre se sientan sobre un decoder **chat / instruct**: consumen una conversación con plantilla y emiten más tokens — incluidos los que significan “llama a esta tool.”
+
+Es el mismo trabajo de siguiente-token. La agencia es bucle extra, tools extra, entrenamiento extra. El motor no cambia.
+
+Los tokens especiales (`<|im_end|>`, `<|eot_id|>`, `<end_of_turn>`) dicen cuándo acabó un turno. Van con el tokenizador; los abrimos en [tokenización](/course/tokenization).
+
+Esta lección reescribe ideas del [curso de agentes de Hugging Face](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.
+
+<TryThis>
+Toma una pregunta del tiempo. Escribe (1) los tokens que un chat debe emitir para *llamar* a `get_weather`, y (2) los que emite *después* de que el arnés añada “15°C, nubes.” Estás viendo el motor dentro del bucle, no un segundo cerebro.
+</TryThis>
+
+## Caso — Alfred sin bucle
+
+Un estudiante cableó HuggingChat a una API de cafetera y lo llamó agente. El modelo escribía planes (“ve a la cocina…”) y nunca emitía un tool call: nada en el prompt nombraba una función y nada en el runtime la parseaba. Tenían motor. No tenían arnés. El bucle vive en [el arnés](/course/the-harness) y la codificación dummy en [agente dummy](/course/dummy-agent).

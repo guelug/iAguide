@@ -11,7 +11,7 @@
     "en": "Why a 400B model can run like a 30B one: routing, active parameters, load balancing, and what MoE costs you in VRAM.",
     "es": "Por qué un modelo de 400B puede correr como uno de 30B: enrutado, parámetros activos, balanceo y qué te cuesta en VRAM."
   },
-  "status": "wip",
+  "status": "complete",
   "prereqs": [
     "attention"
   ],

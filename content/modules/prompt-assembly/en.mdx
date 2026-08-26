@@ -1,0 +1,35 @@
+## Three lifetimes in one prompt
+
+Harnesses that care about cost split the system prompt by **lifetime**:
+
+1. **Stable** — identity and standing behaviour (`SOUL.md`), tool guidance, skills index, platform hints that do not change mid-chat.
+2. **Context** — project rules (`.hermes.md` / `AGENTS.md` / `CLAUDE.md` / `.cursorrules` in Hermes; OpenClaw injects workspace bootstrap files into Project Context).
+3. **Volatile** — memory / user profile snapshots, timestamp, session/model line.
+
+Anything that must change **every turn** without busting the cached prefix (budget warnings, gateway overlays, `pre_llm_call` recall) stays **ephemeral**: appended at API-call time, not written into the frozen system prompt.
+
+<VisualSlot caption="Stable → context → volatile, with an ephemeral side channel. Prefix cache only loves the frozen stack." />
+
+## Why byte stability matters
+
+Provider prompt caches (Anthropic `cache_control`, OpenRouter-compatible prefixes) match on the **prefix**. One character of mid-session mutation in the stable tier → full-price re-read. Both Hermes and OpenClaw document this: keep large stable content above an internal cache boundary; put clock/timezone and channel-specific messaging below it.
+
+<Myth>
+“Editing MEMORY.md mid-chat updates what the model sees on the next tool round.” Snapshots are usually frozen until a rebuild path (new session, compaction). Disk can be newer than the prompt.
+</Myth>
+
+## Hermes vs OpenClaw (one design choice)
+
+Hermes orders tiers as `stable → context → volatile` and loads **one** project context file by priority. OpenClaw injects a fixed bootstrap set (`AGENTS.md`, `SOUL.md`, `IDENTITY.md`, `USER.md`, optional `MEMORY.md`, one-shot `BOOTSTRAP.md`) and can keep temporal context **below** the cache boundary so day rollover does not invalidate the workspace prefix.
+
+## Case: cache bust after `/model`
+
+**Case.** Operator switches model mid-Telegram thread. Input tokens spike though the system text “looks the same.”
+
+**Why.** Model identity is part of the provider cache key. A `/model` switch (or fallback, or credential-pool rotation onto another account) yields zero cache hits on the next request.
+
+<TryThis>
+Open any local `SOUL.md` (or invent one). Split your notes into three lists: stable, context, ephemeral. Circle anything you were about to mutate every turn — that belongs in ephemeral, not SOUL.
+</TryThis>
+
+Docs: [Hermes prompt assembly](https://hermes-agent.nousresearch.com/docs/developer-guide/prompt-assembly), [OpenClaw system prompt](https://docs.openclaw.ai/concepts/system-prompt), [SOUL guide](https://docs.openclaw.ai/concepts/soul).

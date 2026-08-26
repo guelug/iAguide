@@ -1,0 +1,107 @@
+"use client";
+
+import { useState } from "react";
+import { Figure, Switcher } from "@/components/three/Figure";
+import { Stage } from "@/components/three/Stage";
+import { Flow, Node3D, Slab, Tag, Turntable, Wire } from "@/components/three/atoms";
+import { P } from "@/lib/palette";
+
+type Step = "entries" | "aiagent" | "chat" | "run" | "names";
+
+const OPTIONS = [
+  { value: "entries" as const, label: "entry points", tone: "var(--teal)" },
+  { value: "aiagent" as const, label: "AIAgent", tone: "var(--amber)" },
+  { value: "chat" as const, label: "chat()", tone: "var(--teal)" },
+  { value: "run" as const, label: "run_conversation", tone: "var(--violet)" },
+  { value: "names" as const, label: "name split", tone: "var(--amber)" },
+];
+
+export default function Visual() {
+  const [step, setStep] = useState<Step>("entries");
+
+  return (
+    <Figure
+      label="Hermes: AIAgent entry points"
+      hint="step the diagram"
+      legend={[
+        { color: P.teal, label: "core path" },
+        { color: P.amber, label: "cost / volatile" },
+        { color: P.violet, label: "extension" },
+      ]}
+      controls={
+        <Switcher
+          ariaLabel="hermes-aiagent diagram steps"
+          value={step}
+          onChange={setStep}
+          options={OPTIONS}
+        />
+      }
+    >
+      <Stage className="h-full w-full" maxDpr={1.75} camera={{ position: [0, 0.35, 7.4], fov: 40 }}>
+        <Turntable speed={0.035} tilt={0.1}>
+          <Scene active={step} />
+        </Turntable>
+      </Stage>
+    </Figure>
+  );
+}
+
+function Scene({ active }: { active: Step }) {
+  return (
+    <group>
+      <Wire points={[[-2.6, 0.2, 0], [2.6, 0.2, 0]]} color={P.line} opacity={0.5} />
+      <Flow points={[[-2.6, 0.2, 0], [2.6, 0.2, 0]]} color={P.teal} count={3} speed={0.3} />
+      <Node3D position={[0, 0.2, 0]} color={P.teal} radius={0.18} pulse={0.35} />
+
+      <Slab
+        position={[-2.3, 0.9, 0.0]}
+        size={[1.35, 0.62, 0.12]}
+        color={active === "entries" ? P.teal : P.lineStrong}
+        fill={active === "entries" ? 0.55 : 0.14}
+      />
+      <Tag position={[-2.3, 1.4500000000000002, 0.0]} tone="teal" center>
+        entry points
+      </Tag>
+
+      <Slab
+        position={[-0.75, 0.9, 0.0]}
+        size={[1.35, 0.62, 0.12]}
+        color={active === "aiagent" ? P.amber : P.lineStrong}
+        fill={active === "aiagent" ? 0.55 : 0.14}
+      />
+      <Tag position={[-0.75, 1.4500000000000002, 0.0]} tone="amber" center>
+        AIAgent
+      </Tag>
+
+      <Slab
+        position={[0.75, 0.9, 0.0]}
+        size={[1.35, 0.62, 0.12]}
+        color={active === "chat" ? P.violet : P.lineStrong}
+        fill={active === "chat" ? 0.55 : 0.14}
+      />
+      <Tag position={[0.75, 1.4500000000000002, 0.0]} tone="violet" center>
+        chat()
+      </Tag>
+
+      <Slab
+        position={[2.3, 0.9, 0.0]}
+        size={[1.35, 0.62, 0.12]}
+        color={active === "run" ? P.teal : P.lineStrong}
+        fill={active === "run" ? 0.55 : 0.14}
+      />
+      <Tag position={[2.3, 1.4500000000000002, 0.0]} tone="teal" center>
+        run_conversation
+      </Tag>
+
+      <Slab
+        position={[0.0, -1.05, 0.0]}
+        size={[1.35, 0.62, 0.12]}
+        color={active === "names" ? P.amber : P.lineStrong}
+        fill={active === "names" ? 0.55 : 0.14}
+      />
+      <Tag position={[0.0, -0.5, 0.0]} tone="amber" center>
+        name split
+      </Tag>
+    </group>
+  );
+}

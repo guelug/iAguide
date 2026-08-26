@@ -1,0 +1,25 @@
+## Una clase, cinco puertas
+
+CLI, Gateway, ACP, Batch, API Server y la libreria convergen en **AIAgent** (`run_agent.py`).
+
+`chat()` devuelve string. `run_conversation()` devuelve dict con mensajes y uso.
+
+<VisualSlot caption="Las entradas convergen en AIAgent." />
+
+<Myth>
+"Hermes es el arnes." **Nous Hermes** es familia de modelos. **Hermes Agent** es este arnes.
+</Myth>
+
+## Comparar con OpenClaw
+
+OpenClaw embebe el bucle en el Gateway. Hermes exporta AIAgent usable desde cron sin gateway.
+
+## Caso: la libreria reinventando el gateway
+
+**Caso.** Importan AIAgent sin SessionDB ni callbacks de interrupt.
+
+<TryThis>
+Dibuja cinco cajas hacia AIAgent. Etiqueta que metodos usarias en un test sin GPU.
+</TryThis>
+
+Fuente: [Architecture](https://hermes-agent.nousresearch.com/docs/developer-guide/architecture).

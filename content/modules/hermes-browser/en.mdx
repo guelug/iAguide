@@ -1,0 +1,25 @@
+## Why a supervisor
+
+Native JS dialogs block the page thread. Cross-origin iframes (OOPIFs) need a child CDP session. CDPSupervisor holds a persistent WS per task_id.
+
+Surfaces pending_dialogs and frame_tree in browser_snapshot. browser_dialog(action=accept|dismiss) responds. Policy: must_respond (default), auto_dismiss, auto_accept.
+
+Local Chrome and Browserbase supported; Camofox has no CDP.
+
+<VisualSlot caption="Supervisor, dialogs, OOPIF sessions, snapshot fields, policy." />
+
+## Compare vs OpenClaw
+
+OpenClaw runs a dedicated openclaw browser profile via Gateway loopback control. Hermes attaches a supervisor to whichever backend the browser tools already use.
+
+## Case: hung confirm dialog
+
+**Case.** Agent clicks Submit; page freezes; later tools throw opaque errors.
+
+**Fix.** Read pending_dialogs; call browser_dialog; then continue.
+
+<TryThis>
+Name three dialog policy modes and when you want auto_accept.
+</TryThis>
+
+Source: https://hermes-agent.nousresearch.com/docs/developer-guide/browser-supervisor

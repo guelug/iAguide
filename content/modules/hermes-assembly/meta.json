@@ -1,0 +1,24 @@
+{
+  "id": "hermes-assembly",
+  "order": 6.24,
+  "slug": "hermes-assembly",
+  "track": "harness",
+  "title": {
+    "en": "Hermes: prompt tiers",
+    "es": "Hermes: tiers del prompt"
+  },
+  "summary": {
+    "en": "stable then context then volatile. SOUL.md, context file priority .hermes.md > AGENTS.md > CLAUDE.md > .cursorrules, MEMORY/USER snapshots, platform hints, cache stability.",
+    "es": "stable luego context luego volatile. SOUL.md, prioridad de contexto, snapshots MEMORY/USER, pistas de plataforma, estabilidad de cache."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "hermes-loop"
+  ],
+  "durationMin": 22,
+  "tags": [
+    "hermes",
+    "prompt"
+  ]
+}

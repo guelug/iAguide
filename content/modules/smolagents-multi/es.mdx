@@ -1,0 +1,19 @@
+## Particularidad — smolagents anidados
+
+Un manager con workers sigue siendo ReAct. Cada worker es un bucle anidado con menos tools y su memoria. El aislamiento es el punto: el padre ve un resumen, no cuarenta snippets. El coste es otro prefill.
+
+Los agentes de retrieval aquí son RAG como tool (vector store, búsqueda, fallbacks), no un retrieve-then-read obligatorio. Los de visión reciben imágenes en `run(...)` o guardan capturas en `ActionStep`. Los de navegador añaden tools Helium/Selenium.
+
+<VisualSlot caption="Un manager con workers de web, retriever y visión. Cambia a visión para ver el impuesto del bucle de capturas." />
+
+Esboza un manager que grafica y un worker que solo navega. `max_steps` del worker menor que el del manager. Si puede capturar, tira imágenes de más de dos pasos o la ventana se vuelve un flipbook.
+
+<TryThis>
+En papel, esboza un manager+worker para “tres localizaciones de Batman y el tiempo de viaje.” Lista las tools del worker (search, visitar) y las del manager (plot, final_answer). Una frase que el manager tenga *prohibido* hacer él mismo.
+</TryThis>
+
+## Caso — las capturas eternas de Sightline
+
+El portero de visión de Sightline comparaba la cámara con Wikipedia. El callback guardaba cada captura y nunca limpiaba `observations_images`. Tras un modal de cookies, el agente “miró” hasta `max_steps`. Creían necesitar un VLM más grande. Necesitaban `close_popups` y retener solo dos capturas.
+
+Esta lección reescribe ideas del [curso de agentes de Hugging Face](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.

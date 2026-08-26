@@ -1,0 +1,19 @@
+## Mismo bucle, cuatro sockets
+
+ACP (stdio) para IDEs. HTTP OpenAI para curl y frontends. WS/JSON-RPC para hosts a medida. In-process para tests Python.
+
+Si el IDE habla ACP, no inventes un segundo dialecto HTTP.
+
+<VisualSlot caption="ACP, HTTP, WebSocket, in-process -- cuatro entradas al mismo bucle." />
+
+## Caso: chat_completions para un IDE ACP
+
+**Caso.** Un plugin de VS Code pega completions a un API server local y parsea diffs del texto.
+
+**Arreglo.** Habla ACP: sesiones, permission requests, cancel.
+
+<TryThis>
+Elige protocolo: VS Code, curl en CI, TUI a medida, test Python.
+</TryThis>
+
+Docs: [integracion Hermes](https://hermes-agent.nousresearch.com/docs/developer-guide/programmatic-integration), [ACP Hermes](https://hermes-agent.nousresearch.com/docs/developer-guide/acp-internals), [protocolo OpenClaw](https://docs.openclaw.ai/gateway/protocol).

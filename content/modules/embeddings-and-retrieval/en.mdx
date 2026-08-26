@@ -1,0 +1,27 @@
+## Similarity is a score, not a proof
+
+An <Term id="embedding">embedding</Term> is a list of numbers. Nearby lists *tend* to mean related things. Passage embeddings are what most “vector search” stacks store. Cosine similarity ranks candidates. It does not certify that the chunk answers the question.
+
+Chunking is a product decision: too big and you retrieve noise; too small and you lose the sentence that had the number. Hybrid search (keyword + vector) and a reranker are ordinary, not exotic.
+
+## Three ways to use a corpus
+
+1. **Stuff** — paste the wiki into the prompt. Simple. Burns the window. Cache-hostile when the blob changes.
+2. **Retrieve-then-read** — always run the retriever, stuff the top-k, generate. Classic RAG. The model never decides *whether* to fetch.
+3. **Agentic loop** — the model is given a retrieve tool (and maybe others) and may skip it, retry a better query, or use the web instead.
+
+<VisualSlot caption="Stuffing the corpus, retrieving top-k, or letting the agent choose a tool. Same files; different control flow." />
+
+Naive RAG disappoints when the question needs two hops, when the chunk boundary split the answer, or when the retrieved text is instructions in disguise (see safety).
+
+The particularity of *how* LlamaIndex or smolagents wire this sits in [LlamaIndex](/course/llamaindex) and [agentic RAG](/course/agentic-rag). Here we only need the three geometries.
+
+<TryThis>
+Write three queries against a fake employee handbook: (a) one that keyword search wins, (b) one that vectors win, (c) one that neither wins unless you hop. For each, say whether you would stuff, retrieve-once, or give the model a search tool.
+</TryThis>
+
+## Case — HarborHR’s stuffed handbook
+
+HarborHR pasted a 40-page handbook into every turn. Prefill was 9 seconds. When legal updated *one* paragraph, the prefix cache died and the model still cited the old leave policy from a neighbouring chunk. They did not have a retrieval bug. They had a stuffing policy.
+
+This lesson rewrites ideas from the [Hugging Face Agents Course](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.

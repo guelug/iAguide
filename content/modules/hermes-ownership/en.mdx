@@ -1,0 +1,36 @@
+## Start from the ownership map
+
+Hermes is large; most PRs touch one subsystem. The official map pairs source dirs with docs:
+
+| Subsystem | Source | Start here |
+| --- | --- | --- |
+| Agent core | agent/, run_agent.py | Agent Loop, Compression |
+| Prompt | agent/prompt_builder.py, system_prompt.py | Prompt Assembly |
+| Providers | transports, plugins/model-providers, hermes_cli | Provider Runtime |
+| Tools | tools/ | Tools Runtime |
+| Gateway | gateway/, plugins/platforms | Gateway Internals |
+| Sessions | hermes_state.py | Session Storage |
+| Egress | agent/proxy_sources/iron_proxy.py | Egress Internals |
+| ACP | acp_adapter/ | ACP Internals |
+
+<VisualSlot caption="Subsystem map: tests mirror source; prefer adapter fixes over core branches." />
+
+Conventions: changes stay inside their subsystem; run the mirror test directory (`tools/` -> `tests/tools/`); when two subsystems collide, the **narrower** owner wins; the core is a **narrow waist** -- every addition is paid on every API call.
+
+Desktop app, TUI worktree UI, and docs-site contributing pages are product surfaces, not this course's harness spine -- one note is enough: extend them via their own SDKs, not by widening run_agent.py.
+
+## Compare vs OpenClaw
+
+OpenClaw's Gateway is the waist (WS protocol + plugins). Hermes' waist is AIAgent + registry. Same idea: keep the hot path thin.
+
+## Case: plugin that edits run_agent.py
+
+**Case.** A SaaS plugin patches the agent loop instead of ctx.register_tool.
+
+**Smell.** Design failure. Widen the plugin surface; leave the waist boring.
+
+<TryThis>
+Pick a change: "add a Telegram reaction handler". Name the narrower owner (platform adapter / hooks) vs the core file you must not touch.
+</TryThis>
+
+Source: [Codebase ownership](https://hermes-agent.nousresearch.com/docs/developer-guide/codebase-ownership).

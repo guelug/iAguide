@@ -12,6 +12,9 @@ $d$ is the key dimension; the square root is a scaling hack so the scores do not
 
 You do not need to derive this to use a model. You need: **every new token attends over the cached keys**, which is why the KV cache exists.
 
+
+<VisualSlot caption="Attention mixes; softmax turns scores into a distribution; LoRA is a thin delta on a frozen W." />
+
 ## Softmax
 
 <Term id="softmax">Softmax</Term> turns a vector of scores $z$ into a distribution:
@@ -51,3 +54,7 @@ On paper, for a $4096 \times 4096$ weight, compare parameters of full $W$ vs LoR
 <Callout>
 This page is a lantern. If you need proofs, a proper deep-learning course will treat attention and backprop with the respect they deserve. Here we only need enough maths to not fear a GGUF name or a LoRA config.
 </Callout>
+
+## Case — temperature as a moral knob
+
+Someone set temperature to 0 “to be truthful.” Softmax got sharper; the wrong token stayed wrong. Temperature is a distribution knob, not a conscience.

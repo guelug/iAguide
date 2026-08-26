@@ -1,0 +1,24 @@
+{
+  "id": "langgraph",
+  "order": 12.28,
+  "slug": "langgraph",
+  "track": "harness",
+  "title": {
+    "en": "LangGraph: when the loop is a graph",
+    "es": "LangGraph: cuando el bucle es un grafo"
+  },
+  "summary": {
+    "en": "How LangGraph encodes the loop as state, nodes, edges, and reducers. Use a graph when control flow is the product; use a loop when it is not.",
+    "es": "Cómo LangGraph codifica el bucle como estado, nodos, aristas y reducers. Usa un grafo cuando el flujo de control es el producto; un bucle cuando no lo es."
+  },
+  "status": "complete",
+  "prereqs": [
+    "agent-patterns"
+  ],
+  "durationMin": 22,
+  "tags": [
+    "langgraph",
+    "graphs",
+    "particularity"
+  ]
+}

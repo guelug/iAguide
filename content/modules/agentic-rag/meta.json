@@ -1,0 +1,25 @@
+{
+  "id": "agentic-rag",
+  "order": 12.3,
+  "slug": "agentic-rag",
+  "track": "harness",
+  "title": {
+    "en": "Agentic RAG: the agent chooses to retrieve",
+    "es": "RAG agéntico: el agente decide recuperar"
+  },
+  "summary": {
+    "en": "Retrieve-then-read versus an agent that picks tools. Guest stories, a gala planner, and the failure mode where a retrieved bio injects a prompt.",
+    "es": "Recuperar-y-leer frente a un agente que elige herramientas. Historias de invitados, un planificador de gala, y el fallo en que una bio recuperada inyecta un prompt."
+  },
+  "status": "complete",
+  "prereqs": [
+    "embeddings-and-retrieval",
+    "agent-patterns"
+  ],
+  "durationMin": 22,
+  "tags": [
+    "rag",
+    "tools",
+    "particularity"
+  ]
+}

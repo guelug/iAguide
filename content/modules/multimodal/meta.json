@@ -11,7 +11,7 @@
     "en": "Vision encoders, latent diffusion, flow matching, speech and video — the same maths wearing different clothes.",
     "es": "Codificadores de visión, difusión latente, flow matching, voz y vídeo: las mismas matemáticas con otra ropa."
   },
-  "status": "wip",
+  "status": "complete",
   "prereqs": [
     "attention"
   ],

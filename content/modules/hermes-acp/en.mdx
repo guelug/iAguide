@@ -1,0 +1,25 @@
+## AIAgent over ACP stdio
+
+hermes acp boots acp_adapter.entry: stdout is JSON-RPC, logs go to stderr. HermesACPAgent implements initialize, session new/load/resume/fork/list/cancel, prompt.
+
+SessionManager holds session_id, agent, cwd, model, history, cancel_event. AIAgent runs in a thread pool; events use run_coroutine_threadsafe.
+
+Permissions: allow_once -> once, allow_always -> always, reject -> deny. Timeouts deny. Toolset hermes-acp. cwd binds terminal/file tools to the editor workspace.
+
+<VisualSlot caption="stdio JSON-RPC, session, event bridge, permission map, fork." />
+
+## Compare vs OpenClaw
+
+OpenClaw ACP is usually the inverse: Gateway spawns external harnesses (Claude Code, Cursor) via acpx, or exposes openclaw acp as a server. Hermes is the harness being driven.
+
+## Case: parallel same-name tools
+
+**Case.** Two terminal calls in one step; completion events attach to the wrong id.
+
+**Fix.** FIFO tool-id queues per name, not one id per name.
+
+<TryThis>
+Sketch new_session -> prompt -> cancel: which objects hold cancel_event and interrupt().
+</TryThis>
+
+Source: https://hermes-agent.nousresearch.com/docs/developer-guide/acp-internals

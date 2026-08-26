@@ -1,0 +1,29 @@
+## One class, five doors
+
+Architecture doc: CLI (cli.py), Gateway (gateway/run.py), ACP (acp_adapter/), Batch Runner, API Server, and the Python library all funnel into **AIAgent** in `run_agent.py`.
+
+Inside: prompt builder, provider resolution, tool dispatch, compression, three API modes, session save.
+
+<VisualSlot caption="Entry points converge on AIAgent. chat() wraps run_conversation()." />
+
+`chat()` returns a final string. `run_conversation()` returns a dict with messages, metadata, usage. Platform differences live in the entry point, not forks of the loop.
+
+<Myth>
+"Hermes is the harness." **Nous Hermes** is a model family from Nous Research. **Hermes Agent** is this harness. Mixing the names sends you to the wrong layer.
+</Myth>
+
+## Compare vs OpenClaw
+
+OpenClaw embeds the loop inside the Gateway process (`runEmbeddedAgent`) and also supports external harness processes. Hermes exports one AIAgent usable from cron without the gateway.
+
+## Case: library caller reinvents the gateway
+
+**Case.** A service imports AIAgent but skips SessionDB and interrupt callbacks, then wonders why /stop and resume fail.
+
+**Fix.** Use the documented entry (gateway/ACP) or wire the same callbacks and persistence the CLI uses.
+
+<TryThis>
+Draw five boxes (CLI, Gateway, ACP, Batch, Library) with arrows into AIAgent. Label which two methods you call from a unit test without a GPU.
+</TryThis>
+
+Source: [Architecture](https://hermes-agent.nousresearch.com/docs/developer-guide/architecture).

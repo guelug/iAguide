@@ -1,0 +1,27 @@
+## Two jobs people mix up
+
+**Compaction / compression** shrinks what the *model sees* on the next call: summarise the middle, keep a verbatim tail, never split a tool_call/tool_result pair.
+
+**Prompt / prefix cache** reuses *compute* when the frozen prefix is byte-identical. Breakpoints (Anthropic allows four `cache_control` markers) pin the system prompt plus a rolling window of recent messages.
+
+They interact: after compaction the compressed region misses cache; the system prompt cache can survive; the rolling window re-warms in a turn or two.
+
+<VisualSlot caption="Window fills, flush memory, summarise middle, keep tail, re-place cache breakpoints." />
+
+## Dual thresholds (a useful pattern)
+
+A **gateway hygiene** pass at a high fraction of the window (Hermes 85%) catches overnight Telegram accumulation *before* the agent runs. An **in-loop** compressor at a lower fraction (Hermes default 50%, using real API tokens) is the normal manager. Setting both at 50% compacted every gateway turn in long chats -- hence the split.
+
+OpenClaw auto-compacts near the limit or on overflow errors, can flush memory first, and may keep the same session identity (successor transcripts are optional for context engines).
+
+## Case: cache bust is a bill
+
+**Case.** `/model` or a fallback swap mid-thread. Next request re-reads 80k tokens at full input price.
+
+**Lesson.** Model identity (and often account/API key) is part of the cache key. Document the cost; do not silently rotate credentials mid-session.
+
+<TryThis>
+For a 200k-context model at 50% threshold and 20% tail ratio, compute threshold tokens and tail budget (100k and 20k). Write the four compaction phases in order: prune old tool bodies, pick boundaries, LLM summary, reassemble.
+</TryThis>
+
+Docs: [Hermes compression](https://hermes-agent.nousresearch.com/docs/developer-guide/context-compression-and-caching), [OpenClaw compaction](https://docs.openclaw.ai/concepts/compaction).

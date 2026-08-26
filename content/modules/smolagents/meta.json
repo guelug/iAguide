@@ -1,0 +1,24 @@
+{
+  "id": "smolagents",
+  "order": 12.22,
+  "slug": "smolagents",
+  "track": "harness",
+  "title": {
+    "en": "smolagents: code as the action",
+    "es": "smolagents: el código como acción"
+  },
+  "summary": {
+    "en": "How Hugging Face smolagents encodes the general loop: CodeAgent versus ToolCallingAgent, the tools API, and why executing Python is not the same as parsing a JSON blob.",
+    "es": "Cómo smolagents de Hugging Face codifica el bucle general: CodeAgent frente a ToolCallingAgent, la API de tools, y por qué ejecutar Python no es parsear un blob JSON."
+  },
+  "status": "complete",
+  "prereqs": [
+    "dummy-agent"
+  ],
+  "durationMin": 24,
+  "tags": [
+    "smolagents",
+    "code-agent",
+    "particularity"
+  ]
+}

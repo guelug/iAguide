@@ -1,0 +1,24 @@
+{
+  "id": "function-calling-ft",
+  "order": 17.5,
+  "slug": "function-calling-ft",
+  "track": "training",
+  "title": {
+    "en": "Fine-tuning for function calling",
+    "es": "Fine-tuning para function calling"
+  },
+  "summary": {
+    "en": "When the model must learn the tool schema, not just be prompted with it. Collect 20 pairs. Often you should have fixed the schema instead.",
+    "es": "Cuando el modelo tiene que aprender el esquema de tools, no solo verlo en el prompt. Reúne 20 pares. A menudo debías haber arreglado el esquema."
+  },
+  "status": "complete",
+  "prereqs": [
+    "fine-tuning"
+  ],
+  "durationMin": 20,
+  "tags": [
+    "function-calling",
+    "lora",
+    "tools"
+  ]
+}

@@ -1,71 +1,49 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { CanvasFrame } from "@/components/CanvasFrame";
+import { useState } from "react";
+import { Figure, Switcher } from "@/components/three/Figure";
+import { Stage } from "@/components/three/Stage";
+import { Flow, Slab, Tag } from "@/components/three/atoms";
+import { P } from "@/lib/palette";
 
-function Grid({ bits, gap }: { bits: number; gap: number }) {
-  const cells = useMemo(() => {
-    const out: { x: number; y: number; w: number }[] = [];
-    const cols = 16;
-    const n = bits === 16 ? 32 : 128;
-    const w = bits === 16 ? 0.28 : 0.12;
-    const h = 0.22;
-    for (let i = 0; i < n; i++) {
-      const col = i % cols;
-      const row = Math.floor(i / cols);
-      out.push({
-        x: col * (w + gap) - (cols * (w + gap)) / 2 + w / 2,
-        y: 0.7 - row * (h + 0.06),
-        w,
-      });
-    }
-    return out;
-  }, [bits, gap]);
-
-  const color = bits === 16 ? "#5aa8a0" : "#c9a35a";
-  return (
-    <group>
-      {cells.map((c, i) => (
-        <mesh key={i} position={[c.x, c.y, 0]}>
-          <boxGeometry args={[c.w, 0.2, 0.08]} />
-          <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.4} />
-        </mesh>
-      ))}
-    </group>
-  );
-}
+type Mode = "fp16" | "q4" | "nf4";
 
 export default function Visual() {
-  const [mode, setMode] = useState<"fp16" | "q4">("fp16");
+  const [mode, setMode] = useState<Mode>("fp16");
   return (
-    <div className="bg-void">
-      <CanvasFrame className="h-[260px] w-full" camera={{ position: [0, 0, 4.4], fov: 40 }}>
-        <color attach="background" args={["#07090b"]} />
-        <ambientLight intensity={0.5} />
-        <pointLight position={[1, 2, 4]} intensity={12} color="#7ec4bc" />
-        {mode === "fp16" ? <Grid bits={16} gap={0.05} /> : <Grid bits={4} gap={0.03} />}
-      </CanvasFrame>
-      <div className="flex items-center justify-between border-t border-line px-4 py-2">
-        <p className="font-mono text-[0.7rem] tracking-[0.14em] uppercase text-muted">
-          Same weights, different packing
-        </p>
-        <div className="flex gap-2 text-xs">
-          <button
-            type="button"
-            className={mode === "fp16" ? "text-teal" : "text-faint"}
-            onClick={() => setMode("fp16")}
-          >
-            FP16
-          </button>
-          <button
-            type="button"
-            className={mode === "q4" ? "text-amber" : "text-faint"}
-            onClick={() => setMode("q4")}
-          >
-            Q4 / NF4
-          </button>
-        </div>
-      </div>
-    </div>
+    <Figure
+      label="same W, fewer bits"
+      hint="step the figure"
+      legend={[
+          { color: P.teal, label: "fp16" },
+          { color: P.amber, label: "q4" },
+          { color: P.violet, label: "nf4 train" }
+      ]}
+      controls={
+        <Switcher
+          value={mode}
+          onChange={setMode}
+          options={[
+            { value: "fp16", label: "FP16", tone: P.teal },
+            { value: "q4", label: "Q4", tone: P.amber },
+            { value: "nf4", label: "NF4 train", tone: P.violet }
+          ]}
+          ariaLabel="step the figure"
+        />
+      }
+    >
+      <Stage className="h-full w-full" camera={{ position: [0, 0.15, 7.5], fov: 40 }}>
+        
+        <Slab position={[-2.2, 0.2, 0]} size={[1.9, 1.7, 0.12]} color={P.teal} fill={mode === "fp16" ? 0.34 : 0.12} />
+        <Tag position={[-2.2, 1.2, 0.2]} tone="teal">FP16</Tag>
+        <Slab position={[0, 0.2, 0]} size={[1.9, 1.7, 0.12]} color={P.amber} fill={mode === "q4" ? 0.34 : 0.12} />
+        <Tag position={[0, 1.2, 0.2]} tone="amber">Q4</Tag>
+        <Slab position={[2.2, 0.2, 0]} size={[1.9, 1.7, 0.12]} color={P.violet} fill={mode === "nf4" ? 0.34 : 0.12} />
+        <Tag position={[2.2, 1.2, 0.2]} tone="violet">NF4 train</Tag>
+        <Flow points={[[-1.2, 0.2, 0], [-0.95, 0.2, 0]]} color={P.teal} count={2} />
+        <Flow points={[[1.0, 0.2, 0], [1.25, 0.2, 0]]} color={P.amber} count={2} />
+        
+      </Stage>
+    </Figure>
   );
 }

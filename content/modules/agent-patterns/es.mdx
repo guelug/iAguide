@@ -1,0 +1,43 @@
+## El ciclo es el producto
+
+Un agente no es un chat. Es un **while**: pensamiento → acción → observación, hasta cumplir el objetivo o parar.
+
+- **Pensamiento** — el plan interno (Chain-of-Thought es la misma idea *sin* tools).
+- **Acción** — una llamada estructurada: JSON, un snippet Python, o un mensaje de function-calling. El generador **para** para que el arnés parsee.
+- **Observación** — el resultado real de *tu* código, añadido como mensaje. Si dejas que el modelo siga, inventará la observación.
+
+Ese bucle es ReAct: razonar entrelazado con actuar. CoT es paso a paso sin entorno. Los modelos de “razonamiento” recientes se *entrenaron* a pensar tras tokens especiales: eso es entrenamiento, no un truco de prompt.
+
+<VisualSlot caption="Pensamiento, acción, observación como un ciclo. smolagents pone Python en la acción; LangGraph puede ramificar el ciclo en un grafo." />
+
+## Patrones que de verdad compras
+
+| Patrón | Lo que querías | El fallo que compras |
+| --- | --- | --- |
+| Planificar-y-actuar | Una lista antes de las tools | Planes que ignoran observaciones |
+| Bucle ReAct | Adaptar tras cada tool | Bucles que nunca emiten Final Answer |
+| Subagente / manager | Aislar trabajo ruidoso | Doble prefill, contexto perdido |
+| Crítico | Una segunda pasada | Dos modelos de acuerdo en un esquema malo |
+| Memoria durable | Hechos entre hilos | MEMORY vieja tratada como política |
+
+Los subagentes son bucles anidados con menos tools. El coste es otro prefill. Úsalos cuando el padre se ahogaría, no como pack de personalidad.
+
+## Comparar — tres codificaciones del mismo bucle
+
+El ciclo general no es de un vendor. Las librerías son dialectos:
+
+- **smolagents** — `MultiStepAgent` escribe la memoria a mensajes, muestrea, parsea un bloque de **código** (`CodeAgent`) o un tool call **JSON** (`ToolCallingAgent`), ejecuta, registra un `ActionStep`. Sesgo por defecto: el código es la acción.
+- **LlamaIndex** — forma de recuperación. Load → index → `QueryEngine`, luego el engine como tool de un `FunctionAgent` / `ReActAgent` / `AgentWorkflow`. El bucle sigue siendo ReAct; el producto es “pregunta a mis datos.”
+- **LangGraph** — el bucle se compila en **estado**, **nodos**, **aristas**, **reducers**. Úsalo cuando el flujo de control *es* el producto. Un grafo que debía ser un `while` es ceremonia. Un bucle que necesitaba un grafo es una rama que falta.
+
+Cada dialecto tiene su módulo de particularidad. No colecciones frameworks como quinta vía.
+
+<TryThis>
+En una hoja, dibuja ReAct para “¿qué tiempo hace en Lyon?”. Marca dónde smolagents pondría una llamada Python, dónde LlamaIndex un QueryEngine, y dónde LangGraph una arista condicional. Si no puedes marcarlos sin inventar cajas, aún no necesitas esa librería.
+</TryThis>
+
+## Caso — el grafo de Helix que quería ser un bucle
+
+Helix reescribió un bot de soporte de tres pasos como un LangGraph de once nodos porque “los grafos son serios.” El único condicional era “¿falló la tool?”. Una semana en reducers. Un bucle ReAct con reintentos habría salido el martes. Luego *sí* hizo falta un grafo: una arista de aprobación humana que pedía legal. El primero era teatro; el segundo, el producto.
+
+Esta lección reescribe ideas del [curso de agentes de Hugging Face](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.

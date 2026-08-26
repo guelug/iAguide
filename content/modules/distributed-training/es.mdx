@@ -1,0 +1,21 @@
+## Una GPU nunca basta (para pretrain)
+
+Para entrenar modelos grandes **partes el trabajo**:
+
+- **Data parallel** — copias del modelo, batches distintos, sync de gradientes.
+- **Tensor parallel** — partes los matmul de una capa.
+- **Pipeline** — partes capas en etapas; microbatches llenan el tubo.
+- **Expert parallel** — expertos MoE en distintos dispositivos.
+- **ZeRO / FSDP** — trocean estado del optimizador (y a menudo params).
+
+El interconector se vuelve el muro. Un portátil puede hacer LoRA. No puede preentrenar de verdad un base frontera.
+
+<VisualSlot caption="Cuatro dispositivos: data parallel comparte el batch; tensor parte una capa; pipeline apila etapas." />
+
+<TryThis>
+Etiqueta tu meta real: LoRA en una GPU, SFT multi-GPU, o pretrain. Si es la tercera, escribe el interconector que necesitas antes de la lista de GPUs.
+</TryThis>
+
+## Caso — las 8× GPU por PCIe
+
+Una startup montó 8 GPU de consumo por PCIe y esperaba tensor-parallel de 70B. El sync se comió la semana. Necesitaban fabric, o un modelo más pequeño. El diagrama era correcto; el bus no.

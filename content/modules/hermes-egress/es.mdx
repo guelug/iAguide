@@ -1,0 +1,19 @@
+## Credenciales opacas
+
+iron-proxy intercambia tokens. CIDRs denegados (loopback, RFC1918, IMDS). Perfiles con HERMES_HOME propio.
+
+<VisualSlot caption="Firewall, swap, CIDRs, docker, perfil." />
+
+## Comparar vs OpenClaw
+
+OpenClaw: sandbox / tool policy / elevated. Hermes: firewall de credenciales.
+
+## Caso: tres llamadas a bloquear
+
+IMDS, docker.sock, POST de clave real.
+
+<TryThis>
+Escribe esas tres y una permitida a openrouter.ai.
+</TryThis>
+
+Fuente: https://hermes-agent.nousresearch.com/docs/developer-guide/egress-internals

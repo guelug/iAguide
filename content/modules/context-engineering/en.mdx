@@ -1,0 +1,17 @@
+## Prompting is a budget
+
+The window is finite. Context engineering is deciding **what earns a seat**: profile, tool schemas, retrieved chunks, the live thread, and anything you call memory. Order matters. A 20k manifesto at the front costs prefill every time the prefix changes and still loses to a noisy tool log.
+
+**Project context files** (a `AGENTS.md`, a skills index, a short SOUL) beat pasting the repo. Retrieve the one page you need. Hermes-style SOUL / MEMORY files are one product’s names for “standing policy” and “durable notes” — useful idea, not a religion. Keep them short, versioned, and out of the untrusted pile.
+
+Shape prompts so the **stable prefix** is byte-identical across turns if you want [prefix cache](/course/calls-cache-threads) hits. Structured output (JSON schema, tool calls) belongs in the contract, not in a paragraph of hopes.
+
+<VisualSlot caption="A window divided into profile, an index hit or a stuffed repo, the thread, and MEMORY. Stuffing is the amber failure." />
+
+<TryThis>
+Open a real project. List every file you would be tempted to paste into a system prompt. Cap yourself at 1_500 tokens of standing text. What moves to a retrieve tool? What dies?
+</TryThis>
+
+## Case — CodexNest’s skills dump
+
+CodexNest concatenated forty skill markdown files into the system prompt “so the agent knows everything.” Prefill was 14s and the model ignored the third skill. An index of skill *names* plus a `load_skill(name)` tool cut prefill by 80% and made the third skill reachable.

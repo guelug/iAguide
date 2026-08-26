@@ -1,0 +1,25 @@
+{
+  "id": "gateway",
+  "order": 6.14,
+  "slug": "gateway",
+  "track": "harness",
+  "title": {
+    "en": "The gateway process",
+    "es": "El proceso gateway"
+  },
+  "summary": {
+    "en": "A long-lived process that owns messaging surfaces: adapters, pairing, slash commands, delivery — the idea, not one brand.",
+    "es": "Un proceso longevo que posee las superficies de mensajería: adaptadores, emparejado, slash commands, entrega — la idea, no una marca."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "sessions"
+  ],
+  "durationMin": 24,
+  "tags": [
+    "gateway",
+    "adapters",
+    "messaging"
+  ]
+}

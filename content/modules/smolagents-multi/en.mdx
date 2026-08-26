@@ -1,0 +1,19 @@
+## Particularity — nested smolagents
+
+A manager plus workers is still ReAct. Each worker is a nested loop with a narrower tool list and its own memory. Isolation is the point: the parent sees a summary, not forty search snippets. Cost is another prefill.
+
+Retrieval agents in this library are RAG as a tool (vector store, web search, fallbacks) rather than a mandatory retrieve-then-read. Vision agents take images at `run(...)` or stash screenshots on `ActionStep` via a callback. Browser agents add Helium/Selenium tools (`go_back`, `close_popups`, ctrl-F).
+
+<VisualSlot caption="A manager with web, retriever, and vision workers. Switch to vision to see the screenshot loop tax." />
+
+Sketch a manager that owns plotting and a worker that only browses. Give the worker `max_steps` smaller than the manager. If the worker can screenshot, drop images older than two steps or the window becomes a flipbook.
+
+<TryThis>
+On paper, sketch a manager+worker for “find three Batman filming locations and plot travel time.” List the worker’s tools (search, visit page) and the manager’s (plot, final_answer). Write one sentence the manager is *forbidden* to do itself.
+</TryThis>
+
+## Case — Sightline’s screenshot forever
+
+Sightline’s vision greeter compared a door camera to Wikipedia. The callback saved every browser screenshot and never cleared `observations_images`. After a cookie modal, the agent “looked” until `max_steps`. They thought they needed a bigger VLM. They needed `close_popups` and a two-step image retention policy.
+
+This lesson rewrites ideas from the [Hugging Face Agents Course](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.

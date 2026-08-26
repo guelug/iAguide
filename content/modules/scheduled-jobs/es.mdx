@@ -1,0 +1,21 @@
+## No es cron de shell
+
+Un job de arnes es un turno de agente con horario. Cada disparo: lock, sesion fresca, skills y prompt autocontenido, entrega, sin espejo en el chat vivo, sin tool cron dentro del job.
+
+<VisualSlot caption="Store, tick, agente fresco, skills, entregar." />
+
+## Hermes frente a OpenClaw
+
+Hermes hace tick en el gateway (o Chronos). OpenClaw corre automations en el Gateway; el destino puede ser isolated a proposito.
+
+## Caso: cron espejado en el chat
+
+**Caso.** El resumen nocturno se pega como assistant en el grupo. Por la manana: dos assistants seguidos.
+
+**Arreglo.** El cron vive en su sesion; la entrega es solo outbound.
+
+<TryThis>
+Un job diario 09:00 con skill inbox-triage. Lista lo que NO debe ir en el prompt.
+</TryThis>
+
+Docs: [cron Hermes](https://hermes-agent.nousresearch.com/docs/developer-guide/cron-internals), [CLI OpenClaw](https://docs.openclaw.ai/cli/cron).

@@ -1,0 +1,24 @@
+{
+  "id": "openclaw-workspace",
+  "order": 6.45,
+  "slug": "openclaw-workspace",
+  "track": "harness",
+  "title": {
+    "en": "OpenClaw: workspace files",
+    "es": "OpenClaw: archivos del workspace"
+  },
+  "summary": {
+    "en": "SOUL.md IDENTITY.md BOOTSTRAP.md USER.md AGENTS.md MEMORY.md. Daily memory/YYYY-MM-DD.md on demand.",
+    "es": "SOUL.md IDENTITY.md BOOTSTRAP.md USER.md AGENTS.md MEMORY.md. Memoria diaria bajo demanda."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "openclaw-runtime"
+  ],
+  "durationMin": 22,
+  "tags": [
+    "openclaw",
+    "workspace"
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "id": "hermes-loop",
+  "order": 6.23,
+  "slug": "hermes-loop",
+  "track": "harness",
+  "title": {
+    "en": "Hermes: loop internals",
+    "es": "Hermes: interior del bucle"
+  },
+  "summary": {
+    "en": "Turn lifecycle, interruptible HTTP thread, sequential vs concurrent tools, agent-level intercepts, iteration budget 500 / subagent 50.",
+    "es": "Ciclo de turno, hilo HTTP interrumpible, tools secuenciales o concurrentes, intercepts a nivel agente, presupuesto 500 / subagente 50."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "hermes-providers"
+  ],
+  "durationMin": 26,
+  "tags": [
+    "hermes",
+    "loop"
+  ]
+}

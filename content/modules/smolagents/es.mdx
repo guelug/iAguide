@@ -1,0 +1,30 @@
+## Particularidad — smolagents de Hugging Face
+
+smolagents es una **codificación ligera** del bucle que ya conoces. No es otra especie de agente. Los autores sesgan hacia **el código como acción**: el modelo escribe un snippet Python que llama tools, en vez de un JSON que un parser reconstruye.
+
+Úsalo cuando quieres poca superficie, modelos del Hub o APIs estilo OpenAI, y lógica que cabe en un `while`. Usa otra cosa cuando el producto *es* un grafo o un pipeline de retrieval (LangGraph, LlamaIndex).
+
+<VisualSlot caption="JSON a la izquierda, Python a la derecha, un sandbox en el medio. El mismo ciclo ReAct; distinto payload." />
+
+## CodeAgent frente a ToolCallingAgent
+
+Ambos cuelgan de `MultiStepAgent`: memoria a mensajes → muestrear → parsear → ejecutar → `ActionStep`.
+
+- **CodeAgent** (por defecto) — la acción es un bloque Python. Componible, natural para modelos que ya escriben código, y peligroso si el intérprete no está en un sandbox (`additional_authorized_imports` es una allowlist).
+- **ToolCallingAgent** — JSON `{name, arguments}`, el estilo que OpenAI y Anthropic afinaron. Sistemas simples; peor con variables.
+
+El paper *Executable Code Actions Elicit Better LLM Agents* explica el sesgo. Sigues necesitando parar-y-parsear. Sigues necesitando permisos.
+
+Las tools son funciones `@tool` o una clase `Tool`. Los modelos se intercambian: `InferenceClientModel`, `TransformersModel`, `LiteLLMModel`, `OpenAIServerModel`. Cambias el motor; el bucle queda — el punto del [arnés](/course/the-harness).
+
+Alfred el mayordomo, en los notebooks del curso, busca una playlist, usa `suggest_menu` y tiene `datetime`. Eso es pedagogía. Tu allowlist es el producto.
+
+<TryThis>
+En papel, reescribe una petición (“fiesta a las 19:00, menú formal, playlist”) como (1) una secuencia de tool calls JSON y (2) un snippet Python que llama dos tools y usa `datetime`. Rodea qué versión obliga al arnés a guardar variables entre pasos.
+</TryThis>
+
+## Caso — el import sin sandbox de PartyKit
+
+PartyKit copió el `CodeAgent` del curso y puso `additional_authorized_imports=["os", "subprocess"]` “para depurar.” Una web inyectada pidió listar variables de entorno. El agente JSON del al lado no pudo; el de código sí. Código-como-acción es expresividad. El sandbox es el precio.
+
+Esta lección reescribe ideas del [curso de agentes de Hugging Face](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.

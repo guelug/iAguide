@@ -11,7 +11,7 @@
     "en": "Token arithmetic you can do in your head, cache economics, and the honest local-vs-API break-even.",
     "es": "Aritmética de tokens que puedes hacer de cabeza, la economía de la caché y el punto de equilibrio honesto local vs API."
   },
-  "status": "wip",
+  "status": "complete",
   "prereqs": [
     "serving-and-throughput"
   ],

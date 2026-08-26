@@ -1,0 +1,24 @@
+{
+  "id": "scheduled-jobs",
+  "order": 6.17,
+  "slug": "scheduled-jobs",
+  "track": "harness",
+  "title": {
+    "en": "Scheduled agent jobs",
+    "es": "Trabajos programados de agente"
+  },
+  "summary": {
+    "en": "Cron as first-class agent jobs, not shell cron. Fresh session, attach skills, deliver to a platform, never recurse.",
+    "es": "Cron como trabajos de agente de primera clase, no cron de shell. Sesion fresca, skills, entrega, sin recursion."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "plugins-and-skills"
+  ],
+  "durationMin": 20,
+  "tags": [
+    "cron",
+    "automation"
+  ]
+}

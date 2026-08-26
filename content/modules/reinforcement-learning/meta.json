@@ -11,7 +11,7 @@
     "en": "From a base model to something you want to talk to: reward models, PPO, DPO, GRPO, RLVR, and reward hacking.",
     "es": "De un modelo base a algo con lo que quieras hablar: modelos de recompensa, PPO, DPO, GRPO, RLVR y el hackeo de la recompensa."
   },
-  "status": "wip",
+  "status": "complete",
   "prereqs": [
     "training"
   ],

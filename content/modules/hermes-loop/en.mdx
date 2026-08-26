@@ -1,0 +1,31 @@
+## Turn lifecycle (run_conversation)
+
+Generate task_id, append user message, build/reuse system prompt, preflight compress if >50% context, build API messages for the active api_mode, inject ephemeral layers, apply Anthropic cache markers, interruptible API call, then either execute tool_calls and loop or persist and return.
+
+Internal format is OpenAI-style role/content/tool_calls. Alternation is strict: never two assistants or two users in a row; only tool roles may stack.
+
+<VisualSlot caption="Turn steps, background HTTP thread, tool pool, intercepts, budgets." />
+
+Interruptible calls run HTTP on a worker thread while the main thread waits on response, interrupt, or timeout. On /stop the response is discarded -- no partial assistant row.
+
+Tools: one call runs on the main thread; many run via ThreadPoolExecutor unless interactive (clarify) forces sequential. Results reinsert in original order.
+
+Agent-level intercepts before registry: todo, memory, session_search, delegate_task.
+
+Budgets: parent 500 (agent.max_turns); subagents capped at delegation.max_iterations default 50. Independent budgets can sum above the parent cap.
+
+## Compare vs OpenClaw
+
+OpenClaw serializes per session lane and steers mid-run by default. Hermes interrupts by abandoning the HTTP thread. Same need (one writer); different mechanics.
+
+## Case: concurrent clarify
+
+**Case.** Model emits clarify plus terminal in one batch. Concurrent clarify races the CLI prompt.
+
+**Fix.** Interactive tools force sequential execution.
+
+<TryThis>
+Pseudocode the wait: response-ready OR interrupt OR timeout. On interrupt, what must you NOT append?
+</TryThis>
+
+Source: [Agent loop](https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop).

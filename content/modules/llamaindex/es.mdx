@@ -1,0 +1,19 @@
+## Particularidad — LlamaIndex tiene forma de recuperación
+
+LlamaIndex codifica el bucle general como **datos entra, respuestas salen**. LlamaHub es un registro de loaders. Los componentes arman un RAG: load → split → embed → store → `VectorStoreIndex`. El índice pasa a retriever, query engine o chat engine. Envuelve el engine como `QueryEngineTool` y tienes RAG agéntico: el modelo *puede* recuperar.
+
+Agentes en este stack: **function-calling** (si el LLM tiene esa API), **ReAct** (cualquier chat), o un workflow a medida. `AgentWorkflow` puede tener varios agentes con handoff. El estado es un `Context` — sin él, el agente no recuerda.
+
+<VisualSlot caption="LlamaHub al índice, retriever en el medio, workflow de agente a la derecha. El mismo ReAct; el producto es 'pregunta a mis datos.'" />
+
+Los workflows (los de LlamaIndex) son grafos por eventos cuando el pipeline de retrieval tiene etapas. No empieces aquí si solo necesitabas un bucle.
+
+<TryThis>
+Elige una fuente que de verdad tengas (PDFs, un export de Notion, una tabla SQL). Nombra los componentes: loader, splitter, embed, vector store, query engine, y si el agente recibe ese engine como tool o *es* el engine. Si no puedes nombrar la fuente, aún no tienes un problema de LlamaIndex.
+</TryThis>
+
+## Caso — el retriever siempre encendido de LedgerQ
+
+LedgerQ envolvía cada mensaje en `as_query_engine` y lo llamaba agente. “¿Cuánto es 3×4?” pegaba a Chroma, traía una factura al azar y contestaba con un proveedor. Necesitaban una calculadora y permiso para *no* recuperar. Convertir el engine en `QueryEngineTool` de un ReAct arregló la aritmética y dejó las facturas opcionales.
+
+Esta lección reescribe ideas del [curso de agentes de Hugging Face](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.

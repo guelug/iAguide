@@ -1,0 +1,31 @@
+## La atención es una mezcla
+
+La <Term id="attention">atención</Term> es cómo un token lee la ventana. Para el token que predices, el modelo arma una **query**. Cada token ya presente ofrece una **key** y un **value**. Las puntuaciones dicen cuánto le importa cada key; los values se mezclan con esas puntuaciones.
+
+Un esquema, no un paper:
+
+$$
+\mathrm{Attention}(Q,K,V) = \mathrm{softmax}\!\left(\frac{QK^\top}{\sqrt{d}}\right) V
+$$
+
+$d$ es la dimensión de la key; la raíz evita que las puntuaciones exploten. No hace falta derivarlo para publicar. Hace falta: **cada token nuevo atiende sobre las keys cacheadas**, por eso existe la <Term id="kv-cache">caché KV</Term> y por eso el contexto largo cuesta memoria.
+
+<VisualSlot caption="Una query mira las keys; los values se mezclan. Cambia a cabezas y luego a GQA, donde las keys se comparten." />
+
+## El bloque alrededor
+
+Un bloque transformer suele ser: (opcional) RMSNorm → atención → residual → (opcional) RMSNorm → MLP → residual. El flujo residual es la autovía; atención y MLP son incorporaciones.
+
+**Multi-head** son varias mezclas QKV en paralelo, luego concatenadas. **GQA / MQA** comparten keys y values entre cabezas para encoger la caché KV. **RoPE** rota queries y keys para que la posición sea un ángulo relativo. Salen en las fichas. Son ingeniería, no otra arquitectura.
+
+## Prefill frente a decode, otra vez
+
+El prefill escribe un bloque de keys y values. El decode añade el KV de un token y atiende sobre lo cacheado. Por eso el primer token de un prompt largo es lento, y una *generación* larga se encarece.
+
+<TryThis>
+En papel, con el prompt de 7 tokens “The capital of France is”, rodea qué tokens puede ver la query de `is` (máscara causal: solo el pasado). Luego una frase: qué se rompería si la máscara fuera bidireccional en el decode.
+</TryThis>
+
+## Caso — la demo 128k de Lumen
+
+Lumen anunció ventana de 128k en un 8B de portátil. Los pesos cabían. A 80k tokens de PDF empujado, el proceso murió. Habían presupuestado VRAM para pesos y olvidado que GQA sigue guardando **keys y values por token**. La atención no “falló”. La caché no cabía.

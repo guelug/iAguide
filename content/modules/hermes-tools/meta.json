@@ -1,0 +1,24 @@
+{
+  "id": "hermes-tools",
+  "order": 6.28,
+  "slug": "hermes-tools",
+  "track": "harness",
+  "title": {
+    "en": "Hermes: toolsets and registry",
+    "es": "Hermes: toolsets y registro"
+  },
+  "summary": {
+    "en": "Self-registering tools, ToolRegistry, ~70 tools / ~28 toolsets, MCP+plugin discovery, dispatch path, override rules, terminal backends.",
+    "es": "Tools auto-registradas, ToolRegistry, ~70 tools / ~28 toolsets, MCP y plugins, despacho, overrides, backends de terminal."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "hermes-gateway"
+  ],
+  "durationMin": 24,
+  "tags": [
+    "hermes",
+    "tools"
+  ]
+}

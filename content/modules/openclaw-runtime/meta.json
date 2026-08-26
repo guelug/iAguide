@@ -1,0 +1,24 @@
+{
+  "id": "openclaw-runtime",
+  "order": 6.44,
+  "slug": "openclaw-runtime",
+  "track": "harness",
+  "title": {
+    "en": "OpenClaw: embedded vs external harness",
+    "es": "OpenClaw: runtime embebido vs harness externo"
+  },
+  "summary": {
+    "en": "Embedded loop is default. Codex app-server is native. ACP spawns Claude Code/Cursor as external processes.",
+    "es": "Loop embebido por defecto. Codex app-server nativo. ACP lanza Claude Code/Cursor como procesos externos."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "openclaw-queue"
+  ],
+  "durationMin": 24,
+  "tags": [
+    "openclaw",
+    "runtime"
+  ]
+}

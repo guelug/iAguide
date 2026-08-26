@@ -1,0 +1,17 @@
+## Un turno es una traza
+
+Sin observabilidad, un agente es una caja negra que a veces escribe al cliente. Las **trazas** son una tarea de punta a punta. Los **spans** son los pasos: prefill, decode, tool, subagente, retrieve. OpenTelemetry es el cable habitual; Langfuse, Arize, Phoenix son paneles. smolagents se instrumenta con `SmolagentsInstrumentor`.
+
+Mira: latencia, coste, errores, feedback explícito e implícito, etiquetas de acierto que *tú* defines, jueces automáticos. Eval offline primero; monitoreo online después; los fallos nuevos vuelven al set offline.
+
+<VisualSlot caption="Un turno como barra de traza; spans debajo. El switch de error es un span de tool fallando con latencia aún verde." />
+
+<TryThis>
+Lista cinco spans de un turno de soporte: p.ej. `apply_template`, `model.generate`, `tool.search`, `tool.ticket_update`, `compact`. Para cada uno, un campo (tokens, ms, clase de error). Sin cuenta de vendor.
+</TryThis>
+
+## Caso — la latencia tranquila de SignalOps
+
+El p95 de SignalOps era 1,8s — verde. El error de tools era 40% (timeout al CRM). El modelo se disculpaba rápido, así que la latencia se veía bien. Alertaban solo al p95. Un ratio de error por span les habría avisado el primer día.
+
+Esta lección reescribe ideas del [curso de agentes de Hugging Face](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.

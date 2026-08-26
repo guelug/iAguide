@@ -1,0 +1,27 @@
+## Dual system
+
+Gateway session hygiene at 85% of context (rough tokens, history >= 4) is a safety net for overnight chats. Agent ContextCompressor at 50% uses real API tokens. Same 50% on both caused premature compress every gateway turn.
+
+Four phases: (1) prune old tool results >200 chars, (2) boundaries -- protect_first_n, summarised middle, tail by token budget or protect_last_n=20, (3) structured summary via auxiliary LLM, (4) reassemble + sanitize tool pairs.
+
+Default compression.in_place: true -- same session id, old turns soft-archived (active=0, compacted=1), still searchable. in_place: false restores parent_session_id lineage.
+
+Anthropic **system_and_3**: breakpoint 1 = system prompt; 2-4 = last three non-system messages. TTL 5m or 1h. Model identity is part of the cache key -- /model, fallback, credential pool rotation = zero hits.
+
+<VisualSlot caption="85% gateway net, 50% in-loop, four phases, in-place id, system_and_3." />
+
+## Compare vs OpenClaw
+
+OpenClaw safeguard compaction can refuse to write a bad summary. Hermes 4-phase pipeline plus in-place was built to kill rotation bugs (lost /goal, orphaned sessions).
+
+## Case: cache bust after /model
+
+**Case.** Operator /model mid-thread; bill triples.
+
+**Why.** Provider caches are scoped to model + account.
+
+<TryThis>
+On paper, place four cache_control markers on a 10-message Anthropic request. Which one is the system prompt?
+</TryThis>
+
+Source: [Compression and caching](https://hermes-agent.nousresearch.com/docs/developer-guide/context-compression-and-caching).

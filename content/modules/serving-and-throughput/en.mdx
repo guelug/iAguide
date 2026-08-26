@@ -1,0 +1,15 @@
+## Fast for you is not cheap for everyone
+
+One user, one model copy, idle SMs: fine for a laptop. A server wants **continuous batching** (admit new requests mid-decode), **paged attention** / paged KV (so memory is not one giant slab per request), and sometimes **speculative decoding** (a small draft model proposes tokens; the big model verifies).
+
+Throughput (tokens/s across users) and latency (time to first token for you) trade. vLLM, TensorRT-LLM, and friends are the usual names — read *their* current docs; flags move.
+
+<VisualSlot caption="One lonely user versus a continuous batch sharing the GPU. Speculative adds a draft step." />
+
+<TryThis>
+Write your SLO in one line: “p95 TTFT under Xs at Y concurrent.” Then say whether you would tune batch size, quant, or draft model first — and what you would measure to know you were wrong.
+</TryThis>
+
+## Case — SoloServe’s empty GPU
+
+SoloServe ran one vLLM worker per customer “for isolation.” GPUs sat at 15% and the bill matched a busy cluster. Continuous batching on a shared pool with per-tenant keys cut cost without changing the model.

@@ -1,0 +1,35 @@
+## Una herramienta es una función tipada que tú ejecutas
+
+El modelo no “tiene bash.” Emite un **tool_call**. Tu arnés:
+
+1. Expone **esquemas** visibles este turno.
+2. Busca el nombre en un **registro**.
+3. Aplica **política** (allow/deny, aprobaciones, sandbox).
+4. Ejecuta un **handler** (o un **backend**: terminal local, Docker, SSH, CDP…).
+5. Añade el resultado y sigue el bucle.
+
+<VisualSlot caption="Esquema → registro → pulso de despacho → puerta de política → backend." />
+
+## Plugin frente a builtin
+
+- **Builtin** — en el árbol core.
+- **Plugin** — se registra por API de contexto sin forkear el núcleo.
+- **Skill** — instrucciones + tools existentes cuando basta un flujo.
+
+Hermes descubre `registry.register()` a nivel de módulo; sombrear un nombre exige override + consentimiento. OpenClaw filtra por perfil, allow/deny, sandbox y plugins — si la política quita una tool, el modelo no ve su esquema.
+
+## Terminal / browser como backends
+
+No son segundos cerebros. Hermes tiene varios backends de terminal; OpenClaw puede mandar `browser` a sandbox, host o un **node** con Chrome vía el Gateway.
+
+## Caso: el plugin que edita el bucle
+
+**Caso.** Alguien parchea el loop core en vez de registrar una tool.
+
+**Olor.** El núcleo es cintura estrecha. Ensancha el plugin; deja el bucle aburrido.
+
+<TryThis>
+En papel, un esquema `weather` falso y un handler que siempre devuelve `{"error":"..."}` como **string JSON**. Anota dónde la política lo ocultaría sin API key.
+</TryThis>
+
+Docs: [tools runtime Hermes](https://hermes-agent.nousresearch.com/docs/developer-guide/tools-runtime), [tools OpenClaw](https://docs.openclaw.ai/tools).

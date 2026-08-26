@@ -1,0 +1,31 @@
+## Registry as a rack
+
+Each tools/*.py calls registry.register(...) at import. discover_builtin_tools AST-scans for top-level register() then imports (skips registry.py, mcp_tool.py). Then MCP discover + plugin tools.
+
+Shadowing across toolsets is rejected unless override=True; plugins also need plugins.entries.<id>.allow_tool_override.
+
+get_tool_definitions filters by enabled/disabled toolsets (platform presets hermes-cli, hermes-telegram, hermes-acp). check_fn False hides the tool from the model.
+
+Dispatch: model -> run_agent loop -> handle_function_call -> intercepts -> pre_tool_call hook -> registry.dispatch -> JSON error wrap -> post hook.
+
+Errors always JSON {error: ...}. Terminal backends: local, docker, ssh, singularity, modal, daytona, vercel_sandbox. DANGEROUS_PATTERNS approval in tools/approval.py.
+
+Adding a builtin: tools/your_tool.py + name in _HERMES_CORE_TOOLS. Prefer plugins for personal tools.
+
+<VisualSlot caption="register rack, AST discover, toolsets, dispatch pulse, terminal backends." />
+
+## Compare vs OpenClaw
+
+OpenClaw uses tool groups (group:runtime, group:fs) and sandbox tool policy. Hermes uses named toolsets plus check_fn.
+
+## Case: handler returns a dict
+
+**Case.** Tool returns a Python dict; the model sees repr garbage.
+
+**Rule.** json.dumps always; never raise.
+
+<TryThis>
+On paper: weather schema + handler signature (args, **kwargs) -> JSON string. Add it to _HERMES_CORE_TOOLS in one line.
+</TryThis>
+
+Sources: [Tools runtime](https://hermes-agent.nousresearch.com/docs/developer-guide/tools-runtime), [Adding tools](https://hermes-agent.nousresearch.com/docs/developer-guide/adding-tools).

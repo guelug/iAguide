@@ -1,0 +1,24 @@
+{
+  "id": "hermes-skills",
+  "order": 6.31,
+  "slug": "hermes-skills",
+  "track": "harness",
+  "title": {
+    "en": "Hermes: SKILL.md and blueprints",
+    "es": "Hermes: SKILL.md y blueprints"
+  },
+  "summary": {
+    "en": "Skill vs tool. Bundled vs optional-skills. Frontmatter gates, skill_view, blueprints as suggested cron.",
+    "es": "Skill frente a tool. Bundled frente a optional-skills. Gates, skill_view, blueprints sugeridos."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "hermes-platforms"
+  ],
+  "durationMin": 22,
+  "tags": [
+    "hermes",
+    "skills"
+  ]
+}

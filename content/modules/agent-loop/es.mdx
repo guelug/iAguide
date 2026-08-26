@@ -1,0 +1,44 @@
+## Un turno, cinco verbos
+
+Todo arnés serio — Hermes Agent, OpenClaw, el chat que escribiste un sábado — hace el mismo baile:
+
+1. **Intake** del mensaje (y quizá una interrupción en cola).
+2. **Armar** contexto: política de sistema, skills, memoria, turnos recientes.
+3. **Llamar al modelo** (completions, Messages nativo, Responses o un runtime embebido).
+4. **Ejecutar herramientas** si el modelo las pidió; repetir hasta texto o presupuesto.
+5. **Persistir** el transcript y volcar memoria durable.
+
+El modelo se cambia. El bucle es el producto.
+
+<VisualSlot caption="Recorre los cinco verbos de un turno. El pulso es trabajo moviéndose por el arnés, no un segundo cerebro." />
+
+## Interrupción, presupuesto, fallback (ideas generales)
+
+- **Interrumpible** — una llamada HTTP o un lote de tools se puede abandonar con `/stop` o un mensaje nuevo. El texto parcial no debe ensuciar el transcript.
+- **Presupuesto** — techo de iteraciones o de reloj para que un bucle no queme un fin de semana de tokens.
+- **Fallback** — si el proveedor primario falla (429/5xx/auth), prueba una cadena. Los subagentes a menudo **no** heredan esa cadena.
+
+<Compare a="Chat" b="Bucle de arnés">
+<Side>
+Mandar mensaje → imprimir respuesta. Sin rondas de tools, sin modelo de interrupción, sin claim de escritura durable.
+</Side>
+<Side>
+Serializar por sesión, armar un prefijo estable, ejecutar tools con permisos, compactar cuando la ventana se llena, entregar por un adaptador.
+</Side>
+</Compare>
+
+## Hermes frente a OpenClaw (ligero)
+
+Hermes concentra el bucle en `AIAgent` (`run_agent.py`) para CLI, gateway, ACP, cron y librería. OpenClaw posee un **Gateway**: el RPC `agent` acepta al momento y un run embebido emite eventos `assistant` / `tool` / `lifecycle`. Mismos verbos; distinto dueño del proceso.
+
+## Caso: la media respuesta interrumpida
+
+**Caso.** Un usuario de Telegram manda otro mensaje a mitad de stream. El arnés interrumpe pero también guarda el fragmento del asistente como turno cerrado. Siguiente llamada: dos mensajes assistant seguidos → 400 del proveedor.
+
+**Patrón de arreglo.** Al interrumpir: abandonar el hilo HTTP, no commitir contenido parcial, encolar o dirigir el texto nuevo, mantener alternancia válida.
+
+<TryThis>
+Dibuja los cinco verbos. Marca (a) el evento de interrupción, (b) un presupuesto de 500 iteraciones, (c) un cambio de proveedor fallback. Sin GPU: el arnés se testea como máquina de estados.
+</TryThis>
+
+Mapas oficiales: [bucle Hermes](https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop), [bucle OpenClaw](https://docs.openclaw.ai/concepts/agent-loop).

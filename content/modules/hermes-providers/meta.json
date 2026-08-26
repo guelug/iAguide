@@ -1,0 +1,24 @@
+{
+  "id": "hermes-providers",
+  "order": 6.22,
+  "slug": "hermes-providers",
+  "track": "harness",
+  "title": {
+    "en": "Hermes: provider runtime",
+    "es": "Hermes: runtime de proveedores"
+  },
+  "summary": {
+    "en": "Shared resolver for CLI/gateway/cron/ACP/aux. Output {provider, api_mode, base_url, api_key, source}. Three API modes. Fallback not inherited by subagents. Key scoping.",
+    "es": "Resolvedor compartido. Salida {provider, api_mode, base_url, api_key, source}. Tres modos API. Fallback no heredado por subagentes. Alcance de claves."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "hermes-aiagent"
+  ],
+  "durationMin": 22,
+  "tags": [
+    "hermes",
+    "providers"
+  ]
+}

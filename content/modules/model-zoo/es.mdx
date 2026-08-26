@@ -6,6 +6,9 @@
 
 Si no puedes ejecutarlo sin una clave de proveedor, para *tus* fines es cerrado, aunque el paper sea público.
 
+
+<VisualSlot caption="Lee la ficha: pesos abiertos frente a una API, dense frente a MoE, base frente a instruct." />
+
 ## Dense frente a MoE
 
 Un modelo <Term id="dense">dense</Term> usa (más o menos) todos los parámetros en cada token. Un <Term id="moe">Mixture of Experts</Term> enruta cada token a unos pocos expertos. Los parámetros **totales** pueden parecer enormes; los **activos** por token son lo que pagas en cómputo. La memoria sigue teniendo que sostener los expertos que podrías tocar, así que “70B MoE” no es “70B dense” ni “7B”. Lee la ficha: activos frente a totales.
@@ -41,3 +44,7 @@ Abre cualquier ficha instruct que de verdad podrías ejecutar. Anota licencia, c
 ## Un selector, no una corazonada
 
 Pregunta, en este orden: **¿tiene que quedarse en esta máquina?** **¿Qué contexto necesitas de verdad?** **¿Qué motor lo va a cargar?** Luego elige el modelo más pequeño que pase un humo de cinco prompts escritos por ti. Sube de tamaño solo cuando el humo falle por una razón que sepas nombrar.
+
+## Caso — modelo base en un chat
+
+Un equipo metió un GGUF base en un chat y dijo que el modelo estaba roto. Completaba el prompt, no seguía una plantilla. La ficha decía base. La UI asumía instruct.

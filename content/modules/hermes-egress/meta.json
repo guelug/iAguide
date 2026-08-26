@@ -1,0 +1,24 @@
+{
+  "id": "hermes-egress",
+  "order": 6.35,
+  "slug": "hermes-egress",
+  "track": "harness",
+  "title": {
+    "en": "Hermes: iron_proxy egress",
+    "es": "Hermes: egress iron_proxy"
+  },
+  "summary": {
+    "en": "Outbound firewall. Opaque sandbox tokens. Deny CIDRs including IMDS. Profiles as HERMES_HOME.",
+    "es": "Firewall de salida. Tokens opacos. CIDRs denegados incluido IMDS. Perfiles como HERMES_HOME."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "hermes-acp"
+  ],
+  "durationMin": 22,
+  "tags": [
+    "hermes",
+    "egress"
+  ]
+}

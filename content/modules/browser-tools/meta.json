@@ -1,0 +1,24 @@
+{
+  "id": "browser-tools",
+  "order": 6.18,
+  "slug": "browser-tools",
+  "track": "harness",
+  "title": {
+    "en": "Browser as a tool backend",
+    "es": "El navegador como backend de tools"
+  },
+  "summary": {
+    "en": "CDP / supervisor as a tool backend: dialogs, frames, sandbox vs host vs node. When to use browser vs fetch.",
+    "es": "CDP / supervisor como backend: dialogos, frames, sandbox vs host vs node. Cuando usar browser frente a fetch."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "scheduled-jobs"
+  ],
+  "durationMin": 20,
+  "tags": [
+    "browser",
+    "cdp"
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "id": "hermes-aiagent",
+  "order": 6.21,
+  "slug": "hermes-aiagent",
+  "track": "harness",
+  "title": {
+    "en": "Hermes: AIAgent entry points",
+    "es": "Hermes: puntos de entrada AIAgent"
+  },
+  "summary": {
+    "en": "CLI, Gateway, ACP, batch, and library all call AIAgent in run_agent.py. Distinguish Nous Hermes (model family) from Hermes Agent (this harness).",
+    "es": "CLI, Gateway, ACP, batch y libreria llaman a AIAgent en run_agent.py. Distingue Nous Hermes (familia de modelos) de Hermes Agent (este arnes)."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "hermes-ownership"
+  ],
+  "durationMin": 20,
+  "tags": [
+    "hermes",
+    "aiagent"
+  ]
+}

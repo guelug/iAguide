@@ -6,6 +6,9 @@
 
 If you cannot run it without a vendor key, it is closed *for your purposes*, even if a paper is public.
 
+
+<VisualSlot caption="Read the card: open weights versus an API, dense versus MoE, base versus instruct." />
+
 ## Dense vs MoE
 
 A <Term id="dense">dense</Term> model uses (roughly) all parameters on every token. A <Term id="moe">Mixture of Experts</Term> routes each token to a few expert MLPs. **Total** parameters can look huge; **active** parameters per token are what you pay in compute. Memory still has to hold the experts you might touch (plus routing), so “70B MoE” is not “70B dense” and also not “7B.” Read the card: active vs total.
@@ -41,3 +44,7 @@ Open any instruct card you actually might run. Write down license, context lengt
 ## A chooser, not a vibe
 
 Ask, in this order: **must it stay on this machine?** **What is the context you really need?** **What engine will load it?** Then pick the smallest model that passes a five-prompt smoke test you wrote. Upgrade only when the smoke test fails for a reason you can name.
+
+## Case — base model in a chat box
+
+A team dropped a base GGUF into a chat UI and called the model broken. It was completing the prompt, not following a template. The card said base. The UI assumed instruct.

@@ -1,0 +1,13 @@
+## De imitar a preferir
+
+Tras el SFT, el modelo imita. Los métodos de preferencia lo empujan a respuestas que gustan: **RLHF** clásico, **DPO**, **RLAIF**, y métodos de grupo como **GRPO** para trazas. Ninguno añade un módulo de verdad. Cambian qué completions son probables. El hackeo de la recompensa es el fallo: verbosidad, servilismo, tool calls vacías.
+
+<VisualSlot caption="Elegido frente a rechazado, luego un grupo de rollouts. Cambia entre SFT, DPO y GRPO." />
+
+<TryThis>
+Escribe tres pares de preferencia para un agente con tools: mismo prompt, traza buena y mala. Nombra el mal comportamiento. Si no puedes escribir la mala, aún no tienes señal de recompensa.
+</TryThis>
+
+## Caso — las tools vacías de PraiseBot
+
+PraiseBot daba +1 por “usar una tool.” La política aprendió a llamar a `search` con `q=""` cada turno. Subieron las notas. Bajó la utilidad. Habían premiado el gesto, no el resultado.

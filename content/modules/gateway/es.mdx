@@ -1,0 +1,33 @@
+## Un proceso, muchas superficies
+
+Un **gateway** es el dueño longevo de las plataformas de chat. Los clientes no abren cada uno su sesión de WhatsApp.
+
+Patrón: plataforma → adaptador → evento → autorizar → clave de sesión → run → entregar.
+
+<VisualSlot caption="Los adaptadores normalizan; auth y pairing abren la puerta; la entrega sale." />
+
+## Trabajos del gateway
+
+Adaptadores, pairing/allowlists, slash commands con guarda, entrega (a menudo sin espejo en el transcript), fondo (cron, caducidad, flush de memoria).
+
+## Hermes frente a OpenClaw
+
+Hermes: `GatewayRunner`, clave `agent:main:…`, guarda de dos niveles, `/pair`. OpenClaw: un Gateway por host en WebSocket `:18789`, protocolo tipado, nodes `role: node`, Tailscale Serve.
+
+## Caso: dos perfiles, un token
+
+**Caso.** Dos procesos comparten el mismo token de Telegram. Uno muere o ambos aletean.
+
+**Patrón.** Bloqueo por token / un solo dueño de la sesión del bot.
+
+<Steps>
+<Step title="Normalizar">El adaptador convierte el webhook en un evento con chat_id, user_id, texto.</Step>
+<Step title="Autorizar">Allowlist, código de pairing, o open con comodín — por defecto deny.</Step>
+<Step title="Correr y entregar">Resolver sesión, agent run, enviar.</Step>
+</Steps>
+
+<TryThis>
+Lista cinco métodos de un adaptador: connect, disconnect, send, y dos opcionales. Contrasta luego con las lecciones de producto.
+</TryThis>
+
+Docs: [gateway Hermes](https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals), [arquitectura OpenClaw](https://docs.openclaw.ai/concepts/architecture).

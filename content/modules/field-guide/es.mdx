@@ -2,6 +2,9 @@
 
 Ya tienes el vocabulario. Esta página es un bucle que puedes correr en una máquina real sin inventar cifras. Márcalas en orden; sáltate con un motivo, no con una corazonada.
 
+
+<VisualSlot caption="Nombra primero la capa: modelo, arnés o metal — luego el dialecto si hace falta una segunda palabra." />
+
 ## 1. Elige un modelo
 
 - ¿Tiene que quedarse en local? Si sí, solo <Term id="open-weights">pesos abiertos</Term>.
@@ -69,3 +72,23 @@ Corre la lista con *un* modelo esta semana. Anota nombre de archivo, contexto, m
 ## Cuando esta página se quede vieja
 
 2026 no dura. Si una flag de este esquema da 404, la *estructura* sigue siendo el curso: ficha → memoria → quant → motor → quizá LoRA → arnés con permisos. Parchea el esquema. Quédate con el bucle.
+
+## Nombra la capa, luego el dialecto
+
+Cuando algo se rompe en producción, nombra primero la capa: **modelo** (pesos, plantilla, quant), **arnés** (bucle, tools, caché, inyección) o **metal** (VRAM, batching, factura). Luego, si el arnés es una particularidad, nombra el dialecto (Hermes, OpenClaw, smolagents, LangGraph, LlamaIndex) — después de la capa, no en su lugar.
+
+La Bonus 3 de Hugging Face (agente de combate Pokémon) es un caso trabajado: Showdown es metal+reglas; el LLM es el modelo; `choose_move` es el arnés. En [agentes en juegos](/course/game-agents).
+
+## Qué aprender ahora (sin quinta vía)
+
+El curso de agentes señala MCP y A2A. MCP ya está en [herramientas](/course/tools-and-mcp). Agente-a-agente son hilos anidados en [patrones](/course/agent-patterns). GAIA es un metro en [GAIA](/course/gaia), no un diploma que hospedemos.
+
+<TryThis>
+Elige un incidente de producción (o invéntalo con honestidad). Nombra la capa: modelo / arnés / metal. Si necesitas una segunda palabra, es un dialecto, no una física nueva.
+</TryThis>
+
+Esta lección reescribe ideas del [curso de agentes de Hugging Face](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.
+
+## Caso — capa equivocada, dialecto correcto
+
+Una caída parecía “LangGraph está roto.” El grafo estaba bien; la GPU hacía OOM en la KV. Reescribieron el grafo una semana. Nombrar **metal** el primer día habría comprado menos contexto, no otra librería.

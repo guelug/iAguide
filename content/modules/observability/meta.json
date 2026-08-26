@@ -1,0 +1,24 @@
+{
+  "id": "observability",
+  "order": 11.4,
+  "slug": "observability",
+  "track": "harness",
+  "title": {
+    "en": "Observability: traces, not vibes",
+    "es": "Observabilidad: trazas, no corazonadas"
+  },
+  "summary": {
+    "en": "A turn is a trace; a model call and a tool run are spans. Latency can look fine while the tool error rate is 40%.",
+    "es": "Un turno es una traza; una llamada al modelo y una herramienta son spans. La latencia puede verse bien con un 40% de error en tools."
+  },
+  "status": "complete",
+  "prereqs": [
+    "evaluation"
+  ],
+  "durationMin": 18,
+  "tags": [
+    "otel",
+    "traces",
+    "langfuse"
+  ]
+}

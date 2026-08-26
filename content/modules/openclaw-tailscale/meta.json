@@ -1,0 +1,24 @@
+{
+  "id": "openclaw-tailscale",
+  "order": 6.49,
+  "slug": "openclaw-tailscale",
+  "track": "harness",
+  "title": {
+    "en": "OpenClaw: Tailscale Serve and Funnel",
+    "es": "OpenClaw: Tailscale Serve y Funnel"
+  },
+  "summary": {
+    "en": "Keep bind=loopback. Serve = tailnet HTTPS. Funnel = public + password. Identity headers vs token.",
+    "es": "bind=loopback. Serve = HTTPS de tailnet. Funnel = publico + password. Headers de identidad vs token."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "openclaw-pairing"
+  ],
+  "durationMin": 20,
+  "tags": [
+    "openclaw",
+    "tailscale"
+  ]
+}

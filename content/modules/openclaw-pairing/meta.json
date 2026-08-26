@@ -1,0 +1,24 @@
+{
+  "id": "openclaw-pairing",
+  "order": 6.48,
+  "slug": "openclaw-pairing",
+  "track": "harness",
+  "title": {
+    "en": "OpenClaw: DM pairing and devices",
+    "es": "OpenClaw: pairing DM y dispositivos"
+  },
+  "summary": {
+    "en": "DM pairing codes (8 chars, 1h). Device pairing + connect.challenge. Setup codes, QR, scopes.",
+    "es": "Codigos DM (8 chars, 1h). Pairing de dispositivo + connect.challenge. Setup codes, QR, scopes."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "openclaw-reset"
+  ],
+  "durationMin": 22,
+  "tags": [
+    "openclaw",
+    "pairing"
+  ]
+}

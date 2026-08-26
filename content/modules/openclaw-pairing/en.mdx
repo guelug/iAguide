@@ -1,0 +1,25 @@
+## Two pairing planes
+
+DM pairing: unknown senders get an 8-char code (no 0O1I), expire 1h, cap 3 pending per channel account. Approve in Control UI or openclaw pairing approve. Grants DM only, not groups.
+
+Device pairing: every WS client carries device identity. New IDs need approval; Gateway issues a device token. connect.challenge must be signed. Setup code (oc-pair / QR) includes url + bootstrapToken (10 min). Loopback can auto-approve; Tailnet/LAN still need explicit approval.
+
+State: ~/.openclaw/state/openclaw.sqlite (channel_pairing_* and device rows).
+
+<VisualSlot caption="DM code, device pairing, challenge, setup QR, sqlite store." />
+
+## Compare vs Hermes
+
+Hermes /pair is a DM code plus allowlists and token locks. OpenClaw adds device identity + challenge signatures for every client and node.
+
+## Case: plaintext LAN full access
+
+**Case.** Phone pairs over ws:// LAN and gets operator.admin.
+
+**Fix.** Plaintext non-loopback setup is limited. Use wss or Tailscale Serve for full access.
+
+<TryThis>
+Name the two pairing stores in openclaw.sqlite and the DM code TTL.
+</TryThis>
+
+Source: https://docs.openclaw.ai/channels/pairing

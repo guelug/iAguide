@@ -1,0 +1,15 @@
+## Most parameters can sleep
+
+A dense layer uses every weight on every token. A **mixture of experts** routes each token to a few expert MLPs. Total parameter count can be huge; **active** parameters per token stay smaller. That is why a “400B MoE” can run closer to a 30B dense in FLOPs — and still need enough VRAM to *hold* the experts you are not firing.
+
+Routing must stay balanced or a few experts overfit and others die. Model cards will say active params, number of experts, and top-k. Believe the card; measure memory yourself.
+
+<VisualSlot caption="A router over six experts. Dense lights all of them; top-k lights two; VRAM still hosts the sleeping ones." />
+
+<TryThis>
+On a card for any MoE you might run, write: total params, active params, experts, top-k. Then estimate whether your GPU holds the *total* or only the active — and which of those two mistakes you were about to make.
+</TryThis>
+
+## Case — MoE-on-Mac optimism
+
+A team bought a Mac because “active params are 17B.” The quant still mapped all experts into unified memory and the machine swapped. Active FLOPs were fine. Resident weights were not.

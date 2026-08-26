@@ -6,6 +6,9 @@
 
 LoRA is not weaker “by definition.” It is weaker when the rank is too small for the behaviour you want, or when the data disagrees with itself.
 
+
+<VisualSlot caption="Frozen W, a thin LoRA pair BA, and the served sum. Function-calling is a template you can train on top." />
+
 ## Data quality beats extra epochs
 
 A few hundred *clean*, schema-stable examples in the **same template you will serve** will beat a scraped dump. Deduplicate. Put the instruction in the user turn if that is how you will call the model. Include a little “say no / ask a question” so it does not always comply.
@@ -57,3 +60,15 @@ Before installing anything, write 20 eval prompts your LoRA must not fail. If yo
 <Myth>
 “QLoRA is a 4-bit model forever.” QLoRA is how you *train*. You can merge back to a higher-precision artefact for serving, or keep the adapter separate. Serving 4-bit GGUF is a different decision (quantization module).
 </Myth>
+
+## Function-calling is a template you can train
+
+If the model must *learn* to emit tool tokens, that is a fine-tune — Hugging Face Bonus 1, unpacked in [function-calling fine-tune](/course/function-calling-ft). Collect ~20 clean pairs before you touch Unsloth. If the schema still moves, **do not fine-tune**; fix the schema.
+
+<TryThis>
+Write five prompts that should *not* call a tool, and five that must call exactly one. If you cannot, you do not have a function-calling task. You have a hope.
+</TryThis>
+
+## Case — LoRA on a moving schema
+
+A team LoRA’d tool calls while the JSON schema changed every sprint. Monday’s adapter rejected Friday’s field names. They froze the schema, then trained. The LoRA was fine; the process was not.

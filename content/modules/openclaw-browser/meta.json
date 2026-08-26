@@ -1,0 +1,24 @@
+{
+  "id": "openclaw-browser",
+  "order": 6.54,
+  "slug": "openclaw-browser",
+  "track": "harness",
+  "title": {
+    "en": "OpenClaw: managed browser profiles",
+    "es": "OpenClaw: perfiles de browser"
+  },
+  "summary": {
+    "en": "Isolated openclaw profile plus user/chrome attach. Loopback control. SSRF defaults. Node proxy.",
+    "es": "Perfil openclaw aislado mas attach user/chrome. Control loopback. SSRF. Proxy de nodo."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "openclaw-cron"
+  ],
+  "durationMin": 24,
+  "tags": [
+    "openclaw",
+    "browser"
+  ]
+}

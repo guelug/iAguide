@@ -1,0 +1,23 @@
+## Contrato nativo
+
+plugin.yaml + register(ctx). Tres fuentes: user, proyecto, pip. Opt-in y doctor.
+
+Override solo con capabilities. Handlers JSON.
+
+<VisualSlot caption="plugin.yaml, register, discovery, capabilities." />
+
+## Comparar vs OpenClaw
+
+OpenClaw: plugins en el Gateway. Hermes: PluginManager in-process.
+
+## Caso: sombrear web_search
+
+**Caso.** Dos plugins, misma tool.
+
+**Fix.** Rechazo sin override + consentimiento.
+
+<TryThis>
+Escribe plugin.yaml de una calculadora.
+</TryThis>
+
+Fuente: https://hermes-agent.nousresearch.com/docs/developer-guide/plugins

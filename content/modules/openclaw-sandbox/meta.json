@@ -1,0 +1,24 @@
+{
+  "id": "openclaw-sandbox",
+  "order": 6.501,
+  "slug": "openclaw-sandbox",
+  "track": "harness",
+  "title": {
+    "en": "OpenClaw: sandbox vs tool policy vs elevated",
+    "es": "OpenClaw: sandbox vs tool policy vs elevated"
+  },
+  "summary": {
+    "en": "Three controls: where tools run, which tools exist, exec-only elevated escape. deny always wins.",
+    "es": "Tres controles: donde corren, que tools existen, elevated solo para exec. deny siempre gana."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "openclaw-tailscale"
+  ],
+  "durationMin": 24,
+  "tags": [
+    "openclaw",
+    "sandbox"
+  ]
+}

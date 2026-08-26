@@ -1,0 +1,26 @@
+## Same loop, four sockets
+
+| Surface | Transport | Best for |
+| --- | --- | --- |
+| ACP | JSON-RPC over stdio | VS Code, Zed, JetBrains that already speak Agent Client Protocol |
+| HTTP API | OpenAI-shaped /v1/chat/completions + SSE | curl, Open WebUI, CI |
+| TUI / Gateway WS | JSON-RPC (Hermes TUI gateway; OpenClaw :18789) | custom hosts that need slash commands, approvals, steer |
+| In-process | import AIAgent / embedded runtime | Python embed without a subprocess |
+
+If the IDE already speaks ACP, do not invent a second HTTP dialect.
+
+<VisualSlot caption="ACP, HTTP, WebSocket, in-process -- four ways into one agent loop." />
+
+Hermes: hermes acp, api_server, tui_gateway, run_agent.AIAgent. OpenClaw: Gateway WS is the control plane; ACP and HTTP sit on top.
+
+## Case: chat_completions for an ACP IDE
+
+**Case.** A VS Code plugin posts OpenAI chat completions to a local API server, then tries to render tool diffs by parsing streamed text. Permissions and cancel are wrong.
+
+**Fix.** Speak ACP: sessions, permission requests, session_update, cancel.
+
+<TryThis>
+For each consumer pick one protocol: (1) VS Code, (2) curl in CI, (3) a custom TUI, (4) a Python test that mocks tools.
+</TryThis>
+
+Docs: [Hermes programmatic](https://hermes-agent.nousresearch.com/docs/developer-guide/programmatic-integration), [Hermes ACP](https://hermes-agent.nousresearch.com/docs/developer-guide/acp-internals), [OpenClaw protocol](https://docs.openclaw.ai/gateway/protocol).

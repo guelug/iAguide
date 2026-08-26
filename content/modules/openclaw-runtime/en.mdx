@@ -1,0 +1,25 @@
+## Two ways to run a turn
+
+Default: embedded OpenClaw loop (runEmbeddedAgent). agent RPC returns {runId, accepted} immediately; streams assistant/tool/lifecycle; agent.wait waits for lifecycle end.
+
+Native Codex app-server is the default openai/gpt-* path (/codex bind). ACP (acpx plugin) spawns external harnesses — Claude Code, Cursor, Gemini CLI — as processes. ACP does not inherit OpenClaw sandbox.
+
+Writer claim: activeWriterRunId fences transcript commits so a superseded run cannot write stale rows.
+
+<VisualSlot caption="Embedded loop, agent RPC, native Codex, ACP spawn, writer claim." />
+
+## Compare vs Hermes
+
+Hermes is always the harness (CLI, gateway, ACP adapter wrapping AIAgent). OpenClaw can BE the harness or DRIVE another one.
+
+## Case: sandboxed ACP spawn
+
+**Case.** Group session (sandbox non-main) calls sessions_spawn runtime acp.
+
+**Fix.** ACP is blocked from sandboxed sessions. Use runtime subagent, or spawn from a non-sandboxed session.
+
+<TryThis>
+Draw embedded vs ACP vs native Codex as three boxes. Label who owns tools in each.
+</TryThis>
+
+Sources: https://docs.openclaw.ai/concepts/agent-loop and https://docs.openclaw.ai/tools/acp-agents

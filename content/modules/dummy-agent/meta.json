@@ -1,0 +1,24 @@
+{
+  "id": "dummy-agent",
+  "order": 12.2,
+  "slug": "dummy-agent",
+  "track": "harness",
+  "title": {
+    "en": "A dummy agent, from scratch",
+    "es": "Un agente de juguete, desde cero"
+  },
+  "summary": {
+    "en": "How a thought-action-observation loop is just Python: stop before Observation, run the tool yourself, append the result. smolagents is this loop with manners.",
+    "es": "Cómo el bucle pensamiento-acción-observación es solo Python: para antes de Observation, ejecuta la herramienta tú, añade el resultado. smolagents es ese bucle con educación."
+  },
+  "status": "complete",
+  "prereqs": [
+    "agent-patterns"
+  ],
+  "durationMin": 22,
+  "tags": [
+    "react",
+    "smolagents",
+    "particularity"
+  ]
+}

@@ -1,0 +1,23 @@
+## A separate agent-only browser
+
+Default profile openclaw: dedicated Chromium profile, never your personal one. Control service is loopback (gateway port + 2).
+
+user profile attaches to signed-in Chrome via DevTools MCP (someone must click Allow). chrome profile uses the extension so a phone can drive tabs with nobody at the desk.
+
+SSRF policy is fail-closed. Node hosts can proxy browser actions to the machine that has Chrome.
+
+<VisualSlot caption="openclaw profile, user attach, chrome extension, SSRF, node proxy." />
+
+## Compare vs Hermes
+
+Hermes: CDP supervisor on whatever backend the tools already use. OpenClaw: Gateway-owned isolated profile plus explicit attach modes.
+
+## Case: coding profile, no browser
+
+**Fix.** alsoAllow browser; plugins.allow must list browser.
+
+<TryThis>
+When would you pick profile user vs chrome vs openclaw?
+</TryThis>
+
+Source: https://docs.openclaw.ai/tools/browser

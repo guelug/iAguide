@@ -1,0 +1,23 @@
+## Dos trabajos que se mezclan
+
+**Compactacion** reduce lo que *ve el modelo*: resume el medio, conserva cola verbatim, no parte pares tool_call/resultado.
+
+**Cache de prefijo** reutiliza *computo* si el prefijo es identico byte a byte. Los breakpoints clavan el system prompt y una ventana rodante.
+
+Tras compactar, la region comprimida falla cache; el system prompt puede sobrevivir.
+
+<VisualSlot caption="La ventana se llena, volcar memoria, resumir el medio, conservar cola, recolocar breakpoints." />
+
+## Umbrales dobles
+
+Una higiene de **gateway** alta (Hermes 85%) caza el Telegram nocturno. Un compresor **en el bucle** mas bajo (50%) es el gestor normal. OpenClaw compacta cerca del limite o ante overflow y puede volcar memoria antes.
+
+## Caso: el cache bust es una factura
+
+**Caso.** `/model` o fallback a mitad de hilo. La siguiente peticion relee 80k tokens a precio completo. La identidad del modelo entra en la clave de cache.
+
+<TryThis>
+Para 200k de contexto al 50% y cola 20%, calcula 100k y 20k. Escribe las cuatro fases: podar tools viejas, limites, resumen LLM, rearmar.
+</TryThis>
+
+Docs: [compresion Hermes](https://hermes-agent.nousresearch.com/docs/developer-guide/context-compression-and-caching), [compactacion OpenClaw](https://docs.openclaw.ai/concepts/compaction).

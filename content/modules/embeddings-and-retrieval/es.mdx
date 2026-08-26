@@ -1,0 +1,27 @@
+## La similitud es una puntuación, no una prueba
+
+Un <Term id="embedding">embedding</Term> es una lista de números. Las listas cercanas *suelen* significar cosas afines. Los embeddings de pasaje son lo que guarda la búsqueda vectorial. El coseno ordena candidatos. No certifica que el trozo responda la pregunta.
+
+Trocear es una decisión de producto: demasiado grande y traes ruido; demasiado pequeño y pierdes la frase con el número. Búsqueda híbrida y un reranker son ordinarios, no exóticos.
+
+## Tres formas de usar un corpus
+
+1. **Empujar (stuff)** — pegar el wiki en el prompt. Simple. Quema la ventana. Hostil a la caché si el blob cambia.
+2. **Recuperar-y-leer** — siempre el retriever, top-k, generar. RAG clásico. El modelo no decide *si* buscar.
+3. **Bucle agéntico** — el modelo tiene una tool de retrieve (y quizá otras) y puede saltársela, repetir la query o ir a la web.
+
+<VisualSlot caption="Empujar el corpus, recuperar top-k, o dejar que el agente elija una tool. Mismos archivos; distinto control de flujo." />
+
+El RAG ingenuo falla cuando hace falta un segundo salto, cuando el corte partió la respuesta, o cuando el texto recuperado son instrucciones disfrazadas (véase seguridad).
+
+La particularidad de *cómo* lo cablean LlamaIndex o smolagents está en [LlamaIndex](/course/llamaindex) y [RAG agéntico](/course/agentic-rag). Aquí bastan las tres geometrías.
+
+<TryThis>
+Escribe tres consultas contra un manual de empresa falso: (a) una que gana el keyword, (b) una que ganan los vectores, (c) una que no gana nadie sin un salto. Di si empujarías, recuperarías una vez, o darías al modelo una tool de búsqueda.
+</TryThis>
+
+## Caso — el manual empujado de HarborHR
+
+HarborHR pegaba 40 páginas en cada turno. El prefill eran 9 segundos. Legal cambió *un* párrafo, la caché de prefijo murió y el modelo citó la política de vacaciones vieja de un trozo vecino. No era un bug de retrieval. Era una política de stuffing.
+
+Esta lección reescribe ideas del [curso de agentes de Hugging Face](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.

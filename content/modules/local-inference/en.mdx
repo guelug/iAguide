@@ -7,6 +7,9 @@
 
 They are complements. A mixed Mac/Linux team often uses Ollama for daily drive, llama.cpp when a flag matters, MLX when the Mac must be fast, vLLM when a GPU box has real traffic.
 
+
+<VisualSlot caption="Three engines: llama.cpp for GGUF, Ollama for convenience, vLLM for GPU throughput." />
+
 ## File formats
 
 | Format | What it is | Typical engine |
@@ -50,3 +53,7 @@ Run the same 50-token prompt at context 4k and at the model's max, on the same G
 <Callout>
 Ollama hides `n_gpu_layers`. llama.cpp lets you put some layers on GPU and leave the rest on CPU RAM. That is how a 30B GGUF limps along on a 12 GB card. Slow, but it runs.
 </Callout>
+
+## Case — GGUF into vLLM
+
+Someone converted to GGUF “because the laptop used it,” then tried to serve with vLLM. Wrong container for that engine. Match the artefact to the runtime.

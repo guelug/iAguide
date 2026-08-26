@@ -1,0 +1,31 @@
+## Message flow
+
+Adapter -> MessageEvent -> GatewayRunner._handle_message: session key via build_session_key (agent:main:{platform}:{chat_type}:{chat_id}), authorize, slash command or AIAgent, deliver.
+
+Two-level guard: (1) BasePlatformAdapter queues if session active and sets interrupt; /approve /deny /stop bypass. (2) Runner intercepts /stop /new /queue /status /approve /deny; else running_agent.interrupt(). /model while running is rejected.
+
+Auth order: per-platform allow-all, allowlist, DM pairing, global GATEWAY_ALLOW_ALL_USERS, default deny. /pair issues a code the new user types back.
+
+Token locks: acquire_scoped_lock in connect so two profiles cannot share one bot token.
+
+Hooks: gateway:startup, session:*, agent:*, command:* from ~/.hermes/hooks/ (builtin_hooks ships empty).
+
+Cron deliveries are not mirrored into gateway history.
+
+<VisualSlot caption="Runner, session key, two-level guard, pairing code, token lock." />
+
+## Compare vs OpenClaw
+
+OpenClaw pairing is device-based (connect.challenge + device token) and DM pairing codes expire in 1h. Hermes pairing is DM-code plus allowlists; WS protocol is not the control plane.
+
+## Case: two profiles, one bot token
+
+**Case.** hermes -p work and -p home both start Telegram.
+
+**Fix.** Scoped lock; second connect fails loud.
+
+<TryThis>
+Write the session key for Telegram private chat 123. Name the two guard levels.
+</TryThis>
+
+Source: [Gateway internals](https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals).

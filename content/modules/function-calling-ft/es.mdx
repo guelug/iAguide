@@ -1,0 +1,19 @@
+## Particularidad — enseñar el esquema a los pesos
+
+El prompting puede listar tools. El **fine-tune de function-calling** enseña a emitir los tokens especiales y la forma de los argumentos — como las APIs tipo GPT-4 y los roles de tools de Mistral. Aparecen roles nuevos: un assistant que es una llamada, y un mensaje `tool` / observación.
+
+La Bonus Unit 1 de Hugging Face añade eso a un instruct pequeño con LoRA. Los datos son el producto: pares limpios en la **misma plantilla que servirás**.
+
+A menudo **no** deberías afinar: arregla el esquema, acorta la lista, o usa un modelo que ya llama tools. El fine-tune es cuando el prompting falla *siempre* en un formato que te pertenece.
+
+<VisualSlot caption="Una lista de tools en el prompt frente a un modelo que aprendió tokens de tools. El modo rosa es un esquema roto que intentaste tapar con LoRA." />
+
+<TryThis>
+Reúne 20 pares `(prompt, tool_call)` de una tool que te importe. Argumentos válidos. Añade cinco prompts “no hace falta tool”. Luego tres viñetas de cuándo seguirías negándote a afinar.
+</TryThis>
+
+## Caso — el LoRA prematuro de SchemaPatch
+
+El esquema `create_ticket` de SchemaPatch cambiaba cada semana. Hacían LoRA los viernes. El lunes rompía el adapter. Congelaron el esquema un mes, reunieron 200 pares y entrenaron una vez. El LoRA aguantó. El proceso era el bug.
+
+Esta lección reescribe ideas del [curso de agentes de Hugging Face](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.

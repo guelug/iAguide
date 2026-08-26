@@ -1,0 +1,25 @@
+## Loopback plus Tailscale, not 0.0.0.0
+
+gateway.tailscale.mode: serve (tailnet HTTPS, Gateway stays 127.0.0.1), funnel (public HTTPS, requires password), off. Funnel refuses to start unless auth mode is password.
+
+bind: tailnet listens on Tailnet IP (plain WS, still keep loopback for same-host). Serve identity headers can skip token when allowTailscale is true — not for /v1 HTTP APIs, not for node-role.
+
+Do not use Funnel for browser control; treat node pairing like operator access.
+
+<VisualSlot caption="loopback bind, Serve, Funnel, tailnet bind, auth modes." />
+
+## Compare vs Hermes
+
+Hermes remote is whatever the platform adapter already uses (Telegram/Slack). OpenClaw Gateway is a WS server you must not expose raw; Tailscale is the documented path.
+
+## Case: Funnel with auth none
+
+**Case.** Public URL, gateway.auth.mode none. Refused.
+
+**Fix.** password (prefer OPENCLAW_GATEWAY_PASSWORD) or do not Funnel.
+
+<TryThis>
+Write two config snippets: serve+loopback, and funnel+password.
+</TryThis>
+
+Source: https://docs.openclaw.ai/gateway/tailscale

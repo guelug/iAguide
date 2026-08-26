@@ -11,7 +11,7 @@
     "en": "Continuous batching, paged attention, speculative decoding, and the difference between fast for you and cheap for everyone.",
     "es": "Batching continuo, paged attention, decodificación especulativa y la diferencia entre rápido para ti y barato para todos."
   },
-  "status": "wip",
+  "status": "complete",
   "prereqs": [
     "memory-hardware"
   ],

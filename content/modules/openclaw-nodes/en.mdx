@@ -1,0 +1,25 @@
+## Peripherals, not gateways
+
+A node (macOS/iOS/Android/headless) connects with role: node and exposes commands (camera.*, screen.record, location.get, system.run) via node.invoke. Channel messages still land on the Gateway.
+
+Commands pass two gates: declared in connect.commands, then Gateway allowlist. Dangerous ops (camera.snap, screen.record) need gateway.nodes.commands.allow. Exec host=node forwards to a node host; approvals live on the node SQLite.
+
+macOS menubar app IS a node — do not start a second CLI node on that Mac.
+
+<VisualSlot caption="role:node, camera, screen, location, exec on node host." />
+
+## Compare vs Hermes
+
+Hermes has no node role; platforms are chat adapters. Device peripherals are an OpenClaw particularity of the Gateway.
+
+## Case: two nodes on one Mac
+
+**Case.** Menubar app plus openclaw node run both connect; pairing fights itself.
+
+**Fix.** App is the sole node identity on that Mac.
+
+<TryThis>
+Name three node commands that need explicit allow, and one that is default on iOS.
+</TryThis>
+
+Source: https://docs.openclaw.ai/nodes

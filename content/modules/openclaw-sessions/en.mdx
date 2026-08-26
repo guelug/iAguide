@@ -1,0 +1,25 @@
+## Gateway owns the rows
+
+~/.openclaw/agents/<id>/agent/openclaw-agent.sqlite holds runtime session rows. Transcript archives under sessions/. Shared pairing DB is ~/.openclaw/state/openclaw.sqlite.
+
+dmScope: main (all DMs share), per-peer, per-channel-peer (recommended for multi-user), per-account-channel-peer. groupScope: per-group (default) or main.
+
+Incognito threads stay in process memory — gone on Gateway restart, no memory flush.
+
+<VisualSlot caption="sqlite path, dmScope, groupScope, main session, incognito." />
+
+## Compare vs Hermes
+
+Hermes: one profile-scoped ~/.hermes/state.db with FTS5. OpenClaw: per-agent sqlite plus a shared pairing DB. Session keys encode channel/peer, not just chat_id.
+
+## Case: Alice sees Bob
+
+**Case.** Two people DM the bot; dmScope is main.
+
+**Fix.** per-channel-peer. Verify with openclaw security audit.
+
+<TryThis>
+Write the sqlite path for agent id main. Pick a dmScope for a family Telegram bot.
+</TryThis>
+
+Source: https://docs.openclaw.ai/concepts/session

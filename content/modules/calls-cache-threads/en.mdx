@@ -7,6 +7,9 @@ Two request shapes, one underlying job (complete the next tokens):
 
 If you bypass the chat template on an instruct model, you are speaking a dialect it was not trained to expect.
 
+
+<VisualSlot caption="A stable prefix hits the cache; a one-character change busts it. Nested threads are child prefixes." />
+
 ## tool_call is a message, not a side channel
 
 A <Term id="tool-call">tool_call</Term> is structured output: an id, a name, arguments (usually JSON). The harness runs the function and returns a **tool** (or `tool_result`) message with the same id. Then the model continues. Several rounds can live inside one user <Term id="turn">turn</Term>.
@@ -44,3 +47,17 @@ Log three ids on every call: `session_id`, `thread_id`, `turn_id`. Replay a bug 
 ## Streaming without lying
 
 <Term id="streaming">Streaming</Term> is tokens as they exist. Tool-call fragments are not user-visible answers. Hide them, or show a “running `search`…” placeholder. Never concatenate a half-argument into the chat bubble.
+
+## Multi-agent is nested threads
+
+A manager plus a worker is not a new kind of memory. It is another <Term id="thread">thread</Term> (often another prefix, another cache) whose summary is a message in the parent. Hugging Face’s multi-agent examples are this: isolation of noisy search, cost of a second prefill. Prefix cache hits only if the child’s system prompt is stable.
+
+<TryThis>
+Prefix-cache bust: write two prompts that differ by a single timestamp in the system line. Say which caches miss (KV of this request still works; prefix cache across requests dies). Then rewrite the timestamp into the *user* turn so the prefix can hit.
+</TryThis>
+
+## Case — TwinDesk’s leaking child
+
+TwinDesk spawned a web worker per query and passed the **entire parent thread** “for context.” Customer A’s email landed in customer B’s child prefix when a cache key ignored `thread_id`. Nested threads need their own ids — the same three you logged above.
+
+This lesson rewrites ideas from the [Hugging Face Agents Course](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.

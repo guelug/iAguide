@@ -1,0 +1,30 @@
+## Sesión ≠ cookie del navegador
+
+Una **sesión** es la unidad durable que el arnés persiste. Una pestaña de proceso no lo es.
+
+Las claves de enrutado eligen *qué* sesión recibe el mensaje. La compactación cambia *qué ve el modelo*, no siempre el id que buscas después.
+
+<VisualSlot caption="Clave → fila → transcript → compactar → buscar." />
+
+## Patrones compartidos
+
+- Claves por superficie (DM, grupo, cron, webhook).
+- SQLite (Hermes `state.db` WAL+FTS5; OpenClaw `openclaw-agent.sqlite` por agente).
+- Compactación con linaje **o** in-place.
+- Búsqueda para recordar tras comprimir.
+
+## Hermes frente a OpenClaw (dmScope)
+
+Hermes: `agent:main:{platform}:{chat_type}:{chat_id}`. OpenClaw: `session.dmScope` decide si los DM comparten `main` o se aíslan — crítico con varios humanos.
+
+## Caso: Telegram que explota de noche
+
+**Caso.** El grupo llena la ventana; a la mañana el turno revienta por contexto. Alguien desactivó la compactación “para no perder nada.”
+
+**Práctica.** Compactar es con pérdida pero recuperable si vuelcas memoria y mantienes FTS/archivos.
+
+<TryThis>
+Boceta dos claves (DM y grupo) y una tercera para un cron que debe empezar vacío.
+</TryThis>
+
+Docs: [sesiones Hermes](https://hermes-agent.nousresearch.com/docs/developer-guide/session-storage), [sesiones OpenClaw](https://docs.openclaw.ai/concepts/session).

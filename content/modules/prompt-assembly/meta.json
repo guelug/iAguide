@@ -1,0 +1,25 @@
+{
+  "id": "prompt-assembly",
+  "order": 6.11,
+  "slug": "prompt-assembly",
+  "track": "harness",
+  "title": {
+    "en": "Prompt assembly",
+    "es": "Ensamblado del prompt"
+  },
+  "summary": {
+    "en": "Stable vs volatile vs ephemeral. SOUL / AGENTS / MEMORY / USER as a shared pattern. Why prefix cache cares about byte-stable prefixes.",
+    "es": "Stable frente a volatile frente a efímero. SOUL / AGENTS / MEMORY / USER como patrón compartido. Por qué la caché de prefijo exige bytes estables."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "agent-loop"
+  ],
+  "durationMin": 22,
+  "tags": [
+    "prompt",
+    "cache",
+    "soul"
+  ]
+}

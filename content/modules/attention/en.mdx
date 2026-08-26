@@ -1,0 +1,31 @@
+## Attention is a mixing step
+
+<Term id="attention">Attention</Term> is how a token reads the window. For the token you are predicting, the model builds a **query**. Every token already in the window offers a **key** and a **value**. Scores say how much this query cares about each key; values are blended with those scores.
+
+A sketch, not a paper:
+
+$$
+\mathrm{Attention}(Q,K,V) = \mathrm{softmax}\!\left(\frac{QK^\top}{\sqrt{d}}\right) V
+$$
+
+$d$ is the key dimension; the square root stops the scores exploding as $d$ grows. You do not need to derive this to ship a product. You need: **every new token attends over the cached keys**, which is why the <Term id="kv-cache">KV cache</Term> exists, and why long context costs memory.
+
+<VisualSlot caption="One query looking across keys; values blend. Switch to heads, then to GQA where keys are shared." />
+
+## The block around it
+
+A transformer block is usually: (optional) RMSNorm → attention → residual add → (optional) RMSNorm → MLP → residual add. The residual stream is the highway; attention and the MLP are on-ramps.
+
+**Multi-head** means several QKV mixes in parallel, then concatenated. **GQA / MQA** share keys and values across heads so the KV cache shrinks — same idea, fewer tensors to store per token. **RoPE** rotates queries and keys so position is a relative angle, not a learned lookup. You will meet all four names on model cards. They are engineering, not a second architecture.
+
+## Prefill vs decode, again
+
+Prefill writes a block of keys and values (often in parallel). Decode appends one token’s KV and attends over everything cached. That is why the first token of a long prompt is slow, and why a long *generation* gets heavier as the cache grows.
+
+<TryThis>
+On paper, for a 7-token prompt “The capital of France is”, circle which tokens the query for `is` is allowed to see (causal mask: only the past). Then write one sentence: what would break if the mask were bidirectional at decode time?
+</TryThis>
+
+## Case — Lumen’s 128k demo
+
+Lumen advertised a 128k window on a laptop 8B. The weights fit. At 80k tokens of stuffed PDF the process died. They had budgeted VRAM for weights and forgotten that GQA still stores **keys and values per token**. Attention did not “fail.” The cache did not fit.

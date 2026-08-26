@@ -11,7 +11,7 @@
     "en": "The part that decides quality: sourcing, dedup, filtering, contamination, synthetic data, licences.",
     "es": "La parte que decide la calidad: fuentes, deduplicación, filtrado, contaminación, datos sintéticos, licencias."
   },
-  "status": "wip",
+  "status": "complete",
   "prereqs": [
     "training"
   ],

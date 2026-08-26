@@ -1,0 +1,19 @@
+## Particularity — teaching the schema into the weights
+
+Prompting can list tools. **Function-calling fine-tunes** teach the model to emit the right special tokens and argument shape — the way GPT-4-class APIs and Mistral’s tool roles do. New roles appear in the conversation: an assistant message that is really a call, and a `tool` / observation message. Chat templates grow tags like `[TOOL_CALLS]` / `[TOOL_RESULTS]`.
+
+Hugging Face Bonus Unit 1 walks adding those capacities to a small instruct (e.g. Gemma) with LoRA. The data is the product: clean `(prompt → tool_call)` and `(tool_result → answer)` pairs in the **same template you will serve**.
+
+Often you should **not** fine-tune: fix the schema, shorten the tool list, or use a model that already calls tools. Fine-tuning is for when prompting fails *consistently* on a format you own.
+
+<VisualSlot caption="A prompted tool list versus a model that learned tool tokens. The rose mode is a broken schema you tried to paper over with LoRA." />
+
+<TryThis>
+Collect 20 `(prompt, tool_call)` pairs for one tool you care about. Keep arguments schema-valid. Add five “no tool needed” prompts so the model can abstain. Then write three bullets on when you would still refuse to fine-tune (unstable schema, <100 clean pairs, a bigger model already can).
+</TryThis>
+
+## Case — SchemaPatch’s premature LoRA
+
+SchemaPatch’s `create_ticket` schema changed weekly. They LoRA’d every Friday. Monday’s schema broke Friday’s adapter. They froze the schema for a month, collected 200 pairs, and trained once. The LoRA stuck. The process was the bug.
+
+This lesson rewrites ideas from the [Hugging Face Agents Course](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.

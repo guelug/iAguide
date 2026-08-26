@@ -1,0 +1,25 @@
+{
+  "id": "sessions",
+  "order": 6.13,
+  "slug": "sessions",
+  "track": "harness",
+  "title": {
+    "en": "Sessions and durable threads",
+    "es": "Sesiones e hilos durables"
+  },
+  "summary": {
+    "en": "Durable thread, session keys, SQLite, lineage vs in-place compaction, search across CLI and gateway.",
+    "es": "Hilo durable, claves de sesión, SQLite, linaje frente a compactación in-place, búsqueda entre CLI y gateway."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "tools-runtime"
+  ],
+  "durationMin": 22,
+  "tags": [
+    "sessions",
+    "sqlite",
+    "threads"
+  ]
+}

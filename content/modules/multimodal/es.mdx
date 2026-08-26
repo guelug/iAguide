@@ -1,0 +1,23 @@
+## Al flujo residual no le importa cómo llamaste al token
+
+Los modelos de visión, voz y vídeo siguen prediciendo la siguiente unidad. Un encoder de visión convierte parches de imagen en vectores que aterrizan en el mismo flujo que los tokens de texto. Difusión y flow matching generan píxeles iterando ruido: otra ropa, el mismo hábito de “dar un paso dado el estado”.
+
+Para **agentes**, el caso interesante no es “describe esta foto”. Es: la observación *es* una imagen (captura, página, frame de juego) y la acción puede ser “clic”, “recortar” o “mirar otra vez”.
+
+<VisualSlot caption="Tokens de texto, parches de imagen y una captura de navegador alimentando un flujo. El arnés sigue teniendo que parar, parsear y actuar." />
+
+## Agentes de visión y de navegador
+
+smolagents puede pasar imágenes al empezar, o capturar pantallas durante un bucle web y guardarlas en el paso de acción. Un agente de navegador que no *olvida* capturas viejas llena la ventana de píxeles y luego bucla.
+
+La particularidad de esa librería está en [smolagents: recuperación, equipos, visión](/course/smolagents-multi). La regla general está aquí: **una imagen es una observación, no una personalidad.**
+
+<TryThis>
+En papel, lista las observaciones de un agente “verifica a este invitado contra Wikipedia” en tres pasos (buscar, abrir, captura). Marca cuáles deben quedarse en contexto y cuáles tirar para que la ventana sobreviva.
+</TryThis>
+
+## Caso — las capturas eternas de AtlasBrowse
+
+AtlasBrowse dio a un agente de visión `max_steps=20` y un callback que guardaba cada captura de Selenium. En el paso 8 el prompt eran cuatro imágenes casi iguales de un banner de cookies que no podía cerrar. Siguió “mirando”. Añadieron `close_popups`. También debían tirar imágenes de más de dos pasos.
+
+Esta lección reescribe ideas del [curso de agentes de Hugging Face](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.

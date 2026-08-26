@@ -1,0 +1,24 @@
+{
+  "id": "openclaw-tools",
+  "order": 6.52,
+  "slug": "openclaw-tools",
+  "track": "harness",
+  "title": {
+    "en": "OpenClaw: tools, groups, plugins",
+    "es": "OpenClaw: tools, grupos, plugins"
+  },
+  "summary": {
+    "en": "Built-in categories, group shorthands, plugins, skills as SKILL.md.",
+    "es": "Categorias builtin, grupos, plugins, skills SKILL.md."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "openclaw-compaction"
+  ],
+  "durationMin": 22,
+  "tags": [
+    "openclaw",
+    "tools"
+  ]
+}

@@ -11,7 +11,7 @@
     "en": "Prompting as budget allocation: ordering, few-shot, structured output, prefill tricks, and cache-shaped prompts.",
     "es": "El prompting como reparto de presupuesto: orden, few-shot, salida estructurada, trucos de prefill y prompts con forma de caché."
   },
-  "status": "wip",
+  "status": "complete",
   "prereqs": [
     "calls-cache-threads"
   ],

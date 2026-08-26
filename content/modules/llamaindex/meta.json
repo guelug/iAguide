@@ -1,0 +1,24 @@
+{
+  "id": "llamaindex",
+  "order": 12.26,
+  "slug": "llamaindex",
+  "track": "harness",
+  "title": {
+    "en": "LlamaIndex: index, retriever, agent",
+    "es": "LlamaIndex: índice, retriever, agente"
+  },
+  "summary": {
+    "en": "How LlamaIndex encodes the loop: LlamaHub loaders, components, QueryEngine as a tool, AgentWorkflow, and workflows. The product is retrieval-shaped.",
+    "es": "Cómo LlamaIndex codifica el bucle: loaders de LlamaHub, componentes, QueryEngine como herramienta, AgentWorkflow y workflows. El producto tiene forma de recuperación."
+  },
+  "status": "complete",
+  "prereqs": [
+    "agent-patterns"
+  ],
+  "durationMin": 22,
+  "tags": [
+    "llamaindex",
+    "rag",
+    "particularity"
+  ]
+}

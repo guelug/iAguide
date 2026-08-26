@@ -35,3 +35,7 @@ Elige el modelo que de verdad quieres correr. Escribe: bytes de pesos (tamaño d
 <Myth>
 “La memoria unificada de Apple hace de un M-series de 24 GB un 4090 de 24 GB.” Otro ancho de banda, otros kernels, sin copias PCIe, y también sin ecosistema CUDA. Es otro computador que casualmente corre muchos de los mismos GGUF.
 </Myth>
+
+## Caso — 128k que cabía en los pesos
+
+Los pesos cabían en 24GB. A 64k de contexto el proceso murió. La KV era el segundo inquilino. Presupuesta ambos, o el número de contexto de la ficha es un reto, no una promesa.

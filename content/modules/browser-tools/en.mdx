@@ -1,0 +1,21 @@
+## A page is not web_extract
+
+web_fetch / web_extract pull readable HTML. Browser tools drive a real engine: navigate, click, snapshot, fill, handle alert/confirm, peek into cross-origin iframes via CDP.
+
+Hermes holds a per-task CDP supervisor WebSocket so dialogs do not hang the JS thread unseen. OpenClaw browser chooses target: sandbox, host, or a paired node that has Chrome; Gateway proxies -- loopback-only control.
+
+<VisualSlot caption="Tool call, CDP socket, dialogs and frames. Target is sandbox, host, or node." />
+
+Use browser when the job needs login, JS apps, or screenshots. Use extract when a static page is enough.
+
+## Case: headed browser left on the gateway host
+
+**Case.** Gateway box runs a headed browser overnight after a debug session. Display lock, RAM, and cookies exposed.
+
+**Practice.** Headless by default; teardown on session end; node-local browser on the laptop, not the always-on server.
+
+<TryThis>
+Three rows: task then browser or extract? (1) Wikipedia summary, (2) click through a React settings page, (3) authenticated dashboard screenshot.
+</TryThis>
+
+Docs: [Hermes browser supervisor](https://hermes-agent.nousresearch.com/docs/developer-guide/browser-supervisor), [OpenClaw browser](https://docs.openclaw.ai/tools/browser).

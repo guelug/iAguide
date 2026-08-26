@@ -1,0 +1,24 @@
+{
+  "id": "openclaw-reset",
+  "order": 6.47,
+  "slug": "openclaw-reset",
+  "track": "harness",
+  "title": {
+    "en": "OpenClaw: daily and idle reset",
+    "es": "OpenClaw: reset diario e idle"
+  },
+  "summary": {
+    "en": "session.reset mode none/daily/idle. sessionStartedAt vs lastInteractionAt. Heartbeat does not extend idle.",
+    "es": "session.reset none/daily/idle. sessionStartedAt frente a lastInteractionAt. Heartbeat no alarga el idle."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "openclaw-sessions"
+  ],
+  "durationMin": 20,
+  "tags": [
+    "openclaw",
+    "reset"
+  ]
+}

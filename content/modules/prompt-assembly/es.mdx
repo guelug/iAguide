@@ -1,0 +1,35 @@
+## Tres vidas en un prompt
+
+Los arneses que cuidan el coste parten el system prompt por **vida útil**:
+
+1. **Stable** — identidad y comportamiento (`SOUL.md`), guía de tools, índice de skills, pistas de plataforma que no cambian a mitad de chat.
+2. **Context** — reglas de proyecto (prioridad Hermes; en OpenClaw, archivos bootstrap del workspace).
+3. **Volatile** — snapshots de memoria / perfil, marca de tiempo, línea de sesión/modelo.
+
+Lo que debe cambiar **cada turno** sin romper el prefijo cacheado vive **efímero**: se añade en el momento de la API, no en el system prompt congelado.
+
+<VisualSlot caption="Stable → context → volatile, con un canal efímero. La caché de prefijo solo quiere la pila congelada." />
+
+## Por qué importa la estabilidad byte a byte
+
+Las cachés de prompt del proveedor coinciden en el **prefijo**. Un carácter mutado a mitad de sesión en el tier estable → releer a precio completo. Hermes y OpenClaw lo documentan: contenido estable grande encima del límite de caché; reloj y mensajería de canal debajo.
+
+<Myth>
+“Editar MEMORY.md a mitad de chat actualiza lo que el modelo ve en la siguiente ronda.” Los snapshots suelen congelarse hasta un rebuild (sesión nueva, compactación). El disco puede ir por delante del prompt.
+</Myth>
+
+## Hermes frente a OpenClaw (una decisión)
+
+Hermes ordena `stable → context → volatile` y carga **un** archivo de proyecto por prioridad. OpenClaw inyecta un set bootstrap fijo y puede dejar el contexto temporal **bajo** el límite de caché para que el cambio de día no invalide el prefijo del workspace.
+
+## Caso: cache bust tras `/model`
+
+**Caso.** El operador cambia de modelo a mitad de un hilo de Telegram. Los tokens de input se disparan aunque el texto “parezca igual.”
+
+**Por qué.** La identidad del modelo forma parte de la clave de caché del proveedor.
+
+<TryThis>
+Abre o inventa un `SOUL.md`. Parte notas en tres listas: stable, context, ephemeral. Rodea lo que ibas a mutar cada turno — eso es efímero, no SOUL.
+</TryThis>
+
+Docs: [ensamblado Hermes](https://hermes-agent.nousresearch.com/docs/developer-guide/prompt-assembly), [system prompt OpenClaw](https://docs.openclaw.ai/concepts/system-prompt), [guía SOUL](https://docs.openclaw.ai/concepts/soul).

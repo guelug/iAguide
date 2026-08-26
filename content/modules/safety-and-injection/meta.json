@@ -11,7 +11,7 @@
     "en": "Untrusted text is not instructions. Injection, exfiltration, the lethal trifecta, and defences that survive contact.",
     "es": "El texto no fiable no son instrucciones. Inyección, exfiltración, la tríada letal y defensas que aguantan el contacto."
   },
-  "status": "wip",
+  "status": "complete",
   "prereqs": [
     "evaluation"
   ],

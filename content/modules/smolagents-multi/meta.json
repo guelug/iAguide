@@ -1,0 +1,24 @@
+{
+  "id": "smolagents-multi",
+  "order": 12.24,
+  "slug": "smolagents-multi",
+  "track": "harness",
+  "title": {
+    "en": "smolagents: retrieval, teams, vision",
+    "es": "smolagents: recuperación, equipos, visión"
+  },
+  "summary": {
+    "en": "The same loop, nested: retrieval agents, a manager plus workers, vision and browser agents. Isolation is the feature; a screenshot loop is the tax.",
+    "es": "El mismo bucle, anidado: agentes de recuperación, un manager con workers, visión y navegador. El aislamiento es la virtud; un bucle de capturas es el impuesto."
+  },
+  "status": "complete",
+  "prereqs": [
+    "smolagents"
+  ],
+  "durationMin": 22,
+  "tags": [
+    "multi-agent",
+    "vision",
+    "particularity"
+  ]
+}

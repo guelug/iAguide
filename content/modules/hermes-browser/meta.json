@@ -1,0 +1,24 @@
+{
+  "id": "hermes-browser",
+  "order": 6.33,
+  "slug": "hermes-browser",
+  "track": "harness",
+  "title": {
+    "en": "Hermes: CDP supervisor",
+    "es": "Hermes: supervisor CDP"
+  },
+  "summary": {
+    "en": "CDPSupervisor per task_id. Dialogs and OOPIF frames. browser_dialog + snapshot fields. Dialog policy.",
+    "es": "CDPSupervisor por task_id. Dialogs y frames OOPIF. browser_dialog + snapshot. Politica de dialogs."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "hermes-cron"
+  ],
+  "durationMin": 22,
+  "tags": [
+    "hermes",
+    "browser"
+  ]
+}

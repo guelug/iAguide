@@ -1,0 +1,33 @@
+## A tokenizer is part of the model
+
+The <Term id="token">tokenizer</Term> is not a convenience. It is the dialect the weights were trained in. Swap it and you have a different model, even if the tensors look familiar. English often lands near one token per word; code, URLs, and other scripts wander. Count tokens, not characters.
+
+Byte-pair encoding (and its cousins) split on frequency, not on linguistics. That is why `strawberry` can be three pieces and the model cannot “see” three r’s as three r’s.
+
+<Callout>
+A GGUF or a Hugging Face folder that ships the wrong `tokenizer.json` will look “dumb.” Fix the artefact before you fine-tune.
+</Callout>
+
+## Messages are a UI. The model sees one string
+
+Chat products exchange **messages**: `system`, `user`, `assistant`, and later `tool`. Before the forward pass, a **chat template** concatenates them into a single prompt, wrapping each turn in **special tokens** that this model was trained to expect.
+
+SmolLM2 speaks `<|im_start|>role … <|im_end|>`. Llama 3 speaks `<|eot_id|>` and header ids. Gemma speaks `<end_of_turn>`. You do not memorise the zoo. You call `tokenizer.apply_chat_template(...)` (or the equivalent in llama.cpp / Ollama) and you never hand-roll the delimiters.
+
+<VisualSlot caption="Three dimensions of the same prompt: roles the UI shows, special tokens the model needs, the rendered string it actually attends over." />
+
+Base models complete text. Instruct models were fine-tuned on a template. Feed an instruct model a raw completion and it looks lost — that is your bug, not the weights.
+
+## Tool turns live in the same string
+
+When the harness runs a tool, the observation is another message, delimited like the others. The model does not have a side channel. If you forget the template for tool results, it will treat JSON as prose.
+
+<TryThis>
+Pick one instruct model you actually run. Print `tokenizer.chat_template` (or the Modelfile template). Hand-write the same three-turn conversation (system, user, assistant) as the template would. Then call `apply_chat_template` and diff. The mismatches are the bugs you will hit in production.
+</TryThis>
+
+## Case — NovaDesk’s “stupid” 8B
+
+NovaDesk swapped a Qwen instruct GGUF for a “faster” Llama 3 quant and kept the Qwen ChatML wrapper. The model answered in fragments and invented `<|im_end|>` in the middle of sentences. They spent a day on temperature. The tokenizer and the template were from the wrong family.
+
+This lesson rewrites ideas from the [Hugging Face Agents Course](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.

@@ -1,0 +1,21 @@
+## Ciclo de turno
+
+task_id, mensaje, prompt, preflight >50%, mensajes API, capas efimeras, cache Anthropic, llamada interrumpible, tools o persistir.
+
+HTTP en un hilo; /stop descarta la respuesta. Varias tools en ThreadPool salvo clarify. Intercepts: todo, memory, session_search, delegate_task. Presupuesto 500 / subagente 50.
+
+<VisualSlot caption="Pasos del turno, hilo HTTP, pool de tools, intercepts, presupuestos." />
+
+## Comparar con OpenClaw
+
+OpenClaw dirige (steer) a mitad de run. Hermes abandona el hilo HTTP.
+
+## Caso: clarify concurrente
+
+**Caso.** clarify + terminal en el mismo lote.
+
+<TryThis>
+Pseudocodigo: respuesta O interrupt O timeout. Que NO debes append en interrupt?
+</TryThis>
+
+Fuente: [Agent loop](https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop).

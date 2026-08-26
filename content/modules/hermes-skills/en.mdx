@@ -1,0 +1,27 @@
+## Skill when instructions suffice
+
+Skill = instructions + shell + existing tools. Tool = Python, keys, streaming, binaries.
+
+Bundled in skills/; optional-skills/ via hermes skills browse; niche via hub install.
+
+Frontmatter: platforms, requires_toolsets/tools, fallback_for_*, required_environment_variables, optional blueprint schedule.
+
+skill_view loads body on demand. Secrets stay in .env — never shown to the model. Blueprints become suggested cron via /suggestions — install never auto-schedules.
+
+<VisualSlot caption="SKILL.md, gates, on-demand view, blueprint suggestion." />
+
+## Compare vs OpenClaw
+
+OpenClaw lists available_skills with a file path; the model reads SKILL.md. Hermes uses skill_view + hub trust levels.
+
+## Case: skill that should be a tool
+
+**Case.** GIF skill inlines Tenor parsing every turn.
+
+**Fix.** scripts/ helper + required_environment_variables, or a real tool.
+
+<TryThis>
+YAML frontmatter for duckduckgo-search with fallback_for_tools: [web_search].
+</TryThis>
+
+Source: https://hermes-agent.nousresearch.com/docs/developer-guide/creating-skills

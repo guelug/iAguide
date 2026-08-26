@@ -1,0 +1,24 @@
+{
+  "id": "openclaw-compaction",
+  "order": 6.51,
+  "slug": "openclaw-compaction",
+  "track": "harness",
+  "title": {
+    "en": "OpenClaw: safeguard compaction",
+    "es": "OpenClaw: compaction safeguard"
+  },
+  "summary": {
+    "en": "Summarise older turns, keep tool pairs. mode safeguard audits summaries. Memory flush before compact.",
+    "es": "Resume turnos viejos, conserva pares tool. mode safeguard audita. Memory flush antes de compactar."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "openclaw-sandbox"
+  ],
+  "durationMin": 22,
+  "tags": [
+    "openclaw",
+    "compaction"
+  ]
+}

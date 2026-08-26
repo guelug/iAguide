@@ -1,0 +1,24 @@
+{
+  "id": "openclaw-cron",
+  "order": 6.53,
+  "slug": "openclaw-cron",
+  "track": "harness",
+  "title": {
+    "en": "OpenClaw: Gateway automations",
+    "es": "OpenClaw: automations del Gateway"
+  },
+  "summary": {
+    "en": "openclaw automations. Isolated vs main session. announce or webhook. SQLite jobs. operator.admin.",
+    "es": "openclaw automations. Isolated vs main. announce o webhook. Jobs SQLite. operator.admin."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "openclaw-tools"
+  ],
+  "durationMin": 22,
+  "tags": [
+    "openclaw",
+    "cron"
+  ]
+}

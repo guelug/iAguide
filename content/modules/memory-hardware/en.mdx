@@ -35,3 +35,7 @@ Pick the model you actually want to run. Write: weight bytes (from the file size
 <Myth>
 “Apple unified memory means I can treat a 24 GB M-series like a 24 GB 4090.” Different bandwidth, different kernels, no PCIe copies, also no CUDA ecosystem. It is a different computer that happens to run many of the same GGUFs.
 </Myth>
+
+## Case — 128k that fit the weights
+
+Weights fit in 24GB. At 64k context the process died. KV was the second tenant. Budget both, or the card’s context number is a dare, not a promise.

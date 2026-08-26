@@ -1,0 +1,19 @@
+## Por que un supervisor
+
+Dialogs nativos bloquean el hilo. OOPIFs necesitan sesion CDP hija. Supervisor WS por task_id. browser_dialog + snapshot.
+
+<VisualSlot caption="Supervisor, dialogs, OOPIF, snapshot, politica." />
+
+## Comparar vs OpenClaw
+
+OpenClaw: perfil openclaw dedicado. Hermes: supervisor sobre el backend existente.
+
+## Caso: confirm colgado
+
+**Fix.** Leer pending_dialogs y responder.
+
+<TryThis>
+Nombra las tres politicas de dialog.
+</TryThis>
+
+Fuente: https://hermes-agent.nousresearch.com/docs/developer-guide/browser-supervisor

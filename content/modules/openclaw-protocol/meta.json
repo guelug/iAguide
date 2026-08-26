@@ -1,0 +1,24 @@
+{
+  "id": "openclaw-protocol",
+  "order": 6.41,
+  "slug": "openclaw-protocol",
+  "track": "harness",
+  "title": {
+    "en": "OpenClaw: typed WS protocol",
+    "es": "OpenClaw: protocolo WS tipado"
+  },
+  "summary": {
+    "en": "First frame must be connect. req/res/event. JSON Schema. connect.challenge. Idempotency for send/agent.",
+    "es": "El primer frame es connect. req/res/event. JSON Schema. connect.challenge. Idempotencia para send/agent."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "openclaw-gateway"
+  ],
+  "durationMin": 22,
+  "tags": [
+    "openclaw",
+    "protocol"
+  ]
+}

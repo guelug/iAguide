@@ -1,0 +1,29 @@
+## Not shell cron
+
+A harness job is an agent turn on a schedule: relative delay, interval, cron expression, or ISO timestamp. Storage is JSON (Hermes ~/.hermes/cron/jobs.json) or gateway RPC (openclaw automations). Each fire typically:
+
+1. Locks so two tickers cannot double-run.
+2. Creates a fresh agent session (no yesterday chat).
+3. Injects attached skills, then the job prompt (self-contained -- no clarify).
+4. Delivers to origin, local, or platform:target.
+5. Does not mirror into the live chat transcript (message alternation).
+
+Disable the cron toolset inside the job so it cannot spawn infinite children.
+
+<VisualSlot caption="Store, tick, fresh agent, skills, deliver. Isolation is the feature." />
+
+## Hermes vs OpenClaw
+
+Hermes gateway ticks in-process (or Chronos for scale-to-zero). OpenClaw automations run through the Gateway; session target can be main, isolated, current, or session:key. Isolated runs reset ambient conversation on purpose.
+
+## Case: cron mirrored into chat
+
+**Case.** Nightly summary is appended as an assistant message in the Telegram group session. Morning user message -- two assistants in a row -- provider reject.
+
+**Fix.** Cron lives in its own session; delivery is outbound-only.
+
+<TryThis>
+Write a daily 09:00 job: prompt Summarise unread mail, skill inbox-triage, deliver telegram:home. List what must NOT be in the prompt.
+</TryThis>
+
+Docs: [Hermes cron](https://hermes-agent.nousresearch.com/docs/developer-guide/cron-internals), [OpenClaw automations](https://docs.openclaw.ai/cli/cron).

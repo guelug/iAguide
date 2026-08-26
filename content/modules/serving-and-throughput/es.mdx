@@ -1,0 +1,13 @@
+## Rápido para ti no es barato para todos
+
+Un usuario, una copia, SM ociosos: bien para un portátil. Un servidor quiere **batching continuo**, **paged attention** / KV paginada, y a veces **decodificación especulativa**. Throughput y latencia se negocián. vLLM y compañía: lee *sus* docs actuales.
+
+<VisualSlot caption="Un usuario solo frente a un batch continuo. Lo especulativo añade un paso de draft." />
+
+<TryThis>
+Escribe tu SLO en una línea: “p95 TTFT bajo Xs a Y concurrentes.” Di si afinarías batch, quant o draft primero — y qué medirías para saber que te equivocaste.
+</TryThis>
+
+## Caso — la GPU vacía de SoloServe
+
+SoloServe ponía un worker vLLM por cliente “por aislamiento.” GPUs al 15% y factura de cluster ocupado. Batching continuo en un pool compartido con claves por tenant bajó el coste sin cambiar el modelo.

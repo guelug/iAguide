@@ -1,0 +1,19 @@
+## Particularity — LlamaIndex is retrieval-shaped
+
+LlamaIndex encodes the general loop as **data in, answers out**. LlamaHub is a registry of loaders. Components assemble a RAG pipeline: load → split → embed → store → `VectorStoreIndex`. The index becomes a retriever, a query engine, or a chat engine. Wrap the query engine as a `QueryEngineTool` and you have agentic RAG: the model *may* retrieve.
+
+Agents in this stack: **function-calling** (if the LLM has that API), **ReAct** (any chat model), or a custom workflow. `AgentWorkflow` can hold several named agents that hand off. State is a `Context` object — agents are stateless unless you pass it.
+
+<VisualSlot caption="LlamaHub to index, retriever in the middle, agent workflow on the right. Same ReAct; the product is 'ask my data.'" />
+
+Workflows (the LlamaIndex kind) are event-driven graphs for when the retrieval pipeline itself has stages. Do not start here if you only needed a loop.
+
+<TryThis>
+Pick one data source you actually have (a folder of PDFs, a Notion export, a SQL table). Name the LlamaIndex components you would use: loader, splitter, embed model, vector store, query engine, and whether the agent gets that engine as a tool or is just the engine. If you cannot name the source, you do not have a LlamaIndex problem yet.
+</TryThis>
+
+## Case — LedgerQ’s always-on retriever
+
+LedgerQ wrapped every user message in `as_query_engine` and called it an agent. “What’s 3×4?” still hit Chroma, retrieved a random invoice, and answered with a vendor name. They needed a calculator tool and permission to *not* retrieve. Turning the engine into a `QueryEngineTool` on a ReAct agent fixed the arithmetic and made the invoices optional.
+
+This lesson rewrites ideas from the [Hugging Face Agents Course](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.

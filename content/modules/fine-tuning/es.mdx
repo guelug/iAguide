@@ -6,6 +6,9 @@
 
 LoRA no es más débil “por definición”. Lo es cuando el rango es demasiado pequeño para la conducta que quieres, o cuando los datos se contradicen.
 
+
+<VisualSlot caption="W congelada, un par LoRA BA fino, y la suma servida. Function-calling es una plantilla que puedes entrenar encima." />
+
 ## La calidad del dato gana a las épocas extra
 
 Unos cientos de ejemplos *limpios*, con esquema estable, en la **misma plantilla que servirás**, ganan a un volcado raspado. Deduplica. Pon la instrucción en el turno de usuario si así lo vas a llamar. Incluye un poco de “decir que no / preguntar” para que no cumpla siempre.
@@ -57,3 +60,15 @@ Antes de instalar nada, escribe 20 prompts de eval que tu LoRA no deba fallar. S
 <Myth>
 “QLoRA es un modelo de 4 bits para siempre.” QLoRA es cómo *entrenas*. Puedes fusionar a un artefacto de más precisión para servir, o dejar el adapter aparte. Servir un GGUF de 4 bits es otra decisión (módulo de cuantización).
 </Myth>
+
+## Function-calling es una plantilla que puedes entrenar
+
+Si el modelo tiene que *aprender* a emitir tokens de tools, eso es un fine-tune — Bonus 1 de Hugging Face, en [fine-tune de function-calling](/course/function-calling-ft). Reúne ~20 pares limpios antes de tocar Unsloth. Si el esquema aún se mueve, **no afinés**; arregla el esquema.
+
+<TryThis>
+Escribe cinco prompts que *no* deban llamar a una tool, y cinco que deban llamar exactamente a una. Si no puedes, no tienes una tarea de function-calling. Tienes una esperanza.
+</TryThis>
+
+## Caso — LoRA sobre un esquema móvil
+
+Un equipo afinó tool calls mientras el esquema JSON cambiaba cada sprint. El adapter del lunes rechazaba los campos del viernes. Congelaron el esquema y luego entrenaron. El LoRA estaba bien; el proceso no.

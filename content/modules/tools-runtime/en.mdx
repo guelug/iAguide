@@ -1,0 +1,35 @@
+## A tool is a typed function you run
+
+The model never “has bash.” It emits a structured **tool_call**. Your harness:
+
+1. Exposes **schemas** the model can see this turn.
+2. Looks the name up in a **registry**.
+3. Applies **policy** (allow/deny, approvals, sandbox).
+4. Runs a **handler** (or routes to a **backend**: local terminal, Docker, SSH, browser CDP…).
+5. Appends a tool-result message and continues the loop.
+
+<VisualSlot caption="Schema → registry → dispatch pulse → policy gate → backend. Permissions sit between the model and the host." />
+
+## Plugin vs builtin
+
+- **Builtin** — ships in the core tree (`tools/*.py` self-register in Hermes; core tool groups in OpenClaw).
+- **Plugin** — registers through a context API without forking core. Prefer plugins for personal/vendor tools.
+- **Skill** — instructions + existing tools (`SKILL.md`), not a new callable, when a workflow is enough.
+
+Hermes auto-discovers top-level `registry.register()` calls; shadowing a name from another toolset needs `override=True` plus operator consent. OpenClaw filters tools by profile, allow/deny, provider restrictions, sandbox tool policy, and plugin availability — if policy removes a tool, the model never sees its schema.
+
+## Terminal / browser as backends
+
+“Run a command” and “drive a page” are **backends behind tools**, not separate brains. Hermes terminal backends include local, Docker, SSH, Daytona, Modal, Singularity, Vercel Sandbox. OpenClaw `browser` can target sandbox, host, or a paired **node** that has Chrome — Gateway proxies; no public browser port required.
+
+## Case: plugin that edits the core loop
+
+**Case.** A contributor patches `run_agent.py` to special-case their SaaS instead of `ctx.register_tool(...)`.
+
+**Smell.** Core is a narrow waist; every branch taxes every API call. Widen the plugin surface; keep the loop boring.
+
+<TryThis>
+On paper, write a fake `weather` schema (name, description, `location` required) and a handler that always returns `{"error":"..."}` as a **JSON string**. Note where policy would hide it if `WEATHER_API_KEY` is missing.
+</TryThis>
+
+Docs: [Hermes tools runtime](https://hermes-agent.nousresearch.com/docs/developer-guide/tools-runtime), [OpenClaw tools](https://docs.openclaw.ai/tools).

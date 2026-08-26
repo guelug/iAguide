@@ -1,0 +1,24 @@
+{
+  "id": "hermes-cron",
+  "order": 6.32,
+  "slug": "hermes-cron",
+  "track": "harness",
+  "title": {
+    "en": "Hermes: cron jobs.json",
+    "es": "Hermes: cron jobs.json"
+  },
+  "summary": {
+    "en": "jobs.json atomic store. Fresh AIAgent per fire. Skill injection. Delivery not mirrored. Recursion guard. Chronos provider.",
+    "es": "Store atomico jobs.json. AIAgent fresco. Skills. Entrega sin espejo. Guarda de recursion. Proveedor Chronos."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "hermes-skills"
+  ],
+  "durationMin": 24,
+  "tags": [
+    "hermes",
+    "cron"
+  ]
+}

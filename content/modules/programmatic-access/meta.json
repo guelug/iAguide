@@ -1,0 +1,25 @@
+{
+  "id": "programmatic-access",
+  "order": 6.19,
+  "slug": "programmatic-access",
+  "track": "harness",
+  "title": {
+    "en": "Programmatic access",
+    "es": "Acceso programatico"
+  },
+  "summary": {
+    "en": "Three ways to drive a harness: ACP for IDEs, HTTP OpenAI-compatible server, in-process embed. Pick the protocol the client already speaks.",
+    "es": "Tres formas de conducir un arnes: ACP para IDEs, HTTP compatible con OpenAI, embed in-process. Elige el protocolo que el cliente ya habla."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "browser-tools"
+  ],
+  "durationMin": 22,
+  "tags": [
+    "acp",
+    "api",
+    "embed"
+  ]
+}

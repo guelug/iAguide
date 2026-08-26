@@ -1,0 +1,24 @@
+{
+  "id": "hermes-gateway",
+  "order": 6.27,
+  "slug": "hermes-gateway",
+  "track": "harness",
+  "title": {
+    "en": "Hermes: gateway pairing and guards",
+    "es": "Hermes: pairing y guardas del gateway"
+  },
+  "summary": {
+    "en": "GatewayRunner, adapters to MessageEvent, session key agent:main:platform:chat_type:chat_id, two-level guard, /pair, token locks, hooks.",
+    "es": "GatewayRunner, adaptadores a MessageEvent, clave agent:main:..., guarda de dos niveles, /pair, bloqueos de token, hooks."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "hermes-sessions"
+  ],
+  "durationMin": 24,
+  "tags": [
+    "hermes",
+    "gateway"
+  ]
+}

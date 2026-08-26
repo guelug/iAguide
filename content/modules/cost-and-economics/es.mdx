@@ -1,0 +1,15 @@
+## Los tokens son la unidad de la factura
+
+Aritmética de cabeza: coste ≈ (tokens de entrada × precio) + (salida × precio), más APIs de tools, más las máquinas encendidas. La **caché de prefijo** descuenta el frente estable — sigues pagando lo nuevo. Local es “gratis” hasta amortizar caja, luz y tu tiempo.
+
+El punto de equilibrio es una hoja, no un tuit. Mide tu mezcla real y el hit rate antes de jurar lealtad.
+
+<VisualSlot caption="Factura de entrada frente a de salida. El modo caché atenúa el prefijo que ya computaste." />
+
+<TryThis>
+Toma el uso de la semana (o cifras honestas): 2M entrada, 500k salida, 40% hit de prefijo. Precia con cualquier tarjeta pública. Suma €/mes de una GPU 24GB. ¿Qué historia gana a tu volumen?
+</TryThis>
+
+## Caso — CacheMiss Co.
+
+CacheMiss Co. pagaba la entrada completa porque un timestamp en el system prompt cambiaba cada petición. “Optimizaron” el modelo. Quitar el timestamp restauró los hits y partió la factura. Los pesos eran inocentes.

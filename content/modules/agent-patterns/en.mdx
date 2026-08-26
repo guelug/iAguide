@@ -1,0 +1,43 @@
+## The cycle is the product
+
+An agent is not a chat box. It is a **while loop**: thought → action → observation, until the objective is met or you hit a stop.
+
+- **Thought** — the model’s internal plan (Chain-of-Thought is the same idea *without* tools).
+- **Action** — a structured call: JSON blob, a Python snippet, or a function-calling message. The generator **stops** so the harness can parse.
+- **Observation** — the real result of *your* code, appended as a message. If you let the model keep decoding, it will invent the observation.
+
+That loop is ReAct: reasoning interleaved with acting. CoT is step-by-step with no environment. Recent “reasoning” models were *trained* to think behind special tokens; that is a training choice, not a prompting trick.
+
+<VisualSlot caption="Thought, action, observation as one cycle. smolagents puts Python in the action slot; LangGraph may branch the cycle into a graph." />
+
+## Patterns you actually buy
+
+| Pattern | What you wanted | Failure you bought |
+| --- | --- | --- |
+| Plan-then-act | A checklist before tools | Plans that ignore later observations |
+| ReAct loop | Adapt after each tool | Loops that never emit Final Answer |
+| Subagent / manager | Isolation of noisy work | Double prefill, lost context |
+| Critic / check | A second pass over the answer | Two models agreeing on a wrong schema |
+| Durable memory | Facts across threads | Stale MEMORY treated as policy |
+
+Subagents are nested loops with narrower tools. Cost is another prefill. Use them when the parent would drown, not as a personality pack.
+
+## Compare — three encodings of the same loop
+
+The general cycle does not belong to a vendor. Libraries are dialects:
+
+- **smolagents** — `MultiStepAgent` writes memory to chat messages, samples a completion, parses either a **code** block (`CodeAgent`) or a **JSON** tool call (`ToolCallingAgent`), executes, logs an `ActionStep`. Default bias: code is the action.
+- **LlamaIndex** — retrieval-shaped. Load → index → `QueryEngine`, then wrap the engine as a tool on a `FunctionAgent` / `ReActAgent` / `AgentWorkflow`. The loop is still ReAct; the product is “ask my data.”
+- **LangGraph** — the loop is compiled into **state**, **nodes**, **edges**, **reducers**. Use it when control flow *is* the product (branch, join, human-in-the-loop). A graph that should have been a `while` is ceremony. A loop that needed a graph is a missing branch.
+
+Walk each dialect in its particularity module. Do not collect frameworks as a fifth track.
+
+<TryThis>
+On one page, draw ReAct for “what’s the weather in Lyon?” Then mark where smolagents would put a Python call, where LlamaIndex would put a QueryEngine tool, and where LangGraph would put a conditional edge. If you cannot mark those without inventing new boxes, you do not need that library yet.
+</TryThis>
+
+## Case — Helix’s graph that wanted to be a loop
+
+Helix rewrote a three-step support bot as a LangGraph with eleven nodes because “graphs are serious.” The only conditional was “did the tool error.” They spent a week on reducers. A ReAct loop with retries would have shipped on Tuesday. Later they *did* need a graph: a human-approval edge legal required. The first graph was theatre; the second was the product.
+
+This lesson rewrites ideas from the [Hugging Face Agents Course](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.

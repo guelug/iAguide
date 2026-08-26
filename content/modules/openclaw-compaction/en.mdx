@@ -1,0 +1,23 @@
+## Summary in the transcript
+
+Older turns become a compact entry; recent tail stays. Tool calls stay paired with toolResult. Full history remains on disk. Default mode safeguard: quality audit, identifierPolicy strict; invalid summary is not written.
+
+Before compacting, a silent memory flush can persist notes. /compact Focus on X guides the summary. keepRecentTokens default 20_000. Compaction vs pruning: pruning trims tool results in-memory only.
+
+<VisualSlot caption="summarise middle, keep tool pairs, safeguard audit, memory flush, /compact." />
+
+## Compare vs Hermes
+
+Hermes: dual 85/50 thresholds, 4-phase, in-place, system_and_3 cache. OpenClaw: safeguard-audited summary in the same session identity (built-in sqlite compactor does not fork a successor).
+
+## Case: compact ate the issue id
+
+**Case.** Summary dropped JIRA-1842; next turn invented a number.
+
+**Fix.** identifierPolicy strict is default; if a custom provider is used, keep identifiers in exact stored text. Guide with /compact Focus on ticket ids.
+
+<TryThis>
+Contrast compaction vs pruning in one sentence each.
+</TryThis>
+
+Source: https://docs.openclaw.ai/concepts/compaction

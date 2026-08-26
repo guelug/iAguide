@@ -1,0 +1,24 @@
+{
+  "id": "openclaw-nodes",
+  "order": 6.42,
+  "slug": "openclaw-nodes",
+  "track": "harness",
+  "title": {
+    "en": "OpenClaw: nodes as peripherals",
+    "es": "OpenClaw: nodos como perifericos"
+  },
+  "summary": {
+    "en": "role:node devices. camera/screen/location. Command allowlists. Exec on node host. Not a second Gateway.",
+    "es": "Dispositivos role:node. camera/screen/location. Allowlists. Exec en el node host. No es un segundo Gateway."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "openclaw-protocol"
+  ],
+  "durationMin": 24,
+  "tags": [
+    "openclaw",
+    "nodes"
+  ]
+}

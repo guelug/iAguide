@@ -11,7 +11,7 @@
     "en": "Designing a tool a model can actually use: schemas, errors, idempotence, sandboxes, and what MCP standardises.",
     "es": "Diseñar una herramienta que un modelo sepa usar: esquemas, errores, idempotencia, sandboxes y qué estandariza MCP."
   },
-  "status": "wip",
+  "status": "complete",
   "prereqs": [
     "the-harness"
   ],

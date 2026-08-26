@@ -1,0 +1,25 @@
+## Four verbs while a run is live
+
+Default mode: steer — inject into the active runtime after the current tool; skip unstarted sequential calls. followup: enqueue a later turn. collect: coalesce into one followup after a quiet window. interrupt: abort, then run the newest message.
+
+Per-session lane: one active run per session key. Global lane (main) caps process-wide parallelism. Background work uses cron / cron-nested / subagent lanes so inbound replies stay free.
+
+/queue <mode> stores a per-session override. cap 20, drop summarize, 500ms debounce by default.
+
+<VisualSlot caption="steer, followup, collect, interrupt, session vs global lanes." />
+
+## Compare vs Hermes
+
+Hermes two-level guard: adapter queues if session active, runner handles /stop. OpenClaw names four modes and applies them to every channel auto-reply.
+
+## Case: Discord collect vs Telegram steer
+
+**Case.** Discord floods; Telegram wants mid-run steers.
+
+**Fix.** messages.queue.byChannel.discord = collect; default stay steer.
+
+<TryThis>
+Write /queue collect debounce:0.5s cap:25 drop:summarize and say what each option does.
+</TryThis>
+
+Source: https://docs.openclaw.ai/concepts/queue

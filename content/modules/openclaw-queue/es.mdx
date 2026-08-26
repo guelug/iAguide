@@ -1,0 +1,19 @@
+## Cuatro verbos con un run vivo
+
+steer, followup, collect, interrupt. Lane por sesion + lane global. Lanes cron no bloquean inbound.
+
+<VisualSlot caption="steer, followup, collect, interrupt, lanes." />
+
+## Comparar vs Hermes
+
+Hermes: guarda de dos niveles. OpenClaw: cuatro modos nombrados.
+
+## Caso: Discord collect vs Telegram steer
+
+**Fix.** byChannel.discord = collect.
+
+<TryThis>
+Escribe /queue collect con debounce, cap y drop.
+</TryThis>
+
+Fuente: https://docs.openclaw.ai/concepts/queue

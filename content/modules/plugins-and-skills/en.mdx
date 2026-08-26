@@ -1,0 +1,30 @@
+## Two extension knobs
+
+**Plugin** - code with a manifest. Registers tools, hooks, CLI subcommands, slash commands, platforms, providers.
+
+**Skill** - SKILL.md (frontmatter + procedure). Loaded on demand. Prefer a skill when existing tools plus shell are enough.
+
+<VisualSlot caption="Discovery, manifest, register versus a compact skills index." />
+
+<Compare a="Skill" b="Tool / plugin">
+<Side>
+Instructions, scripts, existing terminal or web_extract. No core Python.
+</Side>
+<Side>
+API keys, binary data, streaming, browser CDP, a new channel. Schema plus handler returning JSON strings.
+</Side>
+</Compare>
+
+Discovery: Hermes ~/.hermes/plugins/, project plugins, pip. OpenClaw workspace skills/, ~/.openclaw/skills, ClawHub.
+
+## Case: two plugins, one tool name
+
+**Case.** Two plugins both register web_search. Without an override gate, last-load wins or the registry rejects the shadow.
+
+**Practice.** Unique names; explicit override plus consent; log the winner.
+
+<TryThis>
+Sketch a 12-line plugin.yaml and a 20-line SKILL.md with name/description frontmatter and When to Use / Procedure. Do not install anything.
+</TryThis>
+
+Docs: [Hermes plugins](https://hermes-agent.nousresearch.com/docs/developer-guide/plugins), [Hermes skills](https://hermes-agent.nousresearch.com/docs/developer-guide/creating-skills), [OpenClaw tools](https://docs.openclaw.ai/tools).

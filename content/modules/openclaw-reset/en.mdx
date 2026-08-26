@@ -1,0 +1,23 @@
+## Freshness is a policy
+
+Default mode none: same sessionId forever; compaction handles growth. daily: new session at session.reset.atHour (default 4 local) based on sessionStartedAt. idle: new session after idleMinutes based on lastInteractionAt — heartbeat/cron/exec do NOT keep it alive.
+
+Whichever expires first wins. resetByType and resetByChannel override. /new or /reset is the manual path.
+
+<VisualSlot caption="none, daily, idle, two timestamps, per-type overrides." />
+
+## Compare vs Hermes
+
+Hermes compaction is in-place or lineage (parent_session_id); no daily/idle session roll by default. OpenClaw can roll the id on a clock without compacting.
+
+## Case: cron kept the chat immortal
+
+**Case.** Nightly job wrote session metadata; idle never fired.
+
+**Fix.** Idle uses last real user/channel interaction, not bookkeeping writes. Confirm lastInteractionAt.
+
+<TryThis>
+Write JSON for daily at 4 and groups idle after 120 minutes.
+</TryThis>
+
+Source: https://docs.openclaw.ai/concepts/session

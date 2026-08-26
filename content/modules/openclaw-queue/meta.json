@@ -1,0 +1,24 @@
+{
+  "id": "openclaw-queue",
+  "order": 6.43,
+  "slug": "openclaw-queue",
+  "track": "harness",
+  "title": {
+    "en": "OpenClaw: session lanes and queue modes",
+    "es": "OpenClaw: lanes y modos de cola"
+  },
+  "summary": {
+    "en": "steer / followup / collect / interrupt. Per-session lane plus global lane. Debounce, cap, drop.",
+    "es": "steer / followup / collect / interrupt. Lane por sesion y lane global. Debounce, cap, drop."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "openclaw-nodes"
+  ],
+  "durationMin": 24,
+  "tags": [
+    "openclaw",
+    "queue"
+  ]
+}

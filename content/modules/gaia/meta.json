@@ -1,0 +1,24 @@
+{
+  "id": "gaia",
+  "order": 11.7,
+  "slug": "gaia",
+  "track": "harness",
+  "title": {
+    "en": "GAIA: what a leaderboard actually measures",
+    "es": "GAIA: qué mide de verdad un ranking"
+  },
+  "summary": {
+    "en": "GAIA is 466 questions that are easy for people and hard for assistants. A quiz score is not a product. We do not host their certificate.",
+    "es": "GAIA son 466 preguntas fáciles para personas y duras para asistentes. Un quiz no es un producto. No hospedamos su certificado."
+  },
+  "status": "complete",
+  "prereqs": [
+    "evaluation"
+  ],
+  "durationMin": 16,
+  "tags": [
+    "gaia",
+    "benchmarks",
+    "leaderboards"
+  ]
+}

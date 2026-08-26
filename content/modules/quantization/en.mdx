@@ -45,3 +45,7 @@ EXL2 (previous module) is another GPU family with a *target bitrate* you choose.
 <TryThis>
 Take one 8B instruct GGUF in Q4_K_M and Q8_0 if you have disk. Ask the same five factual and five code prompts. Prefer the smaller file unless you can *point at* a failure.
 </TryThis>
+
+## Case — Q4 that “felt dumb”
+
+A Q4_K_M model failed a formatting smoke test. The team blamed quant and jumped to FP16. The chat template was wrong. Quant was fine; the template was not.

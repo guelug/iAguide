@@ -8,6 +8,9 @@ La mayoría de modelos chat no nacen en una sola pasada. Una pila típica:
 
 Puedes parar tras el SFT. Muchos modelos locales lo hacen.
 
+
+<VisualSlot caption="Pretrain, luego SFT, luego preferencia. Un portátil a menudo puede LoRA; no puede preentrenar de verdad un base frontera." />
+
 ## El preentrenamiento no es deporte de portátil
 
 El preentrenamiento lee cantidades brutales de texto y actualiza todos los pesos, durante mucho tiempo, en un clúster. Un portátil puede *ejecutar* un 7B–8B. No puede preentrenar uno de verdad. Si un README dice “preentrena en tu Mac”, hablan de un juguete, de un preentrenamiento continuado sobre un corpus minúsculo, o de marketing.
@@ -50,3 +53,7 @@ No citamos aquí las ecuaciones de un paper de GRPO. Si lo implementas, lee el t
 <TryThis>
 Escribe tu meta como una de: inferencia, LoRA, ajuste completo, preentrenamiento. Si es de las dos últimas, buscas un clúster o un proveedor, no un ventilador nuevo.
 </TryThis>
+
+## Caso — “pretrain en mi Mac”
+
+Un README prometía preentrenar un 7B en un portátil en una noche. Era continued pretrain sobre un corpus de juguete que borró los modales de chat. La pila de arriba sigue valiendo; el marketing no.

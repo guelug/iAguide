@@ -1,0 +1,25 @@
+## Frames, not ad-hoc JSON
+
+Transport: WebSocket text frames. First frame MUST be connect. Non-JSON or non-connect first frame is a hard close.
+
+After handshake: {type:req, id, method, params} -> {type:res, id, ok, payload|error}. Events: {type:event, event, payload, seq?}. TypeBox schemas generate JSON Schema and Swift models.
+
+All connects sign connect.challenge. Signature payload v3 also binds platform and deviceFamily. Side-effecting methods (send, agent) require idempotency keys. Events are not replayed.
+
+<VisualSlot caption="connect first, req/res, events, challenge nonce, idempotency." />
+
+## Compare vs Hermes
+
+Hermes has no public WS control plane; adapters emit MessageEvent in-process. OpenClaw protocol is the contract for every client and node.
+
+## Case: ping first
+
+**Case.** A dashboard sends health before connect; the socket closes with no useful body.
+
+**Fix.** Handshake is mandatory. Then health/status/agent.
+
+<TryThis>
+Write the three JSON envelopes (req, res, event) with the required keys only.
+</TryThis>
+
+Source: https://docs.openclaw.ai/concepts/architecture and https://docs.openclaw.ai/gateway/protocol

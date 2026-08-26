@@ -1,0 +1,23 @@
+## The residual stream does not care what you called the token
+
+Vision, speech, and video models still predict the next unit. A vision encoder turns patches of an image into vectors that land in the same residual stream as text tokens. Diffusion and flow matching generate pixels by iterating a noise process — different clothes, same “take a step given the state” habit.
+
+For **agents**, the interesting case is not “caption this photo.” It is: the observation *is* an image (a screenshot, a document page, a game frame), and the action may be “click,” “crop,” or “look again.”
+
+<VisualSlot caption="Text tokens, image patches, and a browser screenshot feeding one stream. The harness still has to stop, parse, and act." />
+
+## Vision agents and browser agents
+
+Hugging Face’s smolagents can pass images at the start of a run, or capture screenshots during a web loop and stash them on the action step. A browser agent that cannot *forget* old screenshots will fill the window with pixels and then loop.
+
+The particularity of that library lives in [smolagents: retrieval, teams, vision](/course/smolagents-multi). The general rule lives here: **an image is an observation, not a personality.**
+
+<TryThis>
+On paper, list the observations a “verify this guest against Wikipedia” agent would collect in three steps (search, open page, screenshot). Mark which of those must stay in context for the next step, and which you should drop so the window survives.
+</TryThis>
+
+## Case — AtlasBrowse’s endless screenshot
+
+AtlasBrowse gave a vision agent `max_steps=20` and a callback that saved every Selenium screenshot onto the log. By step 8 the prompt was four nearly identical images of a cookie banner the agent could not dismiss. It kept “looking.” They added `close_popups`. They should also have dropped images older than two steps.
+
+This lesson rewrites ideas from the [Hugging Face Agents Course](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.

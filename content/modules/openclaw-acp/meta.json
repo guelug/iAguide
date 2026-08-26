@@ -1,0 +1,24 @@
+{
+  "id": "openclaw-acp",
+  "order": 6.55,
+  "slug": "openclaw-acp",
+  "track": "harness",
+  "title": {
+    "en": "OpenClaw: ACP harness spawn",
+    "es": "OpenClaw: spawn ACP de harnesses"
+  },
+  "summary": {
+    "en": "acpx plugin. Spawn Claude Code/Cursor. Bind here vs thread. Not the sandbox. Bridge mode openclaw acp.",
+    "es": "Plugin acpx. Spawn Claude Code/Cursor. Bind here vs thread. Fuera del sandbox. Bridge openclaw acp."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "openclaw-browser"
+  ],
+  "durationMin": 24,
+  "tags": [
+    "openclaw",
+    "acp"
+  ]
+}

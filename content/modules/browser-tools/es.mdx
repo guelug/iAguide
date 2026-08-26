@@ -1,0 +1,21 @@
+## Una pagina no es web_extract
+
+Fetch extrae HTML. Las browser tools conducen un motor real via CDP.
+
+Hermes mantiene un supervisor CDP por tarea. OpenClaw elige target sandbox/host/node; el Gateway hace de proxy.
+
+<VisualSlot caption="Tool call, socket CDP, dialogos y frames." />
+
+Browser para login y apps JS. Extract cuando basta una pagina estatica.
+
+## Caso: browser con UI en el host del gateway
+
+**Caso.** Tras depurar, queda un browser headed toda la noche.
+
+**Practica.** Headless; teardown; browser en el node del portatil.
+
+<TryThis>
+Tres filas: browser o extract? Wikipedia, settings React, dashboard autenticado.
+</TryThis>
+
+Docs: [supervisor Hermes](https://hermes-agent.nousresearch.com/docs/developer-guide/browser-supervisor), [browser OpenClaw](https://docs.openclaw.ai/tools/browser).

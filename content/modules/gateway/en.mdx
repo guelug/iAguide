@@ -1,0 +1,41 @@
+## One process, many surfaces
+
+A **gateway** is the long-lived owner of chat platforms. Clients and bots do not each open their own WhatsApp session. They talk to the gateway; the gateway talks to the world.
+
+Pattern:
+
+```text
+Platform → Adapter → normalized event → authorize → session key → agent run → deliver
+```
+
+<VisualSlot caption="Adapters normalize events; auth and pairing gate the run; delivery goes back out." />
+
+## Jobs the gateway owns
+
+- **Adapters** — Telegram, Discord, Slack, Signal… normalize into one event shape.
+- **Pairing / allowlists** — unknown DMs get a code or are denied; nodes/devices may need approval.
+- **Slash commands** — `/stop`, `/new`, `/model` while a run is active need a guard.
+- **Delivery** — reply home, home channel, cron targets; often **not** mirrored into the chat transcript (alternation safety).
+- **Background** — cron ticks, session expiry, memory flush.
+
+## Hermes vs OpenClaw
+
+Hermes `GatewayRunner` + platform plugins; session key `agent:main:…`; two-level message guard; DM `/pair`. OpenClaw: **one Gateway per host** on WebSocket (default `127.0.0.1:18789`), typed req/res/event protocol, nodes with `role: node`, Tailscale Serve for remote UI.
+
+## Case: two profiles, one bot token
+
+**Case.** Two Hermes profiles (or two OpenClaw installs) start with the same Telegram token. One dies or both flap.
+
+**Pattern.** Token/scoped locks (Hermes `acquire_scoped_lock`) or a single gateway owning the Baileys/Telegram session. Duplicate owners are a paging incident, not a feature.
+
+<Steps>
+<Step title="Normalize">Adapter turns a raw webhook into a message event with chat_id, user_id, text.</Step>
+<Step title="Authorize">Allowlist, pairing code, or open-with-wildcard — default deny.</Step>
+<Step title="Run & deliver">Resolve session, run agent, send through the same adapter family.</Step>
+</Steps>
+
+<TryThis>
+List five methods an adapter must implement in your head: connect, disconnect, send, and two optional (typing, chat info). Check against Hermes `BasePlatformAdapter` or OpenClaw channel plugins when you read the product lessons.
+</TryThis>
+
+Docs: [Hermes gateway](https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals), [OpenClaw architecture](https://docs.openclaw.ai/concepts/architecture).

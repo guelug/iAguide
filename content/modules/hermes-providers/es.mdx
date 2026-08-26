@@ -1,0 +1,21 @@
+## Resolvedor compartido
+
+Devuelve `{provider, api_mode, base_url, api_key, source}` para CLI, gateway, cron, ACP y aux.
+
+Tres api_mode: chat_completions, codex_responses, anthropic_messages.
+
+Las claves se limitan a su host. El fallback no lo heredan los subagentes.
+
+<VisualSlot caption="El resolvedor alimenta tres modos API. Claves con alcance por URL." />
+
+## Caso: OPENROUTER filtrado a un base URL custom
+
+**Caso.** Proxy propio con OPENROUTER_API_KEY en el entorno.
+
+**Arreglo.** Alcance por familia de host; audita endpoints custom.
+
+<TryThis>
+Escribe la salida de cinco campos para provider=anthropic y di por que el subagente no hereda fallback.
+</TryThis>
+
+Fuente: [Provider runtime](https://hermes-agent.nousresearch.com/docs/developer-guide/provider-runtime).

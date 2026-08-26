@@ -1,0 +1,19 @@
+## Frescura como politica
+
+none / daily / idle. sessionStartedAt y lastInteractionAt. Heartbeat no alarga. Overrides por tipo y canal.
+
+<VisualSlot caption="none, daily, idle, timestamps, overrides." />
+
+## Comparar vs Hermes
+
+Hermes compacta; OpenClaw puede rotar el id por reloj.
+
+## Caso: cron inmortal
+
+**Fix.** Idle mira lastInteractionAt, no metadata.
+
+<TryThis>
+JSON: daily a las 4 y grupos idle 120m.
+</TryThis>
+
+Fuente: https://docs.openclaw.ai/concepts/session

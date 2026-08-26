@@ -1,0 +1,23 @@
+## Opaque credentials in the sandbox
+
+iron-proxy is a MITM CONNECT proxy that swaps sandbox-facing tokens for real provider keys. The sandbox never sees OPENROUTER_API_KEY.
+
+Default deny CIDRs: loopback, RFC1918, IMDS 169.254.169.254. CA and mappings.json 0o600. Never bind 0.0.0.0. Docker injects HTTPS_PROXY + CA when proxy.enabled.
+
+Profiles: hermes -p name gets its own HERMES_HOME, config, memory, sessions, gateway PID, and egress mappings.
+
+<VisualSlot caption="Why firewall, token swap, deny CIDRs, docker env, HERMES_HOME." />
+
+## Compare vs OpenClaw
+
+OpenClaw splits sandbox vs tool policy vs elevated. Hermes egress is a credential-injection firewall in front of tool backends.
+
+## Case: three calls to block
+
+**Case.** (1) curl 169.254.169.254 (2) fetch host docker.sock (3) POST a real API key to a random IP.
+
+<TryThis>
+Write those three blocked calls, then one allowed POST to openrouter.ai with the swapped opaque token.
+</TryThis>
+
+Source: https://hermes-agent.nousresearch.com/docs/developer-guide/egress-internals

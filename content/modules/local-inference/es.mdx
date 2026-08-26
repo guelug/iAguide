@@ -7,6 +7,9 @@
 
 Son complementos. Un equipo mixto Mac/Linux suele usar Ollama al día a día, llama.cpp cuando importa una flag, MLX cuando el Mac tiene que ser rápido, vLLM cuando una caja GPU tiene tráfico de verdad.
 
+
+<VisualSlot caption="Tres motores: llama.cpp para GGUF, Ollama por comodidad, vLLM para throughput en GPU." />
+
 ## Formatos de archivo
 
 | Formato | Qué es | Motor típico |
@@ -50,3 +53,7 @@ Ejecuta el mismo prompt de 50 tokens con contexto 4k y con el máximo del modelo
 <Callout>
 Ollama esconde `n_gpu_layers`. llama.cpp te deja poner unas capas en GPU y el resto en RAM. Así un GGUF de 30B cojea en una tarjeta de 12 GB. Lento, pero corre.
 </Callout>
+
+## Caso — GGUF en vLLM
+
+Alguien convirtió a GGUF “porque el portátil lo usaba” y luego intentó servir con vLLM. Contenedor equivocado para ese motor. Empareja el artefacto con el runtime.

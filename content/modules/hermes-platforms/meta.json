@@ -1,0 +1,23 @@
+{
+  "id": "hermes-platforms",
+  "order": 6.301,
+  "slug": "hermes-platforms",
+  "track": "harness",
+  "title": {
+    "en": "Hermes: platform adapters",
+    "es": "Hermes: adaptadores de plataforma"
+  },
+  "summary": {
+    "en": "BasePlatformAdapter connect/disconnect/send. env_enablement. Token locks. Plugin path vs 20-file builtin.",
+    "es": "BasePlatformAdapter connect/disconnect/send. env_enablement. Token locks. Plugin frente a builtin."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "hermes-plugins"
+  ],
+  "durationMin": 20,
+  "tags": [
+    "hermes"
+  ]
+}

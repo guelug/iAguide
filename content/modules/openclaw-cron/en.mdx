@@ -1,0 +1,23 @@
+## Scheduler inside the Gateway
+
+openclaw automations (alias cron). Mutations need operator.admin. Agent jobs default isolated (fresh transcript).
+
+Delivery: announce, webhook, or none. Isolated jobs can skip bootstrap with --light-context. Jobs live in shared SQLite.
+
+<VisualSlot caption="create job, isolated session, announce, webhook, admin gate." />
+
+## Compare vs Hermes
+
+Hermes: jobs.json plus a fresh AIAgent. OpenClaw: Gateway-owned SQLite with isolated or main session choice.
+
+## Case: brief without SOUL.md
+
+**Case.** --light-context skipped bootstrap.
+
+**Fix.** Drop --light-context if you want SOUL.
+
+<TryThis>
+Write create 0 7 * * * summarizing overnight updates.
+</TryThis>
+
+Source: https://docs.openclaw.ai/cli/cron

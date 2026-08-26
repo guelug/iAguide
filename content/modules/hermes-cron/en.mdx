@@ -1,0 +1,27 @@
+## Agent jobs, not shell cron
+
+Schedules: 30m, every 2h, 0 9 * * *, ISO timestamp. Stored in ~/.hermes/cron/jobs.json (atomic write).
+
+Tick (~60s): lock, due jobs, fresh AIAgent (no chat history; MEMORY.md still loads), inject skills, run prompt, deliver, update next_run.
+
+cronjob toolset disabled inside cron runs (recursion guard). Deliveries are NOT mirrored into gateway history.
+
+cron.provider empty = in-process ticker; chronos = managed one-shots for scale-to-zero.
+
+<VisualSlot caption="jobs.json, tick, fresh AIAgent, delivery, recursion guard." />
+
+## Compare vs OpenClaw
+
+OpenClaw automations live in Gateway SQLite with announce/webhook modes and session isolated/main. Hermes uses jobs.json + fresh AIAgent.
+
+## Case: cron that schedules more cron
+
+**Case.** Job creates jobs forever.
+
+**Fix.** cronjob toolset off in cron sessions.
+
+<TryThis>
+Write a job JSON stub: daily 9am, skill ai-funding-daily-report, deliver telegram:chat_id.
+</TryThis>
+
+Source: https://hermes-agent.nousresearch.com/docs/developer-guide/cron-internals

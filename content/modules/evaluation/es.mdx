@@ -1,0 +1,17 @@
+## Cómo leer un número sin arrodillarte
+
+Un ranking mide lo que fue construido para medir. Sets contaminados, suites que premian la verborrea y agentes que lucen en quizzes mienten de formas distintas. Tu defensa es un **eval pequeño y tuyo**: veinte casos que te importan, corregidos por script o humano, en cada cambio.
+
+En agentes, evalúa el **bucle**, no solo la frase final: ¿llamó a una tool que no debía? ¿Paró? ¿Parseó el esquema? Offline primero. Online después ([observabilidad](/course/observability)). [GAIA](/course/gaia) es un metro público duro; sigue sin ser tus clientes.
+
+<VisualSlot caption="Tres tests unitarios de un bucle de tools — allow, parse, stop — frente a lucir en un quiz y fallar GAIA." />
+
+<TryThis>
+Escribe tres tests unitarios de un bucle de tools **sin modelo**: (1) nombre desconocido denegado, (2) JSON malformado no se ejecuta, (3) se respeta el stop y la Observation no sale del modelo. Fixtures. Asserts sobre mensajes. Sin GPU.
+</TryThis>
+
+## Caso — las notas bonitas de QuizAgent
+
+QuizAgent sacó 88% en un quiz interno de “seguridad del agente.” En tres tareas estilo GAIA (hoja de cálculo + calendario) falló las tres y seguía escribiendo con seguridad. El quiz nunca llamó a una tool. Habían medido comprensión lectora del system prompt.
+
+Esta lección reescribe ideas del [curso de agentes de Hugging Face](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.

@@ -12,6 +12,9 @@ $d$ es la dimensión de la key; la raíz es un truco de escala para que las punt
 
 No hace falta derivar esto para usar un modelo. Hace falta: **cada token nuevo atiende sobre las keys cacheadas**, y por eso existe la caché KV.
 
+
+<VisualSlot caption="La atención mezcla; softmax convierte puntuaciones en una distribución; LoRA es un delta fino sobre W congelada." />
+
 ## Softmax
 
 El <Term id="softmax">softmax</Term> convierte un vector de puntuaciones $z$ en una distribución:
@@ -51,3 +54,7 @@ En papel, para un peso $4096 \times 4096$, compara parámetros de $W$ completa f
 <Callout>
 Esta página es un farol. Si necesitas pruebas, un curso de aprendizaje profundo trata la atención y el backprop con el respeto que merecen. Aquí solo hace falta mates para no tenerle miedo a un nombre GGUF o a un config de LoRA.
 </Callout>
+
+## Caso — la temperatura como mando moral
+
+Alguien puso temperatura 0 “para ser veraz.” Softmax se afiló; el token equivocado siguió equivocado. La temperatura es un mando de distribución, no una conciencia.

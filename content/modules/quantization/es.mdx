@@ -45,3 +45,7 @@ EXL2 (módulo anterior) es otra familia GPU con un *bitrate objetivo* que eliges
 <TryThis>
 Coge un instruct 8B en Q4_K_M y en Q8_0 si te cabe en disco. Haz las mismas cinco preguntas factuales y cinco de código. Quédate con el archivo más chico salvo que puedas *señalar* un fallo.
 </TryThis>
+
+## Caso — el Q4 que “se sentía tonto”
+
+Un Q4_K_M falló un humo de formato. Culparon al quant y saltaron a FP16. La plantilla de chat era la equivocada. El quant estaba bien; la plantilla no.

@@ -1,0 +1,29 @@
+## Shared resolver
+
+`hermes_cli/runtime_provider.py` (+ auth registry, model plugins) maps a request to `{provider, api_mode, base_url, api_key, source}` for CLI, gateway, cron, ACP, and auxiliary tasks.
+
+Precedence: explicit request, then config.yaml, then env, then defaults -- so a stale shell export cannot silently override `hermes model`.
+
+Three **api_mode** values: `chat_completions`, `codex_responses`, `anthropic_messages`. Mode resolution: explicit arg, provider detection, base URL heuristics, else chat_completions.
+
+<VisualSlot caption="Resolver output feeds three API modes. Keys stay scoped to their base URL." />
+
+Key scoping: OPENROUTER_API_KEY only to openrouter.ai; AI_GATEWAY_API_KEY only to ai-gateway; OPENAI_API_KEY for custom endpoints -- avoids leaking the wrong bearer to a local server.
+
+Fallback chain activates on 401/403/404/429/5xx; `_fallback_activated` fires once. **Subagents do not inherit fallback.** Auxiliary tasks have their own chains.
+
+## Compare vs OpenClaw
+
+OpenClaw model refs are `provider/model` with catalog views on the Gateway. Hermes centralises credential resolution so cron and CLI cannot diverge.
+
+## Case: leaked OPENROUTER key to custom base URL
+
+**Case.** User sets OPENAI_BASE_URL to a company proxy but leaves OPENROUTER_API_KEY exported. Old code sent the OpenRouter key to the proxy.
+
+**Fix.** Hermes scopes keys to host families; still audit custom endpoints.
+
+<TryThis>
+Write the five-field resolver output for provider=anthropic. Name which api_mode you expect and why subagents should not inherit fallback.
+</TryThis>
+
+Source: [Provider runtime](https://hermes-agent.nousresearch.com/docs/developer-guide/provider-runtime).

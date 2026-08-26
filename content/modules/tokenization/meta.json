@@ -11,7 +11,7 @@
     "en": "Why 'strawberry' has three r's and the model cannot count them. BPE, vocabularies, and the bill you pay per language.",
     "es": "Por qué «strawberry» tiene tres erres y el modelo no sabe contarlas. BPE, vocabularios y la factura que pagas por idioma."
   },
-  "status": "wip",
+  "status": "complete",
   "prereqs": [
     "language-of-models"
   ],

@@ -1,0 +1,24 @@
+{
+  "id": "hermes-ownership",
+  "order": 6.201,
+  "slug": "hermes-ownership",
+  "track": "harness",
+  "title": {
+    "en": "Hermes: codebase ownership",
+    "es": "Hermes: ownership del codigo"
+  },
+  "summary": {
+    "en": "Official ownership map: tests mirror source, narrower owner wins, core is a narrow waist. Desktop/TUI are out of scope here.",
+    "es": "Mapa oficial: tests espejan el codigo, gana el dueno mas estrecho, el nucleo es cintura estrecha."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "programmatic-access"
+  ],
+  "durationMin": 18,
+  "tags": [
+    "hermes",
+    "ownership"
+  ]
+}

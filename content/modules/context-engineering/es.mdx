@@ -1,0 +1,17 @@
+## El prompting es un presupuesto
+
+La ventana es finita. Ingeniería de contexto es decidir **qué se gana el asiento**: perfil, esquemas, trozos recuperados, el hilo, y lo que llames memoria. El orden importa. Un manifiesto de 20k al frente cuesta prefill cada vez que el prefijo cambia y aun así pierde frente a un log de tools ruidoso.
+
+**Archivos de contexto del proyecto** (`AGENTS.md`, un índice de skills, un SOUL corto) ganan a pegar el repo. Trae la página que hace falta. SOUL / MEMORY al estilo Hermes son nombres de producto para “política permanente” y “notas durables”: idea útil, no religión. Cortos, versionados, fuera del montón no fiable.
+
+Da forma al prompt para que el **prefijo estable** sea idéntico byte a byte si quieres aciertos de [caché de prefijo](/course/calls-cache-threads). La salida estructurada va en el contrato, no en un párrafo de esperanzas.
+
+<VisualSlot caption="Una ventana dividida en perfil, un hit de índice o un repo empujado, el hilo y MEMORY. Empujar es el fallo ámbar." />
+
+<TryThis>
+Abre un proyecto real. Lista cada archivo que te tentarías a pegar en el system prompt. Tope: 1_500 tokens de texto permanente. ¿Qué pasa a una tool de retrieve? ¿Qué muere?
+</TryThis>
+
+## Caso — el volcado de skills de CodexNest
+
+CodexNest concatenó cuarenta markdown de skills en el system prompt “para que lo sepa todo.” Prefill de 14s y el modelo ignoraba la tercera skill. Un índice de *nombres* más `load_skill(name)` bajó el prefill un 80% y hizo alcanzable la tercera.

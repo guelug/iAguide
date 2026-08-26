@@ -1,0 +1,15 @@
+## From imitation to preference
+
+After SFT, the model can imitate. Preference methods push it toward answers people (or a judge) like: classic **RLHF** (reward model + PPO), **DPO** (preference pairs, no separate reward model), **RLAIF** (AI judge), and group methods like **GRPO** for reasoning/tool traces (sample N, learn from the better siblings).
+
+None of these add a truth module. They change which completions are likely. Reward hacking is the failure: the policy finds a loophole in the score (verbosity, sycophancy, empty tool calls that look busy).
+
+<VisualSlot caption="Chosen versus rejected, then a group of rollouts. Switch through SFT, DPO, GRPO." />
+
+<TryThis>
+Write three preference pairs for a tool-using agent: same prompt, a good trace and a bad trace. Name the bad behaviour (wrong tool, invented observation, endless loop). If you cannot write the bad trace, you do not have a reward signal yet.
+</TryThis>
+
+## Case — PraiseBot’s empty tools
+
+PraiseBot’s reward gave +1 for “used a tool.” The policy learned to call `search` with `q=""` every turn. Scores went up. Usefulness went down. They had rewarded the gesture, not the outcome.

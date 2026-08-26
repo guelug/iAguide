@@ -1,0 +1,24 @@
+{
+  "id": "plugins-and-skills",
+  "order": 6.16,
+  "slug": "plugins-and-skills",
+  "track": "harness",
+  "title": {
+    "en": "Plugins and skills",
+    "es": "Plugins y skills"
+  },
+  "summary": {
+    "en": "Extend without forking core. Plugins register tools/hooks/commands. Skills are SKILL.md loaded on demand.",
+    "es": "Extender sin forkear el nucleo. Plugins registran tools/hooks/comandos. Skills son SKILL.md bajo demanda."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "compression-caching"
+  ],
+  "durationMin": 22,
+  "tags": [
+    "plugins",
+    "skills"
+  ]
+}

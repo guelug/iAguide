@@ -1,0 +1,25 @@
+## Particularidad — cuando el bucle es un grafo
+
+LangGraph codifica el ciclo general como una **máquina de estados compilada**. Úsalo cuando el flujo de control es el producto: ramificar, juntar, esperar a un humano, persistir. No lo uses porque un blog dijo “grafos.”
+
+Bloques:
+
+- **Estado** — un typed dict (o campos con reducer) que cada nodo lee y parchea.
+- **Nodos** — funciones Python: LLM, tool, condición, humano.
+- **Aristas** — siempre-siguiente, o condicionales al estado.
+- **Reducers** — cómo se fusionan dos escrituras al mismo campo.
+- **START / END** — las únicas salidas honestas.
+
+<VisualSlot caption="Un grafo de cuatro nodos frente a un bucle. El último switch es un ciclo sin END: el modo de fallo." />
+
+Un primer grafo del curso: email → clasificar → borrador si es genuino → END. Un grafo de documentos añade recuperar y resumir. Si tu única condición es “la tool falló, reintenta,” querías un bucle.
+
+<TryThis>
+Dibuja un grafo para una revisión de tres pasos: (1) recuperar el doc, (2) resumir, (3) un humano dice sí/no. Etiqueta el estado, la arista condicional tras el humano y el END. Luego una frase para un ciclo que no saldría (sin END, o un reintento sin contador).
+</TryThis>
+
+## Caso — el ciclo sin salida de Reviewly
+
+El grafo de documentos de Reviewly devolvía “hace falta más evidencia” al retrieve sin contador. Un PDF con embeddings vacíos bucleó hasta que la factura dolió. Añadieron `attempts` y una arista a END si `attempts > 2`. El grafo estaba bien. El reducer que faltaba en `attempts` fue el incidente.
+
+Esta lección reescribe ideas del [curso de agentes de Hugging Face](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.

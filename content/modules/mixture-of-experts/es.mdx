@@ -1,0 +1,15 @@
+## La mayoría de los parámetros puede dormir
+
+Una capa dense usa todos los pesos en cada token. Una **mezcla de expertos** enruta cada token a unos pocos MLP. El total puede ser enorme; los parámetros **activos** por token son menos. Por eso un “400B MoE” puede parecerse a un dense de 30B en FLOPs — y aun así necesitar VRAM para *albergar* a los que no disparas.
+
+El router debe equilibrar o unos pocos expertos se sobreajustan. Las fichas dirán params activos, número de expertos y top-k. Cree la ficha; mide la memoria tú.
+
+<VisualSlot caption="Un router sobre seis expertos. Dense los enciende todos; top-k dos; la VRAM sigue albergando a los dormidos." />
+
+<TryThis>
+En la ficha de un MoE que podrías correr, anota: params totales, activos, expertos, top-k. Estima si tu GPU aguanta el *total* o solo lo activo — y cuál de los dos errores ibas a cometer.
+</TryThis>
+
+## Caso — el optimismo MoE-en-Mac
+
+Un equipo compró un Mac porque “los params activos son 17B.” El quant mapeó todos los expertos a memoria unificada y la máquina hizo swap. Los FLOPs activos estaban bien. Los pesos residentes no.

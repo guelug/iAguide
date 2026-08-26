@@ -1,0 +1,17 @@
+## Particularidad — de NPC parlanchines a acciones legales
+
+Un NPC con LLM puede hablar en personaje. Un **agente** en un juego elige una acción que el motor acepta. Los juegos por turnos (combate estilo Pokémon) dejan reloj de pared para un bucle. Las partidas en tiempo real no esperan un plan de 2k tokens.
+
+La Bonus Unit 3 de Hugging Face lo cablea con **poke-env**, **Pokémon Showdown**, un `LLMAgentBase` que formatea el estado y expone `choose_move` / `choose_switch`, y un `TemplateAgent`. La observación es el string de batalla; la acción debe existir; lo ilegal cae a aleatorio.
+
+<VisualSlot caption="Estado a la izquierda, acciones legales a la derecha, el LLM en el medio. Modo rosa: un movimiento que no está en el set." />
+
+<TryThis>
+Define un turno: **estado** (HP, tipo rival, movimientos), **acciones**, **observación**. Escribe un plan ilegal que el modelo podría emitir y cómo el arnés lo rechaza sin tumbar el combate.
+</TryThis>
+
+## Caso — el Hydro Pump prohibido de RivalAI
+
+El agente de RivalAI planeó Hydro Pump porque el lore decía Agua gana a Fuego. El Pokémon activo no lo había aprendido. La clase base cayó a aleatorio y el stream se rió. Promptearon “solo movimientos disponibles.” También hacía falta fallar cerrado en `_find_move_by_name`, que ya lo hacía; el caso es el optimismo del prompt frente a la ley del estado.
+
+Esta lección reescribe ideas del [curso de agentes de Hugging Face](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.

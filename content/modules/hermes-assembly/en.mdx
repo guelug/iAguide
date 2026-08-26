@@ -1,0 +1,31 @@
+## Tiers in code
+
+agent/system_prompt.py joins **stable -> context -> volatile**.
+
+Stable: SOUL.md (or DEFAULT_AGENT_IDENTITY), tool guidance, skills index, environment + platform hints (config.yaml platform_hints append/replace).
+
+Context: caller system_message plus **one** project file, first match: .hermes.md/HERMES.md (walk to git root) > AGENTS.md (cwd) > CLAUDE.md > .cursorrules.
+
+Volatile: MEMORY.md, USER.md, external memory-provider block, timestamp/session/model line.
+
+skip_context_files (subagents) skips SOUL.md and uses DEFAULT_AGENT_IDENTITY.
+
+Files are security-scanned and truncated (70/20 head/tail). Ephemeral overlays (HERMES_EPHEMERAL_SYSTEM_PROMPT, pre_llm_call) do not mutate the cached prefix.
+
+<VisualSlot caption="SOUL, one context file, MEMORY/USER snapshots, platform hint. Subagents skip SOUL." />
+
+## Compare vs OpenClaw
+
+OpenClaw injects several bootstrap files (SOUL, IDENTITY, USER, AGENTS, BOOTSTRAP). Hermes picks one project context type so two instruction files cannot fight.
+
+## Case: AGENTS.md ignored
+
+**Case.** Repo has both .hermes.md and AGENTS.md. Contributors edit AGENTS.md; the agent never sees it.
+
+**Why.** First match wins.
+
+<TryThis>
+List the four context filenames in priority order. Circle which one a Cursor-only repo would hit.
+</TryThis>
+
+Source: [Prompt assembly](https://hermes-agent.nousresearch.com/docs/developer-guide/prompt-assembly).

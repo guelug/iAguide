@@ -1,0 +1,17 @@
+## How to read a number without kneeling
+
+A public leaderboard measures what it was built to measure. Contaminated train sets, prompt suites that reward verbosity, and agents that look good on quizzes all lie in different ways. Your defence is a **small, owned eval**: twenty cases you care about, graded by a script or a human, run on every change.
+
+For agents, eval the **loop**, not only the final sentence: Did it call a tool it should not? Did it stop? Did the schema parse? Offline first (fixtures). Online later (traces — see [observability](/course/observability)). [GAIA](/course/gaia) is a hard public yardstick; it is still not your customers.
+
+<VisualSlot caption="Three unit tests for a tool loop — allow, parse, stop — versus looking good on a quiz and failing GAIA." />
+
+<TryThis>
+Write three unit tests for a tool loop **without a model**: (1) unknown tool name is denied, (2) malformed JSON does not execute, (3) a stop marker is honoured and Observation is not taken from the model. Use fixtures. Assert on messages. No GPU.
+</TryThis>
+
+## Case — QuizAgent’s pretty scores
+
+QuizAgent scored 88% on an internal multiple-choice “agent safety” quiz. On three GAIA-style tasks that needed a spreadsheet and a calendar, it failed all three and still produced confident prose. The quiz never called a tool. They had measured reading comprehension of the system prompt.
+
+This lesson rewrites ideas from the [Hugging Face Agents Course](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.

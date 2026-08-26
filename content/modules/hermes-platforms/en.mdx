@@ -1,0 +1,23 @@
+## Plugin path first
+
+kind: platform plugin = plugin.yaml + adapter.py. Abstract: connect, disconnect, send. Optional: send_typing, get_chat_info.
+
+Inbound: build MessageEvent, handle_message. env_enablement_fn seeds PlatformConfig from env so hermes gateway status works without SDK import.
+
+Builtin path touches 20+ files — community platforms should use plugins. Token lock in connect/disconnect.
+
+<VisualSlot caption="Adapter methods, MessageEvent, env seed, token lock." />
+
+## Compare vs OpenClaw
+
+OpenClaw channels speak Gateway WS and store pairing in openclaw.sqlite. Hermes adapters normalize to MessageEvent for GatewayRunner.
+
+## Case: two profiles, one bot token
+
+**Case.** Second profile connect must fail acquire_scoped_lock.
+
+<TryThis>
+List five methods (3 abstract, 2 optional). Star those for a webhook bot.
+</TryThis>
+
+Source: https://hermes-agent.nousresearch.com/docs/developer-guide/adding-platform-adapters

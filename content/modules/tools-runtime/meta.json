@@ -1,0 +1,25 @@
+{
+  "id": "tools-runtime",
+  "order": 6.12,
+  "slug": "tools-runtime",
+  "track": "harness",
+  "title": {
+    "en": "Tools runtime",
+    "es": "Runtime de herramientas"
+  },
+  "summary": {
+    "en": "Registry, schemas, dispatch, permissions. Plugin vs builtin. Terminal and browser as backends — not magic model powers.",
+    "es": "Registro, esquemas, despacho, permisos. Plugin frente a builtin. Terminal y browser como backends, no poderes mágicos del modelo."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "prompt-assembly"
+  ],
+  "durationMin": 24,
+  "tags": [
+    "tools",
+    "registry",
+    "permissions"
+  ]
+}

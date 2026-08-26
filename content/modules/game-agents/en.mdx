@@ -1,0 +1,17 @@
+## Particularity — from chatty NPCs to legal actions
+
+An LLM NPC can talk in character. An **agent** in a game chooses an action the engine will accept. Turn-based games (Pokémon-style combat) leave enough wall-clock for a thought-action-observation loop. Twitch plays of Claude in Pokémon show the other side: real-time FPS budgets do not wait for a 2k-token plan.
+
+Hugging Face Bonus Unit 3 wires this with **poke-env** (Python `Player` API), **Pokémon Showdown**, an `LLMAgentBase` that formats battle state and exposes `choose_move` / `choose_switch`, and a `TemplateAgent` you fill with your provider. The observation is the battle string; the action must match available moves or switches; illegal plans fall back to random.
+
+<VisualSlot caption="Battle state on the left, legal actions on the right, the LLM in the middle. Rose mode: a move not in the set." />
+
+<TryThis>
+Define for one turn: **state** (your HP, opponent type, available moves), **actions** (`choose_move`, `choose_switch`), **observation** (the formatted battle string). Write one illegal plan a model might emit and how the harness rejects it without crashing the match.
+</TryThis>
+
+## Case — RivalAI’s forbidden Hydro Pump
+
+RivalAI’s agent planned Hydro Pump because the lore said Water beats Fire. The active Pokémon had not learned it — PP list was empty for that id. The base class fell back to random and the stream laughed. They prompted “only use available moves.” They also needed `_find_move_by_name` to fail closed, which it did; the case is the prompt’s optimism versus the state’s law.
+
+This lesson rewrites ideas from the [Hugging Face Agents Course](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.

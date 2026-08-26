@@ -1,0 +1,24 @@
+{
+  "id": "openclaw-sessions",
+  "order": 6.46,
+  "slug": "openclaw-sessions",
+  "track": "harness",
+  "title": {
+    "en": "OpenClaw: sqlite sessions and scope",
+    "es": "OpenClaw: sesiones sqlite y scope"
+  },
+  "summary": {
+    "en": "Per-agent openclaw-agent.sqlite. dmScope and groupScope. Main session vs isolated groups.",
+    "es": "sqlite por agente. dmScope y groupScope. Sesion main frente a grupos aislados."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "openclaw-workspace"
+  ],
+  "durationMin": 22,
+  "tags": [
+    "openclaw",
+    "sessions"
+  ]
+}

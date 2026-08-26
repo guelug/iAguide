@@ -1,0 +1,34 @@
+## Particularidad — el bucle en veinte líneas de Python
+
+Esto no es una quinta vía. Es el ciclo ReAct general sin framework, como lo enseña el curso de Hugging Face antes de smolagents.
+
+Casi seguro no lo publicarías. Deberías poder escribirlo, o no sabrás qué esconde smolagents.
+
+## Para antes de Observation
+
+El system prompt dummy lista tools en inglés, muestra un JSON (`action`, `action_input`) y exige:
+
+```
+Thought: ...
+Action:
+{ "action": "get_weather", "action_input": { "location": "London" } }
+Observation: ...
+```
+
+Si dejas que el modelo siga, **alucinará la Observation** — un Londres soleado inventado en logits. El apaño: `stop=["Observation:"]`, parsear el JSON, ejecutar `get_weather` *tú*, añadir la cadena real, volver a muestrear hasta `Final Answer:`.
+
+<VisualSlot caption="Izquierda: Thought y Action del modelo. Derecha: una Observation falsa frente a la función real. La secuencia de stop es la bisagra." />
+
+Basta un chat serverless. El método chat aplica la plantilla; el bucle sigue siendo tuyo.
+
+El primer agente “de verdad” de ese curso es el mismo bucle dentro de smolagents — [siguiente particularidad](/course/smolagents). LlamaIndex y LangGraph llegan después como otras codificaciones, no como ascensos.
+
+<TryThis>
+Implementa un bucle pensamiento-acción-observación en Python con tools **falsas** (`get_weather`, `clock`). Sin API key. Cablea dos “respuestas” del modelo como strings: un JSON de Action y un Final Answer. Tu código debe: parar-parsear, rechazar nombres desconocidos, añadir Observation e imprimir la línea final. Si el modelo falso emite Observation, tu bucle la ignora.
+</TryThis>
+
+## Caso — la alucinación soleada de MeteoLite
+
+MeteoLite enseñó “agentes” imprimiendo la completion cruda. Londres siempre estaba soleado: el 8B había visto ese patrón. Un revisor pidió un `curl` a la API del tiempo. Añadieron `stop=["Observation:"]` y la demo se rompió: nunca habían escrito `runTool`. El bucle dummy era el producto que se saltaron.
+
+Esta lección reescribe ideas del [curso de agentes de Hugging Face](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.

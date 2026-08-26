@@ -1,102 +1,60 @@
 "use client";
 
-import { useFrame } from "@react-three/fiber";
-import { useMemo, useRef, useState } from "react";
-import { CanvasFrame } from "@/components/CanvasFrame";
+import { useState } from "react";
+import { Figure, Switcher } from "@/components/three/Figure";
+import { Stage } from "@/components/three/Stage";
+import { Flow, Node3D, Slab, Tag, Wire } from "@/components/three/atoms";
+import { P } from "@/lib/palette";
 
-function Blocks({
-  count,
-  highlight,
-  originX,
-}: {
-  count: number;
-  highlight: number;
-  originX: number;
-}) {
-  const meshes = useMemo(() => Array.from({ length: 48 }, (_, i) => i), []);
-  return (
-    <group position={[originX, 0, 0]}>
-      {meshes.map((i) => {
-        const col = i % 8;
-        const row = Math.floor(i / 8);
-        const filled = i < count;
-        const isNew = i === highlight;
-        const color = !filled ? "#1a2220" : isNew ? "#c9a35a" : "#5aa8a0";
-        return (
-          <mesh key={i} position={[col * 0.22 - 0.77, 0.55 - row * 0.22, 0]}>
-            <boxGeometry args={[0.18, 0.18, 0.08]} />
-            <meshStandardMaterial
-              color={color}
-              emissive={filled ? color : "#000000"}
-              emissiveIntensity={filled ? (isNew ? 1.1 : 0.35) : 0}
-              roughness={0.4}
-            />
-          </mesh>
-        );
-      })}
-    </group>
-  );
-}
-
-function Scene() {
-  const [prefill, setPrefill] = useState(0);
-  const [decode, setDecode] = useState(0);
-  const phase = useRef<"prefill" | "decode" | "pause">("prefill");
-  const t = useRef(0);
-
-  useFrame((_, dt) => {
-    t.current += dt;
-    if (phase.current === "prefill") {
-      if (t.current > 0.03) {
-        t.current = 0;
-        setPrefill((n) => {
-          if (n >= 32) {
-            phase.current = "decode";
-            return n;
-          }
-          return n + 4;
-        });
-      }
-    } else if (phase.current === "decode") {
-      if (t.current > 0.28) {
-        t.current = 0;
-        setDecode((n) => {
-          if (n >= 16) {
-            phase.current = "pause";
-            return n;
-          }
-          return n + 1;
-        });
-      }
-    } else if (t.current > 1.6) {
-      t.current = 0;
-      setPrefill(0);
-      setDecode(0);
-      phase.current = "prefill";
-    }
-  });
-
-  return (
-    <>
-      <color attach="background" args={["#07090b"]} />
-      <ambientLight intensity={0.5} />
-      <pointLight position={[2, 2, 4]} intensity={12} color="#7ec4bc" />
-      <Blocks count={prefill} highlight={-1} originX={-1.7} />
-      <Blocks count={decode} highlight={decode - 1} originX={1.5} />
-    </>
-  );
-}
+type Mode = "engine" | "chat" | "loop";
 
 export default function Visual() {
+  const [mode, setMode] = useState<Mode>("engine");
   return (
-    <div className="bg-void">
-      <CanvasFrame className="h-[280px] w-full" camera={{ position: [0, 0, 4.2], fov: 42 }}>
-        <Scene />
-      </CanvasFrame>
-      <div className="grid grid-cols-2 border-t border-line font-mono text-[0.7rem] tracking-[0.16em] uppercase text-muted">
-        <p className="px-4 py-2">Prefill · KV written in a burst</p>
-        <p className="px-4 py-2">Decode · one token, cache grows</p>
-      </div>
-    </div>
+    <Figure
+      label="engine inside the loop"
+      hint="the model predicts tokens; the harness is elsewhere"
+      legend={[
+          { color: P.teal, label: "engine" },
+          { color: P.amber, label: "chat model" },
+          { color: P.violet, label: "inside a loop" }
+      ]}
+      controls={
+        <Switcher
+          value={mode}
+          onChange={setMode}
+          options={[
+            { value: "engine", label: "Engine", tone: P.teal },
+            { value: "chat", label: "Chat model", tone: P.amber },
+            { value: "loop", label: "Inside a loop", tone: P.violet }
+          ]}
+          ariaLabel="the model predicts tokens; the harness is elsewhere"
+        />
+      }
+    >
+      <Stage className="h-full w-full" camera={{ position: [0, 0.15, 7.5], fov: 40 }}>
+        
+        <Slab position={[0, 0.35, 0]} size={[2.4, 1.4, 0.14]} color={P.teal} fill={mode === "engine" ? 0.38 : 0.16} />
+        <Tag position={[0, 1.2, 0.2]} tone="teal">LLM</Tag>
+        <Node3D position={[-0.55, 0.35, 0.18]} color={P.amber} radius={0.14} matte />
+        <Node3D position={[0.0, 0.35, 0.18]} color={P.amber} radius={0.14} matte pulse={mode !== "engine" ? 0.4 : 0} />
+        <Node3D position={[0.55, 0.35, 0.18]} color={P.line} radius={0.14} matte />
+        <Tag position={[0, -0.55, 0.2]} tone="amber">{mode === "chat" ? "instruct template" : "next token"}</Tag>
+        {mode === "loop" ? (
+          <>
+            <Wire points={[[-2.6, 0.35, 0], [-1.25, 0.35, 0]]} color={P.violet} />
+            <Wire points={[[1.25, 0.35, 0], [2.6, 0.35, 0]]} color={P.violet} />
+            <Node3D position={[-2.6, 0.35, 0]} color={P.violet} radius={0.16} />
+            <Node3D position={[2.6, 0.35, 0]} color={P.violet} radius={0.16} />
+            <Tag position={[-2.6, -0.15, 0.2]} tone="violet">tools</Tag>
+            <Tag position={[2.6, -0.15, 0.2]} tone="violet">thread</Tag>
+            <Flow points={[[-2.6, 0.35, 0], [0, 0.35, 0], [2.6, 0.35, 0], [2.6, -1.35, 0], [-2.6, -1.35, 0], [-2.6, 0.35, 0]]} color={P.violet} count={5} />
+          </>
+        ) : (
+          <Flow points={[[-1.6, 0.35, 0], [1.6, 0.35, 0]]} color={P.teal} count={3} />
+        )}
+    
+      </Stage>
+    </Figure>
   );
 }

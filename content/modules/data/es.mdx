@@ -1,0 +1,15 @@
+## La parte que decide la calidad
+
+Los pesos imitan lo que ven. Un trainer bonito sobre una mezcla sucia produce un lío seguro. **Fuentes**, **deduplicación**, **filtrado**, **contaminación** (eval filtrada al train), **sintéticos** y **licencias** son el trabajo. No es glamuroso. Es decisivo.
+
+Los corpus de pretrain son industria. Para SFT y trazas de tools puedes poseer el set: unos cientos de pares limpios en la plantilla que servirás ganan a un volcado raspado.
+
+<VisualSlot caption="Un volcado crudo de puntos frente a una mezcla filtrada. La contaminación es el modo rosa." />
+
+<TryThis>
+Toma veinte prompts tuyos. Marca: guardar, reescribir, tirar. Mira si alguna pregunta de eval aparece casi literal en el train. Si sí, estás puntuando memorización.
+</TryThis>
+
+## Caso — el FAQ duplicado de EchoLab
+
+EchoLab afinó sobre un export de soporte. Un FAQ estaba 400 veces. La pérdida se veía genial. El modelo contestaba ese FAQ y encogía de hombros el resto. Dedup habría mostrado 12 archivos, no una fantasía de 5_000 filas.

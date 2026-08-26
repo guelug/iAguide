@@ -1,0 +1,24 @@
+{
+  "id": "hermes-acp",
+  "order": 6.34,
+  "slug": "hermes-acp",
+  "track": "harness",
+  "title": {
+    "en": "Hermes: ACP adapter",
+    "es": "Hermes: adaptador ACP"
+  },
+  "summary": {
+    "en": "JSON-RPC stdio wraps AIAgent. SessionManager, event bridge, permission map, hermes-acp toolset, fork/cancel.",
+    "es": "JSON-RPC stdio envuelve AIAgent. SessionManager, puente de eventos, permisos, toolset hermes-acp, fork/cancel."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "hermes-browser"
+  ],
+  "durationMin": 22,
+  "tags": [
+    "hermes",
+    "acp"
+  ]
+}

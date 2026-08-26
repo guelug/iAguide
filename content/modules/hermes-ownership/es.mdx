@@ -1,0 +1,23 @@
+## Empieza por el mapa de ownership
+
+Hermes es grande; la mayoria de PRs tocan un subsistema. El mapa oficial empareja directorios con docs (agent/, tools/, gateway/, hermes_state.py, iron_proxy, acp_adapter/).
+
+<VisualSlot caption="Mapa: tests espejan el codigo; preferir adaptadores a ramas en el nucleo." />
+
+Convenciones: cambios dentro del subsistema; tests espejo; gana el dueno mas estrecho; el nucleo es cintura estrecha.
+
+Desktop/TUI/docs-site: fuera del espinazo de este curso; un apunte basta.
+
+## Comparar con OpenClaw
+
+En OpenClaw la cintura es el Gateway. En Hermes es AIAgent + registry.
+
+## Caso: plugin que edita run_agent.py
+
+**Caso.** Un plugin parchea el bucle en vez de registrar una tool.
+
+<TryThis>
+Elige un cambio (handler de reacciones Telegram) y nombra el dueno estrecho frente al archivo core que no debes tocar.
+</TryThis>
+
+Fuente: [Codebase ownership](https://hermes-agent.nousresearch.com/docs/developer-guide/codebase-ownership).

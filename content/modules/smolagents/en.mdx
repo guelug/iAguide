@@ -1,0 +1,30 @@
+## Particularity — Hugging Face smolagents
+
+smolagents is a **lightweight encoding** of the loop you already know. It is not a new kind of agent. The authors bias toward **code as the action**: the model writes a Python snippet that calls tools, instead of a JSON blob a parser must rebuild into code.
+
+Use it when you want a small surface, Hub models or OpenAI-shaped APIs, and logic that fits a `while`. Use something else when the product *is* a graph or a retrieval pipeline (see LangGraph, LlamaIndex).
+
+<VisualSlot caption="JSON blob on the left, Python on the right, a sandbox in the middle. Same ReAct cycle; different payload." />
+
+## CodeAgent vs ToolCallingAgent
+
+Both sit on `MultiStepAgent`: write memory to chat messages → sample → parse → execute → log an `ActionStep`.
+
+- **CodeAgent** (default) — the action is a fenced Python block. Composable (loops, multiple calls), natural for models that already write code, and dangerous unless the interpreter is sandboxed (`additional_authorized_imports` is an allowlist).
+- **ToolCallingAgent** — JSON `{name, arguments}`, the style OpenAI and Anthropic fine-tuned. Simpler systems; worse at variable handling.
+
+The paper *Executable Code Actions Elicit Better LLM Agents* is why the library leans code. You still need stop-and-parse. You still need permissions.
+
+Tools are `@tool` functions or a `Tool` class (name, description, inputs, `forward`). Models are interchangeable: `InferenceClientModel`, `TransformersModel`, `LiteLLMModel`, `OpenAIServerModel`. Swap the engine; the loop remains — the point of [the harness](/course/the-harness).
+
+Alfred the butler, in the course notebooks, searches the web for a playlist, uses a `suggest_menu` tool, and is allowed `datetime`. That is pedagogy. Your allowlist is the product.
+
+<TryThis>
+On paper, rewrite one user request (“party at 19:00, formal menu, playlist”) as (1) a JSON tool call sequence and (2) a single Python snippet that calls two tools and uses `datetime`. Circle which version needs the harness to keep variables between steps.
+</TryThis>
+
+## Case — PartyKit’s unsandboxed import
+
+PartyKit copied the course `CodeAgent` and set `additional_authorized_imports=["os", "subprocess"]` “for debugging.” A prompt-injected webpage asked the agent to list environment variables. The JSON agent next door could not; the code agent could. Code-as-action is expressiveness. The sandbox is the price of that expressiveness.
+
+This lesson rewrites ideas from the [Hugging Face Agents Course](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.

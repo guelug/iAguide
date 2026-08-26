@@ -1,0 +1,24 @@
+{
+  "id": "agent-loop",
+  "order": 6.1,
+  "slug": "agent-loop",
+  "track": "harness",
+  "title": {
+    "en": "The agent loop",
+    "es": "El bucle del agente"
+  },
+  "summary": {
+    "en": "User → assemble context → model call → tools → persist. Interrupt, budget, and fallback as ideas every harness shares.",
+    "es": "Usuario → armar contexto → llamada al modelo → herramientas → persistir. Interrupción, presupuesto y fallback como ideas compartidas."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness"
+  ],
+  "durationMin": 24,
+  "tags": [
+    "harness",
+    "loop",
+    "tools"
+  ]
+}

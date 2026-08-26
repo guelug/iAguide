@@ -1,0 +1,25 @@
+## Drive other harnesses, or be one
+
+ACP via @openclaw/acpx spawns Claude Code, Cursor, Gemini CLI, and others. Native Codex stays on /codex; ACP is explicit.
+
+/acp spawn --bind here pins the current chat. --thread auto may create a child thread. Gateway commands stay local.
+
+ACP runs on the host, not inside OpenClaw sandbox. Sandboxed sessions cannot spawn ACP. openclaw acp is the inverse: expose a Gateway session as an ACP server.
+
+<VisualSlot caption="acpx plugin, spawn, bind here, no sandbox, bridge mode." />
+
+## Compare vs Hermes
+
+Hermes ACP adapter wraps AIAgent as the server. OpenClaw more often spawns an external harness, and can also serve ACP.
+
+## Case: spawn from a group
+
+**Case.** Sandbox non-main blocks sessions_spawn runtime acp.
+
+**Fix.** Use subagent runtime, or spawn from a non-sandboxed session.
+
+<TryThis>
+Write /acp spawn claude --bind here and name the inverse CLI (openclaw acp).
+</TryThis>
+
+Source: https://docs.openclaw.ai/tools/acp-agents
