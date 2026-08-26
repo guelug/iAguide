@@ -5,7 +5,7 @@ import { LocaleSwitcher } from "./LocaleSwitcher";
 export async function Header() {
   const t = await getTranslations("nav");
   return (
-    <header className="sticky top-0 z-40 border-b border-line/70 bg-void/70 backdrop-blur-md">
+    <header className="sticky top-0 z-40 border-b border-line/70 bg-paper/85 backdrop-blur-md">
       <a href="#content" className="skip-link">
         {t("skip")}
       </a>
@@ -17,23 +17,23 @@ export async function Header() {
         >
           <span
             aria-hidden
-            className="inline-block h-1.5 w-1.5 rounded-full bg-teal transition-colors group-hover:bg-amber"
+            className="inline-block h-1.5 w-1.5 rounded-full bg-teal transition-colors group-hover:bg-teal-deep"
           />
-          <span className="font-display text-xl tracking-tight text-paper transition-colors group-hover:text-teal">
+          <span className="font-display text-xl tracking-tight text-ink transition-colors group-hover:text-teal">
             iAguide
           </span>
         </Link>
         <nav className="flex items-center gap-5 text-sm text-muted md:gap-7">
-          <Link href="/course" className="text-muted no-underline transition-colors hover:text-paper">
+          <Link href="/course" className="text-muted no-underline transition-colors hover:text-ink">
             {t("course")}
           </Link>
           <Link
             href="/glossary"
-            className="hidden text-muted no-underline transition-colors hover:text-paper sm:inline"
+            className="hidden text-muted no-underline transition-colors hover:text-ink sm:inline"
           >
             {t("glossary")}
           </Link>
-          <Link href="/about" className="text-muted no-underline transition-colors hover:text-paper">
+          <Link href="/about" className="text-muted no-underline transition-colors hover:text-ink">
             {t("about")}
           </Link>
           <LocaleSwitcher />

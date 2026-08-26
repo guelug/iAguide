@@ -45,8 +45,8 @@ export function Toc({ items, label }: { items: TocItem[]; label: string }) {
                   item.depth === 3 ? "pl-6 text-[0.78rem]" : "pl-3.5 text-[0.84rem]"
                 } ${
                   on
-                    ? "border-teal text-paper"
-                    : "border-transparent text-muted hover:text-paper"
+                    ? "border-teal text-ink"
+                    : "border-transparent text-muted hover:text-ink"
                 }`}
               >
                 {item.text}

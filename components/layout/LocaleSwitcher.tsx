@@ -23,7 +23,7 @@ export function LocaleSwitcher() {
             className={
               active
                 ? "px-2 py-1 text-amber"
-                : "px-2 py-1 text-faint hover:text-paper"
+                : "px-2 py-1 text-faint hover:text-ink"
             }
             aria-current={active ? "true" : undefined}
           >

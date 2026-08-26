@@ -59,7 +59,7 @@ export function CourseExplorer({
           onClick={() => setTrack(null)}
           aria-pressed={track === null}
           className={`chip transition-colors ${
-            track === null ? "border-paper/40 text-paper" : "hover:text-paper"
+            track === null ? "border-ink/30 text-ink" : "hover:text-ink"
           }`}
         >
           {strings.all}
@@ -85,7 +85,7 @@ export function CourseExplorer({
         })}
       </div>
 
-      <div className="relative mt-6 overflow-hidden rounded-2xl border border-line bg-void">
+      <div className="relative mt-6 overflow-hidden rounded-2xl border border-line bg-paper">
         <CourseAtlas
           nodes={nodes}
           activeTrack={track}
@@ -99,7 +99,7 @@ export function CourseExplorer({
         </p>
 
         <div
-          className={`pointer-events-none absolute bottom-4 left-4 max-w-sm rounded-xl border border-line bg-ink/90 px-4 py-3 backdrop-blur transition-opacity duration-200 ${
+          className={`pointer-events-none absolute bottom-4 left-4 max-w-sm rounded-xl border border-line bg-surface/95 px-4 py-3 backdrop-blur transition-opacity duration-200 ${
             active ? "opacity-100" : "opacity-0"
           }`}
         >
@@ -111,8 +111,8 @@ export function CourseExplorer({
               >
                 {String(active.order).padStart(2, "0")} · {active.durationLabel}
               </p>
-              <p className="mt-1.5 font-display text-xl text-paper">{active.title}</p>
-              <p className="mt-1 text-[0.86rem] leading-relaxed text-paper/70">
+              <p className="mt-1.5 font-display text-xl text-ink">{active.title}</p>
+              <p className="mt-1 text-[0.86rem] leading-relaxed text-ink-soft">
                 {active.summary}
               </p>
             </>
@@ -128,7 +128,7 @@ export function CourseExplorer({
             const wip = c.status === "wip";
             const inner = (
               <article
-                className={`flex h-full flex-col rounded-xl border border-line bg-ink/40 px-5 py-5 transition-colors ${
+                className={`flex h-full flex-col rounded-xl border border-line bg-surface px-5 py-5 transition-colors ${
                   wip ? "opacity-55" : "hover:border-teal/50"
                 }`}
                 style={{ borderTopColor: c.color, borderTopWidth: 2 }}
@@ -144,7 +144,7 @@ export function CourseExplorer({
                     {wip ? strings.wip : c.durationLabel}
                   </p>
                 </div>
-                <h3 className="mt-2.5 font-display text-2xl leading-tight text-paper">
+                <h3 className="mt-2.5 font-display text-2xl leading-tight text-ink">
                   {c.title}
                 </h3>
                 <p className="mt-2 flex-1 text-[0.9rem] leading-relaxed text-muted">

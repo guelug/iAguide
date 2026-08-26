@@ -11,7 +11,7 @@ export async function Footer() {
     <footer className="relative z-10 mt-auto border-t border-line/80">
       <div className="shell grid gap-8 py-10 md:grid-cols-[1.3fr_1fr] md:gap-16">
         <div>
-          <p className="font-display text-2xl text-paper">iAguide</p>
+          <p className="font-display text-2xl text-ink">iAguide</p>
           <p className="mt-3 max-w-xl text-pretty text-sm leading-relaxed text-faint">
             {t("stale")}
           </p>
@@ -20,16 +20,16 @@ export async function Footer() {
           </p>
         </div>
         <nav className="flex flex-wrap gap-x-8 gap-y-2 text-sm md:justify-end">
-          <Link href="/course" className="text-muted no-underline hover:text-paper">
+          <Link href="/course" className="text-muted no-underline hover:text-ink">
             {nav("course")}
           </Link>
-          <Link href="/glossary" className="text-muted no-underline hover:text-paper">
+          <Link href="/glossary" className="text-muted no-underline hover:text-ink">
             {nav("glossary")}
           </Link>
-          <Link href="/about" className="text-muted no-underline hover:text-paper">
+          <Link href="/about" className="text-muted no-underline hover:text-ink">
             {nav("about")}
           </Link>
-          <a href={REPO} className="text-muted no-underline hover:text-paper">
+          <a href={REPO} className="text-muted no-underline hover:text-ink">
             {t("repo")}
           </a>
         </nav>

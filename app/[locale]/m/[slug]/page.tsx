@@ -86,10 +86,10 @@ export default async function LessonPage({
               <span className="chip border-amber/40 text-amber">{tc("wip")}</span>
             ) : null}
           </div>
-          <h1 className="mt-5 font-display text-[clamp(2.2rem,5.5vw,3.6rem)] leading-[1.03] tracking-[-0.03em] text-paper">
+          <h1 className="mt-5 font-display text-[clamp(2.2rem,5.5vw,3.6rem)] leading-[1.03] tracking-[-0.03em] text-ink">
             {L.title}
           </h1>
-          <p className="mt-5 text-lg leading-relaxed text-paper/70">{L.summary}</p>
+          <p className="mt-5 text-lg leading-relaxed text-ink-soft">{L.summary}</p>
           {mod.prereqs.length ? (
             <p className="mt-6 font-mono text-[0.62rem] tracking-[0.14em] uppercase text-faint">
               {t("prereqs")}:{" "}
@@ -116,11 +116,11 @@ export default async function LessonPage({
           {/* --------------------------------------------------- article */}
           <article className="prose-lesson min-w-0">
             {empty ? (
-              <div className="rounded-2xl border border-amber/30 bg-amber-dim/30 px-5 py-5">
+              <div className="rounded-2xl border border-amber/30 bg-amber-wash px-5 py-5">
                 <p className="font-mono text-[0.62rem] tracking-[0.18em] uppercase text-amber">
                   {t("wipTitle")}
                 </p>
-                <p className="mt-2 text-paper/80">{t("wipBody")}</p>
+                <p className="mt-2 text-ink-soft">{t("wipBody")}</p>
               </div>
             ) : (
               <MDXRemote
@@ -150,7 +150,7 @@ export default async function LessonPage({
                       <li key={term.id}>
                         <Link
                           href={`/glossary#${term.id}`}
-                          className="chip no-underline hover:border-teal/50 hover:text-paper"
+                          className="chip no-underline hover:border-teal/50 hover:text-ink"
                         >
                           {term.term[loc]}
                         </Link>
@@ -173,7 +173,7 @@ export default async function LessonPage({
               <span className="block font-mono text-[0.6rem] tracking-[0.18em] uppercase text-faint">
                 ← {t("prev")}
               </span>
-              <span className="mt-1.5 block font-display text-xl text-paper">
+              <span className="mt-1.5 block font-display text-xl text-ink">
                 {prev.title[loc]}
               </span>
             </Link>
@@ -188,7 +188,7 @@ export default async function LessonPage({
               <span className="block font-mono text-[0.6rem] tracking-[0.18em] uppercase text-faint">
                 {t("next")} →
               </span>
-              <span className="mt-1.5 block font-display text-xl text-paper">
+              <span className="mt-1.5 block font-display text-xl text-ink">
                 {next.title[loc]}
               </span>
             </Link>

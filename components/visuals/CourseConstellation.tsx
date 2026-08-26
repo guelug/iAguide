@@ -91,7 +91,7 @@ export function CourseConstellation({ stars }: { stars: Star[] }) {
 
   return (
     <div className="relative">
-      <div className="h-[420px] w-full overflow-hidden rounded-xl border border-line bg-void md:h-[520px]">
+      <div className="h-[420px] w-full overflow-hidden rounded-xl border border-line bg-paper md:h-[520px]">
         <CanvasFrame className="h-full w-full" camera={{ position: [0, 0, 7.2], fov: 42 }}>
           <color attach="background" args={["#07090b"]} />
           <ambientLight intensity={0.35} />

@@ -52,7 +52,7 @@ export function VisualSlot({
       ) : (
         <div
           aria-hidden
-          className="h-[360px] w-full animate-pulse rounded-2xl border border-line bg-ink/60"
+          className="h-[360px] w-full animate-pulse rounded-2xl border border-line bg-sunken"
         />
       )}
       {caption ? (

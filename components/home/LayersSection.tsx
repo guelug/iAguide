@@ -26,10 +26,10 @@ export function LayersSection() {
                 onFocus={() => setActive(i)}
                 onBlur={() => setActive(null)}
                 tabIndex={0}
-                className="group relative cursor-default bg-ink px-5 py-5 transition-colors duration-300 focus:outline-none"
+                className="group relative cursor-default bg-surface px-5 py-5 transition-colors duration-300 focus:outline-none"
                 style={{
                   background: on
-                    ? `linear-gradient(90deg, color-mix(in srgb, ${TONES[i]} 12%, var(--ink)), var(--ink))`
+                    ? `linear-gradient(90deg, color-mix(in srgb, ${TONES[i]} 9%, var(--surface)), var(--surface))`
                     : undefined,
                 }}
               >
@@ -45,9 +45,9 @@ export function LayersSection() {
                   >
                     {String(i + 1).padStart(2, "0")}
                   </span>
-                  <h3 className="font-display text-2xl text-paper">{layer.name}</h3>
+                  <h3 className="font-display text-2xl text-ink">{layer.name}</h3>
                 </div>
-                <p className="mt-2 max-w-lg text-[0.97rem] leading-relaxed text-paper/75">
+                <p className="mt-2 max-w-lg text-[0.97rem] leading-relaxed text-ink-soft">
                   {layer.blurb}
                 </p>
               </li>
@@ -56,7 +56,7 @@ export function LayersSection() {
         </ol>
       </div>
 
-      <div className="order-1 overflow-hidden rounded-2xl border border-line bg-void lg:order-2">
+      <div className="order-1 overflow-hidden rounded-2xl border border-line bg-surface lg:order-2">
         <LayerTriptych active={active} className="h-[300px] w-full md:h-[420px]" />
       </div>
     </div>

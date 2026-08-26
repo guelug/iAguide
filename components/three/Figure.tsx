@@ -25,7 +25,7 @@ export function Figure({
   flush?: boolean;
 }) {
   return (
-    <div className="not-prose overflow-hidden rounded-2xl border border-line bg-ink/70 backdrop-blur-sm">
+    <div className="not-prose overflow-hidden rounded-2xl border border-line bg-surface shadow-[var(--shadow-card)]">
       {label || hint ? (
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-line/70 px-4 py-2.5">
           {label ? (
@@ -43,7 +43,7 @@ export function Figure({
         </div>
       ) : null}
 
-      <div className={`relative w-full ${height} ${flush ? "" : "bg-void"}`}>
+      <div className={`relative w-full ${height} ${flush ? "" : "bg-paper"}`}>
         {children}
       </div>
 
@@ -59,7 +59,7 @@ export function Figure({
                   <span
                     aria-hidden
                     className="inline-block h-2 w-2 rounded-full"
-                    style={{ background: item.color, boxShadow: `0 0 8px ${item.color}` }}
+                    style={{ background: item.color }}
                   />
                   {item.label}
                 </li>
@@ -103,7 +103,7 @@ export function Switcher<T extends string>({
             aria-checked={on}
             onClick={() => onChange(opt.value)}
             className={`rounded-full px-3 py-1 font-mono text-[0.6rem] tracking-[0.12em] uppercase transition-colors ${
-              on ? "text-void" : "text-muted hover:text-paper"
+              on ? "text-paper" : "text-muted hover:text-ink"
             }`}
             style={on ? { background: opt.tone ?? "var(--teal)" } : undefined}
           >
@@ -170,7 +170,7 @@ export function Readout({
           </dt>
           <dd
             className="font-mono text-[0.72rem] tabular-nums"
-            style={{ color: it.tone ?? "var(--paper)" }}
+            style={{ color: it.tone ?? "var(--ink)" }}
           >
             {it.value}
           </dd>

@@ -42,8 +42,8 @@ export default async function CoursePage({
   return (
     <div className="shell py-12 md:py-16">
       <p className="kicker">iAguide</p>
-      <h1 className="display-sm mt-4 text-paper">{t("title")}</h1>
-      <p className="mt-4 max-w-2xl text-lg leading-relaxed text-paper/70">{t("lede")}</p>
+      <h1 className="display-sm mt-4 text-ink">{t("title")}</h1>
+      <p className="mt-4 max-w-2xl text-lg leading-relaxed text-ink-soft">{t("lede")}</p>
       <p className="mt-3 font-mono text-[0.6rem] tracking-[0.16em] uppercase text-faint">
         {t("modules", { n: MODULES.length })} · {t("totalTime", { n: TOTAL_MINUTES })}
       </p>

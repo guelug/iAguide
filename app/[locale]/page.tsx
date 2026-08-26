@@ -35,14 +35,14 @@ export default async function HomePage({
         <HeroStack className="absolute inset-0" />
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_top,var(--void)_2%,transparent_45%),linear-gradient(to_right,rgba(5,7,10,0.85),transparent_60%)]"
+          className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_top,var(--paper)_1%,transparent_38%),linear-gradient(to_right,var(--paper)_8%,color-mix(in_srgb,var(--paper)_72%,transparent)_38%,transparent_66%)]"
         />
         <div className="relative z-10 flex min-h-[92svh] flex-col justify-end">
           <div className="shell pb-14 pt-32">
-            <p className="kicker bleed">{t("kicker")}</p>
-            <h1 className="display mt-5 text-paper rise">iAguide</h1>
+            <p className="kicker">{t("kicker")}</p>
+            <h1 className="display mt-5 text-ink rise">iAguide</h1>
             <p
-              className="mt-7 max-w-2xl text-lg leading-relaxed text-paper/80 md:text-xl rise"
+              className="mt-7 max-w-2xl text-lg leading-relaxed text-ink-soft md:text-xl rise"
               style={{ animationDelay: "120ms" }}
             >
               {t("promise")}
@@ -53,23 +53,23 @@ export default async function HomePage({
             >
               <Link
                 href="/course"
-                className="rounded-full bg-teal px-6 py-3 text-sm font-medium text-void no-underline transition-colors hover:bg-amber"
+                className="rounded-full bg-teal px-6 py-3 text-sm font-medium text-paper no-underline transition-colors hover:bg-teal-deep"
               >
                 {t("cta")}
               </Link>
               <Link
                 href={`/m/${first.slug}`}
-                className="rounded-full border border-line-strong px-6 py-3 text-sm text-paper no-underline transition-colors hover:border-teal hover:text-teal"
+                className="rounded-full border border-line-strong px-6 py-3 text-sm text-ink no-underline transition-colors hover:border-teal hover:text-teal"
               >
                 {t("ctaAlt")}
               </Link>
             </div>
           </div>
-          <div className="hairline">
+          <div className="border-t border-line">
             <dl className="shell grid grid-cols-2 gap-y-6 py-7 md:grid-cols-4">
               {stats.map((s) => (
                 <div key={s.label}>
-                  <dt className="font-display text-3xl text-paper md:text-4xl">{s.n}</dt>
+                  <dt className="font-display text-3xl text-ink md:text-4xl">{s.n}</dt>
                   <dd className="mt-1 font-mono text-[0.6rem] tracking-[0.16em] uppercase text-muted">
                     {s.label}
                   </dd>
@@ -83,7 +83,7 @@ export default async function HomePage({
       {/* ------------------------------------------------------ outcomes */}
       <section className="shell py-20 md:py-28">
         <Reveal>
-          <h2 className="display-sm max-w-2xl text-paper">{t("outcomesTitle")}</h2>
+          <h2 className="display-sm max-w-2xl text-ink">{t("outcomesTitle")}</h2>
         </Reveal>
         <ul className="mt-10 grid gap-x-10 gap-y-5 md:grid-cols-2">
           {outcomes.map((item, i) => (
@@ -92,7 +92,7 @@ export default async function HomePage({
                 <span className="font-mono text-[0.62rem] leading-6 tracking-[0.16em] text-teal">
                   {String(i + 1).padStart(2, "0")}
                 </span>
-                <p className="text-[1.02rem] leading-relaxed text-paper/85">{item}</p>
+                <p className="text-[1.02rem] leading-relaxed text-ink-soft">{item}</p>
               </div>
             </Reveal>
           ))}
@@ -103,7 +103,7 @@ export default async function HomePage({
       <section className="shell border-t border-line py-20 md:py-28">
         <Reveal>
           <p className="kicker">{t("layersTitle")}</p>
-          <p className="mt-5 max-w-2xl text-lg leading-relaxed text-paper/75">
+          <p className="mt-5 max-w-2xl text-lg leading-relaxed text-ink-soft">
             {t("layersLede")}
           </p>
         </Reveal>
@@ -117,8 +117,8 @@ export default async function HomePage({
       {/* --------------------------------------------------------- tracks */}
       <section className="shell border-t border-line py-20 md:py-28">
         <Reveal>
-          <h2 className="display-sm text-paper">{t("tracksTitle")}</h2>
-          <p className="mt-4 max-w-2xl text-paper/70">{t("tracksLede")}</p>
+          <h2 className="display-sm text-ink">{t("tracksTitle")}</h2>
+          <p className="mt-4 max-w-2xl text-ink-soft">{t("tracksLede")}</p>
         </Reveal>
         <div className="mt-12 grid gap-4 md:grid-cols-2">
           {TRACKS.map((track, i) => {
@@ -127,7 +127,7 @@ export default async function HomePage({
               <Reveal key={track.id} delay={i * 70}>
                 <Link
                   href={`/course?track=${track.id}`}
-                  className="group block h-full rounded-2xl border border-line bg-ink/60 p-6 no-underline transition-colors hover:border-teal/50"
+                  className="group block h-full rounded-2xl border border-line bg-surface p-6 no-underline transition-colors hover:border-teal/50"
                 >
                   <div className="flex items-baseline justify-between gap-4">
                     <span
@@ -140,10 +140,10 @@ export default async function HomePage({
                       {mods.length} · {mods.reduce((n, m) => n + m.durationMin, 0)} min
                     </span>
                   </div>
-                  <h3 className="mt-4 font-display text-2xl text-paper">
+                  <h3 className="mt-4 font-display text-2xl text-ink">
                     {track.name[loc]}
                   </h3>
-                  <p className="mt-2 text-[0.95rem] leading-relaxed text-paper/70">
+                  <p className="mt-2 text-[0.95rem] leading-relaxed text-ink-soft">
                     {track.blurb[loc]}
                   </p>
                   <ul className="mt-5 flex flex-wrap gap-x-3 gap-y-1.5">
@@ -172,11 +172,11 @@ export default async function HomePage({
       <section className="shell border-t border-line py-20 md:py-28">
         <div className="grid gap-10 md:grid-cols-2">
           <Reveal>
-            <h2 className="display-sm text-paper">{t("startTitle")}</h2>
-            <p className="mt-4 max-w-md text-paper/70">{t("startLede")}</p>
+            <h2 className="display-sm text-ink">{t("startTitle")}</h2>
+            <p className="mt-4 max-w-md text-ink-soft">{t("startLede")}</p>
             <Link
               href="/course"
-              className="mt-7 inline-block rounded-full bg-teal px-6 py-3 text-sm font-medium text-void no-underline transition-colors hover:bg-amber"
+              className="mt-7 inline-block rounded-full bg-teal px-6 py-3 text-sm font-medium text-paper no-underline transition-colors hover:bg-teal-deep"
             >
               {t("cta")}
             </Link>
@@ -185,11 +185,11 @@ export default async function HomePage({
             </p>
           </Reveal>
           <Reveal delay={100}>
-            <h2 className="display-sm text-paper">{t("openTitle")}</h2>
-            <p className="mt-4 max-w-md text-paper/70">{t("openLede")}</p>
+            <h2 className="display-sm text-ink">{t("openTitle")}</h2>
+            <p className="mt-4 max-w-md text-ink-soft">{t("openLede")}</p>
             <a
               href={REPO}
-              className="mt-7 inline-block rounded-full border border-line-strong px-6 py-3 text-sm text-paper no-underline transition-colors hover:border-teal hover:text-teal"
+              className="mt-7 inline-block rounded-full border border-line-strong px-6 py-3 text-sm text-ink no-underline transition-colors hover:border-teal hover:text-teal"
             >
               {t("openCta")}
             </a>

@@ -15,13 +15,13 @@ export function Compare({
 }) {
   return (
     <div className="not-prose my-7 grid gap-px overflow-hidden rounded-xl border border-line bg-line md:grid-cols-2">
-      <div className="bg-ink px-4 py-3">
+      <div className="bg-surface px-4 py-3">
         <p className="font-mono text-[0.62rem] tracking-[0.18em] uppercase text-teal">{a}</p>
       </div>
-      <div className="bg-ink px-4 py-3">
+      <div className="bg-surface px-4 py-3">
         <p className="font-mono text-[0.62rem] tracking-[0.18em] uppercase text-amber">{b}</p>
       </div>
-      <div className="compare-body col-span-full bg-ink px-4 py-4 text-[0.98rem] leading-relaxed text-paper/85 md:col-span-2">
+      <div className="compare-body col-span-full bg-surface px-4 py-4 text-[0.98rem] leading-relaxed text-ink-soft md:col-span-2">
         <div className="grid gap-6 md:grid-cols-2">{children}</div>
       </div>
     </div>

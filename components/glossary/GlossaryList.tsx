@@ -44,7 +44,7 @@ export function GlossaryList({
             type="search"
             value={q}
             onChange={(ev) => setQ(ev.target.value)}
-            className="min-w-0 flex-1 bg-transparent py-1 text-paper outline-none placeholder:text-faint"
+            className="min-w-0 flex-1 bg-transparent py-1 text-ink outline-none placeholder:text-faint"
             placeholder="kv cache, lora, nf4…"
           />
         </label>
@@ -59,8 +59,8 @@ export function GlossaryList({
         <dl className="mt-12 grid gap-x-10 gap-y-9 md:grid-cols-2">
           {shown.map((e) => (
             <div key={e.id} id={e.id} className="scroll-mt-28 border-t border-line pt-4">
-              <dt className="font-display text-2xl leading-tight text-paper">{e.term}</dt>
-              <dd className="mt-2 text-[0.96rem] leading-relaxed text-paper/78">{e.def}</dd>
+              <dt className="font-display text-2xl leading-tight text-ink">{e.term}</dt>
+              <dd className="mt-2 text-[0.96rem] leading-relaxed text-ink-soft">{e.def}</dd>
               <p className="mt-2.5 font-mono text-[0.58rem] uppercase tracking-[0.14em] text-faint">
                 {strings.from}{" "}
                 <Link href={`/m/${e.moduleSlug}`} style={{ color: e.color }}>

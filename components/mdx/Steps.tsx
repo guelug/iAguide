@@ -18,11 +18,11 @@ export function Step({ title, children }: { title: string; children?: ReactNode 
     <div className="relative mb-5 [counter-increment:step] last:mb-0">
       <span
         aria-hidden
-        className="absolute -left-[2.16rem] top-0.5 flex h-5 w-5 items-center justify-center rounded-full border border-teal/50 bg-void font-mono text-[0.6rem] text-teal before:content-[counter(step)]"
+        className="absolute -left-[2.16rem] top-0.5 flex h-5 w-5 items-center justify-center rounded-full border border-teal/50 bg-paper font-mono text-[0.6rem] text-teal before:content-[counter(step)]"
       />
-      <p className="font-medium text-paper">{title}</p>
+      <p className="font-medium text-ink">{title}</p>
       {children ? (
-        <div className="mt-1 text-[0.95rem] leading-relaxed text-paper/80">{children}</div>
+        <div className="mt-1 text-[0.95rem] leading-relaxed text-ink-soft">{children}</div>
       ) : null}
     </div>
   );

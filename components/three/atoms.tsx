@@ -2,14 +2,8 @@
 
 import { Html, Line, RoundedBox } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
+import { useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import {
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  type ReactNode,
-} from "react";
-import {
-  AdditiveBlending,
   CatmullRomCurve3,
   Color,
   Group,
@@ -30,16 +24,17 @@ const tmpVec = new Vector3();
 /* ------------------------------------------------------------------ nodes */
 
 /**
- * A glowing point of interest. Everything that is "a thing" in a diagram —
- * a token, a layer, an expert, a module — is one of these.
+ * A point of interest. Everything that is "a thing" in a diagram — a
+ * token, a layer, an expert, a module — is one of these. Solid colour on
+ * paper, not a glow: it has to survive a projector.
  */
 export function Node3D({
   position,
   color = P.teal,
   radius = 0.16,
-  intensity = 1,
   pulse = 0,
   faceted = false,
+  matte = false,
   onPointerOver,
   onPointerOut,
   onClick,
@@ -48,10 +43,11 @@ export function Node3D({
   position: V3;
   color?: string;
   radius?: number;
-  intensity?: number;
   /** Seconds of phase offset; 0 disables the breathing animation. */
   pulse?: number;
   faceted?: boolean;
+  /** Unlit flat fill. Use for small marks that must hold their hue. */
+  matte?: boolean;
   onPointerOver?: () => void;
   onPointerOut?: () => void;
   onClick?: () => void;
@@ -93,25 +89,22 @@ export function Node3D({
       ) : (
         <sphereGeometry args={[radius, 24, 24]} />
       )}
-      <meshStandardMaterial
-        color={color}
-        emissive={color}
-        emissiveIntensity={intensity}
-        roughness={0.28}
-        metalness={0.12}
-        toneMapped={false}
-      />
+      {matte ? (
+        <meshBasicMaterial color={color} />
+      ) : (
+        <meshStandardMaterial color={color} roughness={0.42} metalness={0.02} />
+      )}
       {children}
     </mesh>
   );
 }
 
-/** A flat translucent panel with a bright rim. Layers, blocks, stages. */
+/** A panel with a printed edge. Layers, blocks, stages, memory pages. */
 export function Slab({
   position,
   size = [1.6, 1, 0.14],
   color = P.teal,
-  opacity = 0.14,
+  fill = 0.18,
   rim = 0.9,
   rotation,
   onPointerOver,
@@ -122,7 +115,8 @@ export function Slab({
   position: V3;
   size?: V3;
   color?: string;
-  opacity?: number;
+  /** 0 = outline only, 1 = solid. */
+  fill?: number;
   rim?: number;
   rotation?: V3;
   onPointerOver?: () => void;
@@ -134,7 +128,7 @@ export function Slab({
   const edges = useMemo<V3[]>(() => {
     const x = w / 2;
     const y = h / 2;
-    const z = d / 2;
+    const z = d / 2 + 0.001;
     return [
       [-x, -y, z],
       [x, -y, z],
@@ -166,18 +160,17 @@ export function Slab({
           : undefined
       }
     >
-      <RoundedBox args={[w, h, d]} radius={Math.min(0.06, d / 2)} smoothness={3}>
+      <RoundedBox args={[w, h, d]} radius={Math.min(0.05, d / 2.2)} smoothness={3}>
         <meshStandardMaterial
           color={color}
-          emissive={color}
-          emissiveIntensity={0.16}
           transparent
-          opacity={opacity}
-          roughness={0.5}
-          metalness={0.05}
+          opacity={fill}
+          roughness={0.55}
+          metalness={0}
+          depthWrite={fill > 0.85}
         />
       </RoundedBox>
-      <Line points={edges} color={color} lineWidth={1.4} transparent opacity={rim} />
+      <Line points={edges} color={color} lineWidth={1.6} transparent opacity={rim} />
       {children}
     </group>
   );
@@ -185,12 +178,12 @@ export function Slab({
 
 /* ------------------------------------------------------------------ links */
 
-/** A straight or gently curved connection with no traffic on it. */
+/** A connection with no traffic on it. */
 export function Wire({
   points,
-  color = P.teal,
-  opacity = 0.3,
-  width = 1,
+  color = P.lineStrong,
+  opacity = 0.75,
+  width = 1.2,
   dashed = false,
 }: {
   points: V3[];
@@ -214,9 +207,9 @@ export function Wire({
 }
 
 /**
- * A connection with data moving along it. This is the single most useful
- * primitive in the whole course: it turns a static box-and-arrow diagram
- * into something you can watch happen.
+ * A connection with data moving along it. The single most useful
+ * primitive in the course: it turns a box-and-arrow diagram into
+ * something you can watch happen.
  */
 export function Flow({
   points,
@@ -224,8 +217,8 @@ export function Flow({
   count = 3,
   speed = 0.35,
   size = 0.055,
-  lineOpacity = 0.28,
-  width = 1.2,
+  lineOpacity = 0.42,
+  width = 1.4,
   offset = 0,
   paused = false,
   tension = 0.4,
@@ -269,7 +262,7 @@ export function Flow({
       curve.getPointAt(t, tmpVec);
       child.position.copy(tmpVec);
       const fade = Math.sin(t * Math.PI);
-      child.scale.setScalar(0.55 + fade * 0.75);
+      child.scale.setScalar(0.6 + fade * 0.7);
     });
   });
 
@@ -286,7 +279,7 @@ export function Flow({
         {Array.from({ length: count }, (_, i) => (
           <mesh key={i}>
             <sphereGeometry args={[size, 12, 12]} />
-            <meshBasicMaterial color={color} toneMapped={false} />
+            <meshBasicMaterial color={color} />
           </mesh>
         ))}
       </group>
@@ -294,12 +287,12 @@ export function Flow({
   );
 }
 
-/** A solid tube along a path. Heavier than Flow; use for spines and trunks. */
+/** A solid tube along a path. Heavier than Flow; use for spines. */
 export function Ribbon({
   points,
   color = P.violet,
   radius = 0.03,
-  opacity = 0.55,
+  opacity = 1,
 }: {
   points: V3[];
   color?: string;
@@ -315,12 +308,10 @@ export function Ribbon({
       <tubeGeometry args={[curve, 64, radius, 8, false]} />
       <meshStandardMaterial
         color={color}
-        emissive={color}
-        emissiveIntensity={0.55}
-        transparent
+        transparent={opacity < 1}
         opacity={opacity}
-        roughness={0.4}
-        toneMapped={false}
+        roughness={0.45}
+        metalness={0}
       />
     </mesh>
   );
@@ -341,13 +332,13 @@ export type Cell = {
 export function Lattice({
   cells,
   size = 0.1,
-  emissive = 0.5,
   opacity = 1,
+  matte = false,
 }: {
   cells: Cell[];
   size?: number;
-  emissive?: number;
   opacity?: number;
+  matte?: boolean;
 }) {
   const ref = useRef<InstancedMesh>(null);
   const count = cells.length;
@@ -372,34 +363,28 @@ export function Lattice({
   return (
     <instancedMesh ref={ref} args={[undefined, undefined, count]} key={count}>
       <boxGeometry args={[size, size, size]} />
-      <meshStandardMaterial
-        emissiveIntensity={emissive}
-        roughness={0.35}
-        metalness={0.1}
-        transparent={opacity < 1}
-        opacity={opacity}
-        toneMapped={false}
-        onBeforeCompile={(shader) => {
-          // Instance colours should drive emissive too, otherwise a
-          // multi-colour lattice reads as one flat slab under bloom.
-          shader.fragmentShader = shader.fragmentShader.replace(
-            "vec3 totalEmissiveRadiance = emissive;",
-            "vec3 totalEmissiveRadiance = emissive * vColor;",
-          );
-        }}
-      />
+      {matte ? (
+        <meshBasicMaterial transparent={opacity < 1} opacity={opacity} />
+      ) : (
+        <meshStandardMaterial
+          roughness={0.45}
+          metalness={0.02}
+          transparent={opacity < 1}
+          opacity={opacity}
+        />
+      )}
     </instancedMesh>
   );
 }
 
-/** Ambient dust. Gives depth cues without costing anything. */
+/** Ambient dust. Depth cues that cost nothing. */
 export function Motes({
   count = 320,
   radius = 9,
-  color = P.teal,
+  color = P.faint,
   size = 0.035,
   speed = 0.02,
-  opacity = 0.55,
+  opacity = 0.5,
 }: {
   count?: number;
   radius?: number;
@@ -434,6 +419,7 @@ export function Motes({
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
+      {/* Normal blending, not additive: additive on paper is invisible. */}
       <pointsMaterial
         size={size}
         color={color}
@@ -441,20 +427,18 @@ export function Motes({
         opacity={opacity}
         sizeAttenuation
         depthWrite={false}
-        blending={AdditiveBlending}
-        toneMapped={false}
       />
     </points>
   );
 }
 
-/** A flat glowing ring. Orbits, boundaries, scopes. */
+/** A drawn ring. Orbits, boundaries, scopes, budgets. */
 export function Halo({
   position = [0, 0, 0] as V3,
   radius = 1,
   thickness = 0.012,
-  color = P.teal,
-  opacity = 0.5,
+  color = P.lineStrong,
+  opacity = 0.8,
   rotation = [Math.PI / 2, 0, 0] as V3,
   spin = 0,
 }: {
@@ -475,7 +459,7 @@ export function Halo({
   return (
     <mesh ref={ref} position={position} rotation={rotation}>
       <torusGeometry args={[radius, thickness, 8, 96]} />
-      <meshBasicMaterial color={color} transparent opacity={opacity} toneMapped={false} />
+      <meshBasicMaterial color={color} transparent opacity={opacity} />
     </mesh>
   );
 }
@@ -492,35 +476,37 @@ export function Tag({
   tone = "teal",
   size = "sm",
   center = false,
-  occlude = false,
+  plate = true,
 }: {
   position: V3;
   children: ReactNode;
-  tone?: "teal" | "amber" | "violet" | "paper" | "rose" | "faint";
+  tone?: "teal" | "amber" | "violet" | "ink" | "rose" | "muted";
   size?: "xs" | "sm";
   center?: boolean;
-  occlude?: boolean;
+  /** Paper chip behind the text so it stays legible over geometry. */
+  plate?: boolean;
 }) {
   const tones: Record<string, string> = {
     teal: "text-teal",
     amber: "text-amber",
     violet: "text-violet",
-    paper: "text-paper",
+    ink: "text-ink",
     rose: "text-rose",
-    faint: "text-faint",
+    muted: "text-muted",
   };
   return (
     <Html
       position={position}
       center={center}
-      occlude={occlude}
       zIndexRange={[20, 0]}
       style={{ pointerEvents: "none", userSelect: "none" }}
     >
       <span
-        className={`whitespace-nowrap font-mono uppercase tracking-[0.16em] ${
-          size === "xs" ? "text-[0.55rem]" : "text-[0.63rem]"
-        } ${tones[tone]}`}
+        className={`whitespace-nowrap font-mono font-medium uppercase tracking-[0.13em] ${
+          size === "xs" ? "text-[0.56rem]" : "text-[0.64rem]"
+        } ${tones[tone]} ${
+          plate ? "rounded-full border border-line bg-surface/92 px-1.5 py-0.5" : ""
+        }`}
       >
         {children}
       </span>
@@ -528,7 +514,7 @@ export function Tag({
   );
 }
 
-/* ------------------------------------------------------------- animations */
+/* --------------------------------------------------------------- motion */
 
 /** Drifts a group on a slow lissajous path. Cheap life for static scenes. */
 export function Drift({
