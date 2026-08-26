@@ -111,6 +111,9 @@
     "myth": "Myth",
     "callout": "Note",
     "quiz": "Quiz",
+    "explanation": "Explanation",
+    "reset": "Reset",
+    "check": "Check"
   },
   "footer": {
     "license": "MIT License",
