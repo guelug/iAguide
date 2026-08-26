@@ -1,15 +1,180 @@
-## Una base, CLI y gateway
+## `state.db` es el transcript, no un montón JSONL
 
-~/.hermes/state.db, WAL, FTS5, schema 23. Reintentos con jitter. Linaje o in-place. session_search consulta esta DB.
+Hermes Agent persiste metadatos de sesión, el historial completo de mensajes y la configuración de modelo en una base SQLite en `~/.hermes/state.db`. *Session Storage* de Nous Research (s. f.) es la fuente de verdad. Archivo fuente: `hermes_state.py`. Esto reemplaza el enfoque anterior de JSONL por sesión.
 
-<VisualSlot caption="state.db: WAL, FTS5, linaje frente a un id estable." />
+La ruta es consciente del perfil: `hermes_constants.get_hermes_home()` resuelve a `~/.hermes/` por defecto, o a `HERMES_HOME`. El archivo de base, el WAL (`state.db-wal`) y el de memoria compartida (`state.db-shm`) viven en el mismo directorio. Las trayectorias del batch runner y los datos RL **no** se guardan aquí.
 
-## Caso: tormenta de locks
+<VisualSlot caption="state.db, WAL + FTS5, write retries, lineage, session_search." />
 
-**Caso.** Gateway + CLI + worktrees. Timeout corto y jitter como en los docs.
+## El schema de un vistazo
+
+```text
+~/.hermes/state.db (SQLite, WAL mode)
+├── sessions
+├── messages
+├── session_model_usage
+├── messages_fts
+├── messages_fts_trigram
+├── messages_fts_cjk
+├── state_meta
+├── gateway_routing
+├── compression_locks
+├── async_delegations
+└── schema_version
+```
+
+Decisiones de diseño clave (Nous Research, *Session Storage*, s. f.):
+
+- WAL mode for concurrent readers plus one writer (gateway multi-platform).
+- FTS5 virtual tables for fast text search across all session messages.
+- Session lineage via `parent_session_id` chains (compression-triggered splits, **legacy** path).
+- Source tagging (`cli`, `telegram`, `discord`, …) for platform filtering.
+- Batch runner and RL trajectories stay in separate systems.
+
+`sessions` guarda metadatos, recuentos de tokens y facturación. Columnas extra documentadas en `SCHEMA_SQL` incluyen routing de gateway (`session_key`, `chat_id`, `chat_type`, `thread_id`, `display_name`, `origin_json`, `expiry_finalized`), campos de workspace (`cwd`, `git_branch`, `git_repo_root`), campos de handoff y fallo de compresión, `profile_name`, `rewind_count`, `archived` y `pinned`. Hay un índice único sobre `title` donde el título no es NULL.
+
+`messages` guarda el transcript. `tool_calls`, `reasoning_details`, `codex_reasoning_items` y `codex_message_items` son cadenas JSON. `reasoning` guarda el texto crudo de razonamiento cuando el proveedor lo expone. `api_content` es un sidecar de fidelidad de bytes: la cadena exacta enviada a la API cuando difiere de `content` (inyecciones efímeras de memoria o plugins). `NULL` significa que se envió `content` verbatim. Los timestamps son floats de época Unix.
+
+<Callout>
+Consejo: `api_content` existe para que el replay estable respecto a la caché de prompt envíe los mismos bytes que vio el proveedor. No lo "simplifiquen" al exportar una sesión. Los surrogates sueltos se limpian porque sqlite3 no puede bindearlos; el bucle de conversación los limpia de todo payload saliente de todos modos.
+</Callout>
+
+## FTS5 es cómo funciona `session_search`
+
+```sql
+CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
+    content, tool_name, tool_calls,
+    content='messages', content_rowid='id'
+);
+```
+
+Los triggers mantienen FTS en sync en INSERT, UPDATE y DELETE, condicionados a los marcadores `fts_rebuild_high_water` / `fts_rebuild_progress` en `state_meta` para que un rebuild de fondo no doble el índice. Una segunda tabla virtual usa un tokenizer trigram (CJK / búsqueda de substring). Una tercera usa `cjk_unicode61`. Versión actual de schema: **23**. La versión 23 rediseña el almacenamiento FTS como tablas de contenido externo que reemplazan las copias inline de v11, como transición opt-in para DBs existentes (Nous Research, *Session Storage*, s. f.).
+
+Las adiciones simples de columna pasan por `_reconcile_columns()` (diff de columnas vivas contra `SCHEMA_SQL`, `ALTER TABLE ADD COLUMN`, idempotente). La cadena condicionada a versión se reserva para migraciones de datos y cambios de FTS/índice que no se pueden expresar de forma declarativa.
+
+`search_messages()` soporta la sintaxis de consulta FTS5 con sanitización: comillas sin pareja recortadas, términos con guion envueltos en comillas, operadores booleanos colgantes eliminados.
+
+| Sintaxis | Ejemplo | Significado |
+| --- | --- | --- |
+| Palabras clave | `docker deployment` | Ambos términos (AND implícito) |
+| Frase entre comillas | `"exact phrase"` | Match de frase exacta |
+| Boolean OR | `docker OR kubernetes` | Cualquiera de los términos |
+| Boolean NOT | `python NOT java` | Excluir término |
+| Prefijo | `deploy*` | Match de prefijo |
+
+La búsqueda filtrada toma `source_filter`, `exclude_sources` y `role_filter`. Cada resultado incluye `id`, `session_id`, `role`, `timestamp`, un snippet FTS con marcadores `>>>match<<<`, contexto de más/menos uno truncado a 200 caracteres, y `source`, `model`, `session_started` de la sesión padre.
+
+**Caso.** Un usuario teclea `chat-send` en `session_search`. Un FTS5 sin sanitizar trataría el guion como operador. `_sanitize_fts5_query()` lo envuelve como frase entre comillas. Por eso los nombres de tools con guion siguen siendo buscables.
 
 <TryThis>
-Esboza las claves de sessions: id, source, parent_session_id.
+Escriban tres consultas: una frase de un resultado de tool, un filtro solo CLI, y una consulta NOT que excluya Java. Luego nombren qué tabla FTS preferiría un substring CJK. Contrástenlo con la tabla oficial de sintaxis, no con el folklore de LIKE.
 </TryThis>
 
-Fuente: [Session storage](https://hermes-agent.nousresearch.com/docs/developer-guide/session-storage).
+## Linaje frente a in-place
+
+Las sesiones pueden formar cadenas vía `parent_session_id`. Eso ocurre cuando la compresión de contexto dispara un **split** de sesión: el camino rotatorio legado (`compression.in_place: false`). El SQL recursivo de la página oficial recorre ancestros y descendientes.
+
+La compactación por defecto es **in-place**: mismo id de sesión, turnos viejos archivados en blando (`active=0`, `compacted=1`), aún en FTS. No hay cadena padre ni renumeración `name #N` (Nous Research, *Context Compression and Caching*, s. f.). Los helpers de título siguen existiendo para el mundo rotatorio: `set_session_title`, `resolve_session_by_title` (el más reciente del linaje), `get_next_title_in_lineage` que devuelve `"Fix Docker Build #2"`.
+
+**Caso.** Código de gateway que asumía "id nuevo significa que hubo compactación" se rompió cuando llegó in-place. Los consumidores deben leer `in_place` en `session:compress` / `_last_compaction_in_place`, no hacer diff de ids. La tabla sessions sigue teniendo `parent_session_id` porque el camino legado permanece configurable.
+
+No borren filas compactadas para "ahorrar disco." Son el corpus de recuperación de `session_search` y del puntero de recuperación del modo lean.
+
+## Contención de escritura: timeout corto, jitter, BEGIN IMMEDIATE
+
+Varios procesos Hermes (gateway más sesiones CLI más agentes worktree) comparten un `state.db`. `SessionDB` maneja la contención de escritura con (Nous Research, *Session Storage*, s. f.):
+
+- Timeout corto de SQLite (1 segundo) en lugar del default de 30s.
+- Reintento a nivel de aplicación con jitter aleatorio (20–150 ms, hasta 15 reintentos).
+- Transacciones `BEGIN IMMEDIATE` para surfacer la contención de lock al inicio de la transacción.
+- Checkpoints WAL periódicos cada 50 escrituras exitosas (modo PASSIVE).
+
+```text
+_WRITE_MAX_RETRIES = 15
+_WRITE_RETRY_MIN_S = 0.020
+_WRITE_RETRY_MAX_S = 0.150
+_CHECKPOINT_EVERY_N_WRITES = 50
+```
+
+Esto evita el efecto convoy donde el backoff interno determinista de SQLite hace que todos los escritores en competencia reintenten a los mismos intervalos.
+
+<Callout>
+No suban el timeout de SQLite a 30s "para hacer el gateway más paciente." Así es como un escritor CLI más uno de Telegram más un agente worktree hacen convoy. El bucle de 15 reintentos con jitter es el arreglo documentado.
+</Callout>
+
+## Operaciones comunes que un host llama de verdad
+
+```python
+from hermes_state import SessionDB
+db = SessionDB()  # ~/.hermes/state.db
+db.create_session(session_id="sess_abc123", source="cli",
+                  model="anthropic/claude-sonnet-4.6", user_id="user_1",
+                  parent_session_id=None)
+msg_id = db.append_message(session_id="sess_abc123", role="assistant",
+                           content="Here's the answer...", token_count=150)
+conversation = db.get_messages_as_conversation("sess_abc123")
+```
+
+`get_messages` devuelve filas crudas. `get_messages_as_conversation` devuelve dicts formato OpenAI para replay de API. Exportar: `export_session`, `export_all`. Limpieza: `prune_sessions(older_than_days=90)` (solo sesiones terminadas), `clear_messages`, `delete_session`. `end_session` / `reopen_session` gestionan `ended_at` y `end_reason`.
+
+Cuatro tools nunca llegan al dispatcher del registro porque necesitan estado local del agente; `session_search` es una de ellas (Nous Research, *Agent Loop Internals*, s. f.). El schema sigue en el registro para que el modelo vea la tool. El handler que habla con FTS5 es el intercept del agente.
+
+**Caso.** Un plugin llama a SQLite sobre `state.db` con su propia conexión y un timeout de 30s. Hace convoy con el escritor del gateway. El almacenamiento de plugin sancionado es `plugin_data_dir` / `plugin_db`, no este archivo (Nous Research, *Build a Hermes Plugin*, s. f.). `state.db` tiene un dueño: `SessionDB`.
+
+<TryThis>
+Listen el trío WAL (db, wal, shm) bajo un `HERMES_HOME` no default. Luego nombren dos cosas que nunca deben aterrizar en esta base: trayectorias batch, y cursores de runtime de plugin. Contrástenlo con la viñeta oficial "not stored here" y la guía de almacenamiento de plugins.
+</TryThis>
+
+El aislamiento de perfil significa que un segundo `hermes -p work` es un segundo `state.db`. Compartir un archivo entre perfiles es una fuga de cintura. La lección siguiente, [API de contexto de plugins](/es/m/hermes-plugins), es cómo las extensiones se registran sin abrir esta base ellas mismas.
+
+## Versiones de schema que pueden encontrarse
+
+La versión actual es 23. Pasos condicionados seleccionados de la tabla oficial (Nous Research, *Session Storage*, s. f.):
+
+| Versión | Cambio |
+| --- | --- |
+| 1 | Schema inicial (sessions, messages, FTS5) |
+| 5 | Columnas de facturación: tokens de caché, tokens de razonamiento, campos de coste |
+| 10 | `messages_fts_trigram` (CJK / substring) más backfill |
+| 11 | Reindexar FTS para cubrir `tool_name` más `tool_calls`; modo inline |
+| 16 | Etiquetar filas de subagente delegado en `model_config` para que los pickers sigan limpios |
+| 20 | Atribución de uso por modelo sembrada en `session_model_usage` |
+| 22 | Uso por dimensión de tarea; `task` participa en la PRIMARY KEY |
+| 23 | Rediseño FTS de contenido externo (opt-in para DBs existentes) |
+
+Las versiones no listadas fueron adiciones declarativas de columna. Si un gateway y una CLI en el mismo `HERMES_HOME` discrepan de versión, uno de los dos es demasiado viejo para abrir el archivo. Actualicen el binario, no editen a mano `schema_version`.
+
+Índices que conviene nombrar: `idx_sessions_source`, `idx_sessions_parent`, `idx_sessions_started`, título único; `idx_messages_session` sobre (`session_id`, `timestamp`) y (`session_id`, `id`).
+
+**Caso.** Alguien "optimiza" FTS tirando trigram porque la búsqueda ASCII "basta." La búsqueda de substring CJK y la recuperación de `chat-send` sufren ambas. El schema 10 existió por una razón; el 23 cambió el almacenamiento, no el requisito de producto.
+
+`compression_locks` existe porque gateway y CLI pueden decidir comprimir. El locking entre procesos pertenece a SQLite, no a un pidfile casero junto a `state.db`. `async_delegations` lleva la contabilidad del trabajo de subagente que sobrevive a una sola llamada `run_conversation`. Ninguna de las dos tablas es un patio de plugins.
+
+Si necesitan estado duradero de plugin, usen `plugin_data_dir`, no una columna nueva en `sessions`.
+
+Official URL: [Session Storage](https://hermes-agent.nousresearch.com/docs/developer-guide/session-storage).
+
+## Lista de aula
+
+1. Nombren la ruta por defecto y la función que la reubica.
+2. Reciten WAL más FTS5 más linaje como las tres decisiones de diseño.
+3. Distingan el archivo blando in-place de la rotación `parent_session_id`.
+4. Citen las constantes de reintento de escritura (15, 20–150 ms, checkpoint cada 50).
+5. Saniticen una consulta FTS con hyphen.
+6. Niéguense a guardar estado batch/RL/plugin aquí.
+
+Official URL: [Session Storage](https://hermes-agent.nousresearch.com/docs/developer-guide/session-storage).
+
+## Fuentes
+
+Nous Research. (s. f.). *Session storage*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/session-storage
+
+Nous Research. (s. f.). *Context compression and caching*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/context-compression-and-caching
+
+Nous Research. (s. f.). *Agent loop internals*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop
+
+Nous Research. (s. f.). *Architecture*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/architecture
+
+Nous Research. (s. f.). *Build a Hermes plugin*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/plugins
+
+Nous Research. (s. f.). *Prompt assembly*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/prompt-assembly

@@ -1,25 +1,182 @@
-## Files that are the persona
+## Workspace is the agent's home
 
-Workspace cwd is the only working directory. Injected: AGENTS.md (ops), SOUL.md (voice), IDENTITY.md (name/vibe), USER.md (who you are), BOOTSTRAP.md (first-run ritual, deleted after), MEMORY.md if present.
+OpenClaw's [*Agent workspace*](https://docs.openclaw.ai/concepts/agent-workspace) (n.d.) is the primary source. The workspace is the agent's home: the working directory used for file tools and workspace context. Keep it private and treat it as memory. [*Agent runtime*](https://docs.openclaw.ai/concepts/agent) (OpenClaw, n.d.) states which files get injected on the first turn of a new session.
 
-Daily files memory/YYYY-MM-DD.md are NOT in normal Project Context — memory_search / memory_get on demand. Bare /new can prepend recent dailies once.
+This is separate from `~/.openclaw/`, which stores config, credentials, and sessions.
 
-Truncation: 20k per file, 60k total. Sub-agents only get AGENTS.md. SOUL.md is voice, not a security policy — keep rules in AGENTS.md.
+The generic [sessions](/en/m/sessions) lesson stays harness-agnostic. This one is the OpenClaw file map.
 
-<VisualSlot caption="SOUL, IDENTITY, BOOTSTRAP, MEMORY, daily notes on demand." />
+The workspace is the **default cwd**, not a hard sandbox. Tools resolve relative paths against the workspace, but absolute paths can still reach elsewhere on the host unless sandboxing is enabled. If you need isolation, use `agents.defaults.sandbox` (OpenClaw, *Agent workspace*, n.d.; *Sandboxing*, n.d., https://docs.openclaw.ai/gateway/sandboxing).
 
-## Compare vs Hermes
+When sandboxing is enabled and `workspaceAccess` is not `"rw"`, tools operate inside a sandbox workspace under `~/.openclaw/sandboxes`, not your host workspace.
 
-Same pattern (SOUL/AGENTS/MEMORY/USER). OpenClaw adds IDENTITY + BOOTSTRAP and date-stamped daily files as the memory grain.
+<VisualSlot caption="SOUL.md, IDENTITY, BOOTSTRAP, MEMORY, daily notes." />
 
-## Case: SOUL.md as employee handbook
+## Default location
 
-**Case.** SOUL.md is 8k of professionalism rules; the agent sounds like mush.
+- Default: `~/.openclaw/workspace`
+- If `OPENCLAW_PROFILE` is set and not `"default"`, the default becomes `~/.openclaw-<profile>/workspace`.
+- `OPENCLAW_WORKSPACE_DIR` overrides both of the above when set.
+- A non-default `OPENCLAW_STATE_DIR` keeps the default workspace at `<stateDir>/workspace`, including scheduled maintenance and the initial `main` agent entry.
+- Non-default agents (`agents.entries.*`) without an explicit workspace resolve to `<stateDir>/workspace-<agentId>`, not the shared default workspace.
 
-**Fix.** Short opinions in SOUL; ops in AGENTS; details in memory/*.md.
+Override in `~/.openclaw/openclaw.json` via `agents.defaults.workspace`. Per-agent override: `agents.entries.*.workspace`.
+
+`openclaw onboard`, `openclaw configure`, or `openclaw setup` create the workspace and seed the bootstrap files if they are missing (OpenClaw, *Agent workspace*, n.d.).
+
+Sandbox seed copies only accept regular in-workspace files; symlink/hardlink aliases that resolve outside the source workspace are ignored.
+
+If you already manage the workspace files yourself, disable bootstrap file creation with `agents.defaults.skipBootstrap` true.
+
+Older installs may have created `~/openclaw`. Keeping multiple workspace directories around can cause confusing auth or state drift, since only one workspace is active at a time. Keep a single active workspace. If you intentionally keep multiple workspaces, make sure `agents.defaults.workspace` (or the per-agent `workspace` key) points to the active one.
+
+## Bootstrap files (injected)
+
+Inside the workspace, OpenClaw expects these user-editable files (OpenClaw, *Agent runtime*, n.d.; *Agent workspace*, n.d.):
+
+| File | Purpose |
+| --- | --- |
+| `AGENTS.md` | Operating instructions plus memory guidance. Loaded at the start of every session. The `## Tools` section is local environment notes; it does **not** control which tools exist |
+| `SOUL.md` | Persona, tone, and boundaries. Loaded every session. Guide: *SOUL.md personality* (OpenClaw, n.d., https://docs.openclaw.ai/concepts/soul) |
+| `IDENTITY.md` | Agent name, vibe, and emoji. Created or updated during the bootstrap ritual |
+| `USER.md` | User profile plus preferred address. Loaded every session with a separate 4,000-character budget |
+| `BOOTSTRAP.md` | One-time first-run ritual. Only created for a brand-new workspace. Deleted after completion |
+| `MEMORY.md` | Root long-term memory file, if present. Curated durable facts. Only inject when it exists at the workspace root |
+| `HEARTBEAT.md` | Optional startup checklist on gateway restart when internal hooks are enabled. Keep it short |
+| `memory/YYYY-MM-DD.md` | Daily memory log. Recommended to read today plus yesterday on session start |
+| `skills/` | Workspace-specific skills. Highest-precedence skill location for that workspace |
+
+On the first turn of a new session, OpenClaw injects the contents of these files into the system prompt's Project Context. `MEMORY.md` is only injected when it exists at the workspace root.
+
+Blank files are skipped. Large files are trimmed and truncated with a marker so prompts stay lean. A missing file (other than `MEMORY.md`) injects a single "missing file" marker line instead; `openclaw setup` creates a safe default template for it. Optional `USER.md` and `MEMORY.md` are omitted when absent.
+
+Large bootstrap files are truncated when injected; adjust general limits with `agents.defaults.bootstrapMaxChars` (default: `20000`) and `agents.defaults.bootstrapTotalMaxChars` (default: `60000`). `USER.md` keeps its separate 4,000-character cap. `openclaw setup` can recreate missing defaults without overwriting existing files (OpenClaw, *Agent workspace*, n.d.).
+
+<Callout>
+`BOOTSTRAP.md` is only created for a **brand new workspace** (no other bootstrap files present). After a workspace has been observed, OpenClaw stores its setup state and attestation in the shared SQLite database at `~/.openclaw/state/openclaw.sqlite`. If a recently attested workspace disappears or is wiped, startup refuses to silently reseed `BOOTSTRAP.md`; restore the workspace or use a full onboard reset so the workspace and its database state are cleared together (OpenClaw, *Agent runtime*, n.d.).
+</Callout>
+
+While `BOOTSTRAP.md` is pending, OpenClaw keeps it in Project Context and adds system-prompt bootstrap guidance for the initial ritual instead of copying it into the user message. If you delete it after completing the ritual, it is not recreated on later restarts.
+
+Older releases used workspace JSON and `.attested` sidecar files. Runtime does not read those files. Run `openclaw doctor --fix` to validate them, import their state into SQLite, and remove each source after the imported rows are verified.
+
+## What is NOT in the workspace
+
+These live under `~/.openclaw/` and should NOT be committed to the workspace repo (OpenClaw, *Agent workspace*, n.d.):
+
+- `~/.openclaw/openclaw.json` (config)
+- `~/.openclaw/state/openclaw.sqlite` (shared workspace setup state and attestations)
+- `~/.openclaw/agents/<id>/agent/openclaw-agent.sqlite` (session rows, transcripts, model auth profiles, routing state)
+- `~/.openclaw/agents/<id>/agent/codex-home/` (per-agent Codex runtime account and native thread state)
+- `~/.openclaw/credentials/` (channel/provider state plus legacy OAuth import data)
+- `~/.openclaw/agents/<id>/sessions/` (legacy migration sources and archive/support artifacts)
+- `~/.openclaw/skills/` (managed skills)
+
+If you need to migrate sessions or config, copy them separately and keep them out of version control.
+
+Lowercase root `memory.md` is legacy repair input only; `openclaw doctor --fix` can merge it into `MEMORY.md` when both exist (OpenClaw, *FAQ*, n.d., https://docs.openclaw.ai/help/faq).
+
+## Git backup (private)
+
+Treat the workspace as private memory. Put it in a **private** git repo so it is backed up and recoverable. Run these steps on the machine where the Gateway runs (that is where the workspace lives). If git is installed, brand-new workspaces are initialized automatically.
+
+```bash
+cd ~/.openclaw/workspace
+git init
+git add AGENTS.md SOUL.md IDENTITY.md USER.md memory/
+git commit -m "Add agent workspace"
+```
+
+Even in a private repo, avoid storing secrets in the workspace: API keys, OAuth tokens, passwords, anything under `~/.openclaw/`, raw dumps of chats or sensitive attachments. If you must store sensitive references, use placeholders and keep the real secret elsewhere (password manager, environment variables, or `~/.openclaw/`).
+
+Suggested `.gitignore` starter: `.DS_Store`, `.env`, `**/*.key`, `**/*.pem`, `**/secrets*`.
+
+## Skills load order
+
+OpenClaw loads skills from these locations, highest precedence first (OpenClaw, *Agent runtime*, n.d.):
+
+- Workspace: `<workspace>/skills`
+- Project agent skills: `<workspace>/.agents/skills`
+- Personal agent skills: `~/.agents/skills`
+- Managed/local: `~/.openclaw/skills`
+- Bundled (shipped with the install)
+- Extra skill folders: `skills.load.extraDirs`
+
+Skill roots can contain grouped folders such as `<workspace>/skills/personal/foo/SKILL.md`; the skill is still exposed by its flat frontmatter name, for example `foo`.
+
+Core tools (read/exec/edit/write and related system tools) are always available, subject to tool policy. The `## Tools` section of `AGENTS.md` does **not** control which tools exist; it is guidance for how you want them used (OpenClaw, *Agent runtime*, n.d.).
+
+**Case.** An operator writes "deny browser" in `AGENTS.md` under `## Tools`. The model still receives the `browser` schema if tool policy allows it. Personality files are not the allowlist. Use `tools.deny` (OpenClaw, *Agent runtime*, n.d.; *Tools and custom providers*, n.d., https://docs.openclaw.ai/gateway/config-tools).
 
 <TryThis>
-List the six bootstrap files and mark which one is deleted after first run.
+Write the default workspace path. Name the six core bootstrap files injected into Project Context. Write which file is deleted after the first-run ritual. Name three paths that must stay out of the workspace git repo. Write the default bootstrapMaxChars and bootstrapTotalMaxChars.
 </TryThis>
 
-Sources: https://docs.openclaw.ai/concepts/agent and https://docs.openclaw.ai/concepts/soul
+## Compare, without mixing knobs
+
+Hermes persists memory to `MEMORY.md` / `USER.md` from the loop (Nous Research, *Agent Loop Internals*, n.d., https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop). OpenClaw injects named workspace files into Project Context on the first turn of a new session. Same human need (a persona plus durable facts). Different file contract. Different cwd rule.
+
+Do not paste Hermes `prompt_builder.py` assembly order into OpenClaw Project Context. Cite *Agent workspace* for the file map. Cite *Agent runtime* for injection, truncation, and BOOTSTRAP attestation. Cite *Sandboxing* when absolute paths must stop reaching the host.
+
+**Case.** A recently attested workspace is wiped from disk. Startup refuses to silently reseed `BOOTSTRAP.md`. Restore the workspace, or run a full onboard reset so workspace files and SQLite attestation clear together. A silent reseed would invent a first-run ritual the operator already finished (OpenClaw, *Agent runtime*, n.d.).
+
+Keep `SOUL.md` focused on voice, stance, and personality; put operating rules in `AGENTS.md` and durable facts in memory. Default per-file injection limit is 20000 characters; total bootstrap budget across files is 60000 characters. Use `/context` to check raw vs injected sizes and whether truncation happened (OpenClaw, *FAQ*, n.d.).
+
+To move the workspace to a new machine: clone the private repo to the desired path, set `agents.defaults.workspace`, run `openclaw setup --workspace <path>` to seed missing files, and copy `openclaw-agent.sqlite` separately if you need sessions.
+
+
+## Daily notes versus MEMORY.md
+
+`memory/YYYY-MM-DD.md` is the daily log. Keep detailed logs there so memory tools can retrieve them on demand without injecting them into every prompt. Keep `MEMORY.md` as curated long-term memory: durable non-profile facts, decisions, and short summaries. Only load `MEMORY.md` in the main, private session (not shared or group contexts) (OpenClaw, *Agent workspace*, n.d.; *Memory*, n.d., https://docs.openclaw.ai/concepts/memory).
+
+Before compaction, OpenClaw can run a silent memory flush turn to store durable notes to disk. That flush is why the workspace files matter to the compaction lesson: if you summarize first and crash, the durable facts in the middle of the thread are gone unless they already lived in `MEMORY.md` or today's daily file.
+
+`HEARTBEAT.md` is not a schedule. Heartbeat monitors live in automations. The file is an optional short checklist the agent can read on gateway restart when internal hooks are enabled. Use the `message` tool for outbound sends; do not treat HEARTBEAT.md as cron (OpenClaw, *Agent workspace*, n.d.; *Heartbeat*, n.d., https://docs.openclaw.ai/gateway/heartbeat).
+
+Standing orders grant the agent permanent operating authority for defined programs. They live in workspace files (typically `AGENTS.md`) and are injected into every session. Combine with automations for time-based enforcement (OpenClaw, *Standing orders*, n.d., https://docs.openclaw.ai/automation/standing-orders). Personality is not policy: a standing order in `AGENTS.md` still cannot restore a tool that `tools.deny` removed.
+
+Multi-agent routing can use different workspaces per agent via `agents.entries.*.workspace`. Each configured agent has its own workspace, bootstrap files, and session store (OpenClaw, *Agent runtime*, n.d.; *Multi-agent*, n.d., https://docs.openclaw.ai/concepts/multi-agent). Do not share one workspace directory across two agent ids unless you intend them to share persona and memory files.
+
+If `agents.defaults.sandbox` is enabled, non-main sessions can override this with per-session workspaces under `agents.defaults.sandbox.workspaceRoot`. That is a sandbox cwd, not a second git repo you commit (OpenClaw, *Agent workspace*, n.d.).
+
+Doctor-owned migration still matters on old disks: `openclaw-workspace-state.json`, `.openclaw/workspace-state.json`, and `.attested` sidecars are import-then-delete. Current runtime uses only the shared SQLite database for that state. If Doctor reports one of those files, run `openclaw doctor --fix`; Doctor imports valid legacy state and deletes a source only after verifying the database rows.
+
+**Case.** Two extra folders `~/openclaw` and `~/.openclaw/workspace` both contain a `SOUL.md`. Only one path is `agents.defaults.workspace`. The unused folder's persona never injects. Archive the extra folder so you do not edit the silent copy (OpenClaw, *Agent workspace*, n.d.).
+
+Cite *Agent workspace* for location, file map, git backup, and secrets. Cite *Agent runtime* for injection, BOOTSTRAP attestation, and skill load order. Cite *Memory* for daily versus curated. Cite *Sandboxing* when cwd must become a container.
+
+
+Each agent uses a single workspace directory (`agents.defaults.workspace`, or `agents.entries.*.workspace` per agent) as its **only** working directory (`cwd`) for tools and context (OpenClaw, *Agent runtime*, n.d.). Recommended: use `openclaw setup` to create `~/.openclaw/openclaw.json` if missing and initialize the workspace files.
+
+On the first turn, Project Context is a snapshot. Later edits to `SOUL.md` take effect on the next new session, not mid-turn, unless you `/new` or wait for a reset. That is why daily reset and `/new` matter: they re-inject the files.
+
+`USER.md` write entries as dated active or superseded directives. The separate 4,000-character budget exists so a long user profile does not eat the entire 60,000 bootstrap total. If `/context` shows truncation, shorten `SOUL.md` first; operating rules belong in `AGENTS.md` (OpenClaw, *Agent workspace*, n.d.; *User model*, n.d., https://docs.openclaw.ai/concepts/user-model).
+
+Do not commit `.openclaw/` into the workspace repo even as a convenience symlink. Config and the state database gate pairing, tokens, and session transcripts. A private git remote is still the wrong place for device tokens (OpenClaw, *Agent workspace*, n.d.).
+
+At minimum, set `agents.defaults.workspace` and strongly recommend `channels.whatsapp.allowFrom` (OpenClaw, *Agent runtime*, n.d.).
+
+
+To disable bootstrap file creation entirely for pre-seeded workspaces, set `agents.defaults.skipBootstrap` to true. `openclaw setup --workspace <path>` still seeds any missing files without overwriting existing ones when you migrate a machine (OpenClaw, *Agent workspace*, n.d.).
+
+This lesson stops at the file map, injection, attestation, and what stays out of git. Session rows continue in the sessions lesson. Daily and idle reset continue in the reset lesson.
+
+## Sources
+
+OpenClaw. (n.d.). *Agent workspace*. https://docs.openclaw.ai/concepts/agent-workspace
+
+OpenClaw. (n.d.). *Agent runtime*. https://docs.openclaw.ai/concepts/agent
+
+OpenClaw. (n.d.). *SOUL.md personality*. https://docs.openclaw.ai/concepts/soul
+
+OpenClaw. (n.d.). *Sandboxing*. https://docs.openclaw.ai/gateway/sandboxing
+
+OpenClaw. (n.d.). *FAQ*. https://docs.openclaw.ai/help/faq
+
+OpenClaw. (n.d.). *User model*. https://docs.openclaw.ai/concepts/user-model
+
+OpenClaw. (n.d.). *Memory*. https://docs.openclaw.ai/concepts/memory
+
+OpenClaw. (n.d.). *Tools and custom providers*. https://docs.openclaw.ai/gateway/config-tools
+
+Nous Research. (n.d.). *Agent loop internals*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop

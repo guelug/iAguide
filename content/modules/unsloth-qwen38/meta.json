@@ -1,0 +1,26 @@
+{
+  "id": "unsloth-qwen38",
+  "order": 17.6,
+  "slug": "unsloth-qwen38",
+  "track": "training",
+  "title": {
+    "en": "Fine-tune Qwen3.8-27B with Unsloth",
+    "es": "Ajuste fino de Qwen3.8-27B con Unsloth"
+  },
+  "summary": {
+    "en": "The official Unsloth Qwen3.8-27B train guide: Studio and free Kaggle, QLoRA on 24GB, the 75 percent reasoning mix, every SFT flag explained, vision, GRPO, and export.",
+    "es": "La guía oficial de Unsloth para Qwen3.8-27B: Studio y Kaggle gratuito, QLoRA en 24GB, la mezcla de razonamiento al 75 por ciento, cada flag de SFT explicado, visión, GRPO y exportación."
+  },
+  "status": "complete",
+  "prereqs": [
+    "unsloth"
+  ],
+  "durationMin": 45,
+  "tags": [
+    "unsloth",
+    "qwen",
+    "qlora",
+    "kaggle",
+    "grpo"
+  ]
+}

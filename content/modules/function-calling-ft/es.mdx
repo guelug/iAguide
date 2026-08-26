@@ -1,19 +1,200 @@
 ## Particularidad — enseñar el esquema a los pesos
 
-El prompting puede listar tools. El **fine-tune de function-calling** enseña a emitir los tokens especiales y la forma de los argumentos — como las APIs tipo GPT-4 y los roles de tools de Mistral. Aparecen roles nuevos: un assistant que es una llamada, y un mensaje `tool` / observación.
+*Fuente nombrada: Hugging Face Agents Course, Bonus Unit 1, [What is Function Calling?](https://huggingface.co/learn/agents-course/bonus-unit1/what-is-function-calling) e [introduction](https://huggingface.co/learn/agents-course/bonus-unit1/introduction) (Burtenshaw, Thomas, Simonini y Paniego, Apache-2.0).*
 
-La Bonus Unit 1 de Hugging Face añade eso a un instruct pequeño con LoRA. Los datos son el producto: pares limpios en la **misma plantilla que servirás**.
+Esto no es una quinta vía. Va en la vía de **entrenamiento** porque el modelo tiene que *aprender* el esquema de tools, no solo verlo en un prompt. El function calling, dice la unidad, se introdujo primero en GPT-4 y luego lo reprodujeron otros modelos. Como las tools de un agente, deja que el modelo actúe sobre el entorno. A diferencia del bucle dummy de Unit 1, la capacidad **se aprende** y depende **menos del prompting**.
 
-A menudo **no** deberías afinar: arregla el esquema, acorta la lista, o usa un modelo que ya llama tools. El fine-tune es cuando el prompting falla *siempre* en un formato que te pertenece.
+En Unit 1 el agente no aprendía a usar tools: las listabas y esperabas que el modelo generalizara un plan. Aquí **fine-tuneas** para que emita los tokens especiales y la forma de los argumentos correctos.
+
+Curso oficial: https://huggingface.co/learn/agents-course · repo: https://github.com/huggingface/agents-course · notebook: https://huggingface.co/agents-course/notebooks/blob/main/bonus-unit1/bonus-unit1.ipynb
 
 <VisualSlot caption="Una lista de tools en el prompt frente a un modelo que aprendió tokens de tools. El modo rosa es un esquema roto que intentaste tapar con LoRA." />
 
+## Cuándo cabe esta bonus unit en un temario
+
+*Fuente nombrada: Hugging Face Agents Course, Bonus Unit 1, [introduction](https://huggingface.co/learn/agents-course/bonus-unit1/introduction).*
+
+Los autores la marcan **opcional** y más avanzada que Unit 1. Vuelve cuando sepas mejor el fine-tuning. Aun así recorren las ideas núcleo. Preparación recomendada: afinar un LLM con Transformers ([NLP Course capítulo 3](https://huggingface.co/learn/nlp-course/chapter3/1?fw=pt)) y conocer `SFTTrainer` ([NLP Course capítulo 11](https://huggingface.co/learn/nlp-course/en/chapter11/1)). iAguide lo coloca después de [fine-tuning](/course/fine-tuning) por la misma razón.
+
+Lo que dicen que aprenderás: cómo los LLM modernos estructuran conversaciones que disparan tools; LoRA como adapter ligero; el ciclo Thought → Act → Observe dentro de modelos de function-calling; tokens especiales nuevos que separan razonamiento interno, llamadas salientes y respuestas de tools. Al final deberías haber afinado tu propio modelo para function calling.
+
+Consejo práctico: sáltate esta unidad si tu esquema sigue cambiando cada semana. SchemaPatch más abajo es esa frase hecha caso. Congela el contrato primero.
+
+## Roles nuevos en la conversación
+
+*Fuente nombrada: Hugging Face Agents Course, Bonus Unit 1, How does the model "learn" to take an action? en [what-is-function-calling](https://huggingface.co/learn/agents-course/bonus-unit1/what-is-function-calling); function calling de Mistral https://docs.mistral.ai/capabilities/function_calling/.*
+
+El ciclo de Unit 1 es Think, Act (formatea la acción y para), Observe (el resultado de la ejecución). Una API de chat típica solo alterna user y assistant. El function calling añade **roles nuevos**: uno para una Action, uno para una Observation.
+
+El ejemplo con forma Mistral de la unidad: el usuario pregunta por la transacción T1001; el mensaje assistant lleva un `function_call` con nombre `retrieve_payment_status` y argumentos JSON; un rol `tool` devuelve la observación; el assistant responde en lenguaje. Sí y no sobre “un rol nuevo para la llamada”: en esta API y en muchas otras, el modelo formatea la acción como mensaje **assistant**. La **plantilla de chat** luego pinta tokens especiales.
+
+Consejo práctico: entrena y sirve la **misma** plantilla. Un LoRA que vio `[TOOL_CALLS]` no emitirá tool_calls estilo OpenAI si cambias la plantilla al servir. Los datos son el producto porque la plantilla es el dato.
+
+## Tokens especiales que la unidad nombra de verdad
+
+*Fuente nombrada: Hugging Face Agents Course, Bonus Unit 1, lista de tokens Mistral en [what-is-function-calling](https://huggingface.co/learn/agents-course/bonus-unit1/what-is-function-calling).*
+
+La página nombra:
+
+- `[AVAILABLE_TOOLS]` / `[/AVAILABLE_TOOLS]` — la lista
+- `[TOOL_CALLS]` — tomar una Action
+- `[TOOL_RESULTS]` / `[/TOOL_RESULTS]` — Observe, y luego el modelo puede decodificar otra vez
+
+Esos marcadores son cómo el modelo distingue razonamiento interno, llamadas salientes y respuestas de tools — el objetivo de aprendizaje de la introducción. No inventamos un cuarto tag. Confirma contra [docs de Mistral](https://docs.mistral.ai/capabilities/function_calling/) si copias plantillas de producción.
+
+Consejo práctico: si añades tokens al tokenizer, resérvalos y entrena las filas de embedding. Un token especial con embedding aleatorio es una palabra nueva que el modelo no ha visto. El notebook es el ejemplo trabajado; esta página no lo pega.
+
+<Callout>
+El bucle dummy de [dummy-agent](/course/dummy-agent) ya para en una secuencia y parsea JSON. El fine-tune de function-calling mete ese contrato en los pesos. El arnés sigue ejecutando. El modelo sigue sin poder llamar una función; solo puede emitir texto que parece una llamada.
+</Callout>
+
+## Empieza desde instruct, no desde base
+
+*Fuente nombrada: Hugging Face Agents Course, Bonus Unit 1, How do we train our model for function-calling? en [fine-tuning](https://huggingface.co/learn/agents-course/bonus-unit1/fine-tuning).*
+
+La viñeta de tres pasos de la unidad:
+
+1. **Pre-entrenar** en un corpus grande → un modelo base que predice el siguiente token, p. ej. [google/gemma-2-2b](https://huggingface.co/google/gemma-2-2b). Poco seguimiento de instrucciones.
+2. **Fine-tune** para seguir instrucciones → p. ej. [google/gemma-2-2b-it](https://huggingface.co/google/gemma-2-2b-it), instruction-tuned por el equipo Gemma.
+3. **Alinear** a preferencias — un bot de soporte que no debe ser grosero.
+
+Un producto como Gemini o Mistral suele recorrer los tres. Los modelos del Hub han completado uno o más. **Este tutorial empieza desde gemma-2-2b-it, no desde el base.** Empezar desde base exigiría aprender seguimiento de instrucciones, chat *y* function calling. Empezar desde instruct **minimiza lo que el modelo aún tiene que aprender**.
+
+Consejo práctico: no hagas LoRA de un checkpoint base “porque es más puro.” Gastarás cómputo reenseñando el chat. La unidad ya tomó esa decisión.
+
+## LoRA es el adapter, no el producto
+
+*Fuente nombrada: Hugging Face Agents Course, Bonus Unit 1, sección LoRA en [fine-tuning](https://huggingface.co/learn/agents-course/bonus-unit1/fine-tuning); tutorial LoRA del NLP Course https://huggingface.co/learn/nlp-course/chapter11/4?fw=pt.*
+
+LoRA inserta unos pocos pesos nuevos como adapter. El entrenamiento es más rápido, más barato, y el adapter pesa unos cientos de MB. Añade matrices de descomposición de rango a capas Transformer, normalmente lineales. El resto del modelo se congela; actualizas el adapter. En inferencia corres adapter más base, o fusionas para no añadir latencia.
+
+La unidad apunta al capítulo LoRA del NLP Course para la mecánica. iAguide ya enseña LoRA en [fine-tuning](/course/fine-tuning). Esta particularidad es *cómo se ven los datos* cuando la tarea son tokens de tools.
+
+Consejo práctico: LoRA aprenderá fielmente el esquema del viernes. Si el lunes el esquema movió un campo obligatorio, el adapter del lunes está mal. Congela el esquema JSON un mes y luego entrena una vez. SchemaPatch hizo lo contrario.
+
+<Term id="lora">LoRA</Term> es el método. Los pares son el producto.
+
+## El notebook es el laboratorio; esta página es el contrato
+
+*Fuente nombrada: Hugging Face Agents Course, Bonus Unit 1, Fine-Tuning a Model for Function-Calling en [fine-tuning](https://huggingface.co/learn/agents-course/bonus-unit1/fine-tuning); notebook https://huggingface.co/agents-course/notebooks/blob/main/bonus-unit1/bonus-unit1.ipynb.*
+
+Te mandan al notebook oficial y luego a Colab. Esta lección no rehospeda sus celdas. Quédate con el contrato: añade tokens especiales a un instruct pequeño, entrena LoRA en conversaciones que ya contienen roles Action y Observation, sirve la misma plantilla.
+
+Consejo práctico: cada fila de entrenamiento debe ser una conversación legal que la plantilla de chat pueda renderizar. Una fila con un nombre de tool que no está en `[AVAILABLE_TOOLS]` enseña al modelo a inventar tools. Una fila con argumentos JSON inválidos enseña JSON inválido.
+
+## A menudo no deberías afinar
+
+*Fuente nombrada: síntesis de Bonus Unit 1 (tools aprendidas frente a tools prompteadas de Unit 1) con la práctica de la vía training de iAguide; Unit 1 [tools](https://huggingface.co/learn/agents-course/unit1/tools).*
+
+El contraste de la unidad es el temario: Unit 1 prompta; Bonus 1 entrena. iAguide añade la negativa que faltaba. Afina cuando el prompting **falla de forma consistente en un formato que te pertenece**. No afines cuando:
+
+- el esquema se sigue moviendo
+- tienes menos de un set pequeño de pares limpios (el TryThis de abajo usa 20 como suelo de aula, no como cuota de paper)
+- un modelo más grande ya emite la plantilla que necesitas
+- dos tools se solapan en la descripción, así que el modelo elige la incorrecta por razones que un prompt aún puede arreglar
+
+Consejo práctico: acorta la lista de tools y afila las descripciones antes de reservar GPU. La precisión del system prompt sigue siendo el producto, incluso después del LoRA.
+
+<Compare a="Tools prompteadas (Unit 1)" b="Function calling aprendido (Bonus 1)">
+<Side>
+Listas tools en el system prompt. Esperas que el instruct generalice. Barato. Frágil cuando el formato es estricto o el modelo es pequeño.
+</Side>
+<Side>
+Entrenas tokens especiales y roles. La misma plantilla al entrenar y al servir. Caro. Frágil cuando el esquema se mueve cada viernes.
+</Side>
+</Compare>
+
+<Myth>
+LoRA arreglará un esquema roto. No. SchemaPatch hacía LoRA cada viernes y el campo obligatorio del lunes rompía el adapter del viernes. El proceso era el bug. Congela, reúne, entrena una vez.
+</Myth>
+
 <TryThis>
-Reúne 20 pares `(prompt, tool_call)` de una tool que te importe. Argumentos válidos. Añade cinco prompts “no hace falta tool”. Luego tres viñetas de cuándo seguirías negándote a afinar.
+Reúne 20 pares (prompt, tool_call) de una tool que te importe. Argumentos válidos respecto al esquema. Añade cinco prompts “no hace falta tool” para que el modelo pueda abstenerse. Luego tres viñetas de cuándo seguirías negándote a afinar (esquema inestable, pocos pares limpios, un modelo más grande ya puede).
 </TryThis>
 
 ## Caso — el LoRA prematuro de SchemaPatch
 
-El esquema `create_ticket` de SchemaPatch cambiaba cada semana. Hacían LoRA los viernes. El lunes rompía el adapter. Congelaron el esquema un mes, reunieron 200 pares y entrenaron una vez. El LoRA aguantó. El proceso era el bug.
+*Caso pedagógico con voz iAguide; lección esquema-frente-a-adapter de la línea “necesitamos datos” de Bonus Unit 1.*
 
-Esta lección reescribe ideas del [curso de agentes de Hugging Face](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.
+El esquema `create_ticket` de SchemaPatch cambiaba cada semana. Hacían LoRA los viernes. El esquema del lunes rompía el adapter del viernes. Congelaron el esquema un mes, reunieron 200 pares y entrenaron una vez. El LoRA aguantó. El proceso era el bug.
+
+También añadieron filas de abstención para que “cuánto es 3 por 4” dejara de emitir `create_ticket`. El bucle dummy habría usado una calculadora; el fine-tune tuvo que aprender *a no* llamar.
+
+## Forma de los datos, dos tipos de par
+
+*Fuente nombrada: Hugging Face Agents Course, Bonus Unit 1, ejemplo de conversación en [what-is-function-calling](https://huggingface.co/learn/agents-course/bonus-unit1/what-is-function-calling).*
+
+Hacen falta las dos direcciones que muestra la conversación de la unidad:
+
+1. **prompt → tool_call** — el usuario pregunta el estado de T1001; el assistant emite `retrieve_payment_status` con el id.
+2. **tool_result → answer** — la tool devuelve Paid; el assistant dice una frase.
+
+Si solo entrenas (1), el modelo llamará y se quedará colgado. Si solo entrenas (2), hablará de una tool que nunca invocó. Mezcla filas de abstención para que el rol Action sea opcional.
+
+Consejo práctico: mantén los argumentos válidos respecto al esquema. Un formato sucio de id en el set de entrenamiento se vuelve un segundo formato legal en producción. Valida las filas con el mismo esquema JSON que usará el arnés.
+
+## Thought, Act, Observe sigue siendo el ciclo
+
+*Fuente nombrada: Hugging Face Agents Course, Bonus Unit 1, What You’ll Learn en [introduction](https://huggingface.co/learn/agents-course/bonus-unit1/introduction) y la lista Think/Act/Observe en [what-is-function-calling](https://huggingface.co/learn/agents-course/bonus-unit1/what-is-function-calling).*
+
+La introducción promete que implementarás y modificarás el ciclo Thought → Act → Observe para flujos de function-calling mantenibles. Los tokens son cómo el ciclo se *escribe* después de entrenar. El arnés de [dummy-agent](/course/dummy-agent) sigue ejecutando la función. La Observation sigue sin muestrearse.
+
+Consejo práctico: registra el texto `[TOOL_CALLS]` como span (véase [observability](/course/observability)). Un LoRA que emite una llamada con pinta válida a una tool que nunca registraste es un bug de datos que solo verás si el span de parse falla cerrado.
+
+## Lista práctica
+
+*Fuente nombrada: páginas de Bonus Unit 1 en Fuentes; docs de Mistral https://docs.mistral.ai/capabilities/function_calling/.*
+
+1. Congela el esquema antes de reunir pares.
+2. Empieza desde un checkpoint instruct, no base, como hace la unidad con Gemma-2-2b-it.
+3. Entrena y sirve la misma plantilla de chat.
+4. Incluye filas Action, filas Observation-a-respuesta y filas de abstención.
+5. Valida los argumentos JSON con el esquema de producción.
+6. Prefiere un prompt más afilado o un modelo que ya llame tools cuando baste.
+
+## Qué recordar
+
+*Síntesis de Bonus Unit 1, Hugging Face Agents Course (Burtenshaw, Thomas, Simonini y Paniego, Apache-2.0).*
+
+El prompting lista tools; el fine-tune de function-calling enseña tokens y roles. Empieza desde instruct, LoRA el adapter, haz de los datos el producto. A menudo debías haber congelado el esquema. El LoRA semanal de SchemaPatch es el antipatrón.
+
+## Enlaces en este curso
+
+*Fuente nombrada: Hugging Face Agents Course, Bonus Unit 1 (unidad completa); particularidades de training y harness de iAguide.*
+
+- El bucle prompteado que sustituyes o complementas: [dummy-agent](/course/dummy-agent)
+- Mecánica de LoRA: [fine-tuning](/course/fine-tuning)
+- Tools code-first sin LoRA propio: [smolagents](/course/smolagents)
+- Cuando retrieve es la tool: [agentic-rag](/course/agentic-rag)
+
+Inicio del curso: https://huggingface.co/learn/agents-course · repo: https://github.com/huggingface/agents-course · docs: https://huggingface.co/docs · LoRA del NLP Course: https://huggingface.co/learn/nlp-course/chapter11/4?fw=pt
+
+## Las plantillas de chat son el dataset
+
+*Fuente nombrada: Hugging Face Agents Course, Bonus Unit 1, párrafo de chat-template en [what-is-function-calling](https://huggingface.co/learn/agents-course/bonus-unit1/what-is-function-calling).*
+
+El “sí y no” de la unidad sobre un rol Action nuevo es una lección de plantilla. La conversación en Python usa `function_call` en un mensaje assistant y un rol `tool` para la observación. La cadena renderizada con la que el modelo entrena de verdad es la forma de tokens especiales. Si reúnes pares en forma OpenAI y sirves tokens Mistral, entrenaste un dialecto que nunca muestrearás.
+
+Consejo práctico: vuelca una cadena de entrenamiento renderizada y una de servicio renderizada. Haz un diff. Si `[TOOL_CALLS]` aparece solo en un lado, para. El método `chat` dummy de Unit 1 ya aplicaba una plantilla para poder cambiar de modelo; esta bonus unit convierte esa plantilla en el objetivo del fine-tune.
+
+No inventes un tercer dialecto de plantilla en el notebook y un cuarto al servir. Dos volcados, un diff, luego entrena.
+
+## Fuentes
+
+Burtenshaw, B., Thomas, J., Simonini, T. y Paniego, S. (s. f.). *Hugging Face Agents Course* (Apache-2.0). https://huggingface.co/learn/agents-course · https://github.com/huggingface/agents-course
+
+- Introducción de Bonus Unit 1: https://huggingface.co/learn/agents-course/bonus-unit1/introduction
+- What is function calling: https://huggingface.co/learn/agents-course/bonus-unit1/what-is-function-calling
+- Página de fine-tuning: https://huggingface.co/learn/agents-course/bonus-unit1/fine-tuning
+- Notebook: https://huggingface.co/agents-course/notebooks/blob/main/bonus-unit1/bonus-unit1.ipynb
+- Function calling de Mistral (nombrado en la unidad): https://docs.mistral.ai/capabilities/function_calling/
+- Gemma-2-2b-it: https://huggingface.co/google/gemma-2-2b-it
+- Gemma-2-2b (contraste base): https://huggingface.co/google/gemma-2-2b
+- NLP Course, fine-tune con Transformers: https://huggingface.co/learn/nlp-course/chapter3/1?fw=pt
+- NLP Course, SFTTrainer: https://huggingface.co/learn/nlp-course/en/chapter11/1
+- NLP Course, LoRA: https://huggingface.co/learn/nlp-course/chapter11/4?fw=pt
+- Tools de Unit 1 (contraste prompteado): https://huggingface.co/learn/agents-course/unit1/tools
+- Anuncio de function calling de GPT-4 (nombrado en la unidad): https://openai.com/index/function-calling-and-other-api-updates/
+- Hugging Face docs: https://huggingface.co/docs
+
+Curso: https://huggingface.co/learn/agents-course · notebook: https://huggingface.co/agents-course/notebooks/blob/main/bonus-unit1/bonus-unit1.ipynb

@@ -1,25 +1,188 @@
-## Four verbs while a run is live
+## One writer per session lane
 
-Default mode: steer — inject into the active runtime after the current tool; skip unstarted sequential calls. followup: enqueue a later turn. collect: coalesce into one followup after a quiet window. interrupt: abort, then run the newest message.
+OpenClaw's [*Command queue*](https://docs.openclaw.ai/concepts/queue) (n.d.) is the primary source. OpenClaw serializes inbound auto-reply runs across all channels through a tiny in-process queue so multiple agent runs do not collide, while still allowing safe parallelism across sessions.
 
-Per-session lane: one active run per session key. Global lane (main) caps process-wide parallelism. Background work uses cron / cron-nested / subagent lanes so inbound replies stay free.
+The generic [agent loop](/en/m/agent-loop) lesson stays harness-agnostic. This one is the OpenClaw lane.
 
-/queue <mode> stores a per-session override. cap 20, drop summarize, 500ms debounce by default.
+Auto-reply runs are expensive (LLM calls) and collide when several inbound messages arrive close together. Serializing avoids competing for session state, logs, and CLI stdin, and reduces upstream rate-limit pressure (OpenClaw, *Command queue*, n.d.).
 
-<VisualSlot caption="steer, followup, collect, interrupt, session vs global lanes." />
+A lane-aware FIFO queue drains each lane with a configurable concurrency cap (default 1 for unconfigured lanes; `main` uses `min(16, max(8, available CPU parallelism))`, and `subagent` defaults to 8). `runEmbeddedAgent` enqueues by **session key** (lane `session:<key>`) to guarantee only one active run per session. Each session run is then queued into a **global lane** (`main` by default) so overall parallelism is capped by `agents.defaults.maxConcurrent`.
 
-## Compare vs Hermes
+Typing indicators still fire immediately on enqueue (when the channel supports them) so the user experience is unchanged while the run waits its turn. Verbose logs emit a short notice if a queued run waited more than about 2 seconds before starting.
 
-Hermes two-level guard: adapter queues if session active, runner handles /stop. OpenClaw names four modes and applies them to every channel auto-reply.
+<VisualSlot caption="steer, followup, collect, interrupt, lanes." />
 
-## Case: Discord collect vs Telegram steer
+## Defaults
 
-**Case.** Discord floods; Telegram wants mid-run steers.
+When unset, all inbound channel surfaces use (OpenClaw, *Command queue*, n.d.):
 
-**Fix.** messages.queue.byChannel.discord = collect; default stay steer.
+- `mode: "steer"`
+- a built-in 500ms debounce for steer, followup, and collect batching
+- `cap: 20`
+- `drop: "summarize"`
+
+Same-turn steering is the default. A prompt that arrives mid-run is injected into the active runtime when the run can accept steering, so no second session run is started. If the active run cannot accept steering, OpenClaw waits for the active run to finish before starting the prompt.
+
+## Four modes
+
+`/queue` controls what normal inbound messages do while a session already has an active run. Copy the four names into the TryThis answer. Do not invent a fifth named `pause`.
+
+- `steer`: inject messages into the active runtime. OpenClaw lets an already-running tool finish, skips sequential calls that have not started, and makes the steer visible before the next tool launch or model decision. Parallel calls continue once their batch has crossed its launch checkpoint. Codex app-server receives one batched `turn/steer` and applies it at the next model boundary. If the run is not actively streaming or steering is unavailable, OpenClaw waits until the active run ends before starting the prompt.
+- `followup`: do not steer. Enqueue each message for a later agent turn after the current run ends.
+- `collect`: do not steer. Coalesce queued messages into a **single** followup turn after the quiet window. If messages target different channels or threads, they drain individually to preserve routing.
+- `interrupt`: abort the active run for that session, then run the newest message.
+
+Runtime-specific timing lives on [*Steering queue*](https://docs.openclaw.ai/concepts/queue-steering) (OpenClaw, n.d.). The explicit `/steer` command lives on [*Steer*](https://docs.openclaw.ai/tools/steer).
+
+Configure globally or per channel via `messages.queue`:
+
+```json5
+{
+  messages: {
+    queue: {
+      mode: "steer",
+      cap: 20,
+      drop: "summarize",
+      byChannel: { discord: "collect" },
+      debounceMsByChannel: { discord: 1000 },
+    },
+  },
+}
+```
+
+<Callout>
+`steer` does not abort in-flight tools. Skipped OpenClaw tool calls receive synthetic paired error results so the transcript remains valid. Use `/queue interrupt` when the newest message should abort the current run (OpenClaw, *Command queue*, n.d.).
+</Callout>
+
+## Options: debounce, cap, drop
+
+Per-session `/queue` options apply to queued delivery. The `debounce` option also sets the Codex steering quiet window in `steer` mode (OpenClaw, *Command queue*, n.d.):
+
+- `debounce`: quiet window before draining queued followups or collect batches; in Codex `steer` mode, quiet window before sending batched `turn/steer`. Bare numbers are milliseconds; units `ms`, `s`, `m`, `h`, and `d` are accepted.
+- `cap`: max queued messages per session. Values below `1` are ignored.
+- `drop: "summarize"` (default): drop the oldest queued entries as needed, keep compact summaries, and inject them as a synthetic followup prompt.
+- `drop: "old"`: drop the oldest queued entries as needed, without preserving summaries.
+- `drop: "new"`: reject the newest message when the queue is already full.
+
+The queue uses a built-in 500ms debounce. `cap` defaults to `20`. `drop` defaults to `summarize`.
+
+## Steer and streaming
+
+When channel streaming is `partial` or `block`, steering can look like several short visible replies while the active run reaches runtime boundaries (OpenClaw, *Command queue*, n.d.):
+
+- `partial`: the preview may finalize early, then a new preview starts after steering is accepted.
+- `block`: draft-sized blocks can create the same sequential appearance.
+- Without streaming, steering falls back to a followup after the active run when the runtime cannot accept same-turn steering.
+
+Inbound prompts that arrive mid-run are steered into the current run by default. The OpenClaw runtime checks for steering before unstarted tool launches and the next model call (OpenClaw, *Agent runtime*, n.d., https://docs.openclaw.ai/concepts/agent).
+
+## Precedence
+
+For mode selection, OpenClaw resolves (OpenClaw, *Command queue*, n.d.):
+
+1. Inline or stored per-session `/queue` override.
+2. `messages.queue.byChannel.<channel>`.
+3. `messages.queue.mode`.
+4. Default `steer`.
+
+For options, inline or stored `/queue` options win over config. Then channel-specific debounce (`messages.queue.debounceMsByChannel`), plugin debounce defaults, and built-in defaults apply, in that order. `cap` and `drop` are global/session options, not per-channel config keys.
+
+## Per-session overrides
+
+- Send `/queue <steer|followup|collect|interrupt>` as a standalone command to store the queue mode for the current session.
+- Options can be combined: `/queue collect debounce:0.5s cap:25 drop:summarize`
+- `/queue default` or `/queue reset` clears the session override.
+
+**Case.** A Discord channel is noisy. Set `messages.queue.byChannel.discord` to `collect` so several messages in the quiet window become one followup turn. A Telegram DM stays on default `steer` so a correction mid-run injects into the active runtime (OpenClaw, *Command queue*, n.d.).
+
+## Queued-turn cancellation
+
+While a prompt sits in the followup/collect queue (for example a TUI or webchat `chat.send` arriving while another turn is active), Gateway keeps a **Gateway-owned cancel identity** for that client `runId` until the queued content runs or is dropped. The identity follows content folded into an overflow summary (OpenClaw, *Command queue*, n.d.).
+
+- `chat.abort` with a specific `runId` cancels that turn while it is still queued, if the requester is authorized (same ownership rules as active runs).
+- `chat.abort` for a session without `runId` cancels **authorized queued turns first**, then aborts authorized active runs. That order prevents queue drain from promoting work into a half-stopped session.
+- Clearing the entire session queue without per-requester checks is not the stop path for multi-owner sessions.
+- Queued waits are not projected as active agent runs for `sessions.list` and do not own active-run timeout semantics; only the active phase does.
+
+Gateway-backed clients (including `openclaw tui`) forward mid-run prompts and let the Gateway apply the queue mode. Esc or `/stop` uses a session-scoped abort so lost local handles cannot leave a still-queued prompt running.
+
+`openclaw chat` and `openclaw tui --local` apply the same four modes in the embedded runtime. Local `steer` injects into an active embedded run when that runtime accepts steering and otherwise becomes a followup. The explicit `/steer` command is not a local-mode command.
+
+## Lanes and guarantees
+
+Applies to auto-reply agent runs across all inbound channels that use the gateway reply pipeline: WhatsApp web, Telegram, Slack, Discord, Signal, iMessage, webchat, and others (OpenClaw, *Command queue*, n.d.).
+
+Default lane (`main`) is process-wide for inbound turns; set `agents.defaults.maxConcurrent` to allow multiple sessions in parallel.
+
+Heartbeat embedded runs use the bounded `cron-nested` lane for global admission so slow background work does not block inbound replies, while their configured heartbeat session lane still serializes work for that session.
+
+Additional lanes exist (`cron`, `cron-nested`, `nested`, `subagent`) so background jobs can run in parallel without blocking inbound replies. Isolated cron agent turns hold a `cron` slot while their inner agent execution uses `cron-nested`. These detached runs are tracked as background tasks (OpenClaw, *Background tasks*, n.d., https://docs.openclaw.ai/automation/tasks).
+
+Per-session lanes guarantee that only one agent run touches a given session at a time. No external dependencies or background worker threads; pure TypeScript plus promises.
 
 <TryThis>
-Write /queue collect debounce:0.5s cap:25 drop:summarize and say what each option does.
+Name the four queue modes and the default. Write the two-lane model: per-session lane plus global lane. Name the three drop policies. Write which lane heartbeat uses for global admission so inbound replies stay unblocked.
 </TryThis>
 
-Source: https://docs.openclaw.ai/concepts/queue
+## Compare, without mixing knobs
+
+Hermes interrupts by **abandoning the HTTP thread** and does not inject a partial assistant (Nous Research, *Agent Loop Internals*, n.d., https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop). OpenClaw's default is `steer`: inject into the active runtime. Both designs protect one writer. OpenClaw's writer claim is one run per session lane. Hermes' writer protection is "do not append until the call finishes or is discarded."
+
+Do not import OpenClaw queue modes (`steer`, `followup`, `collect`, `interrupt`) into a Hermes config. They are not Hermes knobs. The Hermes equivalent of interrupt is `/stop` plus the background HTTP thread.
+
+**Case.** A WhatsApp user sends a second message while OpenClaw is still calling the provider. Default `steer` injects the new prompt into the active runtime before the next tool launch or model call. A running tool continues. Unstarted sequential calls are skipped and receive synthetic paired results. If you wanted abort-then-newest, that is `/queue interrupt`, not Hermes `/stop` (OpenClaw, *Command queue*, n.d.; *Agent runtime*, n.d.).
+
+If commands seem stuck, enable verbose logs and look for "queued for ...ms" lines. Codex app-server runs that accept a turn and then stop emitting progress are interrupted by the Codex adapter so the active session lane can release instead of waiting for the outer run timeout.
+
+When diagnostics are enabled, sessions that remain in `processing` past the built-in warning threshold are classified as `session.long_running`, `session.stalled`, or `session.stuck`. `session.stuck` always triggers recovery that can release the affected session lane. A `session.stalled` classification past the abort threshold can also trigger active-abort recovery (OpenClaw, *Command queue*, n.d.).
+
+
+## Why two lanes, not one global lock
+
+The session lane is the writer lock. Without it, two inbound messages for the same Telegram DM would both call `runEmbeddedAgent` against the same SQLite session row. Transcript commits would race. Tool results would interleave. The model would see a history that never happened (OpenClaw, *Command queue*, n.d.).
+
+The global `main` lane is the process budget. A Gateway hosting twenty group chats can still run several sessions in parallel, up to `agents.defaults.maxConcurrent`, without starting twenty provider calls at once. Subagent work uses its own lane (default concurrency 8) so a swarm does not starve inbound replies.
+
+Heartbeat and isolated cron must not sit on `main`. That is why `cron-nested` exists: slow background work admits separately. Isolated cron agent turns hold a `cron` slot while their inner execution uses `cron-nested`. Shared non-cron nested flows keep their own lane behavior.
+
+The queue is in-process TypeScript plus promises. There is no Redis, no worker pool, no replay log. If the Gateway process dies, in-flight queue state dies with it. Durable session rows survive in SQLite; the queue itself does not (OpenClaw, *Command queue*, n.d.; *Session management*, n.d., https://docs.openclaw.ai/concepts/session).
+
+Block streaming is off by default (`agents.defaults.blockStreamingDefault: "off"`). Tune the boundary via `agents.defaults.blockStreamingBreak` (`text_end` vs `message_end`; defaults to `text_end`). Control soft block chunking with `agents.defaults.blockStreamingChunk` (defaults to 800-1200 chars). Non-Telegram channels require explicit `*.streaming.block.enabled: true` to enable block replies (OpenClaw, *Agent runtime*, n.d.).
+
+Collect is the noisy-room mode. Debounce waits for quiet, then one turn. If two messages land on different threads, they drain individually so Discord topic A does not swallow topic B. That routing preservation is why collect is not "concatenate everything in the process."
+
+Followup is the strict queue: each message becomes its own later turn. Use it when every inbound line must be answered separately and steering would smear them into the current plan.
+
+Interrupt is the abort. It is the only mode that kills the active run. Steer, followup, and collect all let the current run finish its in-flight tool. Teaching interrupt as the default is how you pay for a wasted provider call on every correction.
+
+**Case.** An operator types `/queue interrupt` in a session that has a browser snapshot in flight. The active run aborts. The newest message starts. Contrast that with default `steer`, where the snapshot would finish, unstarted sequential calls would skip with synthetic paired results, and the steer would land before the next model call (OpenClaw, *Command queue*, n.d.).
+
+Cite *Command queue* for modes, lanes, debounce, cap, and drop. Cite *Steering queue* for runtime-specific timing. Cite *Agent runtime* for the steer checkpoint before unstarted tools. Cite Hermes *Agent Loop Internals* only in the compare paragraph.
+
+
+Dropped overflow under `drop: "summarize"` is not silent deletion. Oldest queued entries leave compact summaries that inject as a synthetic followup prompt, so the model still sees that messages arrived. `drop: "old"` throws those entries away. `drop: "new"` refuses the newest when the cap is already full. Cap default is 20; values below 1 are ignored (OpenClaw, *Command queue*, n.d.).
+
+`/queue collect debounce:0.5s cap:25 drop:summarize` is a legal combined override. `/queue default` and `/queue reset` both clear the session override and return you to config plus the built-in `steer` default.
+
+
+Prefer verbose logs over inventing a stuck-run RPC. Look for "queued for ...ms" to confirm drain. The four diagnostic classes (`session.long_running`, `session.stalled`, `session.stuck`, plus ordinary processing) are log labels, not protocol methods. Do not invent a `queue.status` frame; cite *Command queue* and *Gateway protocol* for the real methods (OpenClaw, *Command queue*, n.d.; *Gateway protocol*, n.d., https://docs.openclaw.ai/gateway/protocol).
+
+Heartbeat does not extend idle or daily reset freshness. Queueing a heartbeat turn still serializes on the heartbeat session lane, but `lastInteractionAt` does not move. That rule lives in the reset lesson; this lesson only needs the lane split so inbound replies stay on `main` (OpenClaw, *Session management*, n.d.).
+
+This lesson stops at lanes, the four modes, debounce/cap/drop, and cancellation order. Cron lanes details continue in the cron lesson. Session keys continue in the sessions lesson.
+
+## Sources
+
+OpenClaw. (n.d.). *Command queue*. https://docs.openclaw.ai/concepts/queue
+
+OpenClaw. (n.d.). *Steering queue*. https://docs.openclaw.ai/concepts/queue-steering
+
+OpenClaw. (n.d.). *Steer*. https://docs.openclaw.ai/tools/steer
+
+OpenClaw. (n.d.). *Agent runtime*. https://docs.openclaw.ai/concepts/agent
+
+OpenClaw. (n.d.). *Background tasks*. https://docs.openclaw.ai/automation/tasks
+
+OpenClaw. (n.d.). *Gateway architecture*. https://docs.openclaw.ai/concepts/architecture
+
+Nous Research. (n.d.). *Agent loop internals*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop

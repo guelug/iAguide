@@ -1,0 +1,222 @@
+## Softmax attention costs a growing cache
+
+<Term id="softmax-attention">Softmax attention</Term> is the mixer you already know: every new token builds a query, scores it against every key in the window, and blends the values (Vaswani et al., 2017). Compute is quadratic in sequence length `T`. Memory is worse for serving. The <Term id="kv-cache">KV cache</Term> stores a key and a value per token, per layer, per head. Decode is then a memory-bandwidth walk over a list that grows with every token you emit.
+
+That list is why a 128k tool trace feels different from a 4k chat even when the model "fits." Prefill pays `O(T^2)` (or a flash-attention cousin of it). Decode pays `O(T)` cache reads **per new token**. Agents that keep tool JSON, traces, and RL rollouts in context hit both bills at once. Test-time scaling — think longer, roll more, keep the transcript — is a KV problem before it is a parameter problem.
+
+Write the cache size once so the rest of the page has a denominator. For one full-attention layer: `2 × T × n_heads × d_head` elements, times bytes. At `T = 1_000_000`, `n_heads = 16` effective KV heads, `d_head = 128`, BF16, that is already multiple gigabytes **per layer**. A deep stack of those is why 1M context on a full-MLA twin is a memory project.
+
+## Linear attention keeps a matrix, not a list
+
+<Term id="linear-attention">Linear attention</Term> (Katharopoulos et al., 2020) rewrites the mixer as a recurrent update of a matrix state `S_t` of shape `d_k × d_v`. The sketch:
+
+$$
+S_t = S_{t-1} + k_t v_t^{\top},\qquad o_t = S_t^{\top} q_t
+$$
+
+`S` is an associative memory: keys write, queries read. Decode for that layer no longer walks a token list. It is `O(1)` in sequence length — a matvec against a **fixed** state. Prefill can be a prefix-scan / chunked parallel form of the same recurrence, so training is not a slow RNN loop.
+
+The catch, historically: a finite matrix is a worse retrieval structure than a full softmax over the true keys. Vanilla kernel attention (`phi(q)^T phi(k)` with a feature map) lost on language modelling, especially on copy and needle tasks. The finite-state RNN cannot store an arbitrary lookup table of `T` pairs. That is a theorem-shaped limitation, not a training bug (Kimi Team, 2025).
+
+<Callout>
+Softmax attention stores the list and scores it. Linear attention compresses the list into `S` and hopes the compression is the right one. The rest of KDA is *how* you write into `S` so the hope is less naive.
+</Callout>
+
+<VisualSlot caption="Softmax: a KV tower that grows with T. KDA: a fixed S matrix. Hybrid: three teal KDA layers, one amber MLA layer that still owns a real KV cache." />
+
+## The delta rule, then a gate, then a channel-wise gate
+
+If you treat `S` as a fast weight, the vanilla outer-product update is Hebbian: heap associations, never correct them. [DeltaNet](https://arxiv.org/abs/2406.06484) (Schlag, Irie, & Schmidhuber lineage; Yang & Wang, 2024) applies the **delta rule**: a rank-1 correction so the memory actually maps `k_t` toward `v_t`.
+
+$$
+S_t = (I - \beta_t k_t k_t^{\top}) S_{t-1} + \beta_t k_t v_t^{\top}
+$$
+
+That is one gradient step on `½ ∥ S^T k - v ∥^2` with step size `beta_t`. The Householder-style factor `(I - beta k k^T)` *erases* the old value at `k` before writing the new one. Without it, two writes to nearby keys smear.
+
+[Gated DeltaNet](https://arxiv.org/abs/2412.06464) (GDN) adds a **scalar** forget gate `alpha_t` in `[0, 1]`. The whole matrix decays together, then the delta write lands. That is the same granularity as Mamba2: one forget number **per head**. Useful, still coarse. A head that must remember a tool name and forget a temperature argument is forced to pick one lifetime.
+
+<Term id="kda">Kimi Delta Attention</Term> (KDA) makes the gate **channel-wise** (Kimi Team, 2025, arXiv:2510.26692). The forget is `Diag(alpha_t)` — a diagonal, one rate per feature — so each dimension of the state can die on its own schedule. Finer than GDN or Mamba2. The recurrence is:
+
+$$
+S_t = \bigl(I - \beta_t k_t k_t^{\top}\bigr)\,\mathrm{Diag}(\alpha_t)\,S_{t-1} + \beta_t k_t v_t^{\top},\qquad o_t = S_t^{\top} q_t
+$$
+
+`beta_t` is the delta step size. `Diag(alpha_t)` is the per-channel forget. That is the whole trick: same associative-memory story, tighter control of a finite RNN state.
+
+Channel-wise is not "more heads." It is more forget knobs **inside** a head. A head can keep one feature for a long tool name and wash out another that only mattered two turns ago. The paper also reads this as a **learnable multiplicative positional encoding**: the product of the `Diag(alpha)` matrices along time is a data-dependent replacement for RoPE's fixed rotations, with per-dimension rates the way RoPE has per-dimension frequencies.
+
+<Myth>
+"Linear attention is always worse than softmax." Often true for vanilla kernel attention. **Not** the result in Kimi Linear. Under a matched 1.4T recipe, the **hybrid** KDA+MLA model beat full MLA on short context (MMLU-Pro 51.0 vs 47.2), long context (RULER 84.3 vs 81.3), and math RL. GDN-hybrid sat in between on short tasks and slipped behind MLA on some long ones — the channel-wise gate is doing work, not just "being linear."
+</Myth>
+
+
+## How linear attention is *not* softmax
+
+Softmax attention is `sum_j exp(q^T k_j) v_j / Z`. There is no finite matrix that stores that for arbitrary k_j, v_j pairs as `T` grows: you would need the list. Linear attention replaces `exp(q^T k)` with `phi(q)^T phi(k)` so the sum factors as `phi(q)^T S` with `S = sum phi(k) v^T`. That factoring is the entire speed story and the entire quality story. If `phi` is identity, you get the outer-product RNN above. If `phi` is exponential-kernel infinite-dimensional, you recover softmax and you are back to `O(T)` state.
+
+KDA does not pretend to be softmax. It changes the *write*. Delta plus a channel-wise forget is a better `S` for the same state size. Hybrid then *admits* that some layers still want the real list (MLA). That is the honest architecture: compression as default, exact retrieval as a periodic tax.
+
+The TTT / fast-weight view (Sun et al.; Schlag et al.) is optional vocabulary. Each token takes a gradient step on a self-supervised loss that lives in `S`. Vanilla linear attention steps on an unbounded correlation. DeltaNet steps on reconstruction. GDN adds weight decay. KDA makes that decay a diagonal. You do not need the paper's Table 7 to serve the model. You do need it to not call every RNN "Mamba."
+
+## Hardware: constrained DPLR, not the general one
+
+A general Diagonal-Plus-Low-Rank transition (`D - a b^T`) can express this gate. The naive chunkwise kernel is heavy: extra secondary chunking to keep divisions stable, extra matmuls. KDA **constrains** DPLR so `a = b = k` (up to the gate and `beta`). That specialised chunkwise kernel is about **2× faster** than general DPLR in their measurements, and closer to the classical delta rule.
+
+Why the speed. General DPLR needs four secondary-chunk matmuls and three extra GEMMs because `a` and `b` are free vectors; dividing by cumulative decay is unstable in low precision, so you chunk again in FP32. Binding `a` and `b` to `k` drops two of those secondary chunks and three matmuls. You stay on Tensor Cores in half precision. Figure 2 of the paper: KDA kernel vs DPLR, same batch, 16 heads, KDA about twice as fast out to 64k.
+
+Prefill uses the **chunk** kernel (parallel inside a chunk of size 64, recurrent across chunks). Decode uses the **recurrent** kernel (the rank-1 update above). The state per head is fixed: `d_k × d_v`, and in Kimi Linear those head dims are **128 × 128**. FLOPs per head for a sequence of length `T` scale as `6 T d_h^2 + 3 T C d_h + T C^2` with chunk `C = 64`, versus `2 T^2 d_h` for full attention. At 1M tokens the quadratic term is the one you no longer pay on KDA layers.
+
+Kernels live in Flash Linear Attention:
+
+[fla/ops/kda](https://github.com/fla-org/flash-linear-attention/tree/main/fla/ops/kda)
+
+You do not reimplement this in Python for production. You take the FLA / vLLM operator. Environment: `fla-core >= 0.4.0`, `trust_remote_code=True` on the custom architecture.
+
+Chunkwise, for people who will read the kernel. Inside a chunk you pack the product of Householders into a WY representation, apply a UT transform so the inverse of a triangular matrix is a substitution, then a dense GEMM for intra-chunk and a recurrence for the chunk state. That is why prefill is fast: Tensor Cores see matrices of size `C × d`, not a Python loop of `T` rank-1 updates. Decode cannot use that packing (`C = 1` in spirit), so it runs the recurrent form. Mixing the two kernels across prefill/decode is the serving implementation, not a different model.
+
+WY packing, in one sentence you can reuse: a product of rank-1 Householders is rewritten as `I - U W^T` so a chunk of updates becomes two GEMMs and a triangular solve. UT transform then folds the `beta` diagonals into that triangular matrix. If a kernel blog says "KDA is just GDN with a vector gate," the missing sentence is this packing under a **shared** `k` for both DPLR legs, which is why the kernel is 2× not 1.1×.
+
+
+
+## Kimi Linear is a hybrid, not a pure RNN
+
+Pure linear layers still struggle at exact long-range copy. The palindrome / MQAR / stack synthetic tests in the paper are the cartoon: a finite `S` cannot be a perfect tape. Kimi Linear therefore **interleaves** KDA with full <Term id="mla">Multi-head Latent Attention</Term> (MLA) at a uniform **3 KDA : 1 MLA** ratio, layerwise (whole layers, not mixed heads). KV cache exists **only on the MLA layers**. Three quarters of the stack keep a fixed state. Up to **75% less KV**. Up to about **6×** decode TPOT at 1M context versus a full-MLA twin in their plots (1.84 ms vs 11.48 ms at 1M, batch 1). Prefill at 1M is about 2.9× faster than MLA.
+
+The 3:1 ratio was an ablation, not a religion (their Table 1, 16-layer scaling-law model):
+
+- 3:1 — train PPL 9.23, val 5.65 (best balance)
+- 7:1 — train 9.23, val 5.70 (trains similarly, generalises worse)
+- 1:1 — train 9.29, val 5.66 (more decode budget, little quality)
+- 15:1 — val 5.82 (too few global layers)
+- 0:1 (pure MLA) — train 9.45, val 5.77 (lost on the fair 1.4T run)
+
+They chose **layerwise** hybrid over headwise: simpler PP, simpler cache, more stable. Intra-layer mixes of SSM heads and attention heads are a systems headache they declined.
+
+## NoPE on MLA; KDA carries position
+
+MLA layers in Kimi Linear use **NoPE** (no RoPE, no ALiBi). Position and recency are the KDA layers' job: the gated delta transition is a data-dependent multiplicative position signal, and the channel-wise gate is the fine-grained part RoPE would have put on frequency bands. Practical side effects: MLA can collapse toward MQA at inference, and you are not babysitting a RoPE base when you stretch context. A RoPE hybrid in their long-context table *lost* to the NoPE hybrid (RULER 78.8 vs 84.3). Short tasks were similar. Do not "add RoPE back for luck."
+
+KDA also uses **ShortConv** then Swish on `q/k/v`, and **L2Norm** on `q` and `k` so the Householder-style update stays stable (eigenvalues). Forget gates are a low-rank projection of `x` with rank equal to the head dim, then a decay map into `[0, 1]` per channel of `d_k`. `beta` is a sigmoid of a linear. Output: head-wise RMSNorm, a sigmoid output gate (also low-rank; Swish output gate was worse, 9.43 train PPL vs 9.23), then `W_o`. Convolution ablation: removing ShortConv hurts (val 5.70 vs 5.65). Keep it.
+
+
+## Parameterization, slowly
+
+Let `x_t` be the token into a KDA layer. For each head:
+
+- `q` and `k`: linear, ShortConv, Swish, L2Norm. L2Norm is the eigenvalue babysitter for the Householder. Skip it and the delta update can blow up.
+- `v`: linear, ShortConv, Swish. No L2Norm (values are not used as projectors).
+- `alpha`: low-rank up/down with rank = head dim, then a decay function into `(0, 1]` per channel. This is the GLA-style diagonal, data-dependent.
+- `beta`: sigmoid of a per-head linear, the delta step size in `(0, 1)`.
+
+Output path: KDA → head-wise RMSNorm → sigmoid gate (low-rank, same budget as a full-rank gate, also the attention-sink killer) → `W_o`. Removing the output gate hurts a little; switching it to Swish hurts a lot. Copy those nonlinearities; they were ablated.
+
+Head dim 128 × 128 is a **square** state. That is why people say "the KDA chip." It does not grow when you type. Convolution state for ShortConv is a few extra positions (kernel 4), also constant. When a prefix-cache system asks for "the KV," you must hand it a **different object group** for this state or you will replay garbage. The serve lesson names LMCache. Here you only need to know the tensor is not KV.
+
+The stack is MoE following Moonlight / DeepSeek-V3: **48B total / 3B active**, 8 of 256 routed experts plus one shared, first layer dense. Context up to **1M** on the released checkpoints. Optimizer MuonClip, 1.4T fair run then a 5.7T release run.
+
+
+## Synthetic tasks, then scale
+
+Before the 48B run, they pit KDA against GDN and Mamba2 on palindrome, multi-query associative recall, and a 64-stack LIFO machine (2 layers, 2 heads, `d_head = 128`). Mamba2 (multiplicative decay, no delta) **fails all three** in that setup. GDN gets somewhere. KDA is highest as length goes 256 → 2048, and converges faster on palindrome and MQAR. Channel-wise forget is doing retrieval work, not just LM loss cosmetics.
+
+Scaling-law MoE sweep (Moonlight-style, 8 of 64 experts, Muon): Kimi Linear fits a slightly better compute curve than MLA, about **1.16×** computational efficiency at Chinchilla-optimal training. Same recipe, no KDA-specific LR magic. The 48B/3B 1.4T run is that curve at production size.
+
+Selected 1.4T base numbers versus MLA: HellaSwag 82.9 vs 81.7, MMLU 73.8 vs 71.6, MMLU-Pro 51.0 vs 47.2, RULER 84.3 vs 81.3. Instruct GPQA-Diamond Avg@8 62.1 vs 57.1. Math RL curves sit above MLA for the whole run. Those are the receipts for "hybrid not a compromise."
+
+## Why agents care, and why hybrid not pure
+
+Long tool traces, repo dumps, and RL **test-time scaling** inflate softmax KV until the box is cache-bound. A hybrid keeps quality — in the fair 1.4T comparison, Kimi Linear **beats** full MLA on short benchmarks, long-context suites, **and** math RL curves — while decode stays closer to a constant-state RNN on the KDA layers. You still pay real KV on every fourth layer. You do not pay a full tower.
+
+Pure linear would be even cheaper and, on palindrome-like copy at 2k, still worse. The MLA layers are the tape. The KDA layers are the cheap compression. 3:1 is the measured compromise.
+
+<Compare a="Full softmax / MLA stack" b="Kimi Linear 3:1 hybrid">
+<Side>
+Every layer stores KV. Decode TPOT climbs with context. 1M context is a memory project even when weights fit. Position usually lives in RoPE on the full-attention layers.
+</Side>
+<Side>
+KV only on MLA layers. KDA keeps a 128×128 state per head. Prefill uses the chunk kernel; decode uses the recurrent kernel. NoPE on MLA; KDA carries recency. Same training recipe, better scores in their 1.4T run, up to 6× decode at 1M.
+</Side>
+</Compare>
+
+**Case.** A support agent keeps twelve tool rounds, a 40k JSON dump, and a 20k reasoning trace in one thread. The softmax box OOMs on KV or the batch size collapses to 1. The hybrid box still stores MLA KV for a quarter of the layers, but the KDA layers do not grow. Throughput stays in the "we can actually sample" regime. Quality does not require a second, smaller model for the long jobs.
+
+<TryThis>
+On paper, pick a toy head `d_k = d_v = 4` and `T = 8`. Write the softmax KV size (`T × d_k` plus `T × d_v`) next to the KDA state size (`d_k × d_v`). Then scale the same arithmetic to `d = 128` and `T = 1_000_000`. You should see why decode can be `O(1)` **per KDA layer** and why a 3:1 hybrid still has a KV tower — just a shorter one. No GPU.
+</TryThis>
+
+
+## Long context, RL, and the hierarchy that flipped
+
+On long-context suites at 128k (Table 5), Kimi Linear averages 54.5 against MLA 52.2 and GDN-H 51.2. RULER 84.3 vs 81.3 vs 80.5. RepoQA 68.5 vs 63.0. GDN-H, which beat MLA on some short tasks, **falls behind MLA** once the context is long. That is the hierarchy flip: channel-wise KDA is what keeps the hybrid ahead when the tape is long; a scalar GDN gate is not enough.
+
+Math RL (same algorithm, same data as the MLA twin): training accuracy pulls away; MATH-500 and AIME 2025 test curves sit above MLA for the whole run. Long generations under RL are exactly the decode-heavy regime the KV cut was for. The paper's claim is not "linear models get free RL." The claim is the hybrid, with this gate, does not give the RL points back.
+
+Prefill latency stays essentially tied with GDN-H (the extra diagonal is cheap next to the GEMMs) and pulls away from MLA after 128k (2.3× at 512k, 2.9× at 1M). Decode TPOT is the 6× headline at 1M batch 1, because MLA's KV walk dominates and KDA does not walk.
+
+## Depth mixer versus sequence mixer
+
+AttnRes (next foundations lesson; Kimi Team, 2026) is softmax over **layers**. KDA is a gated delta recurrence over **tokens**. They compose. Kimi Linear + AttnRes is the 1.4T run in the residuals paper: same 48B/3B hybrid, Block AttnRes on the residual path, Table 3 gains on GPQA-Diamond and MATH. One shrinks KV. The other stops PreNorm dilution. When you serve [`moonshotai/Kimi-Linear-48B-A3B-Instruct`](https://huggingface.co/moonshotai/Kimi-Linear-48B-A3B-Instruct), you inherit **KDA** from the architecture id. You inherit **AttnRes** only if that checkpoint was trained with it — then it is already inside the graph, no flag.
+
+Do not confuse the two caches. KDA state is `128 × 128` per head, constant in `T`. AttnRes block cache is `N × T × d` during prefill and `N × d` during decode. MLA KV is `T` on every fourth layer. Three different tensors, three different OOM stories.
+
+<Steps>
+1. Name the mixer: softmax stores KV; KDA stores `S`; hybrid stores both, 3:1.
+2. Name the write rule: delta erase-and-write, then channel-wise forget, constrained DPLR so `a = b = k`.
+3. Name the kernels: chunk for prefill, recurrent for decode, `fla/ops/kda`, `fla-core >= 0.4.0`.
+4. Name the position story: NoPE on MLA, KDA carries recency. Do not bolt RoPE on.
+5. Name the other axis: AttnRes mixes depth; KDA mixes sequence. Serving inherits both from the checkpoint.
+</Steps>
+
+Paper: [Kimi Linear / KDA, arXiv:2510.26692](https://arxiv.org/abs/2510.26692) (Kimi Team / Moonshot, 2025). Kernels: [FLA `fla/ops/kda`](https://github.com/fla-org/flash-linear-attention/tree/main/fla/ops/kda). Checkpoints: [`moonshotai/Kimi-Linear-48B-A3B-Instruct`](https://huggingface.co/moonshotai/Kimi-Linear-48B-A3B-Instruct). Serving is a later metal lesson. Residuals: [arXiv:2603.15031](https://arxiv.org/abs/2603.15031).
+
+## What to remember before you serve
+
+Three numbers: **3:1** layers, **75%** less KV, **128×128** state per KDA head. One myth to drop: linear is not "always worse" — the hybrid won the fair 1.4T comparison, including RL. One hardware fact: the kernel is constrained DPLR (`a = b = k`), about 2× the general DPLR chunk kernel, shipped in FLA not in llama.cpp. Do not invent a GGUF story here.
+
+
+`trust_remote_code` is not a vibe. The modelling code that implements KDA (and MLA+NoPE, and the MoE layout) ships **next to the weights**. Transformers will refuse or load a wrong graph without it. `fla-core>=0.4.0` is the kernel package; older FLA will not have `fla.ops.kda`. vLLM consumes those same kernels. llama.cpp, llama.cpp GGUF converters, MLX-LM, and Ollama do **not** ship this op. The serve lesson is blunt about that. This lesson is why: the op is a constrained-DPLR chunk kernel, not "attention with a smaller head."
+
+ `trust_remote_code` is required because the architecture is custom. The next foundations lesson is depth (AttnRes). The metal lesson is how to actually boot the 48B checkpoint without pretending a 24 GB laptop is a 1M-context server.
+
+
+## What 75% less KV actually means
+
+A 3:1 layerwise hybrid does **not** cut parameters by 75%. Experts and embeddings are unchanged. It cuts the **token-wise cache** on three of every four mixer layers. MLA still pays a real KV, and MLA in DeepSeek-V3 style is already a compressed KV (latent), so the 75% is "versus a full-MLA twin of this stack," not versus a dense GQA 48B. Decode 6× at 1M is the same comparison, batch 1, their figure. Your batch-8 server will move the number; the shape of the curve (flat-ish TPOT vs climbing) is the thing to measure.
+
+If you only have one GPU, 75% less KV does not make 96 GB of BF16 weights fit. Sequence mixer ≠ residency. The serve lesson exists because people confuse those two 75%s.
+
+
+
+## Copy tasks are the honesty check
+
+If someone shows you a pure-KDA 48B that "matches MLA on MMLU," ask for palindrome, needle, and RULER. Finite state can look fine on short LM and still fail at copy. The hybrid exists because the authors ran those tests and did not like pure linear (Kimi Team, 2025). A 7:1 stack that saves more KV and dies on val PPL is the other honesty check. Do not skip the MLA layers to chase a 10× decode slide.
+
+Keep the names honest. **KDA** is the layer. **Kimi Linear** is the 3:1 hybrid MoE. **AttnRes** is the residual replacement on the depth axis, a later paper. People will say "Kimi Linear attention" for all three. Your job is to point at the axis: tokens (KDA), layers (AttnRes), or the served graph (both, if the checkpoint has both).
+
+## References
+
+Katharopoulos, A., Vyas, A., Pappas, N., & Fleuret, F. (2020). Transformers are RNNs: Fast autoregressive transformers with linear attention. *Proceedings of ICML*, 5156–5165.
+
+Kimi Team. (2025). *Kimi Linear: An expressive, efficient attention architecture* (arXiv:2510.26692). https://arxiv.org/abs/2510.26692
+
+Kimi Team. (2026). *Attention residuals* (arXiv:2603.15031). https://arxiv.org/abs/2603.15031
+
+Vaswani, A., et al. (2017). Attention is all you need. *Advances in Neural Information Processing Systems, 30*.
+
+Yang, S., & Wang, B. (2024). *Parallelizing linear transformers with the delta rule over sequence length* (arXiv:2406.06484).
+
+Yang, S., Kautz, J., & Hatamizadeh, A. (2025). Gated delta networks: Improving Mamba2 with delta rule. *Proceedings of ICLR*.
+
+Yang, S., et al. (2024). Gated linear attention transformers with hardware-efficient training. *Proceedings of ICML*.
+
+Dao, T., & Gu, A. (2024). Transformers are SSMs: Generalized models and efficient algorithms through structured state space duality. *arXiv:2405.21060*.
+
+
+
+Released artefacts: instruct and base 48B-A3B on Hugging Face, KDA kernels in FLA, vLLM recipe in the metal lesson. The 5.7T checkpoint is a longer pretrain of the same architecture, context 1M, not a different mixer.
+
+
+Read the KDA paper for the kernel; read the AttnRes paper for the residual; read the serve lesson before you type vLLM flags.
+
+Those three documents are the syllabus for this mixer. Nothing else is required to start; everything else is a detour.

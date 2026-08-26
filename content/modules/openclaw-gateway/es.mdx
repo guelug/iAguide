@@ -1,19 +1,181 @@
 ## La cintura es un proceso
 
-Un Gateway longevo posee los canales. WS 127.0.0.1:18789. Nodos con role: node. Uno por host.
+La fuente primaria es [*Gateway architecture*](https://docs.openclaw.ai/concepts/architecture) de OpenClaw (s. f.). Un unico **Gateway** longevo posee todas las superficies de mensajeria: WhatsApp via Baileys, Telegram via grammY, Slack, Discord, Signal, iMessage, WebChat. Los clientes del plano de control (app macOS, CLI, web UI, automatizaciones) se conectan al Gateway por **WebSocket** en el bind configurado, por defecto `127.0.0.1:18789`.
 
-<VisualSlot caption="Daemon, puerto, clientes, nodos, uno por host." />
+Los **nodos** (macOS, iOS, Android, headless) tambien se conectan por WebSocket, pero declaran `role` igual a `node` con caps y commands explicitos (OpenClaw, *Gateway architecture*, s. f.).
 
-## Comparar vs Hermes
+Un Gateway por host. Es el unico sitio que abre una sesion de WhatsApp. Esa frase es la particularidad. Dos procesos que abren Baileys contra la misma sesion no son un cluster; son un conflicto.
 
-Hermes: GatewayRunner in-process. OpenClaw: el proceso es el producto.
+La superficie de widgets alojados la sirve el HTTP del Gateway en el mismo puerto (18789 por defecto):
 
-## Caso: dos Gateways, un WhatsApp
+- `/__openclaw__/canvas/` — documentos de widget alojados
+- `/__openclaw__/a2ui/` — assets del renderer A2UI
 
-**Invariante.** Un Gateway por sesion Baileys.
+La leccion generica [gateway](/es/m/gateway) permanece agnostica del harness. Esta es el daemon OpenClaw.
+
+<VisualSlot caption="Daemon, puerto 18789, clientes, nodos, un Gateway por host." />
+
+## Componentes y flujos
+
+El daemon Gateway mantiene conexiones de proveedor, expone una API WS tipada (requests, responses, eventos push del servidor), valida frames de entrada contra JSON Schema, y emite eventos como `agent`, `chat`, `presence`, `health`, `heartbeat` y `cron` (OpenClaw, *Gateway architecture*, s. f.).
+
+Los clientes (app Mac, CLI, admin web) sostienen una conexion WS por cliente. Envan requests (`health`, `status`, `send`, `agent`, `system-presence`) y se suscriben a eventos (`tick`, `agent`, `presence`, `shutdown`).
+
+Los nodos se conectan al **mismo servidor WS** con `role` `node`. Dan identidad de dispositivo en `connect`. El pairing es **por dispositivo** (role `node`) y la aprobacion vive en el almacén de pairing de dispositivos. Exponen commands como `camera.*`, `screen.record` y `location.get`. La app macOS tambien expone commands de panel widget bajo `canvas.*`. Los detalles de protocolo viven en *Gateway protocol* (OpenClaw, s. f., https://docs.openclaw.ai/gateway/protocol).
+
+WebChat es una UI estatica que usa la API WS del Gateway para historial y envios. En setups remotos se conecta por el mismo tunel SSH o Tailscale que los otros clientes.
+
+<Callout>
+Exactamente un Gateway controla una sola sesion Baileys por host. El handshake es obligatorio; cualquier primer frame no JSON o no-connect es un hard close. Los eventos no se reponen; los clientes deben refrescar ante huecos (OpenClaw, *Gateway architecture*, s. f.).
+</Callout>
+
+## Ciclo de vida de conexion
+
+La pagina de arquitectura dibuja una secuencia de un cliente (OpenClaw, s. f.):
+
+```text
+Client -> Gateway: req connect
+Gateway -> Client: res ok
+  or res error plus close
+  payload hello-ok
+  snapshot: presence plus health
+
+Gateway -> Client: event presence
+Gateway -> Client: event tick
+
+Client -> Gateway: req agent
+Gateway -> Client: res agent ack (runId, status accepted)
+Gateway -> Client: event agent (streaming)
+Gateway -> Client: res agent final (runId, status, summary)
+```
+
+El primer frame **debe** ser `connect`. Tras el handshake, los requests llevan type `req` con id, method, params; las responses type `res` con id, ok, y payload o error; los eventos type `event` con nombre, payload, seq y stateVersion opcionales. Pongan esas formas en un cliente desde *Gateway protocol*, no de memoria de esta leccion (OpenClaw, *Gateway protocol*, s. f.).
+
+`hello-ok.features.methods` y `events` son metadatos de discovery, no un dump generado de cada ruta helper invocable (OpenClaw, *Gateway architecture*, s. f.; *Gateway protocol*, s. f.).
+
+Auth de secreto compartido usa `connect.params.auth.token` o `connect.params.auth.password`, segun el modo de auth del gateway. Modos con identidad como Tailscale Serve (`gateway.auth.allowTailscale` true) o `gateway.auth.mode` `trusted-proxy` fuera de loopback satisfacen auth desde headers en vez de `connect.params.auth`. El modo `none` de ingress privado desactiva auth de secreto compartido por completo; mantenganlo fuera de ingress publico o no confiable.
+
+Las claves de idempotencia son obligatorias para metodos con efecto (`send`, `agent`) para reintentar con seguridad. El servidor guarda una cache de dedupe de vida corta. Los nodos deben incluir `role` `node` mas caps, commands y permissions en `connect`.
+
+## Pairing y confianza local
+
+Todos los clientes WS (operadores y nodos) incluyen una **identidad de dispositivo** en `connect`. Los device ID nuevos requieren aprobacion de pairing. El Gateway emite un **device token** para connects posteriores (OpenClaw, *Gateway architecture*, s. f.).
+
+Los connects locales directos a loopback pueden auto-aprobarse para mantener UX same-host suave. OpenClaw tambien tiene una via estrecha de self-connect backend o container-local para flujos helper de secreto compartido de confianza. Los connects de tailnet y LAN, incluidos binds de tailnet same-host, siguen exigiendo aprobacion explicita de pairing.
+
+Todos los connects deben firmar el nonce `connect.challenge`. El payload de firma `v3` tambien ata `platform` y `deviceFamily`. El gateway fija metadatos emparejados en reconnect y exige repair pairing si cambian. Los connects **no locales** siguen exigiendo aprobacion explicita. La auth del Gateway (`gateway.auth.*`) aplica a **todas** las conexiones, locales o remotas.
+
+Detalles: *Gateway protocol*, *Pairing*, *Security* (OpenClaw, s. f.).
+
+## Tipado de protocolo
+
+TypeBox define el protocolo. JSON Schema se genera de esos schemas. Los modelos Swift se generan del JSON Schema. Citen *Gateway protocol* para codegen de schema.
+
+No inventen un handshake stdio de Hermes en este daemon. El plano de control de OpenClaw son frames de texto WebSocket. El ACP de Hermes es JSON-RPC stdio envolviendo AIAgent (Nous Research, *ACP Internals*, s. f.). Producto distinto, pagina distinta.
+
+## Acceso remoto
+
+Via remota preferida: Tailscale o VPN (OpenClaw, *Gateway architecture*, s. f.). Alternativa: local-forward SSH del puerto 18789 a loopback del host gateway. La pagina de arquitectura imprime ese one-liner.
+
+El mismo handshake y token de auth aplican sobre el tunel. TLS mas pinning opcional se pueden activar para WS en setups remotos. La leccion dedicada de *Tailscale* cubre headers de identidad Serve; esta leccion solo registra que Tailscale es el remoto preferido y que los binds de tailnet siguen exigiendo pairing.
+
+## Snapshot de operaciones
+
+Arranque: `openclaw gateway` (foreground, logs a stdout). Salud: `health` por WS (tambien incluido en `hello-ok`). Supervision: launchd o systemd para auto-restart (OpenClaw, *Gateway architecture*, s. f.).
+
+Ese es el contrato de operador. Un portatil que solo corre `openclaw acp` no es el Gateway. El puente ACP habla **hacia** un Gateway en marcha (OpenClaw, *ACP*, s. f., https://docs.openclaw.ai/cli/acp).
+
+## Invariantes
+
+- Exactamente un Gateway controla una sola sesion Baileys por host.
+- El handshake es obligatorio; cualquier primer frame no JSON o no-connect es un hard close.
+- Los eventos no se reponen; los clientes deben refrescar ante huecos.
+
+Paginas relacionadas en el mismo sitio: Agent Loop, Gateway Protocol, Queue, Security, Pairing, Tailscale (OpenClaw, s. f.).
+
+## Comparar, sin mezclar mandos
+
+El Gateway de OpenClaw es el proceso producto: protocolo, pairing, canales, RPC de agente. El `GatewayRunner` de Hermes es un loop in-process dentro de la misma app Python que `AIAgent` (Nous Research, *Gateway Internals*, s. f., https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals). Misma necesidad humana (un plano de control longevo). Frontera de proceso distinta. Pagina distinta.
+
+No peguen la semantica de tick de `gateway/run.py` de Hermes en un Gateway OpenClaw. No peguen `connect.challenge` de OpenClaw en una sesion gateway de Hermes. Citen la pagina que implementan.
+
+**Caso.** Portatil y VPS arrancan ambos `openclaw gateway` contra la misma sesion Baileys. El invariante es exactamente un Gateway por host para esa sesion. Elijan un host; tunelicen el otro (OpenClaw, *Gateway architecture*, s. f.).
+
+**Caso.** Un primer frame WS es un request `health`. El Gateway hace hard-close. El handshake es obligatorio. El primer frame debe ser `connect`.
 
 <TryThis>
-Escribe el bind por defecto y el tunel SSH.
+Escriban el host y puerto de bind por defecto. Escriban el one-liner de local-forward SSH de *Gateway architecture*. Nombren los tres invariantes: un dueno Baileys, connect obligatorio, sin replay de eventos.
 </TryThis>
 
-Fuente: https://docs.openclaw.ai/concepts/architecture
+La pagina de arquitectura imprime este tunel:
+
+```bash
+ssh -N -L 18789:127.0.0.1:18789 user@gateway-host
+```
+
+El bind por defecto es loopback mas 18789. Copien ese par en la respuesta de TryThis. Inventar 9222 o 3000 es otro producto.
+
+## Roles en el mismo socket
+
+El protocolo es un servidor WebSocket con roles declarados en el handshake (OpenClaw, *Gateway protocol*, s. f.). `operator` es un cliente de plano de control (CLI, UI, automatizacion). `node` es un host de capacidades (camera, screen, canvas, system.run). `worker` es un host de ejecucion cloud en un protocolo worker cerrado dedicado, no la superficie RPC general de operator.
+
+Los nodos declaran caps, commands y permissions como **claims**. El Gateway aplica allowlists server-side. No traten un cap de connect como autorizacion.
+
+Clientes y servidores actuales corren protocolo v4. Los clientes envian `minProtocol` mas `maxProtocol`. Los clientes node pueden usar el protocolo node N-1 (hoy v3) cuando role y client.mode son node (OpenClaw, *Gateway protocol*, s. f.).
+
+Los frames pre-connect estan acotados a 64 KiB. Tras el handshake, sigan `hello-ok.policy.maxPayload` y `hello-ok.policy.maxBufferedBytes`. El maxPayload anunciado en el ejemplo de protocolo es 26214400 bytes. El tick en ese ejemplo es 15000 ms. Honren la policy de hello-ok en vez de hardcodear (OpenClaw, *Gateway protocol*, s. f.).
+
+## hello-ok es un snapshot, no config viva
+
+`hello-ok` lleva protocolo, version de servidor y connId, discovery de features, un snapshot, auth (role y scopes efectivos) y policy. `deviceToken`, cuando esta presente, es la credencial reutilizable primaria para el mismo dispositivo y role (OpenClaw, *Gateway protocol*, s. f.).
+
+Los techos de attachment en `policy.attachments` son opcionales en gateways viejos. `maxBytes` es el tamano decodificado maximo de un attachment (`agents.defaults.mediaMaxMb`, 20 MB por defecto). `maxImageBytes` es el min de eso y un cap de hidratacion de agente de 6 MB. Releán esos valores en cada reconnect. Son un snapshot de tiempo de conexion.
+
+`hello-ok.features.methods` es una lista conservadora de discovery. Algunos metodos reales se excluyen a proposito del discovery (la pagina de protocolo nombra `push.test`, `web.login.start`, `web.login.wait`, `sessions.usage`). Traten discovery como deteccion de features, no como dump de server-methods (OpenClaw, *Gateway protocol*, s. f.).
+
+Mientras los sidecars de arranque siguen terminando, `connect` puede devolver un `UNAVAILABLE` reintentable con details.reason `startup-sidecars` y `retryAfterMs`. Reintenten dentro del presupuesto de conexion en vez de tratarlo como fallo terminal de handshake.
+
+Los widgets alojados siguen en el HTTP del Gateway bajo `/__openclaw__/canvas/` y `/__openclaw__/a2ui/`. `pluginSurfaceUrls` en hello-ok puede caducar; los nodos refrescan con `node.pluginSurface.refresh`. La ruta deprecada canvasHostUrl no esta soportada (OpenClaw, *Gateway protocol*, s. f.).
+
+Los eventos broadcast van gated por scope. Los frames de chat, agent y tool-result exigen al menos `operator.read`. Los eventos de status y transporte (`heartbeat`, `presence`, `tick`, ciclo connect/disconnect) quedan sin restriccion para que la salud de transporte sea observable a toda sesion autenticada. Las familias de broadcast desconocidas son fail-closed salvo que un handler registrado las relaje (OpenClaw, *Gateway protocol*, s. f.).
+
+Cada conexion de cliente guarda su propio numero de secuencia. Los eventos aun no se reponen tras un reconnect. Un hueco significa refresh, no un buffer de replay que se invente (OpenClaw, *Gateway architecture*, s. f.).
+
+Las claves de idempotencia son obligatorias para metodos con efecto como `send` y `agent`. El servidor guarda una cache de dedupe de vida corta. Ensenar retry-sin-clave como seguro es como un doble send aterriza en Telegram dos veces.
+
+Citen OpenClaw, *Gateway architecture*, s. f., como padre del modelo de proceso: un daemon, puerto 18789, clientes mas nodos, un dueno Baileys. Citen *Gateway protocol* para cada campo de frame. Citen Nous Research, *Gateway Internals*, s. f., solo en el parrafo de comparar.
+
+Esta leccion se detiene en el daemon, el bind, la confianza de pairing, los tres invariantes, y el remoto SSH o Tailscale. Los RPC de cron, las claves de sesion y el loopback de browser viven en lecciones OpenClaw posteriores. No vuelquen aqui el catalogo entero de metodos. La pagina de protocolo ya avisa que los methods de hello-ok no son ese catalogo.
+
+Lean *Pairing* cuando un device id nuevo es rechazado. Lean *Security* cuando `gateway.auth.mode` es `none` en un bind publico. Lean *Queue* cuando `agent` hace ack accepted pero el trabajo espera. Lean Hermes *Gateway Internals* solo cuando el producto es Hermes.
+
+WebChat usa la misma API WS para historial y envios. En setups remotos comparte el tunel SSH o Tailscale con otros clientes (OpenClaw, *Gateway architecture*, s. f.).
+
+Una conexion WS por cliente de plano de control. Los nodos no son un segundo servidor; son un role en este servidor.
+
+La app macOS expone commands de panel widget bajo canvas.* ademas de camera, screen y location (OpenClaw, *Gateway architecture*, s. f.).
+
+Arranquen primero en foreground. Anadan launchd o systemd solo cuando hello-ok este sano (OpenClaw, *Gateway architecture*, s. f.).
+
+Citen el schema generado protocol.schema.json cuando implementen un cliente (OpenClaw, Gateway protocol, s. f.).
+
+El cliente de referencia Node acompana ese schema (OpenClaw, Gateway protocol, s. f.).
+
+## Fuentes
+
+OpenClaw. (s. f.). *Gateway architecture*. https://docs.openclaw.ai/concepts/architecture
+
+OpenClaw. (s. f.). *Gateway protocol*. https://docs.openclaw.ai/gateway/protocol
+
+OpenClaw. (s. f.). *ACP*. https://docs.openclaw.ai/cli/acp
+
+OpenClaw. (s. f.). *Pairing*. https://docs.openclaw.ai/gateway/pairing
+
+OpenClaw. (s. f.). *Security*. https://docs.openclaw.ai/gateway/security
+
+OpenClaw. (s. f.). *Tailscale*. https://docs.openclaw.ai/gateway/tailscale
+
+Nous Research. (s. f.). *Gateway internals*. Guia de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals
+
+Nous Research. (s. f.). *ACP internals*. Guia de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/acp-internals
+

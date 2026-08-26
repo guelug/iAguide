@@ -1,25 +1,200 @@
 ## Particularidad — cuando el bucle es un grafo
 
-LangGraph codifica el ciclo general como una **máquina de estados compilada**. Úsalo cuando el flujo de control es el producto: ramificar, juntar, esperar a un humano, persistir. No lo uses porque un blog dijo “grafos.”
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.3, [Introduction to LangGraph](https://huggingface.co/learn/agents-course/unit2/langgraph/introduction) (Burtenshaw, Thomas, Simonini y Paniego, Apache-2.0; autor de la unidad Joffrey Thomas).*
 
-Bloques:
+LangGraph codifica el ciclo general como una **máquina de estados compilada**. El pitch del curso: aplicaciones listas para producción dándote **control** sobre el flujo de tu agente. Repo: [github.com/langchain-ai/langgraph](https://github.com/langchain-ai/langgraph). Docs: [langchain-ai.github.io/langgraph](https://langchain-ai.github.io/langgraph/). Esta lección reescribe la Unidad 2.3, no esas páginas al pie de la letra. Para un curso más largo apuntan a [LangChain Academy: Introduction to LangGraph](https://academy.langchain.com/courses/intro-to-langgraph).
 
-- **Estado** — un typed dict (o campos con reducer) que cada nodo lee y parchea.
-- **Nodos** — funciones Python: LLM, tool, condición, humano.
-- **Aristas** — siempre-siguiente, o condicionales al estado.
-- **Reducers** — cómo se fusionan dos escrituras al mismo campo.
-- **START / END** — las únicas salidas honestas.
+Úsalo cuando el flujo de control es el producto: ramificar por clase, juntar trabajo paralelo, esperar a un humano, persistir estado. No lo uses porque un post dijo "grafos." La intro de la Unidad 2 ya permitía Python plano cuando el flujo es una cadena (Hugging Face Agents Course, [unit2/introduction](https://huggingface.co/learn/agents-course/unit2/introduction)).
 
-<VisualSlot caption="Un grafo de cuatro nodos frente a un bucle. El último switch es un ciclo sin END: el modo de fallo." />
+Los ejemplos de esta unidad, advierten los autores, se corrieron con una API clase GPT-4o por compatibilidad. Es una nota de hardware/API, no una ley de que LangGraph exija ese vendor.
 
-Un primer grafo del curso: email → clasificar → borrador si es genuino → END. Un grafo de documentos añade recuperar y resumir. Si tu única condición es “la tool falló, reintenta,” querías un bucle.
+<VisualSlot caption="Un grafo de cuatro nodos frente a un bucle plano. El último switch es un ciclo sin END — el modo de fallo." />
+
+## Control frente a libertad
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.3, [What is LangGraph?](https://huggingface.co/learn/agents-course/unit2/langgraph/when_to_use_langgraph).*
+
+Diseñar apps de IA es un trueque. La **libertad** deja al LLM ser creativo y enfrentarse a lo inesperado. El **control** mantiene el comportamiento predecible y dentro de barandillas. Los code agents de smolagents se sientan hacia la libertad: varias herramientas en una acción, incluso inventar ayudantes. Eso los hace menos predecibles. LangGraph se sienta hacia el control: tú dibujas los cruces.
+
+LangChain (el otro paquete) es una interfaz a modelos, recuperación y llamadas a tools. LangGraph **no** lo exige, pero casi todos los tutoriales usan ambos. Distínguelos. Mezclar rutas de import es un ticket de soporte, no arquitectura.
+
+Cuando dicen que LangGraph brilla: razonamiento multi-paso que necesita control explícito; **persistencia de estado** entre pasos; sistemas que mezclan lógica determinista con llamadas LLM; **human-in-the-loop**; arquitecturas con varios componentes. Su ejemplo de asistente de documentos: convertir gráficos y tablas a texto antes de responder, y esa conversión **depende del tipo de documento** — una rama que tú elegiste, dibujada como grafo. El camino izquierdo puede no ser ni agente (sin tool call). El derecho puede necesitar pandas sobre un xls. La ramificación puede ser determinista, o condicionada a la salida de un LLM (no determinista).
+
+Consejo práctico: si tu única condición es "la herramienta falló, reintenta," querías un `while` con contador. Dibuja el grafo igual; si es una línea recta más un reintento, quita LangGraph del PR.
+
+<Callout>
+Podrías escribir el mismo if/else en Python vainilla. El curso lo admite. La oferta de LangGraph es estado, visualización, trazas, human-in-the-loop integrado y persistencia — no un tipo nuevo de inteligencia. Si no usas nada de eso, pagaste el impuesto de abstracción por una pegatina.
+</Callout>
+
+## Bloques: estado, nodos, aristas, grafo
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.3, [Building Blocks of LangGraph](https://huggingface.co/learn/agents-course/unit2/langgraph/building_blocks).*
+
+**State** lo defines tú, típicamente un `TypedDict`. Cada nodo lo lee y devuelve un parche. Diseña campos que contengan todo lo que necesita la siguiente decisión. Su juguete: `graph_state: str`. Tu clasificador de correo necesitará más.
+
+**Nodos** son funciones Python: toman estado, hacen trabajo, devuelven actualizaciones. Pueden contener llamadas LLM, tools, lógica condicional o una pausa humana. `START` y `END` existen en la biblioteca. Son las únicas salidas honestas.
+
+**Aristas** son los siguientes saltos posibles. Directas: siempre A hacia B. Condicionales: una función del estado que devuelve el nombre del siguiente nodo. Su `decide_mood` a cara o cruz devuelve `node_2` o `node_3`.
+
+**StateGraph** es el contenedor. `StateGraph(State)`, `add_node`, `add_edge(START, "node_1")`, `add_conditional_edges`, `compile()`. `graph.invoke(...)` lo corre. `draw_mermaid_png()` lo dibuja. Mira el dibujo antes de mirar la factura.
+
+Los reducers (cómo se fusionan dos escrituras al mismo campo — append de mensajes, overwrite de un flag) son el detalle de producción. Si dos nodos escriben `attempts` sin un reducer de suma, gana la última escritura y el contador miente. La página de building-blocks concatena cadenas sobre `graph_state`; eso es un reducer a cámara lenta.
+
+Consejo práctico: nombra cada campo de State antes de escribir el primer nodo. Faltar `attempts` es cómo Reviewly dio vueltas. Faltar `is_spam` es cómo Alfred redacta una respuesta a un phish.
+
+## El primer grafo de Alfred: correo
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.3, [Building Your First LangGraph](https://huggingface.co/learn/agents-course/unit2/langgraph/first_graph); notebook https://huggingface.co/agents-course/notebooks/blob/main/unit2/langgraph/mail_sorting.ipynb.*
+
+Alfred lee el correo, clasifica spam frente a legítimo, redacta una respuesta preliminar si es genuino, imprime una nota para Mr. Wayne, END. El curso es cuidadoso: este primer grafo **no es un agente** en el sentido de la Unidad 1 porque no hay herramienta. Es un workflow con un LLM en un cruce. Aprende el framework aquí; no lo llames agencia todavía.
+
+Campos de `EmailState` que realmente ponen en la página: `email` (subject, sender, body), `email_category`, `spam_reason`, `is_spam`, `email_draft`, `messages` (conversación LLM para análisis). Nodos: `read_email`, luego un nodo classify que fija `is_spam`, luego o un sumidero de spam hacia END o un nodo draft y END. Install que nombran: `langgraph` y `langchain_openai`. Modelo: `ChatOpenAI(temperature=0)` en el notebook. Temperatura cero es una elección para clasificar, no un secreto.
+
+Consejo práctico: imprime el remitente en `read_email` como ellos. Los efectos laterales en un nodo están permitidos; poner la única copia del correo en stdout no. El estado es el log.
+
+## Análisis de documentos: cuando aparece una herramienta
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.3, [document analysis agent](https://huggingface.co/learn/agents-course/unit2/langgraph/document_analysis_agent).*
+
+Un grafo posterior añade nodos retrieve y summarise — más cerca de un agente porque aparecen tools (o al menos recuperación). El dibujo de control-flow en [when_to_use_langgraph](https://huggingface.co/learn/agents-course/unit2/langgraph/when_to_use_langgraph) es la misma idea: la modalidad del documento decide el camino. Si siempre recuperas, querías el query engine de LlamaIndex. Si recuperas solo en algunas clases, querías esta rama.
+
+Consejo práctico: deja las ramas deterministas (extensión, MIME) en nodos Python, no en un prompt. Usa el nodo LLM para la etiqueta incierta. Mezclarlas en un prompt es cómo spam y facturas comparten un borrador.
+
+<Compare a="Bucle ReAct plano (smolagents)" b="Grafo compilado (LangGraph)">
+<Side>
+Libertad. El modelo elige tools cada paso. Bien cuando el camino es desconocido. Mal cuando debes garantizar "nunca envíes la lista de invitados sin un humano." El tope de saltos es `max_steps`.
+</Side>
+<Side>
+Control. Tú dibujaste los cruces. Bien cuando "el spam va a END sin borrador" es un requisito legal. Mal cuando finges que el grafo es adorno opcional alrededor de un CodeAgent sin rienda. El tope de saltos es un campo `attempts` más una arista a END.
+</Side>
+</Compare>
+
+<Myth>
+Compilar un grafo hace al LLM determinista. No. Una arista condicional que pregunta al modelo "¿es spam?" sigue siendo un muestreo. El grafo limita hacia dónde puede ir la salida, no qué token sale después. Temperatura cero más un esquema de etiqueta tenso es cómo reduces varianza. El compile no.
+</Myth>
 
 <TryThis>
-Dibuja un grafo para una revisión de tres pasos: (1) recuperar el doc, (2) resumir, (3) un humano dice sí/no. Etiqueta el estado, la arista condicional tras el humano y el END. Luego una frase para un ciclo que no saldría (sin END, o un reintento sin contador).
+Dibuja un grafo para una revisión de tres pasos: (1) recuperar el doc, (2) redactar un resumen, (3) un humano marca sí/no. Etiqueta campos de estado, la arista condicional tras el humano, y el END. Luego escribe una frase para un ciclo que nunca saldría (falta END, o un reintento sin contador). Añade un reducer para `messages` (append) y para `attempts` (incremento). Si no puedes nombrar el reducer, no tienes persistencia. Tienes last-write-wins.
 </TryThis>
+
+## Persistencia y human-in-the-loop, como se anuncia
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.3, [when_to_use_langgraph](https://huggingface.co/learn/agents-course/unit2/langgraph/when_to_use_langgraph); docs LangGraph https://langchain-ai.github.io/langgraph/.*
+
+El curso lista persistencia y human-in-the-loop como razones para elegir LangGraph. El primer notebook de la 2.3 no implementa un checkpointer en el extracto que enseñamos; trata HITL como una capacidad documentada que añades cuando un nodo debe esperar, no como una función que inventamos aquí. Un nodo humano que es `input()` en una celda Colab es una demo. Un nodo humano que guarda estado y reanuda es el producto.
+
+Consejo práctico: si no puedes decir dónde pausa el grafo y qué campo escribe el humano, no tienes HITL. Tienes un print.
+
+## Cómo se diferencia del bucle dummy
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 1 [agent-steps-and-structure](https://huggingface.co/learn/agents-course/unit1/agent-steps-and-structure) frente a Unidad 2.3 [building_blocks](https://huggingface.co/learn/agents-course/unit2/langgraph/building_blocks).*
+
+El `while` dummy es flujo de control implícito en Python. LangGraph hace el mismo ciclo **datos**: estado entra, nombres de nodo como aristas. Thought se vuelve un nodo LLM. Action un nodo tool. Observation un campo que añades. `END` es `Final Answer:` con dirección postal. Sigues parseando. Sigues rechazando tools desconocidas. El grafo no te salva de una observación alucinada si metes generación y ejecución en el mismo nodo sin un stop.
+
+Consejo práctico: una preocupación por nodo. Classify XOR draft XOR retrieve. Un nodo llamado `do_everything` es un CodeAgent con mermaid.
 
 ## Caso — el ciclo sin salida de Reviewly
 
-El grafo de documentos de Reviewly devolvía “hace falta más evidencia” al retrieve sin contador. Un PDF con embeddings vacíos bucleó hasta que la factura dolió. Añadieron `attempts` y una arista a END si `attempts > 2`. El grafo estaba bien. El reducer que faltaba en `attempts` fue el incidente.
+*Caso pedagógico en voz iAguide; END y campos de estado citados de Hugging Face Agents Course, Unidad 2.3, [building_blocks](https://huggingface.co/learn/agents-course/unit2/langgraph/building_blocks) y [first_graph](https://huggingface.co/learn/agents-course/unit2/langgraph/first_graph).*
 
-Esta lección reescribe ideas del [curso de agentes de Hugging Face](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.
+El grafo de documentos de Reviewly devolvía “hace falta más evidencia” a retrieve sin contador de saltos. Un PDF con embeddings vacíos dio vueltas hasta que la factura dolió. Añadieron un campo `attempts` y una arista a END cuando attempts superaba dos. El grafo estaba bien. El reducer que faltaba en `attempts` fue el incidente: dos nodos retrieve escribían attempts como 1 y la cuenta no se movía.
+
+Un bug hermano: la clasificación de spam vivía en el nodo draft "para ahorrar una llamada LLM." El phish recibió una respuesta educada. El split del primer grafo (classify y luego quizá draft) existía por una razón. Lo habían optimizado fuera.
+
+## Lista práctica
+
+*Fuente nombrada: páginas de la Unidad 2.3 listadas en Fuentes; docs LangGraph https://langchain-ai.github.io/langgraph/.*
+
+1. Puedes decir en una frase por qué el control, no la libertad, es el producto.
+2. Los campos de estado están listados, incluido un contador de saltos y una condición de END.
+3. Cada nodo devuelve un parche, no una plegaria. Los reducers están nombrados para campos lista.
+4. El dibujo mermaid casa con el código. START y END están en él.
+5. Los cruces LLM están aislados de las ramas deterministas.
+6. Tienes un ciclo del que no podrías salir, y lo has cerrado.
+
+## Invoke, compile y qué registras
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.3, [building_blocks](https://huggingface.co/learn/agents-course/unit2/langgraph/building_blocks); Bonus Unidad 2 [observabilidad](https://huggingface.co/learn/agents-course/bonus-unit2/what-is-agent-observability-and-evaluation).*
+
+`compile()` no es entrenamiento. Es cablear el grafo para que `invoke` recorra nodos. Su invoke de juguete devuelve `graph_state` concatenado con "I am" más "happy!" o "sad!" según la moneda. Registra el camino de nombres de nodo, el parche de estado por nodo y el coste de tokens de cada nodo LLM. Una latencia que se ve bien mientras el nodo classify se equivoca el 40 por ciento es la lección de observabilidad con mermaid.
+
+Consejo práctico: vuelca las claves del estado después de cada nodo en desarrollo. Si una clave que necesitas después falta, el parche no la devolvió. No la leas de un global.
+
+## Temperatura, etiquetas y el nodo classify
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.3, [first_graph](https://huggingface.co/learn/agents-course/unit2/langgraph/first_graph) (`ChatOpenAI(temperature=0)`).*
+
+Temperatura cero en un clasificador es una elección documentada del notebook. No convierte la etiqueta en un hecho. Restringe la salida a un booleano `is_spam` más un `spam_reason` corto. Si el modelo escribe un párrafo, tu parser — sigue siendo stop-and-parse, sigue siendo Unidad 1 — falló. Pon el esquema en el prompt del nodo. Pon el booleano en el estado. El nodo draft no debe correr salvo que `is_spam` sea false. Esa arista es el producto.
+
+Consejo práctico: guarda un set offline de diez correos: cinco spam, cinco genuinos. Corre el grafo. Cuenta desacuerdos. Esa es la etapa de evaluation de la Unidad 2, prestada de LlamaIndex, aplicada a aristas.
+
+## Qué se considera "hecho" en la Unidad 2.3
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.3 [conclusion](https://huggingface.co/learn/agents-course/unit2/langgraph/conclusion).*
+
+Puedes dibujar START, dos nodos, una arista condicional, END, y nombrar los campos de estado. Sabes por qué esto no es smolagents ni LlamaIndex. Has cerrado un ciclo que si no te facturaría. Entonces la Unidad 3 puede entregar al agente una herramienta retrieve sin hacerte compilar.
+
+## Por qué no siempre LangGraph
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.3, [when_to_use_langgraph](https://huggingface.co/learn/agents-course/unit2/langgraph/when_to_use_langgraph); Unidad 2 [introduction](https://huggingface.co/learn/agents-course/unit2/introduction).*
+
+El autor llama a LangGraph, en su opinión, el framework de agentes más listo para producción del mercado. iAguide no tiene que estar de acuerdo para enseñar la unidad con honestidad. Listo para producción aquí significa **control y persistencia**, no un ranking. Un bot de soporte que no puede saltarse el nodo humano pertenece aquí. Un dummy de meteorología de 20 líneas no. Coleccionar los tres frameworks de la Unidad 2 en un servicio es cómo depuras tres formatos de log.
+
+Consejo práctico: una codificación por superficie de producto. Grafo para el pipeline de correo. Bucle para el planificador de fiesta de la Unidad 3. Índice para el corpus de historias de invitados. Tres carpetas ganan a un mega-grafo.
+
+## Aristas que mienten
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.3, [building_blocks](https://huggingface.co/learn/agents-course/unit2/langgraph/building_blocks) (aristas condicionales).*
+
+Una arista condicional que devuelve un nombre de nodo que no está en el grafo es un crash. Una arista condicional que siempre devuelve el mismo nombre es una arista directa disfrazada. Prueba la función de enrutado con **estado de fixture**, sin LLM: `is_spam True` debe ir a END, `is_spam False` al draft. Si solo puedes probar muestreando el modelo, no has probado el grafo. Has probado el prompt.
+
+Consejo práctico: las funciones de routing puras se testean en unit tests. Los nodos LLM no. Sepáralos para que la suite tenga dónde vivir.
+
+## Qué recordar
+
+*Síntesis de la Unidad 2.3, Hugging Face Agents Course (Burtenshaw, Thomas, Simonini y Paniego, Apache-2.0; unidad LangGraph de Joffrey Thomas).*
+
+LangGraph es el bucle general compilado como estado, nodos, aristas, reducers, START, END. Elígelo por control. Elige un bucle por libertad. El primer grafo de correo es un workflow, aún no un agente. Las tools aparecen cuando un nodo las llama. Faltar END o un contador sin reducer es el incidente. La Unidad 3 pondrá la recuperación en manos del agente sin forzarte un grafo.
+
+## Fuentes
+
+Burtenshaw, B., Thomas, J., Simonini, T. y Paniego, S. (s. f.). *Hugging Face Agents Course* (Apache-2.0). https://huggingface.co/learn/agents-course · https://github.com/huggingface/agents-course
+
+- Introducción Unidad 2: https://huggingface.co/learn/agents-course/unit2/introduction
+- Introducción LangGraph: https://huggingface.co/learn/agents-course/unit2/langgraph/introduction
+- When to use LangGraph: https://huggingface.co/learn/agents-course/unit2/langgraph/when_to_use_langgraph
+- Building blocks: https://huggingface.co/learn/agents-course/unit2/langgraph/building_blocks
+- Primer grafo (mail sorting): https://huggingface.co/learn/agents-course/unit2/langgraph/first_graph
+- Document analysis agent: https://huggingface.co/learn/agents-course/unit2/langgraph/document_analysis_agent
+- Conclusión: https://huggingface.co/learn/agents-course/unit2/langgraph/conclusion
+- Notebook mail-sorting: https://huggingface.co/agents-course/notebooks/blob/main/unit2/langgraph/mail_sorting.ipynb
+- Docs LangGraph: https://langchain-ai.github.io/langgraph/
+- GitHub LangGraph: https://github.com/langchain-ai/langgraph
+- LangChain Academy intro: https://academy.langchain.com/courses/intro-to-langgraph
+- Ciclo Unidad 1 (contraste): https://huggingface.co/learn/agents-course/unit1/agent-steps-and-structure
+- Quiz: https://huggingface.co/learn/agents-course/unit2/langgraph/quiz1
+- Dummy stop-and-parse: https://huggingface.co/learn/agents-course/unit1/dummy-agent-library
+- Observabilidad bonus: https://huggingface.co/learn/agents-course/bonus-unit2/what-is-agent-observability-and-evaluation
+- Árbol GitHub de la unidad: https://github.com/huggingface/agents-course/tree/main/units/en/unit2/langgraph
+- Home del curso: https://huggingface.co/learn/agents-course
+- Apache-2.0 en el repo del curso: https://github.com/huggingface/agents-course
+- Contraste smolagents (why-use): https://huggingface.co/learn/agents-course/unit2/smolagents/why_use_smolagents
+- Contraste LlamaIndex (intro): https://huggingface.co/learn/agents-course/unit2/llama-index/introduction
+- Actions / stop-and-parse: https://huggingface.co/learn/agents-course/unit1/actions
+- Docs home Hugging Face: https://huggingface.co/docs
+- Notebooks del curso: https://huggingface.co/agents-course/notebooks
+- Onboarding Unidad 0: https://huggingface.co/learn/agents-course/en/unit0/introduction
+- Patrón TypedDict en building_blocks: https://huggingface.co/learn/agents-course/unit2/langgraph/building_blocks
+- END como salida honesta (misma página).
+- Persistencia en docs LangGraph: https://langchain-ai.github.io/langgraph/
+- Paquetes del notebook mail (`langgraph`, `langchain_openai`) según first_graph.
+- Hugging Face Agents Course (portada): https://huggingface.co/learn/agents-course
+- Repo fuente units/en/unit2/langgraph: https://github.com/huggingface/agents-course
+- Conclusión smolagents (cierre Unidad 2.1): https://huggingface.co/learn/agents-course/unit2/smolagents/conclusion
+- Conclusión LlamaIndex (cierre Unidad 2.2): https://huggingface.co/learn/agents-course/unit2/llama-index/conclusion
+- Conclusión LangGraph (cierre Unidad 2.3): https://huggingface.co/learn/agents-course/unit2/langgraph/conclusion
+- Unit 3 agentic RAG (siguiente uso): https://huggingface.co/learn/agents-course/unit3/agentic-rag/introduction
+- Licencia Apache-2.0, autores Burtenshaw, Thomas, Simonini, Paniego.
+- Observaciones Unidad 1: https://huggingface.co/learn/agents-course/unit1/observations
+- Tools Unidad 1: https://huggingface.co/learn/agents-course/unit1/tools
+- Thoughts Unidad 1: https://huggingface.co/learn/agents-course/unit1/thoughts

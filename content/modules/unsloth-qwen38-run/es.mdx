@@ -1,0 +1,234 @@
+## Después del adapter, la caja en la que tiene que vivir
+
+Has entrenado (o has descargado el quant Unsloth de otra persona). Esta lección es **servir**. El contrato es la [página de ejecución de Qwen3.8](https://unsloth.ai/docs/models/qwen3.8), no una captura de un foro con tokens por segundo. Qwen3.8-27B es el 27B denso con visión y razonamiento. La familia también tiene Qwen3.8-**2.4T-A95B** y Qwen3.8-**Max**. Este curso dimensiona el **27B**. El 2.4T pertenece a otra frase, más adelante, como aviso.
+
+Actualización del 19 de agosto de Unsloth: los GGUF 27B usan ahora [Dynamic V3.0](https://unsloth.ai/docs/basics/dynamic-3.0-ggufs) para alrededor de un **10% más de exactitud al mismo tamaño**. Prefiere quants Unsloth actuales frente a un Q4 viejo que encontraste en un disco.
+
+<VisualSlot caption="Cuatro diapositivas: ancho de bit frente a memoria, muestreo thinking frente a instruct, 262k desbordando una tarjeta de 24GB, GGUF en llama.cpp frente a NVFP4 en vLLM Blackwell." />
+
+## Hardware: 4-bit 16–19GB es el 27B junto al que te puedes sentar
+
+Los quants 4-bit de Qwen3.8-**27B** funcionan en **16–19GB de VRAM**: una RTX **4090**, una RTX **5080**, o un **Mac con 24GB** de memoria unificada. La tabla oficial es **memoria total** — RAM más VRAM, o memoria unificada. Las unidades son gigabytes de *conjunto de trabajo*, no "el archivo en disco pesa 16GB así que cabe".
+
+| Precisión | Memoria total |
+| --- | --- |
+| 1-bit | 7–8 GB |
+| 2-bit | 9–11 GB |
+| 3-bit | 12–14 GB |
+| 4-bit | 16–19 GB |
+| 6-bit | 23–26 GB |
+| 8-bit | 31 GB |
+| BF16 | 56 GB |
+
+Regla de la misma página: **RAM + VRAM ≈ el tamaño del quant**. Si te falta, igual *corre*, despacio, porque **descarga a disco**. Eso no convierte una tarjeta de train de 24GB en un servidor BF16 de 56GB. Desktop **descarga a RAM automáticamente** y detecta multi-GPU. Eso ayuda a la inferencia. No anula la tabla.
+
+El 27B también tiene visión. Un chat solo de texto no carga el mismo conjunto de trabajo que un turno con imagen. Dimensiona el trabajo, y después el quant.
+
+<Callout>
+BF16 a 56GB es la columna sin pérdida, no la columna de portátil. 8-bit a 31GB ya se pasa de una tarjeta de 24GB. 4-bit a 16–19GB es la fila que esta lección trata como valor por defecto. 1-bit y 2-bit existen; son cómo *arrancas* en una caja pequeña, no cómo publicas un agente de código que te importe.
+</Callout>
+
+## No pongas el 2.4T en un portátil
+
+Qwen3.8-**2.4T-A95B** es un MoE de 2.4 billones de parámetros con 95B activos. La precisión completa quiere **4.9TB**. El GGUF Dynamic 1-bit de Unsloth es **397GB** (citan un 91% más pequeño). IQ1_S es 508GB. Dynamic 2-bit es 657GB. Q8_0 es 2.6TB.
+
+Ese archivo de 397GB es una historia de **rack**, o de un puesto con una granja pequeña de RAM. **No es un modelo de portátil**. Unsloth Desktop puede *mostrarlo*. Tu Mac de 24GB no puede *alojarlo*. Si un blog dice "es 1-bit así que cabe", omitió el 397. Este curso no recomienda el 2.4T-A95B como caja personal.
+
+El 2.4T es **solo thinking**. Max es híbrido. Muestreo distinto, contexto distinto (hasta 1.010.000). Nada de eso es tu trabajo de 27B.
+
+## Thinking frente a instruct: dos tablas de muestreo
+
+Qwen3.8-27B es un modelo de **<Term id="thinking-mode">thinking</Term> híbrido**. El modo thinking y el modo instruct (sin thinking) tienen **valores por defecto distintos**. El razonamiento extra-alto viene activado por defecto; si quieres trazas más cortas, bajas el esfuerzo. Unsloth Desktop expone los interruptores **Think** y **Preserve Thinking**.
+
+| Parámetro | Thinking | Instruct (sin thinking) |
+| --- | --- | --- |
+| `temperature` | 1.0 | 0.7 |
+| `top_p` | 0.95 | 0.80 |
+| `top_k` | 20 | 20 |
+| `min_p` | 0.0 | 0.0 |
+| `presence_penalty` | 0.0 | 1.5 |
+| `repetition_penalty` | 1.0 | 1.0 |
+
+**Ventana máxima de contexto:** `262144`, extensible a **1M vía YaRN**. Eso es un estiramiento al servir. No es VRAM gratis.
+
+**`reasoning_effort`:** `xhigh` (por defecto, análisis a fondo), `medium` (equilibrio), `low` (velocidad y coste), `none`. En `unsloth run` o `llama-server`, Unsloth documenta `--chat-template-kwargs` con un valor de `reasoning_effort`. En Windows PowerShell las comillas interiores van escapadas. Los niveles son por modelo; usa uno que acepte la plantilla.
+
+**Preserve Thinking** deja en la conversación la traza de think del turno anterior. Más tokens, quizá más exactitud en trabajo continuado. Es un control de **coste** tanto como de calidad. Enciéndelo cuando el siguiente turno de usuario dependa de la última derivación. Apágalo cuando estás charlando.
+
+<Compare a="Modo thinking" b="Modo instruct (sin thinking)">
+<Side>
+Temperatura 1.0, `top_p` 0.95, `top_k` 20, `min_p` 0, penalización de presencia 0. Úsalo para código, demostraciones, trazas de herramientas — trabajo que necesita una derivación visible. Acompáñalo de `reasoning_effort` `xhigh` o `medium`. Preserve Thinking si el siguiente turno continúa el mismo problema.
+</Side>
+<Side>
+Temperatura 0.7, `top_p` 0.80, `top_k` 20, penalización de presencia **1.5**. Úsalo para chat, resúmenes, respuestas cortas. La penalización de presencia es la firma del modo instruct: lucha contra la repetición en el diálogo ordinario. No copies el muestreo thinking a un bot de recepción y luego te quejes de que divaga pensando.
+</Side>
+</Compare>
+
+<Myth>
+Una sola tabla de muestreo vale para ambos modos. No. La penalización de presencia 1.5 del instruct no es un valor thinking. La temperatura 1.0 del thinking no es un valor instruct. Mezclarlos es cómo obtienes un programador charlatán o un razonador telegráfico. Pon el par que encaje con la **tarea**, y consérvalo toda la sesión.
+</Myth>
+
+## Desktop: busca Qwen3.8, toma UD-Q4_K_XL
+
+Instala desde la página de ejecución, los mismos descargadores que en el entrenamiento:
+
+```bash
+# Mac / Linux / WSL
+curl -fsSL https://unsloth.ai/install.sh | sh
+```
+
+```powershell
+irm https://unsloth.ai/install.ps1 | iex
+```
+
+Abre Unsloth Chat o el hub de modelos. Busca **Qwen3.8**. Descarga el quant 27B que dimensionaste con la tabla. Para una caja de 24GB el ejemplo de Unsloth es **`UD-Q4_K_XL`**. Desktop autoajusta los parámetros de inferencia; aún puedes editar contexto, plantilla y muestreo. Después sirve con `unsloth run` y flags de `llama-server`:
+
+```bash
+unsloth run --model unsloth/qwen3.8-27B-GGUF:UD-Q4_K_XL \
+    --temp 1.0 \
+    --top-p 0.95 \
+    --top-k 20 \
+    --min-p 0.0 \
+    --reasoning-effort medium
+```
+
+Ese comando es muestreo con sabor thinking más esfuerzo **medium** — un valor local equilibrado para código. Para chat instruct bajarías a `--temp 0.7 --top-p 0.80` y dejarías de afirmar que quieres trazas.
+
+Desktop también: tool calling con autocorrección, búsqueda web, ejecución de código, API compatible con OpenAI, `unsloth start` para Claude Code / Codex / Hermes / OpenClaw. Esos consumen un 27B **en marcha**. No lo encogen.
+
+## llama.cpp: descarga el GGUF Unsloth, no un Q4 cualquiera
+
+Hugging Face: [`unsloth/Qwen3.8-27B-GGUF`](https://huggingface.co/unsloth/Qwen3.8-27B-GGUF). Filtra a **`UD-Q4_K_XL`**.
+
+```bash
+pip install -U "huggingface_hub[cli]"
+hf download unsloth/Qwen3.8-27B-GGUF \
+    --local-dir unsloth/Qwen3.8-27B-GGUF \
+    --include "*UD-Q4_K_XL*"
+```
+
+Después `llama-cli` con los valores thinking:
+
+```bash
+./llama.cpp/llama-cli \
+    --model unsloth/Qwen3.8-27B-GGUF/Qwen3.8-27B-UD-Q4_K_XL.gguf \
+    --temp 1.0 \
+    --top-p 0.95 \
+    --top-k 20 \
+    --min-p 0.0
+```
+
+Compila llama.cpp desde [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp) para quants estándar. Unsloth documenta una rama `iq1-narrow` aparte solo para los tipos 1-bit exóticos del 2.4T. No necesitas esa rama para UD-Q4_K_XL en el 27B.
+
+Si entrenaste en la lección anterior, `save_pretrained_gguf` con `quantization_method="q4_k_m"` es el primo lado entrenador de este archivo. **UD-Q4_K_XL** es la subida Dynamic 3.0 de Unsloth. `q4_k_m` es el nombre del método llama.cpp en el exportador. Son la misma *familia* de K-quants 4-bit. Usa el archivo UD subido por Unsloth cuando no hayas entrenado; usa tu GGUF exportado cuando sí. En ambos casos la **plantilla de chat debe coincidir con el entrenamiento**.
+
+## NVFP4: Blackwell, vLLM 0.25+, no tu 4090
+
+El **<Term id="nvfp4">NVFP4</Term>** 27B de Unsloth corre unas **1.5× más rápido que BF16** con recuperación top-1 del 92–97% en sus tablas. Está pensado para **NVIDIA Blackwell** (RTX serie 50, DGX Spark, B200, B300) en **24GB**. Checkpoint: [`unsloth/Qwen3.8-27B-NVFP4`](https://huggingface.co/unsloth/Qwen3.8-27B-NVFP4). Motor: **vLLM >= 0.25**. Añadieron calibración de caché KV en FP8 para contexto más largo.
+
+**Las GPUs más antiguas usan GGUF.** Una 4090 es Ada, no Blackwell. NVFP4 no es el camino de la 4090. SGLang, en la página de Unsloth, no carga su `lm_head` FP8 como el kernel `CompressedTensorsW8A8Fp8` de vLLM; te dicen vLLM por ahora.
+
+```bash
+uv venv unsloth-nvfp4-env --python 3.13
+source unsloth-nvfp4-env/bin/activate
+uv pip install "vllm>=0.25.0" "flashinfer-python>=0.6.13" "nvidia-cutlass-dsl>=4.5.2" \
+    --torch-backend=auto
+vllm serve unsloth/Qwen3.8-27B-NVFP4
+```
+
+Si serviste un **16-bit fusionado** de la lección de train, ese es el camino vLLM genérico de la página GGUF (`save_method="merged_16bit"`). NVFP4 es el camino de quant Blackwell. No mezcles las dos frases.
+
+## Métodos de quant, cuando exportas en vez de descargar
+
+De [guardar a GGUF](https://unsloth.ai/docs/basics/inference-and-deployment/saving-to-gguf):
+
+| `quantization_method` | Lo que escribe Unsloth |
+| --- | --- |
+| `q4_k_m` | **Recomendado.** Q6_K en la mitad de `attention.wv` y `feed_forward.w2`, si no Q4_K. |
+| `q8_0` | Conversión rápida. Uso alto de recursos, en general aceptable. |
+| `f16` | Conversión más rápida, exactitud 16-bit, lento y hambriento de memoria al servir. |
+| `not_quantized` | Conversión rápida, inferencia lenta, archivos grandes. |
+| `quantized` | Conversión lenta, inferencia rápida, archivos pequeños. |
+| `q5_k_m` | También marcado como recomendado; más pesado que `q4_k_m`. |
+
+`q4_k_m` es el valor de exportación que este curso repite. `UD-Q4_K_XL` es la etiqueta de **descarga** equivalente en el Hub. `f16` es para quien volverá a cuantizar con llama.cpp y quiere un intermedio sin pérdida. `not_quantized` frente a `quantized` son *perfiles* de conversión llama.cpp, no anchos de bit.
+
+Si exportar hace OOM, baja `maximum_memory_usage` de **0.75** a **0.5**.
+
+## Por qué instruct lleva penalización de presencia y thinking no
+
+La penalización de presencia 1.5 en modo instruct está en la tabla oficial, no es un consejo de estilo. El chat sin thinking es donde los modelos buclen saludos, rodeos y "como IA". La penalización hace menos probables los tokens que ya aparecieron, que es cómo evitas que un recepcionista repita la misma cláusula — el modo de fallo que la página GGUF también describe tras un bug de **plantilla**. El modo thinking deja la penalización de presencia en 0 porque una derivación *debe* repetir símbolos: nombres de variables, índices de bucle, el mismo lema. Penalizar presencia ahí castiga el borrador.
+
+`top_k=20` es compartido. Es un valor por defecto de la familia Qwen3.8, no un invento de Unsloth. `min_p=0.0` significa que no usas truncado min-p. No añadas un min-p copiado de otra ficha de modelo.
+
+Cuando Desktop autoajusta los parámetros de inferencia, está aplicando esta tabla. Cuando pasas flags a `unsloth run`, la estás anulando. Escribe la anulación a propósito.
+
+## Flags de servicio que de verdad posees
+
+`unsloth run` acepta flags de runtime de llama-server: contexto, capas GPU, hilos, muestreo, red, herramientas. Los [docs de API](https://unsloth.ai/docs/basics/api) están al lado. Para el esfuerzo de razonamiento también documentan:
+
+```bash
+# Unix
+--chat-template-kwargs '{"reasoning_effort":"medium"}'
+```
+
+En Windows PowerShell las comillas interiores deben ir escapadas, como avisa la página de ejecución. `--reasoning-effort medium` en el ejemplo de `unsloth run` es la misma idea en el flag propio de Unsloth. No pases ambos con valores en conflicto y después depuras "el modelo no piensa".
+
+La longitud de contexto al servir es **`--context-length` / `--max-seq-length`**, no el 262.144 grabado en la arquitectura. El máximo de arquitectura es un techo. Tu flag es la reserva.
+
+Si Unsloth Studio ya está en marcha, `unsloth run` y `unsloth start` se conectan a él. Si no lo está, pasar `--model` puede arrancar un servidor **temporal** que muere cuando el agente sale. Está en la guía de start. Así funciona una sesión de código de un solo tiro sin dejar un demonio.
+
+## Qué añadió Unsloth en los quants 27B
+
+La página de ejecución lista extras en sus GGUF, que no debes confundir con flags de entrenamiento: **soporte de rol developer** para herramientas agénticas como Codex, **MTP** (predicción multi-token) para inferencia más rápida, y **tool calling** con mejor parseo de objetos anidados. MTP es una aceleración al servir. No es un motivo para entrenar con `fast_inference=True` — ese flag estaba **apagado** para RL de Qwen3.8 en la lección anterior. Deja las dos frases en habitaciones distintas.
+
+El encaje, si los pesos caben, se cita alrededor de **20 tokens/s** de generación en B200 y **>120 tokens/s** de throughput en su nota. Son números de centro de datos. Una 4090 corriendo UD-Q4_K_XL no igualará una B200. Mide en tu caja; no pongas 20 tok/s en un informe de cliente porque apareció en la ficha del modelo.
+
+## Compilación de llama.cpp, sin la rama 2.4T
+
+Para UD-Q4_K_XL en el 27B, compila llama.cpp **estándar**. El fragmento de Unsloth:
+
+```bash
+apt-get update
+apt-get install pciutils build-essential cmake curl libcurl4-openssl-dev -y
+git clone https://github.com/ggml-org/llama.cpp
+cmake llama.cpp -B llama.cpp/build \
+    -DBUILD_SHARED_LIBS=OFF -DGGML_CUDA=ON
+cmake --build llama.cpp/build --config Release -j --clean-first --target llama-cli llama-mtmd-cli llama-server llama-gguf-split
+cp llama.cpp/build/bin/llama-* llama.cpp
+```
+
+Pon `-DGGML_CUDA=OFF` si no tienes GPU NVIDIA, o si estás en Apple Metal (Metal viene activado por defecto en sus instrucciones). La rama `iq1-narrow` es para los dtypes 1-bit del 2.4T. Clonar esa rama para un Q4 27B es superficie extra que no necesitas.
+
+`llama-mtmd-cli` está en la lista de targets porque este 27B es un VLM. El `llama-cli` solo texto vale para un trabajo de lenguaje. Servir visión quiere el binario multimodal. Encaja el binario con el turno.
+
+## Plantilla de chat tras exportar: sigue siendo el bug silencioso
+
+La sección de problemas de la página GGUF es la misma que usaste al entrenar, y muerde **más** después de un fine-tune porque ahora tienes dos plantillas que alinear: la que vio el SFT, y la que envuelve Ollama / vLLM / llama.cpp.
+
+<Myth>
+Si se veía bien en el chat de Unsloth, el GGUF está bien. No. Una **plantilla de chat** incorrecta en el artefacto guardado produce sinsentidos, generaciones infinitas o cláusulas repetidas en Ollama y vLLM. Un **EOS** incorrecto hace lo mismo en respuestas largas. Un **BOS** de más (o uno que falta) del motor de inferencia es el tercer sospechoso. No añadas un BOS que el entrenador no usó. No quites uno que sí usó. Los notebooks conversacionales existen para **forzar** la plantilla. Usa el JSON del tokenizer de ese artefacto, no un Modelfile genérico "Qwen" que adivinaste.
+</Myth>
+
+<Steps>
+1. Confirma que el motor de servicio carga el **tokenizer / plantilla de chat** que Unsloth guardó junto a los pesos.
+2. Confirma que el **EOS** es el EOS del entrenamiento. Si las generaciones no paran, esta es la primera sonda.
+3. Confirma que el motor **no** antepone un BOS extra. Unsloth nombra esta hipótesis de forma explícita.
+4. Prompta una vez dentro de Unsloth y una vez en Ollama con la **misma** cadena de usuario. Si solo Ollama entra en bucle, es el envoltorio, no el LoRA.
+</Steps>
+
+## El contexto es un tamaño de trabajo, no un trofeo
+
+262.144 es el máximo. YaRN puede estirar hacia 1M. Ninguno de los dos números es lo que una tarjeta de 24GB sostiene junto a pesos 27B 4-bit **y** una caché KV.
+
+La caché KV crece con tokens, capas y batch. Una traza thinking son más tokens. Preserve Thinking son todavía más. Los tokens de visión no son gratis. Si pones el contexto a 262k en una 4090 de 24GB, estás pidiendo que la caché se siente junto a 16–19GB de pesos. Esa resta no sale. La propia frase de offload de la página de ejecución es el plan B: volcará a disco y se arrastrará.
+
+Dimensiona el contexto al **trabajo**. Una sesión de código que nunca pega un repo puede ser 8k o 16k. Un agente de paper más herramientas puede ser 32k. 262k es para la máquina que tiene la fila de la tabla más holgura de caché — no para un flag por defecto que copias porque es el máximo.
+
+**Case.** Pones el contexto a **262k** en una tarjeta de **24GB** corriendo UD-Q4_K_XL. Los pesos ya quieren 16–19GB. El resto de la tarjeta no es una caché de 262k. El proceso hace OOM en el primer think largo, o empieza a paginar y los tokens por segundo se hunden. Bájalo. Primero, pon `--context-length` (o el campo de contexto de Desktop) a lo que la **tarea** necesita de verdad — 4096, 8192, 16384 — y mide. Segundo, si necesitas thinking, conserva el muestreo thinking pero **no** Preserve Thinking entre turnos que no están relacionados. Tercero, batch 1. Cuarto, si estás en Blackwell y vLLM, NVFP4 más su calibración KV FP8 es la forma documentada de estirar contexto en **Blackwell 24GB**, no en una 4090. Quinto, YaRN a 1M es una receta de estiramiento para una caja que ya sostiene la ventana sin estirar. No es un arreglo de OOM.
+
+<TryThis>
+Elige **una** tarea. Si es **código** (un test que falla, un refactor, una traza de herramienta), escribe flags thinking: `--temp 1.0 --top-p 0.95 --top-k 20 --min-p 0.0 --reasoning-effort medium` (o `xhigh` si el bug es hondo). Si es **chat** (un resumen, un FAQ educado), escribe flags instruct: `--temp 0.7 --top-p 0.80 --top-k 20 --min-p 0.0` y no pidas `xhigh`. Después escribe la línea completa de `unsloth run` con `--model unsloth/qwen3.8-27B-GGUF:UD-Q4_K_XL` y un `--context-length` que puedas defender desde la tabla de hardware, no 262144. Dos tareas, dos líneas, dos números de contexto. Si ambas líneas son idénticas, aún no has elegido una tarea.
+</TryThis>
+
+Fuentes oficiales: [guía de ejecución Qwen3.8](https://unsloth.ai/docs/models/qwen3.8) (y [qwen3.8.md](https://unsloth.ai/docs/models/qwen3.8.md)), [guardar a GGUF](https://unsloth.ai/docs/basics/inference-and-deployment/saving-to-gguf), [Dynamic 3.0 GGUFs](https://unsloth.ai/docs/basics/dynamic-3.0-ggufs), [unsloth start](https://unsloth.ai/docs/integrations/unsloth-start), Hub [`Qwen3.8-27B-GGUF`](https://huggingface.co/unsloth/Qwen3.8-27B-GGUF) y [`Qwen3.8-27B-NVFP4`](https://huggingface.co/unsloth/Qwen3.8-27B-NVFP4). Entrenar ese GGUF fue la lección anterior. No entrenes el archivo que acabas de descargar.

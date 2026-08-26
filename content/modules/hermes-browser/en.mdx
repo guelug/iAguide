@@ -1,25 +1,196 @@
-## Why a supervisor
+## Two gaps a snapshot cannot close
 
-Native JS dialogs block the page thread. Cross-origin iframes (OOPIFs) need a child CDP session. CDPSupervisor holds a persistent WS per task_id.
+Nous Research's [*Browser CDP Supervisor*](https://hermes-agent.nousresearch.com/docs/developer-guide/browser-supervisor) (n.d.) is the primary source. Hermes already had browser tools. Two page-level failures still hung or blinded the agent. The generic [browser tools](/en/m/browser-tools) lesson stays harness-agnostic; this one is the Hermes particularity: a `CDPSupervisor` per `task_id`.
 
-Surfaces pending_dialogs and frame_tree in browser_snapshot. browser_dialog(action=accept|dismiss) responds. Policy: must_respond (default), auto_dismiss, auto_accept.
+Gap one. Native JS dialogs — `alert`, `confirm`, `prompt`, `beforeunload` — block the page's JavaScript thread. Without supervision the agent has no way to know a dialog is open. Subsequent tool calls hang or throw opaque errors (Nous Research, *Browser CDP Supervisor*, n.d.).
 
-Local Chrome and Browserbase supported; Camofox has no CDP.
+Gap two. Cross-origin iframes (OOPIFs) are invisible to top-level `Runtime.evaluate`. The agent can see iframe nodes in the DOM snapshot but cannot type or eval inside them without a CDP session attached to the child target.
+
+The supervisor closes both by holding a persistent WebSocket to the backend's CDP endpoint per browser task, surfacing pending dialogs and frame structure into `browser_snapshot`, and exposing a `browser_dialog` tool for explicit responses.
 
 <VisualSlot caption="Supervisor, dialogs, OOPIF sessions, snapshot fields, policy." />
 
-## Compare vs OpenClaw
+## Backend support
 
-OpenClaw runs a dedicated openclaw browser profile via Gateway loopback control. Hermes attaches a supervisor to whichever backend the browser tools already use.
+Nous Research publishes a closed table in *Browser CDP Supervisor* (n.d.). Three backends, four columns: dialog detect, dialog respond, frame tree, and OOPIF evaluate through `browser_cdp` with a `frame_id`.
 
-## Case: hung confirm dialog
+| Backend | Dialog detect | Dialog respond | Frame tree | OOPIF evaluate via browser_cdp |
+| --- | --- | --- | --- | --- |
+| Local Chrome / `/browser connect` | yes | full workflow | yes | yes |
+| Browserbase | yes, via bridge | full workflow, via bridge | yes | yes |
+| Camofox | no CDP, REST-only | no | partial via DOM snapshot | no |
 
-**Case.** Agent clicks Submit; page freezes; later tools throw opaque errors.
+Local Chrome with remote debugging and `/browser connect` fills every column. Browserbase fills every column through a documented bridge. Camofox has no CDP surface. It is REST-only. Dialog detect and respond are unsupported. The frame tree is only partial via the DOM snapshot. OOPIF evaluate is unsupported (Nous Research, *Browser CDP Supervisor*, n.d.).
 
-**Fix.** Read pending_dialogs; call browser_dialog; then continue.
+Camofox is an upstream gap, tracked separately. It is not a missing `check_fn` you can paper over.
+
+<Callout>
+Both agent surfaces gate on `_browser_cdp_check`. The supervisor can only run when a CDP endpoint is reachable. On Camofox or no-backend sessions the dialog tool is hidden and the snapshot omits the new fields. No schema bloat for a backend that cannot speak CDP.
+</Callout>
+
+## Browserbase bridge, in academic terms
+
+Browserbase's CDP proxy auto-dismisses native dialogs within about 10 milliseconds, so the native JavaScript-dialog handler cannot keep up (Nous Research, *Browser CDP Supervisor*, n.d.). The supervisor therefore injects a document-start bridge script that overrides `window.alert`, `window.confirm`, and `window.prompt` with a synchronous XHR to a magic host named `hermes-dialog-bridge.invalid`. Fetch interception captures those XHRs before they touch the network. The dialog becomes a paused-request event the supervisor records. The response path fulfills the request with a JSON body the injected script decodes.
+
+From the page's perspective, `prompt()` still returns the agent-supplied string. From the agent's perspective, it is the same `browser_dialog` API either way.
+
+The magic host never hits the network. Interception happens first. That is why Browserbase can still present a `prompt()` return value to page JS while the CDP proxy is auto-dismissing the native dialog.
+
+## CDPSupervisor
+
+One asyncio task runs in a background daemon thread per Hermes `task_id`. It holds a persistent WebSocket to the backend's CDP endpoint (Nous Research, *Browser CDP Supervisor*, n.d.). It maintains four in-memory stores:
+
+- Dialog queue: a list of `PendingDialog` with id, type, message, default_prompt, session_id, opened_at.
+- Frame tree: a mapping of `frame_id` to `FrameInfo` with parent relationships, URL, origin, and whether this is a cross-origin child session.
+- Session map: a mapping of `session_id` to `SessionInfo` so interaction tools can route to the right attached session for OOPIF operations.
+- Recent console errors: a ring buffer of the last 50 for diagnostics.
+
+On attach the supervisor enables Page events (`javascriptDialogOpening`, `frameAttached`, `frameNavigated`, `frameDetached`), Runtime events (`executionContextCreated`, `consoleAPICalled`, `exceptionThrown`), and auto-attach of child targets with flatten true. Child OOPIF targets get Page plus Runtime enabled as well.
+
+Thread-safe state access uses a snapshot lock. Tool handlers are sync. They read the frozen snapshot without awaiting.
+
+## Lifecycle
+
+Start is `SupervisorRegistry.get_or_start(task_id, cdp_url)`. Callers: `browser_navigate`, Browserbase session create, `/browser connect`. The call is idempotent (Nous Research, *Browser CDP Supervisor*, n.d.).
+
+Stop is session teardown or `/browser disconnect`. That cancels the asyncio task, closes the WebSocket, and discards state.
+
+Rebind: if the CDP URL changes because the user reconnects to a new Chrome, the old supervisor is stopped and a fresh one started. State is never reused across endpoints.
+
+That sentence is the particularity. A supervisor is bound to one CDP URL. A reconnect is not a resume of the previous dialog queue.
+
+## Dialog policy
+
+Configurable via `config.yaml` under `browser.dialog_policy` (Nous Research, *Browser CDP Supervisor*, n.d.):
+
+| Mode | Behavior |
+| --- | --- |
+| `must_respond` | Default. Capture, surface in `browser_snapshot`, wait for an explicit `browser_dialog` call. After a 300-second safety timeout with no response, auto-dismiss and log. Prevents a buggy agent from stalling forever. |
+| `auto_dismiss` | Record and dismiss immediately. The agent sees it after the fact via `browser_state` inside `browser_snapshot`. |
+| `auto_accept` | Record and accept. Useful for `beforeunload` where the workflow wants to navigate away cleanly. |
+
+Policy is per-task. There are no per-dialog overrides. The agent can still name a `dialog_id` when several dialogs are queued, which is rare. `browser.dialog_timeout_s` lives next to the policy in `hermes_cli/config.py` defaults.
+
+<Callout>
+`must_respond` is the default because a hung confirm is worse than a delayed next step. The 300-second watchdog is a safety timeout, not a product feature you tune per site. If you need silent dismiss, switch the task to `auto_dismiss`. If you need navigation through `beforeunload`, switch to `auto_accept`.
+</Callout>
+
+## Agent surface: browser_dialog
+
+The tool is response-only. The agent reads pending dialogs from `browser_snapshot` output before calling (Nous Research, *Browser CDP Supervisor*, n.d.).
+
+```text
+browser_dialog(action, prompt_text=None, dialog_id=None)
+```
+
+- `action` is `accept` or `dismiss`. Required. Responds to the specified or sole pending dialog.
+- `prompt_text` is the text to supply to a `prompt()` dialog.
+- `dialog_id` disambiguates when multiple dialogs are queued.
+
+Do not invent a `browser_alert` tool. Do not invent a timeout argument on the tool. The watchdog is policy, not a tool parameter.
+
+## Agent surface: snapshot fields
+
+When a supervisor is attached, three optional fields join the existing snapshot. There is no new tool schema surface. The agent reads the snapshot it already requests.
+
+```json
+{
+  "pending_dialogs": [
+    {"id": "d-1", "type": "alert", "message": "Hello", "opened_at": 1650000000.0}
+  ],
+  "recent_dialogs": [
+    {"id": "d-1", "type": "alert", "message": "...", "opened_at": 1650000000.0,
+     "closed_at": 1650000000.1, "closed_by": "remote"}
+  ],
+  "frame_tree": {
+    "top": {"frame_id": "FRAME_A", "url": "https://example.com/", "origin": "https://example.com"},
+    "children": [
+      {"frame_id": "FRAME_B", "url": "about:srcdoc", "is_oopif": false},
+      {"frame_id": "FRAME_C", "url": "https://ads.example.net/", "is_oopif": true, "session_id": "SID_C"}
+    ],
+    "truncated": false
+  }
+}
+```
+
+`pending_dialogs` are dialogs currently blocking the page's JS thread. The agent must call `browser_dialog` to respond. The list is empty on Browserbase because their CDP proxy auto-dismisses within about 10 milliseconds.
+
+`recent_dialogs` is a ring buffer of up to 20 recently-closed dialogs with a `closed_by` tag: `agent` (we responded), `auto_policy` (local auto_dismiss or auto_accept), `watchdog` (must_respond timeout hit), or `remote` (browser or backend closed it on us, for example Browserbase). This is how agents on Browserbase still get visibility into what happened.
+
+`frame_tree` includes cross-origin (OOPIF) children. Capped at 30 entries plus OOPIF depth 2 to bound snapshot size on ad-heavy pages. `truncated` true surfaces when limits were hit. Agents needing the full tree can use `browser_cdp` with `Page.getFrameTree` (Nous Research, *Browser CDP Supervisor*, n.d.).
+
+## Cross-origin frames
+
+`browser_cdp` with a `frame_id` routes CDP calls, notably `Runtime.evaluate`, through the supervisor's already-connected WebSocket using the OOPIF's child `sessionId`. Agents pick frame ids out of `browser_snapshot.frame_tree.children` where `is_oopif` is true and pass them to `browser_cdp`.
+
+For same-origin iframes there is no dedicated CDP session. The agent uses `contentWindow` or `contentDocument` from a top-level `Runtime.evaluate` instead. The supervisor surfaces an error pointing at that fallback when `frame_id` belongs to a non-OOPIF (Nous Research, *Browser CDP Supervisor*, n.d.).
+
+On Browserbase this is the only reliable path for iframe interaction. Stateless CDP connections opened per `browser_cdp` call hit signed-URL expiry, while the supervisor's long-lived connection keeps a valid session.
+
+**Case.** The agent submits a form. The page freezes. Later tools throw opaque errors. Read `pending_dialogs`. Call `browser_dialog`. Then continue. That is the documented recovery, not a retry of `browser_navigate`.
+
+**Case.** On Browserbase, `pending_dialogs` is empty even though a confirm fired. Read `recent_dialogs` and the `closed_by` tag `remote`. The proxy already dismissed. The bridge still lets the agent accept or dismiss through the same `browser_dialog` API for dialogs the supervisor captured via the magic-host XHR.
+
+## File layout
+
+Nous Research lists the files (n.d.):
+
+- `tools/browser_supervisor.py` — `CDPSupervisor`, `SupervisorRegistry`, `PendingDialog`, `FrameInfo`.
+- `tools/browser_dialog_tool.py` — `browser_dialog` tool handler.
+- `tools/browser_tool.py` — `browser_navigate` start-hook, `browser_snapshot` merge, `/browser connect` reattach, `_cleanup_browser_session` teardown.
+- `toolsets.py` — registers `browser_dialog` in `browser`, `hermes-acp`, `hermes-api-server`, and core toolsets, gated on CDP reachability.
+- `hermes_cli/config.py` — `browser.dialog_policy` and `browser.dialog_timeout_s` defaults.
+
+Unit tests live in `tests/tools/test_browser_supervisor.py`. They use an asyncio mock CDP server that speaks enough of the protocol to exercise attach, enable, navigate, dialog fire, dialog dismiss, frame attach and detach, child target attach, and session teardown. Real-backend E2E (Browserbase plus local Chromium-family browser) is manual: `/browser connect` to a live Chromium-family browser and run the dialog and frame cases on the same page.
+
+## Non-goals
+
+The page is explicit about what the supervisor does **not** do (Nous Research, *Browser CDP Supervisor*, n.d.):
+
+- Detection or interaction for Camofox (upstream gap).
+- Streaming dialog or frame events live to the user (would require gateway hooks).
+- Persisting dialog history across sessions (in-memory only).
+- Per-iframe dialog policies (the agent can express this via `dialog_id`).
+- Replacing `browser_cdp`. It stays as the escape hatch for the long tail: cookies, viewport, network throttling.
+
+Do not file a bug that the supervisor does not stream dialogs to Telegram. That is a documented non-goal.
+
+## Compare, without mixing knobs
+
+Hermes attaches a supervisor to whichever backend the browser tools already use: local Chrome, Browserbase, or nothing. OpenClaw runs a dedicated Chrome, Brave, Edge, or Chromium profile named `openclaw` through a small local control service inside the Gateway, loopback only, isolated from the personal browser (OpenClaw, *Browser (OpenClaw-managed)*, n.d., https://docs.openclaw.ai/tools/browser).
+
+OpenClaw's default agent path is that isolated `openclaw` profile. A built-in `user` profile attaches to a real signed-in Chrome via Chrome DevTools MCP. A `chrome` profile drives signed-in Chrome through an extension. Hermes has none of those three named profiles. Hermes has a `CDPSupervisor` per `task_id`.
+
+OpenClaw managed-browser action responses include pending dialog state; operators respond with the OpenClaw dialog command plus accept or dismiss plus a dialog id (OpenClaw, *Browser (OpenClaw-managed)*, n.d.). Hermes agents read `pending_dialogs` from `browser_snapshot` and call `browser_dialog`. Same human need. Different object. Different page.
+
+Do not paste OpenClaw `browser.defaultProfile` into Hermes `config.yaml`. Do not paste Hermes `browser.dialog_policy` into OpenClaw `openclaw.json`. Cite the page you are implementing.
+
+**Case.** An ad iframe is `is_oopif` true. A top-level `Runtime.evaluate` cannot reach it. Pass that child's `frame_id` to `browser_cdp`. If you pass a same-origin frame id, the supervisor errors and points at the `contentDocument` fallback. That error is the documented teaching, not a retry loop.
 
 <TryThis>
-Name three dialog policy modes and when you want auto_accept.
+Name the three dialog policy modes. Say which one is default and what happens at 300 seconds. Name the four `closed_by` tags on `recent_dialogs`. Say why Camofox hides `browser_dialog` instead of returning a runtime error.
 </TryThis>
 
-Source: https://hermes-agent.nousresearch.com/docs/developer-guide/browser-supervisor
+Cite Nous Research, *Browser CDP Supervisor*, n.d., as the parent of every number in this lesson: 10 millisecond Browserbase auto-dismiss, 300 second must_respond watchdog, 50 console-error ring, 20 recent-dialog ring, 30 frame-tree entries, OOPIF depth 2.
+
+A reconnect to a new Chrome is a new supervisor. Dialog history does not survive that rebind. Dialog history does not survive a process restart either: it is in-memory only. If a briefing needs a transcript of dismissed confirms, the agent must read `recent_dialogs` before teardown.
+
+Read *Tools Runtime* for why `browser_dialog` is registered into several toolsets and still gated. Read *ACP Internals* for why the same tool appears in `hermes-acp`. Read OpenClaw *Browser (OpenClaw-managed)* only when the product is OpenClaw.
+
+This lesson stops at the supervisor, the two gaps, the three policies, the snapshot fields, and the OOPIF route. Cookie, viewport, and throttling work stays on `browser_cdp` as the documented escape hatch.
+
+`toolsets.py` registers `browser_dialog` into `browser`, `hermes-acp`, `hermes-api-server`, and core. Availability is still gated on CDP reachability. That is why an ACP session without a CDP endpoint does not advertise the dialog tool.
+
+The snapshot lock exists so a sync tool handler never awaits the asyncio task. Teaching that lock as "just use async tools" is wrong. The page chose a frozen snapshot on purpose (Nous Research, *Browser CDP Supervisor*, n.d.).
+
+## Sources
+
+Nous Research. (n.d.). *Browser CDP supervisor*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/browser-supervisor
+
+Nous Research. (n.d.). *Tools runtime*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/tools-runtime
+
+Nous Research. (n.d.). *ACP internals*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/acp-internals
+
+Nous Research. (n.d.). *Gateway internals*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals
+
+OpenClaw. (n.d.). *Browser (OpenClaw-managed)*. https://docs.openclaw.ai/tools/browser

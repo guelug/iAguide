@@ -1,0 +1,220 @@
+## Official path, not the laptop folklore
+
+Kimi Linear is a **48B-total / 3B-active** MoE with a 3:1 KDA:MLA stack and up to **1M** context, shipped in BF16. Checkpoints:
+
+- [`moonshotai/Kimi-Linear-48B-A3B-Instruct`](https://huggingface.co/moonshotai/Kimi-Linear-48B-A3B-Instruct)
+- [`moonshotai/Kimi-Linear-48B-A3B-Base`](https://huggingface.co/moonshotai/Kimi-Linear-48B-A3B-Base)
+
+The engines that know <Term id="kda">KDA</Term> today are **Hugging Face Transformers + `fla-core`**, and **vLLM** (which consumes the same FLA kernels). Environment the model card asks for: `python >= 3.10`, `torch >= 2.6`, `fla-core >= 0.4.0`, and `trust_remote_code=True` because the architecture is custom.
+
+```bash
+pip install -U fla-core
+```
+
+Do **not** invent a GGUF / llama.cpp / Ollama / MLX story for KDA. Those stacks are excellent for dense softmax models. They do not ship the FLA KDA kernel. Match artefact to engine — same Case as local-inference: do not feed GGUF to vLLM, and do not feed this safetensors MoE to llama.cpp and hope. When a community MLX or GGUF port exists it will sit next to the checkpoint on the hub. Until then, it does not exist. Do not type it.
+
+<VisualSlot caption="Laptop: 96 GB of BF16 weights spilling off a 24 GB card. GPU box: tensor-parallel shards. 1M context: a full MLA KV tower versus a 75% shorter hybrid plus fixed KDA chips." />
+
+## Workstation: Transformers, `device_map="auto"`
+
+Single GPU if it actually holds the shards; more often a workstation with several cards and HF device map:
+
+```python
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+model = AutoModelForCausalLM.from_pretrained(
+    "moonshotai/Kimi-Linear-48B-A3B-Instruct",
+    torch_dtype="auto",
+    device_map="auto",
+    trust_remote_code=True,
+)
+tok = AutoTokenizer.from_pretrained(
+    "moonshotai/Kimi-Linear-48B-A3B-Instruct",
+    trust_remote_code=True,
+)
+```
+
+`trust_remote_code=True` is required on **both** model and tokenizer. The modelling code is custom (KDA, MLA+NoPE, MoE). Without it, Transformers will not build the graph. `fla-core>=0.4.0` must be importable or the first KDA layer throws. First run compiles Triton kernels; that is slow, not hung.
+
+That is the "I have a box, I want a reply" path. It is not a multi-user server. It will still try to place **all expert weights** somewhere. 3B active is the compute story, not the residency story.
+
+## Server: OpenAI-compatible vLLM
+
+From the model card and the [vLLM recipe](https://docs.vllm.ai/projects/recipes/en/latest/moonshotai/Kimi-Linear.html), the exact serve line is:
+
+```bash
+vllm serve moonshotai/Kimi-Linear-48B-A3B-Instruct \
+  --port 8000 \
+  --tensor-parallel-size 4 \
+  --max-model-len 1048576 \
+  --trust-remote-code
+```
+
+Copy it. Then think before you run it. `--max-model-len 1048576` is the brochure 1M. Four (or eight) GPUs on one node is the documented shape. If you OOM, the recipe's next knobs are a **smaller** `--max-model-len` (they suggest e.g. 65536) or `--gpu-memory-utilization` up to 0.95 — not "buy a mystical KDA flag." Pin a vLLM build the recipe actually lists; 0.12.0 had a known MLA init bug (`indexer_rotary_emb`). Read the recipe on the day you install.
+
+`--trust-remote-code` is the same requirement as Transformers. `--tensor-parallel-size 4` is how 96 GB of BF16 weights even *consider* fitting. `--port 8000` is the OpenAI-compatible server. Nothing in that line enables AttnRes. If the checkpoint was trained with AttnRes, it is **already inside the graph**.
+
+## 48B BF16 will not fit a 24 GB card
+
+Say it out loud. **A 24 GB card does not fit 48B BF16.** 48B parameters × 2 bytes ≈ **96 GB** of weights. MoE experts can be sharded across tensor-parallel ranks, so four 24 GB cards do **not** magically become 96 GB of comfortable headroom — they can *hold* shards if you also leave room for KV, activations, and fragmentation.
+
+Walk a 4×24 GB node on paper:
+
+- 96 GB weights / 4 = 24 GB per GPU **before** KV, CUDA context, fragmentation.
+- Subtract 2–4 GB for the runtime. You have roughly nothing left for cache on a 24 GB part. That node is the wrong shape for 1M context even with a hybrid KV.
+- Four 80 GB parts (H100-class) is the grown-up version: ~24 GB weights per rank, tens of GB for hybrid cache, then you pick `max-model-len` from traces.
+
+3B active means each forward touches a slice of experts. The other experts did not go home. Plan RAM for the weights you loaded, then for the hybrid cache, then for the context you actually configured.
+
+<Callout>
+Quantizations on the model tree, if the hub lists them, are a maybe. Do not assume GGUF. Do not assume bitsandbytes 4-bit will keep KDA numerically happy. If you cannot host 96 GB, host a smaller hybrid that uses the same 3:1 idea, or call remote vLLM.
+</Callout>
+
+<Myth>
+"3B active, so it fits in 6 GB." Active parameters are FLOPs per token. Resident parameters are what the allocator sees. This checkpoint is a 96 GB house with a 3B workshop.
+</Myth>
+
+## Do not blindly set 1M context
+
+`1048576` is a brochure number. 1M tokens of **MLA KV** still costs RAM, even when three quarters of the layers keep a fixed KDA state. Size `max-model-len` from the prompts your harness really sends (system + tools + thread + answer margin), not from the abstract.
+
+Rough residency, teaching arithmetic not a profiler:
+
+- **Weights.** 96 GB BF16, sharded by TP.
+- **MLA KV.** Only about 1/4 of the mixer layers. Still linear in `T`. Latent MLA is smaller than vanilla GQA, not zero.
+- **KDA state.** Convolution plus a `128 × 128` delta matrix per head, **constant in `T`**. This is the 75% cut.
+- **AttnRes block cache**, if present in the graph: `N × T × d` in prefill, sharded by TP in the systems lesson, `N × d` in decode. Tiny next to MLA KV. Do not blame AttnRes for a 1M OOM.
+
+<Compare a="Dense softmax GGUF" b="Kimi Linear safetensors">
+<Side>
+llama.cpp, Ollama, LM Studio, MLX-LM for the matching format. KV cache is the usual token-wise tower. Quant recipes are mature. Fine on a Mac if the GGUF fits unified memory. **This is not that artefact.**
+</Side>
+<Side>
+Transformers + fla-core on a workstation; vLLM for an OpenAI-compatible server. KDA needs the FLA/vLLM kernel. GGUF is the wrong artefact. Apple Silicon: wait for an MLX or community port; until then use a smaller linear/hybrid locally, or call remote vLLM.
+</Side>
+</Compare>
+
+On a Mac, **48B BF16 is a server model**. Do not fake an `mlx_lm` one-liner. Unified memory does not invent a KDA kernel.
+
+## Hybrid cache, without a day-one science project
+
+KDA layers store **convolution + delta state** (constant size). MLA layers store **real KV**. Prefix-cache systems such as LMCache that grew up on softmax KV need a **mamba-cache-mode** style alignment and **separate object groups** for the linear state vs the MLA KV. Mention it so you are not surprised when a prefix dump from a dense model does not replay. You do **not** have to configure this on day one. Get `vllm serve` answering `/v1/chat/completions` first.
+
+AttnRes, if it is in the checkpoint you pulled (newer Kimi Linear training), is already in the graph. Serving overhead is the **under 2%** story from the residuals systems lesson. You do not pass `--attnres`. You do not reimplement depth-softmax in a wrapper. You do not switch the residual to a plus "to make llama.cpp happy" — llama.cpp is not in this story.
+
+**Case.** Someone drops a "Kimi Linear Q4 GGUF" into Ollama because that is how they serve everything else, or they copy the card's `--max-model-len 1048576` onto a single 24 GB GPU. First path: the runtime has no KDA op, so you get an error or a silently wrong mixer. Second path: weights never fit, and even if a quant did, 1M MLA-KV still blows the rest of VRAM. Fix pattern: engine that implements KDA, tensor parallel until **weights** fit, then a `max-model-len` taken from traces you logged, then measure.
+
+## Measure, then brag about 6×
+
+The paper's 6× decode at 1M is versus a full-MLA twin, batch 1, their figure (1.84 ms vs 11.48 ms TPOT). Your server has a different batch, a different interconnect, a different `max-model-len`. Log TPOT at 4k, 32k, 128k with a fixed generation length. The hybrid curve should stay flatter. If it climbs like a softmax model, you are cache-bound on the MLA quarter (context too fat) or TP is mis-sized (you're swapping). If it is flat but quality is junk, you forgot `trust_remote_code` or you loaded a random GGUF.
+
+<Steps>
+1. Pick an engine that has KDA: Transformers+FLA, or vLLM. Not llama.cpp, not Ollama, not MLX, not a random GGUF UI.
+2. Install `fla-core>=0.4.0`. Confirm `import fla` works before you download 96 GB.
+3. Tensor-parallel until **weights** fit. 96 GB BF16 is a multi-GPU number.
+4. Size `max-model-len` from real prompts (p50/p95 for a week), not 1048576 by default.
+5. Hit `/v1/chat/completions`. Then measure TPOT at 4k vs 128k. Then, and only then, talk about 1M.
+6. If the checkpoint includes AttnRes, inherit it. Serving tax is negligible. Do not reimplement it.
+</Steps>
+
+
+## Tensor parallel is a residency tool first
+
+People meet TP as a throughput knob. Here it is how the **weights** fit. Expert parameters are sharded; a forward still all-reduces activations. `--tensor-parallel-size 4` on four GPUs is the documented minimum shape for the BF16 48B, not a performance tweak you skip on a single 80 GB card unless that 80 GB card actually holds 96 GB of weights plus cache (it does not). Eight-way TP is in the recipe for a reason: more headroom for MLA KV at long `max-model-len`.
+
+Pipeline parallel is a different axis (layers across ranks). The AttnRes systems lesson is about PP **training**. Serving vLLM on one node is TP plus maybe expert parallel. Do not turn on a training PP schedule in vLLM because you read Figure 3. Figure 3 is not a serve flag.
+
+## The OpenAI-compatible surface
+
+Once `vllm serve` is up, the harness talks HTTP:
+
+```bash
+curl -s http://127.0.0.1:8000/v1/chat/completions   -H 'Content-Type: application/json'   -d '{"model":"moonshotai/Kimi-Linear-48B-A3B-Instruct","messages":[{"role":"user","content":"ping"}],"max_tokens":32}'
+```
+
+Use the model id the server registered, usually the Hugging Face name. Chat template lives in the tokenizer; do not hand-roll Qwen markup unless the card says so. Tool calls go through the same messages list as any OpenAI-compatible server. Long tool traces are why you wanted the hybrid in the first place — they are also why `max-model-len` must include the JSON you are about to append.
+
+Health check: `/v1/models` should list the id. If it 404s, you are hitting the wrong port. If generate hangs on first call, Triton is compiling KDA; wait.
+
+## What you type, what you inherit
+
+The exact vLLM line again, because this is the metal lesson:
+
+```bash
+vllm serve moonshotai/Kimi-Linear-48B-A3B-Instruct --port 8000 --tensor-parallel-size 4 --max-model-len 1048576 --trust-remote-code
+```
+
+Change `--max-model-len` to a number you can defend. Change `--tensor-parallel-size` to the GPUs you actually have, provided weights fit. Do not add `--attnres`. Do not add `--kda`. Do not point `--model` at a GGUF.
+
+Transformers generate path, once you have VRAM:
+
+```python
+out = model.generate(**tok("hello", return_tensors="pt").to(model.device), max_new_tokens=64)
+```
+
+That will OOM on a 24 GB card. It is still the correct API.
+
+<TryThis>
+On paper, budget a 4×24 GB node: 96 GB of BF16 weights sharded four ways (24 GB/GPU before KV). Subtract 2–4 GB for CUDA context and fragmentation. The remainder is hybrid cache. Write two rows: `max-model-len = 8192` and `max-model-len = 1048576`. Circle which row you would actually pass to `vllm serve` for a harness whose p95 prompt is 12k tokens. Then type (do not have to run) the serve command with **that** length and `--tensor-parallel-size 4 --trust-remote-code`. Paper plus a command; a GPU is optional.
+</TryThis>
+
+
+## Hardware honesty, one page
+
+| Box | Fits 48B BF16 weights? | Fits 1M hybrid KV? | Engine |
+| --- | --- | --- | --- |
+| 1×24 GB | no | no | none of this checkpoint |
+| 1×80 GB | no (96 GB weights) | n/a | none, unless a listed quant actually lands |
+| 4×24 GB | shards only, no cache | no | maybe short-context if you oversubscribe; usually no |
+| 4×80 GB | yes | maybe, size `max-model-len` | vLLM TP=4 |
+| 8×80 GB | yes | closer to 1M | vLLM TP=8 |
+| Mac 128 GB unified | weights maybe | kernel no | wait for MLX; do not invent it |
+
+Rows are teaching, not a datasheet. The only row that is a moral is the 24 GB one: **no**.
+
+## Failure modes you will actually hit
+
+- **`trust_remote_code` missing.** Graph does not include KDA. Error or a dense-attention fallback you should not trust.
+- **Old `fla-core`.** `fla.ops.kda` missing. Upgrade. Do not vendor a copy of the kernel into your repo unless you are the FLA maintainer.
+- **vLLM 0.12.0 MLA init bug.** `indexer_rotary_emb`. Pin the recipe's version. Kimi Linear MLA is NoPE; a RoPE indexer leftover is a version smell.
+- **TP size 1 on 48B BF16.** Immediate OOM. Weights never landed.
+- **1M on 4×24 GB.** Weights maybe, KV no. Lower `max-model-len`.
+- **GGUF in Ollama.** Wrong artefact. Stop.
+- **Prefix cache from a dense dump.** Linear state vs MLA KV mixed up. Separate object groups, or skip prefix cache on day one.
+
+Paper for the mixer: [Kimi Linear, arXiv:2510.26692](https://arxiv.org/abs/2510.26692). Kernels: [FLA KDA ops](https://github.com/fla-org/flash-linear-attention/tree/main/fla/ops/kda). Serve recipe: [vLLM Kimi-Linear](https://docs.vllm.ai/projects/recipes/en/latest/moonshotai/Kimi-Linear.html). Residuals, if present in the checkpoint: [arXiv:2603.15031](https://arxiv.org/abs/2603.15031). Systems for AttnRes (cache, two-phase, I/O): the next metal lesson.
+
+
+## AttnRes at the serving boundary
+
+If this checkpoint was trained with Block AttnRes, the forward already contains `w_l`, RMSNorm on keys, and the block grouping. vLLM executing the custom model code will run it. Overhead under 2% with two-phase online softmax (systems lesson). Prefill block cache is `N T d`, sharded across TP, chunked. You do not configure N. You do not pass block size. You do not "turn off AttnRes to save memory" without training a different checkpoint.
+
+If this checkpoint was **not** trained with AttnRes, there is nothing to turn on. The released 48B Kimi Linear from the 2025 paper is KDA+MLA. The 2026 residuals paper puts AttnRes on that architecture for a 1.4T comparison run. Read the model card of the **exact** repo you pull. Do not assume every `Kimi-Linear-48B` on the hub has depth-softmax.
+
+
+## A generate call that will not silently skip KDA
+
+After `from_pretrained(..., trust_remote_code=True)`, inspect `model.config` for the architecture name the card documents. If you see a generic Llama config, you loaded the wrong repo or dropped remote code. Count mixer layers: you want a 3:1 pattern of KDA and MLA, not 0:1. Then send a 8k dummy prompt and a 128k dummy prompt (synthetic tokens are fine) and compare TPOT. Flat-ish is the hybrid; steep is "you are not running KDA."
+
+Do not wrap the model in a speculative-decoding stack that assumes softmax KV on every layer. Draft models that don't know KDA will desync. Day one is greedy or plain sampling on the server you just booted.
+
+## References
+
+Kimi Team. (2025). *Kimi Linear: An expressive, efficient attention architecture* (arXiv:2510.26692). https://arxiv.org/abs/2510.26692
+
+Kimi Team. (2026). *Attention residuals* (arXiv:2603.15031). https://arxiv.org/abs/2603.15031
+
+The metal lesson in one breath: engine with KDA, `fla-core>=0.4.0`, `trust_remote_code`, TP until 96 GB of BF16 fits, `max-model-len` from traces not from 1M, no GGUF, no llama.cpp, no MLX until a port exists, AttnRes inherited if present. Everything else is a footnote.
+
+
+If your harness already speaks OpenAI, point `base_url` at `http://127.0.0.1:8000/v1` and keep the messages list. Do not reimplement chat templates in the client. Do not strip tool JSON to "save context" before you have measured the hybrid TPOT; that is solving the wrong bottleneck.
+
+Batch size in vLLM will grow because KDA state is constant. That is the throughput story at 1M. It is not a reason to set `max-model-len` to 1M on a card that cannot hold the MLA quarter. Measure, then raise.
+
+
+Next lesson on this track: how AttnRes is optimized (cache, two-phase, I/O table). Previous foundations: KDA, then AttnRes. You need those names straight before the profiler window opens.
+
+
+Print the serve command you actually ran in the runbook, including the `max-model-len` you defended. Future you will thank present you when the box OOMs at 3am.
+
+That number, the TP size, and the vLLM version are the three fields that make a serve incident reproducible.

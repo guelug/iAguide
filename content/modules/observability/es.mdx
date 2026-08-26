@@ -1,17 +1,226 @@
 ## Un turno es una traza
 
-Sin observabilidad, un agente es una caja negra que a veces escribe al cliente. Las **trazas** son una tarea de punta a punta. Los **spans** son los pasos: prefill, decode, tool, subagente, retrieve. OpenTelemetry es el cable habitual; Langfuse, Arize, Phoenix son paneles. smolagents se instrumenta con `SmolagentsInstrumentor`.
+*Fuente nombrada: Hugging Face Agents Course, Bonus Unit 2, [AI Agent Observability and Evaluation](https://huggingface.co/learn/agents-course/bonus-unit2/what-is-agent-observability-and-evaluation) e [introduction](https://huggingface.co/learn/agents-course/bonus-unit2/introduction) (Burtenshaw, Thomas, Simonini y Paniego, Apache-2.0).*
 
-Mira: latencia, coste, errores, feedback explícito e implícito, etiquetas de acierto que *tú* defines, jueces automáticos. Eval offline primero; monitoreo online después; los fallos nuevos vuelven al set offline.
+Sin observabilidad, un agente es una caja negra que a veces escribe al cliente. Las **trazas** son una tarea de usuario de punta a punta. Los **spans** son los pasos de dentro: prefill, decode, llamada a tool, subagente, retrieve. OpenTelemetry es el cable habitual. Langfuse, Arize, Phoenix son paneles que lo hablan. smolagents se puede instrumentar por la vía OpenTelemetry que documenta la librería (`SmolagentsInstrumentor` en https://huggingface.co/docs/smolagents). Mira la documentación de la herramienta para lo que realmente está soportado esa semana.
+
+Curso: https://huggingface.co/learn/agents-course · repo: https://github.com/huggingface/agents-course
 
 <VisualSlot caption="Un turno como barra de traza; spans debajo. El switch de error es un span de tool fallando con latencia aún verde." />
 
+## Por qué importa
+
+*Fuente nombrada: Hugging Face Agents Course, Bonus Unit 2, [what-is-agent-observability-and-evaluation](https://huggingface.co/learn/agents-course/bonus-unit2/what-is-agent-observability-and-evaluation).*
+
+La unidad lista: entender coste frente a acierto; medir latencia; detectar lenguaje dañino e inyección de prompt; vigilar el feedback del usuario. En sus palabras, convierte un demo en algo listo para producción. iAguide añade: no puedes alertar un span que no nombraste. El `while` del dummy en [dummy-agent](/course/dummy-agent) sigue siendo el reloj interno; la observabilidad es cómo lo ves después de desplegar.
+
+Consejo práctico: nombra spans según los pasos del arnés que ya enseñas: apply_template, model.generate, tool.search, tool.ticket_update, compact. Si no puedes señalar el `while` dummy, registrarás “LLM” como un blob y no aprenderás nada.
+
+## Herramientas, no religión
+
+*Fuente nombrada: la misma página de Bonus Unit 2 (Observability Tools); OpenTelemetry https://opentelemetry.io/docs/; Langfuse https://langfuse.com; Arize https://www.arize.com.*
+
+Algunas herramientas son open source con comunidades grandes. Unas se especializan (observabilidad, evals, gestión de prompts); otras cubren todo el flujo LLMOps. El curso te pide leer docs y elegir. Muchos frameworks de agentes exponen metadatos vía OpenTelemetry; los vendors también envían instrumentaciones propias porque el campo se mueve rápido. No inventes aquí una API de Phoenix si la unidad no la imprimió. Phoenix aparece como panel hermano en el stub original de esta particularidad; confirma contra la documentación actual del vendor antes de copiar nombres de métodos.
+
+Consejo práctico: un exportador en staging primero. Dos vendors el día uno son dos trazas incompletas.
+
+## Métricas que la unidad nombra de verdad
+
+*Fuente nombrada: Hugging Face Agents Course, Bonus Unit 2, sección de métricas de [what-is-agent-observability-and-evaluation](https://huggingface.co/learn/agents-course/bonus-unit2/what-is-agent-observability-and-evaluation).*
+
+**Latencia.** Tarea y paso. Las esperas largas duelen. Traza ambas. Un agente que gasta 20 segundos en llamadas al modelo puede necesitar un modelo más rápido o llamadas en paralelo — ese ejemplo es de la unidad.
+
+**Costes.** Por ejecución: tokens y APIs externas. Tools frecuentes o muchos prompts suben la factura. Cinco llamadas al LLM por una ganancia marginal puede no justificarse. Vigila bucles de bug.
+
+**Errores de petición.** APIs o tools fallidas. Fallbacks y reintentos: si el proveedor A cae, pasa al B — otra vez el ejemplo de la unidad.
+
+**Feedback del usuario.** Explícito: pulgares, estrellas, comentarios. Negativos consistentes deben alertar.
+
+**Feedback implícito.** Reformular, repetir la pregunta, clics de reintento. La misma pregunta dos veces es una señal.
+
+**Acierto.** Tú defines el éxito: corrección, retrieval, satisfacción. Marca trazas succeeded o failed.
+
+**Evaluación automática.** Un juez LLM; librerías como [RAGAS](https://docs.ragas.io/) para RAG y [LLM Guard](https://llm-guard.com/) para daño e inyección, tal como las nombra la página.
+
+Consejo práctico: alerta el ratio de error de tools, no solo el p95. SignalOps, más abajo, es esa frase hecha caso.
+
+<Callout>
+La unidad recomienda una combinación de estas métricas. Un gráfico verde es cómo SignalOps envió un 40 por ciento de error de tools.
+</Callout>
+
+## Primero evaluación offline
+
+*Fuente nombrada: Hugging Face Agents Course, Bonus Unit 2, Evaluating AI Agents / Offline Evaluation.*
+
+Offline: set controlado, salidas esperadas conocidas, a menudo CI. Ejemplo: un agente de mates sobre [GSM8K](https://huggingface.co/datasets/gsm8k). Acierto repetible. El reto es que el set siga siendo representativo. Mezcla smoke tests pequeños y sets más grandes. Empieza aquí antes de desplegar — la unidad lo llama el paso mínimo.
+
+Consejo práctico: cada incidente de producción se vuelve una fila. Ese es el bucle que la unidad describe después. Un set congelado de 100 ítems de la semana de lanzamiento es un trofeo, no un test.
+
+## Después evaluación online
+
+*Fuente nombrada: Hugging Face Agents Course, Bonus Unit 2, Online Evaluation.*
+
+Online: tráfico real. Tasas de éxito, satisfacción, drift, consultas inesperadas. Feedback implícito y explícito; quizá shadow o A/B. Más difícil de etiquetar. Junto con offline: el bucle de la unidad es eval offline, desplegar, monitorear, recoger fallos nuevos, añadirlos al set offline, iterar.
+
+Consejo práctico: no hagas A/B de un prompt y un modelo y una lista de tools de un golpe. Un cambio por experimento o no sabrás qué span se movió.
+
+<Compare a="Offline" b="Online">
+<Side>
+Repetible, ground truth, CI. Ciego a nuevas clases de consulta. Mínimo antes de producción, según la unidad.
+</Side>
+<Side>
+Distribución real, drift, sorpresa. Etiquetas débiles. Complementa el offline; no lo sustituye.
+</Side>
+</Compare>
+
+<Myth>
+El p95 de latencia es salud. No. La unidad separa latencia, errores, coste y calidad. Una disculpa rápida es latencia exitosa y un span de tool fallido.
+</Myth>
+
 <TryThis>
-Lista cinco spans de un turno de soporte: p.ej. `apply_template`, `model.generate`, `tool.search`, `tool.ticket_update`, `compact`. Para cada uno, un campo (tokens, ms, clase de error). Sin cuenta de vendor.
+Lista cinco spans de un turno de soporte: apply_template, model.generate, tool.search, tool.ticket_update, compact. Para cada uno, un campo (tokens, ms, clase de error). Sin cuenta de vendor. Luego marca cuáles dos habrían cazado un 40 por ciento de timeout al CRM con p95 aún en 1,8s.
 </TryThis>
 
 ## Caso — la latencia tranquila de SignalOps
 
-El p95 de SignalOps era 1,8s — verde. El error de tools era 40% (timeout al CRM). El modelo se disculpaba rápido, así que la latencia se veía bien. Alertaban solo al p95. Un ratio de error por span les habría avisado el primer día.
+*Caso pedagógico con voz iAguide; métricas de Bonus Unit 2 (latencia frente a errores de petición).*
 
-Esta lección reescribe ideas del [curso de agentes de Hugging Face](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.
+El p95 de SignalOps era 1,8s — verde. El error de tools era 40 por ciento (timeout al CRM). El modelo se disculpaba rápido, así que la latencia se veía bien. Alertaban solo al p95. Un ratio de error por span les habría avisado el primer día. Añadieron alertas de ratio de error, un set offline de trazas de timeout al CRM y un proveedor de fallback como sugiere la unidad cuando el proveedor A cae.
+
+## Notebook y quiz
+
+*Fuente nombrada: Hugging Face Agents Course, Bonus Unit 2, [monitoring notebook](https://huggingface.co/learn/agents-course/bonus-unit2/monitoring-and-evaluating-agents-notebook) y [quiz](https://huggingface.co/learn/agents-course/bonus-unit2/quiz); Colab https://huggingface.co/agents-course/notebooks/blob/main/bonus-unit2/monitoring-and-evaluating-agents.ipynb.*
+
+Haz el notebook oficial para capturas de vendor. Esta lección no hospeda su quiz ni su certificado. Quédate con la forma: trazas, la lista de métricas, offline y luego online.
+
+Consejo práctico: instrumenta el bucle dummy antes que el agente de gala. Si no ves el append de Observation como span, tampoco verás un worker anidado.
+
+## Lista práctica
+
+*Fuente nombrada: páginas de Bonus Unit 2 en Fuentes; OpenTelemetry https://opentelemetry.io/docs/.*
+
+1. Una traza por turno de usuario. Spans para el modelo y cada tool.
+2. Alertas: latencia, coste, ratio de error, no solo p95.
+3. Set offline con ground truth antes de desplegar.
+4. Online: feedback explícito más implícito.
+5. Los fallos nuevos vuelven al set offline.
+6. Comprobaciones de inyección y daño usan librerías nombradas por la unidad, no una API inventada.
+
+## Qué recordar
+
+*Síntesis de Bonus Unit 2, Hugging Face Agents Course (Burtenshaw, Thomas, Simonini y Paniego, Apache-2.0).*
+
+Un turno es una traza; modelo y tools son spans. La lista de métricas de la unidad es latencia, coste, errores, feedback, acierto, jueces automáticos. Offline primero, online después, los fallos vuelven. Una latencia verde puede esconder un 40 por ciento de error de tools.
+
+## Cuándo cabe esta bonus unit en un temario
+
+*Fuente nombrada: Hugging Face Agents Course, Bonus Unit 2, [introduction](https://huggingface.co/learn/agents-course/bonus-unit2/introduction) (Burtenshaw, Thomas, Simonini y Paniego, Apache-2.0).*
+
+Los autores dicen que este capítulo es para quien ya desarrolla y despliega agentes, quien necesita trazas para diagnosticar una ejecución en vivo, quien quiere bajar el overhead operativo y quien quiere un bucle de feedback de usuario más eval automática. En corto: cualquiera que ponga un agente delante de usuarios. iAguide lo coloca después de [evaluación](/course/evaluation) porque una métrica sin span es una corazonada.
+
+Consejo práctico: haz esta unidad antes de discutir un vendor. Si no puedes nombrar cinco spans de un turno de soporte, un panel solo te mostrará una caja negra más bonita.
+
+Lo que la introducción dice que aprenderás: instrumentar vía OpenTelemetry con smolagents; monitorear coste de tokens, latencia y trazas de error; evaluar en vivo con feedback y un LLM-as-a-judge; análisis offline en un set como GSM8K. Esa lista es el temario. Robala; no inventes una sexta API de vendor.
+
+## Observabilidad son señales; evaluación es el veredicto
+
+*Fuente nombrada: Hugging Face Agents Course, Bonus Unit 2, Evaluating AI Agents en [what-is-agent-observability-and-evaluation](https://huggingface.co/learn/agents-course/bonus-unit2/what-is-agent-observability-and-evaluation).*
+
+La unidad es cuidadosa: observabilidad es mirar logs, métricas y trazas para que el agente no sea una caja negra. Evaluación es analizar esos datos (y hacer tests) para decidir cómo de bien lo hace y cómo mejorarlo. Los agentes no son deterministas y derivan. Sin evaluación no sabrías si el “agente listo” sigue haciendo el trabajo.
+
+Consejo práctico: guarda las dos palabras en el runbook. “Tenemos Langfuse” es observabilidad. “Fallamos el smoke set de GSM8K en CI” es evaluación. SignalOps tenía la primera y la llamaba la segunda.
+
+<Callout>
+El bucle de la unidad es el producto: eval offline, desplegar una versión nueva, monitorear online, recoger fallos nuevos, añadirlos al set offline, iterar. Un set congelado de la semana de lanzamiento es un trofeo.
+</Callout>
+
+## Instrumentar smolagents, no un SDK misterioso
+
+*Fuente nombrada: introducción de Bonus Unit 2 (instrument your agent) y Observability Tools en [what-is-agent-observability-and-evaluation](https://huggingface.co/learn/agents-course/bonus-unit2/what-is-agent-observability-and-evaluation); [documentación de smolagents](https://huggingface.co/docs/smolagents).*
+
+La introducción promete OpenTelemetry con el framework smolagents. La página de tools dice que muchos frameworks exponen metadatos vía OpenTelemetry, y que los vendors también envían instrumentaciones propias. Debes mirar la documentación de la herramienta que uses. Esa frase es toda la política de API de esta lección: nombramos `SmolagentsInstrumentor` como la vía documentada de la librería; no pegamos un snippet de la semana pasada que puede haberse movido.
+
+Consejo práctico: un exportador en staging. Confirma que aparece un span de tool cuando llamas `get_weather` en el Alfred dummy. Si el exportador solo ve `generate`, instrumentaste el modelo y no el arnés.
+
+Enlace: el bucle interno que trazas es el que se escribe a la vista en [dummy-agent](/course/dummy-agent). Los workers anidados de [smolagents-multi](/course/smolagents-multi) se vuelven spans anidados o pierdes al manager.
+
+## Latencia frente a errores, dos gráficos
+
+*Fuente nombrada: Hugging Face Agents Course, Bonus Unit 2, Latency y Request Errors en [what-is-agent-observability-and-evaluation](https://huggingface.co/learn/agents-course/bonus-unit2/what-is-agent-observability-and-evaluation).*
+
+El ejemplo de latencia de la unidad es un agente que gasta veinte segundos en llamadas al modelo y podría usar un modelo más rápido o llamadas en paralelo. El de error es el proveedor A caído, pasar al B. Son páginas distintas del panel. Mezclarlas es cómo SignalOps se quedó verde.
+
+Consejo práctico: pagina el ratio de error de tools y el p95, por separado. Una disculpa rápida es un span de latencia exitoso y un span de tool fallido. El usuario sigue sin ticket.
+
+## Bucles de coste y cinco llamadas al LLM
+
+*Fuente nombrada: Hugging Face Agents Course, Bonus Unit 2, Costs en [what-is-agent-observability-and-evaluation](https://huggingface.co/learn/agents-course/bonus-unit2/what-is-agent-observability-and-evaluation).*
+
+Los agentes facturan por token y por API externa. Tools frecuentes o muchos prompts suben la factura. El ejemplo de la unidad: cinco llamadas al LLM por una ganancia marginal puede no justificarse; quizá menos llamadas o un modelo más barato. El monitoreo en tiempo real caza bucles de bug que martillean una API.
+
+Consejo práctico: limita pasos en el `while` dummy y registra el tope como atributo de span. Un pico de coste con tope de pasos alcanzado es un bucle, no “el modelo se volvió más listo.”
+
+## El feedback son dos canales
+
+*Fuente nombrada: Hugging Face Agents Course, Bonus Unit 2, User Feedback e Implicit User Feedback en [what-is-agent-observability-and-evaluation](https://huggingface.co/learn/agents-course/bonus-unit2/what-is-agent-observability-and-evaluation).*
+
+Explícito: pulgares, estrellas, comentarios. Negativos consistentes deben alertar. Implícito: reformular, repetir consultas, clics de reintento. La misma pregunta dos veces es señal de que el agente no funciona. La eval online suele tener etiquetas débiles; por eso la unidad la empareja con ground truth offline.
+
+Consejo práctico: guarda el pulgar en el id de traza, no en una hoja. Un 👍 sobre una actualización alucinada del CRM es un falso positivo que solo cazas si el span de tool también está etiquetado.
+
+## El acierto lo defines tú; los jueces, los nombras
+
+*Fuente nombrada: Hugging Face Agents Course, Bonus Unit 2, Accuracy y Automated Evaluation Metrics en [what-is-agent-observability-and-evaluation](https://huggingface.co/learn/agents-course/bonus-unit2/what-is-agent-observability-and-evaluation).*
+
+El éxito varía: corrección, acierto de retrieval, satisfacción. Defínelo. Marca trazas succeeded o failed. Evals automáticas: un juez LLM; [RAGAS](https://docs.ragas.io/) para agentes RAG; [LLM Guard](https://llm-guard.com/) para lenguaje dañino e inyección. La página nombra esas librerías. No inventes aquí un tercer SDK de scoring.
+
+Consejo práctico: un juez sin rúbrica es otra caja negra. Escribe tres viñetas de “succeeded” antes de llamar a un LLM-as-a-judge. Para RAG, usa la vía RAGAS nombrada; para inyección, LLM Guard. Confirma las APIs actuales en sus docs.
+
+## Smoke tests y sets más grandes
+
+*Fuente nombrada: Hugging Face Agents Course, Bonus Unit 2, Offline Evaluation en [what-is-agent-observability-and-evaluation](https://huggingface.co/learn/agents-course/bonus-unit2/what-is-agent-observability-and-evaluation).*
+
+La unidad quiere una mezcla: smoke tests pequeños para comprobaciones rápidas, sets más grandes para métricas más amplias. El reto es que el set siga representativo. Actualízalo con casos límite nuevos de producción. GSM8K es su ejemplo de agente de mates, no un examen universal. Un agente de soporte necesita trazas de timeout al CRM, no problemas de enunciado de primaria.
+
+Consejo práctico: diez turnos de oro en CI, cien en un job nocturno, y cada incidente de producción como fila candidata. Esa es la combinación que describe la unidad; los números son de aula, no una cuota secreta.
+
+<Compare a="Un set trofeo" b="Un set vivo">
+<Side>
+Cien ítems de la semana de lanzamiento. Repetible. Ciego a la clase de consulta que llegó el martes. Los timeouts de CRM de SignalOps nunca entraron.
+</Side>
+<Side>
+El bucle de la unidad: los fallos nuevos se unen al set offline. Más difícil de presumir. La única forma de que el 40 por ciento de error de tools se vuelva un test de regresión.
+</Side>
+</Compare>
+
+## Enlaces en este curso
+
+*Fuente nombrada: Hugging Face Agents Course, Bonus Unit 2 (unidad completa); particularidades iAguide que implementan el bucle interno.*
+
+- El `while` interno: [dummy-agent](/course/dummy-agent)
+- Framework code-first que instrumentas: [smolagents](/course/smolagents)
+- Workers anidados como spans anidados: [smolagents-multi](/course/smolagents-multi)
+- Retrieve como span de tool: [agentic-rag](/course/agentic-rag)
+- Cultura de eval offline: [evaluation](/course/evaluation) y [gaia](/course/gaia)
+
+Consejo práctico: si un worker anidado no tiene span, depurarás al manager y publicarás el bug del worker. Nombra al worker.
+
+Inicio del curso: https://huggingface.co/learn/agents-course · repo: https://github.com/huggingface/agents-course · docs: https://huggingface.co/docs
+
+## Fuentes
+
+Burtenshaw, B., Thomas, J., Simonini, T. y Paniego, S. (s. f.). *Hugging Face Agents Course* (Apache-2.0). https://huggingface.co/learn/agents-course · https://github.com/huggingface/agents-course
+
+- Introducción de Bonus Unit 2: https://huggingface.co/learn/agents-course/bonus-unit2/introduction
+- What is agent observability and evaluation: https://huggingface.co/learn/agents-course/bonus-unit2/what-is-agent-observability-and-evaluation
+- Página del notebook de monitoring: https://huggingface.co/learn/agents-course/bonus-unit2/monitoring-and-evaluating-agents-notebook
+- Quiz: https://huggingface.co/learn/agents-course/bonus-unit2/quiz
+- Archivo del notebook: https://huggingface.co/agents-course/notebooks/blob/main/bonus-unit2/monitoring-and-evaluating-agents.ipynb
+- OpenTelemetry: https://opentelemetry.io/docs/
+- Langfuse: https://langfuse.com
+- Arize: https://www.arize.com
+- RAGAS: https://docs.ragas.io/
+- LLM Guard: https://llm-guard.com/
+- GSM8K (ejemplo offline de la unidad): https://huggingface.co/datasets/gsm8k
+- Docs de smolagents (instrumentación): https://huggingface.co/docs/smolagents
+- Hugging Face docs: https://huggingface.co/docs

@@ -1,0 +1,245 @@
+## Una pila de código abierto para ejecutar y para entrenar
+
+Unsloth no es un script suelto. Es una **pila de código abierto** cuya tarea es dejarte **ejecutar** y **entrenar** modelos en hardware que controlas. El contrato público está en [unsloth.ai/docs](https://unsloth.ai/docs). La biblioteca Python que los entrenadores importan de verdad es [unslothai/unsloth](https://github.com/unslothai/unsloth) en GitHub.
+
+Dos productos comparten ese nombre, y hay que distinguirlos desde la primera hora:
+
+- **Unsloth Desktop / Studio** — una UI local de código abierto. Buscas un modelo, abres la pestaña Train, miras la pérdida, exportas. No hace falta un notebook.
+- **Unsloth Core** — la biblioteca Python. Cargas con `FastModel` o `FastLanguageModel`, enganchas LoRA y entregas el modelo al `SFTTrainer` de TRL. Este es el camino NVIDIA batallado.
+
+La portada de la documentación lo dice sin adorno: Unsloth permite ejecutar y entrenar modelos de IA en tu propio hardware local mediante una UI de código abierto, y el mismo proyecto publica los kernels y los entrenadores que hay debajo. No estás eligiendo un tema de blog. Estás eligiendo una **superficie** (Studio o Core) que sigue teniendo que obedecer las mismas reglas de formatos, plantillas y VRAM.
+
+<VisualSlot caption="Cuatro diapositivas: Desktop frente a Core, QLoRA frente a LoRA frente a ajuste completo, safetensors de entrada y GGUF de salida, tres artefactos de exportación que conservan la misma plantilla de chat." />
+
+## Por qué existen los kernels: dos afirmaciones de velocidad, no una
+
+Unsloth existe porque entrenar un modelo instruct moderno en una sola GPU sigue siendo demasiado lento y demasiado hambriento en un montaje estándar de Hugging Face más PEFT. Su afirmación **general**, en la portada de docs y en la lista de funciones de Studio, es que puedes entrenar **unas 2× más rápido** con **un 70% menos de VRAM**, **sin pérdida de exactitud**, frente a esa pila estándar. Es una afirmación de *familia*: LoRA, QLoRA, ajuste completo, RL y el resto del catálogo.
+
+La página de entrenamiento de **Qwen3.8** es más estrecha. En esa arquitectura reportan **unas 1.5× más rápido** y **un 50% menos de VRAM** frente a un montaje FlashAttention-2, otra vez sin pérdida de exactitud. Ese número no sustituye la línea 2× / 70%. Es una **medida de página de modelo**. Si citas 2× en una corrida de Qwen3.8 27B, estás mezclando carteles.
+
+<Compare a="Afirmación general de Unsloth" b="Afirmación de la guía Qwen3.8">
+<Side>
+Unas 2× más rápido y un 70% menos de VRAM frente a Hugging Face más PEFT de serie. Es el número de la portada de docs y de la lista de entrenamiento de Studio. Describe la pila de kernels parcheados en conjunto.
+</Side>
+<Side>
+Unas 1.5× más rápido y un 50% menos de VRAM frente a FlashAttention-2, sin pérdida de exactitud. Es el número de la guía de ajuste fino de Qwen3.8. Úsalo cuando el modelo es Qwen3.8. No lo asciendas en silencio a 2× / 70%.
+</Side>
+</Compare>
+
+<Callout>
+Atribuye el número a la página de la que salió. Una línea general y una comparación FA2 de un modelo concreto no son el mismo experimento. Los kernels son el mismo proyecto; las medidas no lo son.
+</Callout>
+
+Colaboran con los equipos de **Qwen**, **Llama**, **Gemma**, **gpt-oss** y **Phi**, y publican correcciones que esas páginas acreditan (plantillas de chat, tokenizers, errores que afectaban a la exactitud). Andrej Karpathy ha citado el trabajo. Eso es **contexto**: la biblioteca no es un fork de una persona que se desvía en silencio. No es un motivo para saltarse la evaluación. Sigues leyendo la página del modelo el día que entrenas.
+
+## Dos superficies, un contrato
+
+Studio es la superficie sin código. Abres la pestaña **Train**, buscas un modelo, eliges un dataset, ajustas hiperparámetros y contexto, arrancas y miras cómo baja la pérdida. Al terminar, Studio guarda la corrida. **Compare Mode** sienta el LoRA junto al original para oír el delta antes de exportar. La exportación desde la app es GGUF o safetensors.
+
+En la guía de Qwen3.8, Studio **entrena GPUs NVIDIA hoy**. El entrenamiento en Intel, MLX y AMD figura como próximo. Ya puedes **ejecutar** modelos en macOS, Windows y Linux. No trates "abrí Desktop en un Mac" como "este Mac va a hacer QLoRA de un 27B". Inferencia y entrenamiento son columnas distintas.
+
+Core es la superficie Python. `FastModel.from_pretrained` (modelos multimodales recientes y con id de arquitectura) o `FastLanguageModel.from_pretrained` (los notebooks de texto más antiguos) carga la base. `get_peft_model` engancha adapters. TRL `SFTTrainer` más `SFTConfig` corre SFT. **NVIDIA más Unsloth Core es el camino con años de notebooks detrás.** Si depuras un cuelgue, una compilación de kernel o un OOM, empieza ahí — no en una captura de la UI.
+
+<Callout>
+Studio es para quien quiere una pestaña Train. Core es para quien necesita los flags en un archivo. Ambos siguen necesitando una base que no sea GGUF, una plantilla de chat coincidente y un plan de exportación. La UI no exime esas tres cosas.
+</Callout>
+
+## Instalación oficial
+
+Descargas de Desktop, desde la portada de docs:
+
+- [macOS](https://unsloth.ai/download/mac)
+- [Windows](https://unsloth.ai/download/windows)
+- [Linux](https://unsloth.ai/download/linux)
+
+Instalación por CLI, que las mismas páginas imprimen como vía manual:
+
+```bash
+# Mac / Linux / WSL
+curl -fsSL https://unsloth.ai/install.sh | sh
+```
+
+```powershell
+# Windows PowerShell
+irm https://unsloth.ai/install.ps1 | iex
+```
+
+`pip install unsloth` existe y la [guía de fine-tuning](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide) lo documenta para Linux, WSL y Windows. **Prefiere `install.sh` / `install.ps1` cuando quieras el arranque oficial Desktop más CLI.** Pip es la biblioteca. Los instaladores de shell son cómo Unsloth quiere hoy bootstrapear un puesto de trabajo.
+
+Los requisitos de Core (el producto original basado en código) son Linux o Windows, GPUs NVIDIA desde aproximadamente 2018, **capacidad CUDA mínima 7.0**, con GTX 1070 / 1080 listadas como funcionales pero lentas. Imagen Docker: `unsloth/unsloth` en Docker Hub. AMD e Intel tienen **guías de instalación de Core aparte**. Apple / Silicon / MLX para Core se describe como en camino. Python 3.13 está soportado en Core.
+
+## LoRA, QLoRA, ajuste completo
+
+Ya conociste los tres métodos en la lección de ajuste fino. El [texto de Unsloth](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide) es el que hay que conservar:
+
+- **<Term id="lora">LoRA</Term>** — congela la base en **16-bit**. Añade matrices delgadas A y B en las capas lineales y entrena esas. Optimizas del orden del **1% de los pesos**. Un poco más rápido y un poco más exacto que QLoRA; **unas 4× la VRAM**.
+- **<Term id="qlora">QLoRA</Term>** — los mismos adapters, pero la base vive en **4-bit**. Así un 27B o un 70B se vuelve un trabajo de una GPU. Los checkpoints **dynamic 4-bit** de Unsloth (nombres que terminan en `unsloth-bnb-4bit`) usan un poco más de VRAM que el BitsAndBytes 4-bit de serie y recuperan la mayor parte del hueco de exactitud frente a LoRA 16-bit. Un nombre que termina en `bnb-4bit` sin `unsloth` es bnb-4bit de serie. Sin sufijo significa pesos originales 16-bit u 8-bit.
+- **<Term id="full-ft">Ajuste completo</Term>** (FFT) — se mueven todos los pesos. Unsloth lo soporta. Usa **unas 4× la VRAM** de la historia LoRA. Los docs son explícitos: empieza con LoRA o QLoRA; si esa receta no puede aprender la tarea, FFT no arreglará por arte de magia un dataset malo.
+
+La recomendación de Unsloth, que este curso sigue: **empieza por QLoRA**. Carga un checkpoint `*-unsloth-bnb-4bit` cuando lo publiquen. Pon `load_in_4bit=True` y `full_finetuning=False`. Investigación que citan: entrenar y servir en la **misma precisión** ayuda a conservar exactitud — si vas a servir en 4-bit, entrenar en 4-bit es la elección coherente.
+
+<Compare a="QLoRA (empieza aquí)" b="LoRA 16-bit o ajuste completo">
+<Side>
+Base 4-bit, adapters LoRA, gradient checkpointing de Unsloth. Cabe en los mínimos oficiales de la tabla de abajo. Los quants dynamic 4-bit de Unsloth recuperan la mayor parte del antiguo hueco de QLoRA. Es el valor por defecto en una tarjeta de 24GB.
+</Side>
+<Side>
+LoRA en 16-bit es un poco más rápido y un poco más exacto, y quiere varias veces la VRAM. El ajuste completo es la columna 4×. Úsalos cuando el adapter se queda corto en una tarea que has medido de verdad, y cuando la factura de GPU es real, no esperada.
+</Side>
+</Compare>
+
+## GGUF es un formato de inferencia
+
+<Myth>
+No se puede entrenar un GGUF. GGUF es un contenedor de **inferencia** para llama.cpp, Ollama, LM Studio y el chat de Unsloth Desktop. El entrenamiento quiere **safetensors** de Hugging Face o un checkpoint **bnb-4bit** de Unsloth. Entrenar, y **después** exportar GGUF. Cargar `algo.gguf` en `FastModel.from_pretrained` y esperar LoRA no es una receta soportada. Si un foro dice "haz fine-tune de este Q4_K_M", tienen la tubería al revés.
+</Myth>
+
+La página de [guardar a GGUF](https://unsloth.ai/docs/basics/inference-and-deployment/saving-to-gguf) es una página de **exportación**. Parte de un modelo ya entrenado y escribe `q4_k_m`, `q8_0` o `f16`. No es un entrenador. Conserva esa flecha: **safetensors / bnb-4bit → entrenar → GGUF**. Nunca GGUF → entrenar.
+
+## Mínimos oficiales de VRAM
+
+De [Unsloth Requirements](https://unsloth.ai/docs/get-started/fine-tuning-for-beginners/unsloth-requirements). Son **mínimos absolutos**. La longitud de contexto, el batch y el estado del optimizador añaden VRAM. Un OOM habitual no es "la tabla mentía"; es haber dejado `per_device_train_batch_size` en 8. Ponlo a 1, 2 o 3.
+
+| Parámetros | QLoRA 4-bit | LoRA 16-bit |
+| --- | --- | --- |
+| 3B | 3.5 GB | 8 GB |
+| 7B | 5 GB | 19 GB |
+| 8B | 6 GB | 22 GB |
+| 14B | 8.5 GB | 33 GB |
+| 27B | 22 GB | 64 GB |
+| 70B | 41 GB | 164 GB |
+
+La tabla oficial también lista 9B, 11B, 32B, 40B, 81B, 90B y 405B. Las filas de arriba son las que usarás para dimensionar un puesto en este curso. **Un mínimo no es holgura.** Un QLoRA 27B que "cabe en 22GB" a contexto corto no cabrá a 8192 tokens con capas de visión. El siguiente módulo camina ese OOM en Qwen3.8.
+
+<Callout>
+QLoRA frente a LoRA en la misma fila no es un ranking de calidad. Es un ranking de memoria. Un LoRA 27B a 64GB es otra máquina que un QLoRA 27B a 22GB. Elige el método que cabe, y después evalúa. No elijas LoRA porque "suena menos cuantizado".
+</Callout>
+
+## Notebooks: Colab y Kaggle, no una sola nube
+
+La historia de GPU gratis de Unsloth son **dos** productos. [El índice de notebooks](https://unsloth.ai/docs/get-started/unsloth-notebooks) y el repo [unslothai/notebooks](https://github.com/unslothai/notebooks) listan notebooks de **Colab** para muchos modelos (Llama 3.1 8B, Gemma 3 4B, gpt-oss 20B, Qwen3 14B, visión, TTS, GRPO, embeddings). También listan notebooks de **Kaggle**. Kaggle, tal como Unsloth lo describe, es un producto de Google como Colab, con **30 horas** de GPU gratis y **2× Tesla T4**.
+
+**El conversacional de Qwen3.8-27B es un notebook de Kaggle, no de Colab.** El índice lo coloca bajo Standard SFT con una URL de bienvenida de Kaggle. Si alguien pega un enlace Colab de SFT 27B para Qwen3.8, se lo ha inventado. Los modelos grandes que superan el tramo gratis de 15GB de Colab tienen una sección "Large LLMs"; algunos de esos quieren GPUs de 80GB de pago. No asumas que "notebook de Unsloth" significa "Colab gratis".
+
+<Steps>
+1. Abre el [índice de notebooks](https://unsloth.ai/docs/get-started/unsloth-notebooks) y busca el **nombre del modelo**, no una intuición.
+2. Mira si el enlace es Colab o Kaggle. Para el conversacional Qwen3.8-27B, es Kaggle.
+3. Encaja el **trabajo**: SFT conversacional, visión, GRPO, TTS. El notebook equivocado es un collator equivocado.
+4. Solo entonces clona el orden de celdas. Cambiarás dataset, `max_seq_length` y exportación — no el bloque de instalación del kernel por capricho.
+</Steps>
+
+## Hiperparámetros que siempre explicas
+
+La [guía de hiperparámetros LoRA](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide/lora-hyperparameters-guide) y la [guía de fine-tuning](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide) son la fuente. Los valores por defecto existen para tener un punto de partida, no para saltarte la frase que dice qué hace el mando.
+
+**`r` (rango LoRA).** Dimensión interna del par A/B. Valores sugeridos: 8, 16, 32, 64, 128. El arranque habitual de Unsloth es **16 o 32**. Más rango es más capacidad y más memoria. Demasiado alto sobreajusta un conjunto pequeño. En una primera corrida, 16 es también el número de la receta Qwen3.8.
+
+**`lora_alpha`.** Escala la actualización. La fórmula LoRA es peso base más `(alpha / rank) * A B`. Mantén `alpha / rank` al menos en 1. Heurística oficial: **`lora_alpha` igual a `r`, o `2 * r`**. LoRA estabilizado por rango (`use_rslora=True`) divide por sqrt(rank); déjalo en `False` salvo que estés corriendo ese experimento.
+
+**`lora_dropout`.** Unsloth lo deja en **0** por defecto. Sus kernels optimizan el camino con dropout cero. Trabajo reciente que citan encuentra el dropout un regularizador poco fiable en fine-tunes cortos. Si más adelante sospechas sobreajuste, 0.1 es el ensayo distinto de cero documentado — no algo que enciendes "porque el dropout es bueno".
+
+**`use_gradient_checkpointing="unsloth"`.** No `True` o `False` como primera elección. La cadena `"unsloth"` es su checkpointing: ahorro extra de VRAM (citan unos 30% frente al checkpointing ordinario) y el camino de contexto largo. Cuando hay OOM, esto se queda encendido. Recortas `max_seq_length` y el batch, no el checkpointing.
+
+**Batch 1 más acumulación de gradiente.** `per_device_train_batch_size` es el mando de VRAM. `gradient_accumulation_steps` es el mando de tiempo. El batch efectivo es el producto. Unsloth corrigió un bug para que `batch=1, accum=16` y `batch=16, accum=1` coincidan; antes del arreglo no coincidían. En una tarjeta de 24GB, **batch 1** es el valor honesto. Acumula 4 u 8 para mantener un batch efectivo en la banda documentada de 4–16.
+
+**`optim="adamw_8bit"`.** AdamW de 8-bit es el optimizador de las recetas oficiales. Así el estado del optimizador se queda pequeño junto a una base 4-bit. No cambies en silencio a AdamW completo en una tarjeta que ya estaba cerca del OOM.
+
+**Warmup.** `warmup_steps` al **5–10% de los pasos totales**, o un entero pequeño como 10 en una corrida de humo de 100 pasos. El warmup existe para que las primeras actualizaciones no salten. No es adorno opcional.
+
+**`max_steps` frente a epochs.** `max_steps=60` o `100` es cómo Unsloth hace que un notebook termine en una sentada. Para una corrida real te dicen que lo sustituyas por `num_train_epochs` en **1–3**. Más de tres epochs en un conjunto de instrucciones es donde empieza la memorización. Si la pérdida se va hacia 0, eso es sobreajuste, no un premio. Una pérdida de entrenamiento en la banda **0.5 a 1.0** es el "parece sano" que citan; aún depende del dataset.
+
+**`max_seq_length` frente a OOM.** Es el otro eje de VRAM. Llama-3 admite 8192; aun así recomiendan **2048 para pruebas**. Unsloth anuncia fine-tuning de contexto 4× más largo que una pila ingenua, lo cual no es una promesa de que 32k quepa en una T4. Cuando hay OOM, **recorta `max_seq_length` primero**, deja el batch en 1, deja el checkpointing `"unsloth"`. Rellenar un entrenador de longitud 2048 con un puñado de documentos de 8k es cómo compras un OOM sin aprendizaje extra.
+
+Tasa de aprendizaje, porque la tocarás: **`2e-4`** es el arranque documentado de LoRA/QLoRA. RL (DPO, GRPO) arranca alrededor de **`5e-6`**. El ajuste completo quiere aún más baja. Si la pérdida explota, baja. La semilla **`3407`** aparece en todos sus notebooks para que las corridas sean comparables.
+
+## El dataset es un contrato de plantilla
+
+El SFT conversacional no es "un JSON de respuestas". Son **mensajes ya renderizados con la plantilla de chat del modelo**, o un collator que aplica esa plantilla por ti. La plantilla en el **entrenamiento** y la plantilla al **servir** deben ser el mismo objeto: mismos tokens especiales, mismos encabezados de rol, mismo fin de turno. La página de problemas de GGUF de Unsloth es clara sobre lo que ocurre cuando difieren.
+
+<Myth>
+Una corrida que se ve fluida **dentro de Unsloth** puede emitir **sinsentidos, bucles infinitos o cláusulas repetidas** en Ollama o vLLM. La causa habitual es **la plantilla de chat incorrecta** en el artefacto guardado, o el **token EOS incorrecto**. Una segunda causa: el motor de inferencia inyecta un BOS de más, o omite uno que el entrenador esperaba. Arregla la plantilla y el EOS. No subas el rango. No "cuantices más fuerte".
+</Myth>
+
+Los checkpoints Instruct ya conocen una plantilla. Los Base a menudo necesitan que pongas una. Unsloth dice a quien empieza que **parta de Instruct**, porque las filas estilo ChatML / ShareGPT necesitan menos datos que Alpaca sobre un base. Sea lo que elijas, **el EOS debe coincidir**. Si el entrenador nunca ve el token de parada, el GGUF exportado no tiene motivo para parar.
+
+Usarás notebooks conversacionales cuando puedas. Esos notebooks **fuerzan** la plantilla. Ese es el arreglo que Unsloth documenta para la mayoría de los informes "en Unsloth iba bien, luego Ollama se volvió loco".
+
+## Exportación: adapters, 16-bit fusionado, GGUF
+
+Después del SFT tienes tres artefactos honestos. Elige por el trabajo, no por un tuit.
+
+**Solo adapters** — `model.save_pretrained` más `tokenizer.save_pretrained`. Pequeños. Los recargas sobre la **misma** base. Es el archivo que conservas si quizá entrenarás más.
+
+**16-bit fusionado para vLLM** — `save_pretrained_merged(..., save_method="merged_16bit")`. Es el [camino documentado de vLLM](https://unsloth.ai/docs/basics/inference-and-deployment/saving-to-gguf). El servicio empresarial / multi-usuario quiere esto (o FP8 / AWQ en la guía de vLLM), no un GGUF de portátil.
+
+**GGUF** — `save_pretrained_gguf(..., quantization_method="q4_k_m")`. También `q8_0` y `f16`. Puedes hacer `push_to_hub_gguf` con los mismos métodos. Comentarios oficiales de la lista permitida:
+
+- `q4_k_m` — **recomendado**. Q6_K en la mitad de `attention.wv` y `feed_forward.w2`, si no Q4_K.
+- `q8_0` — conversión rápida, uso alto de recursos, en general aceptable.
+- `f16` — conversión más rápida, conserva la exactitud 16-bit, lento y hambriento de memoria al servir.
+- `not_quantized` — conversión rápida, inferencia lenta, archivos grandes.
+- `quantized` — conversión lenta, inferencia rápida, archivos pequeños.
+- `q5_k_m` — también marcado como recomendado, un bit más pesado que `q4_k_m`.
+
+Si **guardar** produce OOM, la página de GGUF dice bajar `maximum_memory_usage`. El valor por defecto es **0.75**. Bájalo a **0.5** (la mitad de la memoria pico de GPU) o menos. Ese flag es para exportar, no para entrenar.
+
+## Loaders de Core: `FastModel` y `FastLanguageModel`
+
+Los notebooks de texto más antiguos importan `FastLanguageModel`. Los modelos multimodales recientes y con id de arquitectura — Qwen3.8 es uno — importan `FastModel`. Ambos exponen `from_pretrained` y `get_peft_model`. Los flags que de verdad conmutas son las mismas ideas: `max_seq_length`, `load_in_4bit`, `full_finetuning`. Solo uno de 4-bit, 8-bit, LoRA 16-bit o ajuste completo debe ser verdadero. La [guía de fine-tuning](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide) es explícita: no los combines.
+
+Los módulos objetivo, cuando los pones por nombre, deben cubrir **atención y MLP**: `q_proj`, `k_proj`, `v_proj`, `o_proj`, `gate_proj`, `up_proj`, `down_proj`. La guía de hiperparámetros de Unsloth, citando el paper de QLoRA, dice que apuntar a todas las capas lineales mayores es cómo LoRA iguala el ajuste completo. Quitar módulos para "ahorrar VRAM" ahorra casi nada y cuesta calidad. En modelos de visión los mandos equivalentes son `finetune_language_layers`, `finetune_attention_modules`, `finetune_mlp_modules` y `finetune_vision_layers` — el último se queda en falso en un JSONL de texto.
+
+## Renderizar una fila antes de que el entrenador la vea
+
+Si no usas un collator conversacional, construyes tú mismo una columna `text`. La forma es: una lista de turnos rol/contenido de entrada, una cadena de salida.
+
+```python
+messages = [
+    {"role": "user", "content": "How do I reset the printer?"},
+    {"role": "assistant", "content": "Power off. Wait ten seconds. Power on."},
+]
+row = tokenizer.apply_chat_template(
+    messages,
+    tokenize=False,
+    add_generation_prompt=False,
+)
+# write {"text": row} into JSONL
+```
+
+Esa `row` es lo que SFT ve cuando `dataset_text_field="text"`. `add_generation_prompt=False` importa: entrenas sobre un turno **completado**, no sobre una cabecera de asistente abierta. Al servir, el motor añadirá el prompt de generación. Si metes ese prompt en cada fila de entrenamiento, enseñas al modelo a esperar una cabecera duplicada.
+
+La evaluación no es adorno opcional. La propia guía de Unsloth: habla con el modelo; si activas un split de validación, `evaluation_steps=100` evita que domine la corrida. Un split simple es el 20% del archivo de train reservado. Las tablas automáticas no te dirán si tu política de reinicio de impresora sigue intacta. Lo dirás tú.
+
+## Exportación Studio frente a exportación Core
+
+<Compare a="Studio (pestaña Train)" b="Core (Python)">
+<Side>
+Buscas el modelo, pones hipers, arrancas, miras caer la pérdida, dejas que Studio guarde. Exportas GGUF o safetensors desde la app. Pulsas Compare Mode para sentar el LoRA junto al original antes de publicar. Es el camino sin código en NVIDIA hoy.
+</Side>
+<Side>
+`save_pretrained` para adapters, `save_pretrained_gguf` con `q4_k_m`, `save_pretrained_merged` con `merged_16bit` para vLLM. Tú posees el directorio de salida. Comparas cargando base frente a adapter en dos sesiones. Es el camino que imprimen los notebooks, y el que puedes meter en control de versiones.
+</Side>
+</Compare>
+
+Ninguna superficie te deja saltarte la plantilla. Studio no inventará un EOS que nunca entrenaste. Core tampoco.
+
+## Una parada breve: `unsloth start`
+
+Cuando un modelo **está en ejecución** en local, `unsloth start` es cómo Unsloth cablea agentes de código a ese endpoint sin que edites los archivos de configuración del agente. Después de que Desktop tenga un modelo cargado (o después de pasar `--model` para que arranque un servidor temporal), desde una carpeta de proyecto:
+
+```bash
+unsloth start claude
+```
+
+Sustituye `claude` por `codex`, `hermes`, `openclaw` u `opencode`. El comando configura endpoint, clave API, proveedor, modelo y contexto para esa sesión. Codex quiere hoy un **GGUF servido por `llama-server`**. Este párrafo es toda la lección: los agentes consumen un modelo local **en marcha**. No son un método de entrenamiento. El resto de este módulo se queda en entrenar y exportar.
+
+## Qué conviene recordar
+
+Unsloth es Desktop más Core, ambos oficiales, ambos locales. Las afirmaciones de velocidad vienen en dos tamaños — 2× / 70% general, 1.5× / 50% en Qwen3.8 frente a FA2. Entrena NVIDIA en Studio hoy; Core en NVIDIA es el camino endurecido. Empieza QLoRA desde un checkpoint que no sea GGUF. Dimensiona la VRAM con la tabla de mínimos, y después suma contexto y batch. Fuerza la plantilla de chat al entrenar y al servir. Exporta adapters, GGUF `q4_k_m` o 16-bit fusionado cuando la plantilla sea honesta.
+
+<TryThis>
+Escribe una lista de cinco líneas y déjala encima de cada comando de entrenamiento. (1) Formato de la base: safetensors o `unsloth-bnb-4bit`, **no** GGUF. (2) Plantilla de chat: con nombre, y la misma que usarás en Ollama o vLLM. (3) Método de VRAM: QLoRA 4-bit, LoRA 16-bit o ajuste completo, con un número de la tabla de mínimos. (4) `max_seq_length`: un número que puedas defender, no el máximo teórico del modelo. (5) Exportación: adapters, GGUF `q4_k_m` o 16-bit fusionado — elige uno antes de arrancar, para no descubrir a mitad de corrida que necesitabas un collator que no usaste. Si alguna línea está en blanco, no estás listo para entrenar.
+</TryThis>
+
+**Case.** Un compañero hace fine-tune sobre un JSON de **solo respuestas**: sin turno de sistema, sin turno de usuario, sin plantilla de chat, sin EOS. La pérdida cae. Exporta GGUF, lo mete en Ollama y el modelo **entra en bucle** — la misma cláusula, luego la misma cláusula, hasta que el cliente lo corta. Diagnostica en este orden, que es también el de la guía de problemas GGUF de Unsloth. Primero, el conjunto de train nunca mostró una plantilla conversacional, así que el adapter aprendió "continúa este bloque de texto de respuesta", no "cierra un turno". Segundo, **el EOS nunca estuvo en el objetivo**, así que al servir no hay nada que emita una parada. Tercero, Ollama envuelve el prompt en **su** plantilla, que ahora es un **segundo** envoltorio alrededor de un modelo que nunca vio el primero. La ventana de chat de Unsloth pudo parecer bien si promptaron como compleción cruda. El arreglo no es otro quant. Renderiza cada fila con `tokenizer.apply_chat_template`, conserva la **misma** plantilla en el Modelfile / motor vLLM, conserva el **mismo EOS**, y usa un notebook conversacional para que el collator no pueda saltarse ese paso en silencio. Después evalúa un prompt reservado en **Ollama**, no solo dentro de Unsloth.
+
+Fuentes oficiales de esta lección: [docs de Unsloth](https://unsloth.ai/docs), [guía de fine-tuning](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide), [requisitos](https://unsloth.ai/docs/get-started/fine-tuning-for-beginners/unsloth-requirements), [notebooks](https://unsloth.ai/docs/get-started/unsloth-notebooks), [guardar a GGUF](https://unsloth.ai/docs/basics/inference-and-deployment/saving-to-gguf), [hiperparámetros LoRA](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide/lora-hyperparameters-guide), [unsloth start](https://unsloth.ai/docs/integrations/unsloth-start), [GitHub unslothai/unsloth](https://github.com/unslothai/unsloth). La VRAM específica de Qwen3.8 y la receta SFT completa son la siguiente lección de entrenamiento.

@@ -15,7 +15,7 @@
   "prereqs": [
     "dummy-agent"
   ],
-  "durationMin": 24,
+  "durationMin": 36,
   "tags": [
     "smolagents",
     "code-agent",

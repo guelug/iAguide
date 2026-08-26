@@ -1,21 +1,193 @@
-## Resolvedor compartido
+## Un resolvedor, cinco hosts
 
-Devuelve `{provider, api_mode, base_url, api_key, source}` para CLI, gateway, cron, ACP y aux.
+CLI, gateway, cron, ACP y las llamadas auxiliares al modelo comparten un resolvedor de runtime de proveedores. *Provider Runtime Resolution* de Nous Research (s. f.) es la página de la guía de desarrollo; *LLM and Model Providers* (s. f.) es la tabla de operador. La rotación de credenciales vive en *Credential Pools* (s. f.). La lección general [OAuth y claves](/es/m/oauth-and-keys) cubre PKCE frente a claves API entre harnesses. Esta lección es la particularidad de Hermes: cómo `runtime_provider.py` convierte un id de proveedor en un cliente vivo.
 
-Tres api_mode: chat_completions, codex_responses, anthropic_messages.
+Archivos principales: `hermes_cli/runtime_provider.py`, `hermes_cli/auth.py`, `hermes_cli/model_switch.py`, `agent/auxiliary_client.py`, `providers/` (`ProviderProfile`, `register_provider`, `get_provider_profile`) y plugins empaquetados bajo `plugins/model-providers/`. Los plugins de usuario en `$HERMES_HOME/plugins/model-providers/` pisan los empaquetados del mismo nombre.
 
-Las claves se limitan a su host. El fallback no lo heredan los subagentes.
+<VisualSlot caption="resolver, 3 api_modes, alcance de clave, fallback, subagentes no heredan." />
 
-<VisualSlot caption="El resolvedor alimenta tres modos API. Claves con alcance por URL." />
+## Qué devuelve la resolución
 
-## Caso: OPENROUTER filtrado a un base URL custom
+El resolvedor no devuelve una personalidad. Devuelve cinco campos más metadatos específicos del proveedor como caducidad y refresh (Nous Research, *Provider Runtime Resolution*, s. f.):
 
-**Caso.** Proxy propio con OPENROUTER_API_KEY en el entorno.
+| Campo | Significado |
+| --- | --- |
+| `provider` | Id canónico (`anthropic`, `openrouter`, `custom`, …) |
+| `api_mode` | Formato de cable: `chat_completions`, `codex_responses` o `anthropic_messages` |
+| `base_url` | Endpoint al que el cliente hará POST |
+| `api_key` | Secreto o token que enviará (env, almacén OAuth o pool) |
+| `source` | De dónde salió ese secreto (env, `auth.json`, almacén Claude Code, slot del pool, …) |
 
-**Arreglo.** Alcance por familia de host; audita endpoints custom.
+`get_provider_profile()` aporta el `base_url` canónico, la lista de prioridad de variables de entorno, el `api_mode` y `fallback_models` para no duplicar esos datos. Añadir un plugin que llama a `register_provider()` basta para que el resolvedor lo recoja. Ningún branch en el resolvedor.
+
+## Precedencia: la elección guardada gana a un export rancio
+
+A alto nivel, la resolución usa este orden (Nous Research, *Provider Runtime Resolution*, s. f.):
+
+1. Petición explícita de CLI o runtime.
+2. Config de modelo/proveedor en `config.yaml`.
+3. Variables de entorno.
+4. Defaults específicos del proveedor o auto-resolución.
+
+Ese orden es portante. Hermes trata la elección guardada de modelo/proveedor como fuente de verdad en las corridas normales. Un `OPENAI_BASE_URL` rancio en el shell actual no debe pisar en silencio el endpoint que el operador eligió por última vez en `hermes model`. `LLM_MODEL` en `.env` está eliminado; `config.yaml` es la única fuente de verdad para modelo y endpoint. `OPENAI_BASE_URL` sigue honrándose, pero solo para el proveedor `openai-api` (Nous Research, *LLM and Model Providers*, s. f.).
+
+<Callout>
+Consejo: cuando un endpoint custom "se convierte" en OpenRouter al azar, comprueben si exportaron una URL base sobrante. Luego si `hermes model` guardó de verdad `provider: custom`. El trabajo del resolvedor es distinguir esas dos situaciones.
+</Callout>
+
+## `hermes model` frente a `/model`
+
+Hermes documenta dos comandos que la gente intercambia por accidente (Nous Research, *LLM and Model Providers*, s. f.):
+
+| Comando | Dónde | Qué puede hacer |
+| --- | --- | --- |
+| `hermes model` | El terminal, **fuera** de cualquier sesión | Asistente completo: añadir proveedores, OAuth, pegar claves, endpoints |
+| `/model` | **Dentro** de una sesión de chat Hermes | Cambiar entre proveedores y modelos **ya configurados** |
+
+`/model` no puede añadir proveedores. Si solo tienen OpenRouter y teclean `/model` esperando enganchar Anthropic, Hermes solo mostrará OpenRouter. Salgan (`Ctrl+C` o `/quit`), ejecuten `hermes model`, terminen el alta, abran una sesión nueva. El pipeline compartido de cambio es `hermes_cli/model_switch.py`: CLI y gateway usan el mismo código (Nous Research, *Provider Runtime Resolution*, s. f.).
+
+Los flujos OAuth de device-code, Claude Max frente a Pro, el login del plan ChatGPT y PKCE viven en [OAuth y claves](/es/m/oauth-and-keys). No peguen esa lección en `config.yaml`. El resolvedor solo necesita saber qué slot de credencial está activo.
+
+**Caso.** Un operador teclea `/model anthropic` en una sesión de WhatsApp que nunca corrió `hermes model` para Anthropic. No aparece nada nuevo. Concluyen que el gateway no puede hacer Claude. El gateway usa el mismo resolvedor que la CLI; el proveedor nunca se configuró. El arreglo es el asistente, no un parche del gateway.
 
 <TryThis>
-Escribe la salida de cinco campos para provider=anthropic y di por que el subagente no hereda fallback.
+Escriban el test de una línea: "¿Aparece este id de proveedor en `hermes auth list` o en `config.yaml`?" Si no, `/model` no les salva. Si sí, `/model provider:model` debería persistir la URL base para que el cambio sobreviva el reinicio (Nous Research, *LLM and Model Providers*, s. f.).
 </TryThis>
 
-Fuente: [Provider runtime](https://hermes-agent.nousresearch.com/docs/developer-guide/provider-runtime).
+## Tres modos de API, un formato interno
+
+Orden de resolución del modo, reenunciado desde la página del bucle y la de proveedores: argumento explícito `api_mode` del constructor; detección por proveedor (`anthropic` pasa a `anthropic_messages`); heurísticas de URL base (`api.anthropic.com` igual); luego el default `chat_completions`.
+
+| `api_mode` | Uso | Notas |
+| --- | --- | --- |
+| `chat_completions` | Endpoints compatibles con OpenAI (OpenRouter, custom, la mayoría) | Default |
+| `codex_responses` | API Codex / Responses de OpenAI; también xAI Grok | Almacén de credenciales propio |
+| `anthropic_messages` | API nativa Anthropic Messages | `agent/anthropic_adapter.py` traduce |
+
+Cuando la resolución elige `anthropic`, Hermes usa la API nativa Messages. La resolución de credenciales prefiere credenciales refrescables de Claude Code frente a tokens copiados al env cuando están ambos. Hermes hace preflight del refresh de Anthropic antes de las llamadas nativas, y aún reintenta una vez un 401 tras reconstruir el cliente (Nous Research, *Provider Runtime Resolution*, s. f.). Codex usa `codex_responses` con su propio almacén bajo `~/.hermes/auth.json`.
+
+Los proveedores custom con nombre pueden poner `transport` en cualquiera de los tres modos. La auto-detección por URL (por ejemplo un path que contiene `/anthropic`) es el fallback cuando el campo queda en blanco (Nous Research, *LLM and Model Providers*, s. f.).
+
+## El alcance de claves es una valla anti-fuga
+
+Hermes contiene lógica para no filtrar la clave API equivocada a un endpoint custom cuando existen varias claves. Cada clave de proveedor está acotada a su propia URL base (Nous Research, *Provider Runtime Resolution*, s. f.):
+
+- `OPENROUTER_API_KEY` solo se envía a endpoints de `openrouter.ai`.
+- `AI_GATEWAY_API_KEY` solo se envía a endpoints de `ai-gateway.vercel.sh`.
+- `OPENAI_API_KEY` se usa para endpoints custom y como fallback.
+
+El resolvedor también distingue un endpoint custom **de verdad** elegido por el usuario del camino fallback de OpenRouter que se usa cuando no hay endpoint custom. Esa distinción importa para servidores locales, APIs compatibles con OpenAI que no son OpenRouter, cambiar de proveedor sin rehacer el setup, y endpoints custom guardados en config que deben seguir funcionando aunque `OPENAI_BASE_URL` no esté exportado.
+
+**Caso.** `OPENROUTER_API_KEY` y `OPENAI_API_KEY` conviven en `.env`. El operador apunta Hermes a `http://localhost:8000/v1`. Si el resolvedor enviara la clave de OpenRouter a localhost, fallan dos cosas: el servidor local puede registrar un secreto de nube, y OpenRouter no ha visto la petición. El alcance existe para que eso no ocurra.
+
+## Nous Portal, en este harness
+
+Nous Portal es la pasarela unificada de suscripción de Nous Research y la forma recomendada de correr Hermes Agent. Un login OAuth cubre más de 300 modelos agénticos de frontera más el Tool Gateway (búsqueda web, generación de imagen, TTS, automatización de navegador), facturado contra la suscripción Nous en lugar de cinco cuentas de proveedor (Nous Research, *LLM and Model Providers*, s. f.).
+
+```bash
+hermes setup --portal
+hermes model
+hermes portal info
+```
+
+Cada petición Portal desde Hermes lleva una etiqueta `client=hermes-client-v…` alineada a la release instalada. Se prefieren JWT con alcance `inference:invoke`; los refresh tokens revocados se ponen en cuarentena. Quienes pagan obtienen Tool Gateway sin claves extra. Aquí no se inventan precios; las suscripciones se venden en [portal.nousresearch.com/manage-subscription](https://portal.nousresearch.com/manage-subscription).
+
+Las tareas auxiliares (visión, resumen web, mixture-of-agents, resúmenes de compresión) default a `auxiliary.*.provider: "auto"`, que las enruta al modelo de chat **principal**. Sobrescriban por tarea si quieren un auxiliar más barato. Es una palanca de gasto, no una nota al pie. Cuando una tarea auxiliar se configura con proveedor `main`, Hermes la resuelve por el **mismo** camino de runtime compartido que el chat normal (Nous Research, *Provider Runtime Resolution*, s. f.).
+
+<Callout>
+Un solo OAuth de Portal cubre más de 300 modelos, así que la mayoría de quienes usan Portal no necesitan un pool de credenciales (Nous Research, *Credential Pools*, s. f.). Los pools son sobre todo para proveedores de clave API como OpenRouter y Anthropic.
+</Callout>
+
+## Familias de proveedor (vista del resolvedor)
+
+Las familias actuales incluyen, del conjunto empaquetado bajo `plugins/model-providers/` (Nous Research, *Provider Runtime Resolution*, s. f.). La tabla de operador de la página de integraciones es más larga e incluye variables de entorno; esta tabla es lo que el **resolvedor** conoce como ids de primera clase:
+
+| Familia | Id típico | `api_mode` por defecto |
+| --- | --- | --- |
+| Nous Portal | `nous` | chat completions (camino Portal) |
+| OpenRouter | `openrouter` | `chat_completions` |
+| Anthropic nativo | `anthropic` (alias `claude`, `claude-code`) | `anthropic_messages` |
+| OpenAI Codex | `openai-codex` | `codex_responses` |
+| xAI Grok | `xai` / `xai-oauth` | `codex_responses` (Responses API) |
+| GitHub Copilot | `copilot` / `copilot-acp` | Chat completions, o Responses para GPT-5+ |
+| Custom / custom con nombre | `custom` / `custom:<name>` | Suele ser `chat_completions`; `transport` puede pisar |
+| Forma local | `lmstudio`, `ollama-cloud`, `actual` | Compatible con OpenAI |
+
+AI Gateway (`ai-gateway`) obtiene los modelos disponibles del endpoint `/models` del gateway, filtrando a modelos de lenguaje con tool-use. Pongan `AI_GATEWAY_API_KEY` en `~/.hermes/.env` y corran con `--provider ai-gateway`.
+
+La tabla completa de setup — Fireworks, Novita, z.ai, Kimi, MiniMax, DashScope, Bedrock, Vertex, NVIDIA NIM, Hugging Face y el resto — vive en la [página de proveedores](https://hermes-agent.nousresearch.com/docs/integrations/providers). No memoricen nombres de variables desde el chat. Búsquenlos.
+
+## El fallback es una cadena; los subagentes no la heredan
+
+Hermes soporta una cadena configurada de proveedores fallback: una lista de pares proveedor-más-modelo que se prueban en orden cuando el modelo primario encuentra errores. El dict legado de un solo par `fallback_model` sigue aceptándose y se migra en la primera escritura. La config canónica es `fallback_providers:` de primer nivel (Nous Research, *LLM and Model Providers*, s. f.).
+
+`_try_activate_fallback()` dispara desde tres sitios del bucle de reintentos: tras el máximo de reintentos en respuestas API inválidas; en errores de cliente no reintentables (HTTP 401, 403, 404); tras el máximo de reintentos en errores transitorios (429, 500, 502, 503). La activación es de un disparo por sesión (`_fallback_activated`). Intercambia `model`, `provider`, `base_url`, `api_mode` y el cliente in situ, reevalúa la caché de prompt, resetea el contador de reintentos y continúa.
+
+Lo que **no** soporta fallback (Nous Research, *Provider Runtime Resolution*, s. f.):
+
+- Delegación a subagentes (`tools/delegate_tool.py`): los subagentes heredan el proveedor del padre pero **no** la config de fallback.
+- Tareas auxiliares: usan su propia cadena independiente de auto-detección.
+
+Los jobs de cron **sí** soportan fallback: `run_job()` lee `fallback_providers` (o el legado `fallback_model`) y lo pasa a `AIAgent`, igual que `_load_fallback_model()` del gateway.
+
+**Caso.** Un padre recibe 429, hace fallback de Anthropic a OpenRouter, y luego `delegate_task` crea un hijo. El hijo arranca en OpenRouter (proveedor vivo heredado) sin la cadena de fallback sobrante. Si OpenRouter luego da 429, el hijo no recorre la lista del padre. El aislamiento es la feature; no lo "arreglen" copiando `_fallback_activated` al hijo.
+
+<TryThis>
+Dibujen las tres capas como anillos concéntricos: pool de credenciales (mismo proveedor, siguiente clave), luego cadena de fallback (otro proveedor), luego auto-detección auxiliar (tareas laterales). Un 429 recorre primero el anillo interior. Inventar un cuarto anillo en `config.yaml` no es una palanca de Hermes.
+</TryThis>
+
+## Pools de credenciales: mismo proveedor, siguiente clave
+
+Los pools registran varias claves API o tokens OAuth para el **mismo** proveedor. Cuando una clave choca con un rate limit o una cuota de facturación, Hermes rota a la siguiente clave sana. Esto es distinto del fallback, que cambia de proveedor. Los pools se prueban primero; si se agotan todas las claves del pool, entonces se activa el fallback (Nous Research, *Credential Pools*, s. f.).
+
+Estrategias de rotación, bajo `credential_pool_strategies` en `config.yaml`: `fill_first` (default), `round_robin`, `least_used`, `random`.
+
+Recuperación de errores:
+
+| Error | Comportamiento | Enfriamiento por defecto |
+| --- | --- | --- |
+| 429 rate limit | Reintentar la misma clave una vez; el segundo 429 consecutivo rota | 1 hora |
+| 402 facturación/cuota | Rotar de inmediato | 1 hora |
+| 401 auth caducada | Refrescar OAuth primero; rotar solo si el refresh falla | 5 minutos |
+| Todas las claves agotadas | Caer a `fallback_model` si está configurado | — |
+
+Las marcas de tiempo `reset_at` que aporta el proveedor pisan esos defaults. La rotación de clave **resetea la caché de prompt**: las cachés del lado del proveedor están acotadas a la cuenta que hizo la petición. La siguiente petición relee el historial entero a precio de input sin descuento. La rotación mantiene viva la sesión; no es gratis.
+
+Los subagentes comparten el pool del padre para el mismo proveedor, con leasing de credencial por tarea para que los hijos no entren en conflicto al rotar a la vez. El pool usa un lock de threading para `select()`, `mark_exhausted_and_rotate()`, `try_refresh_current()` y `mark_used()`.
+
+```bash
+hermes auth list
+hermes auth add openrouter --api-key sk-or-v1-your-second-key
+```
+
+Las entradas auto-sembradas (variables de entorno, tokens OAuth, credenciales Claude Code) se actualizan en cada carga del pool. Las entradas manuales añadidas con `hermes auth add` nunca se podan solas. Los secretos de runtime prestados solo persisten metadatos más una huella no reversible en `auth.json`; el estado OAuth que posee Hermes conserva los tokens duraderos que necesita para refrescar.
+
+<Callout>
+La identidad del modelo forma parte de la clave de caché del proveedor. Un `/model` explícito, un fallback del modelo primario o una rotación de pool hacia otra cuenta significan cero aciertos de caché en la siguiente petición (Nous Research, *Context Compression and Caching*, s. f.). No añadan features que intercambien en silencio el modelo o las credenciales a mitad de sesión.
+</Callout>
+
+CLI, gateway y ACP llaman a este resolvedor para que un refresh de token en un host no sea otro camino de código en otro. Por eso la página de arquitectura puede decir "18 o más proveedores" sin dibujar 18 pilas de cliente. La lección siguiente, [tiers del prompt](/es/m/hermes-assembly), es lo que se cachea en el cliente que este resolvedor acaba de construir.
+
+## Copilot y endpoints custom, en breve
+
+GitHub Copilot es de primera clase: `copilot` habla con la API de Copilot; `copilot-acp` lanza un `copilot --acp --stdio` local. Los PAT clásicos `ghp_*` no están soportados; usen `gho_`, `github_pat_` o `ghu_` (Nous Research, *LLM and Model Providers*, s. f.). En un HTTP 401, Hermes vuelve a resolver el token y reintenta una vez antes del fallback.
+
+Los proveedores custom con nombre viven bajo el dict `providers:` en `config.yaml`. `key_cmd` acuña un bearer de vida corta desde un helper (por ejemplo `gcloud auth print-access-token`) y no es lo mismo que `secrets.command`, que corre una vez al arrancar para poblar variables de entorno. El cookbook de la página de proveedores tiene recetas de Together, Groq y Perplexity: son endpoints custom, no ids extra de primera clase.
+
+Los servidores locales necesitan contexto suficiente para uso de agente. Hermes rechaza ventanas por debajo de 64.000 tokens al arrancar porque el system prompt, los schemas de tools y el estado de trabajo necesitan sitio (Nous Research, *LLM and Model Providers*, s. f., aviso de Ollama). Es una comprobación adyacente al resolvedor, no una opinión sobre la calidad del modelo.
+
+## Fuentes
+
+Nous Research. (s. f.). *Provider runtime resolution*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/provider-runtime
+
+Nous Research. (s. f.). *LLM and model providers*. Hermes Agent. https://hermes-agent.nousresearch.com/docs/integrations/providers
+
+Nous Research. (s. f.). *Credential pools*. Guía de usuario de Hermes Agent. https://hermes-agent.nousresearch.com/docs/user-guide/features/credential-pools
+
+Nous Research. (s. f.). *Agent loop internals*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop
+
+Nous Research. (s. f.). *Architecture*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/architecture
+
+Nous Research. (s. f.). *Context compression and caching*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/context-compression-and-caching
+
+Nous Research. (s. f.). *Model provider plugins*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/model-provider-plugin

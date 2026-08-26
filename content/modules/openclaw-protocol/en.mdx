@@ -1,25 +1,184 @@
 ## Frames, not ad-hoc JSON
 
-Transport: WebSocket text frames. First frame MUST be connect. Non-JSON or non-connect first frame is a hard close.
+OpenClaw's [*Gateway protocol*](https://docs.openclaw.ai/gateway/protocol) (n.d.) is the primary source. The Gateway WebSocket protocol is the single control plane and node transport. Operator and node clients (CLI, web UI, macOS app, iOS/Android nodes, headless nodes) connect over WebSocket and declare a **role** and **scope** at handshake time. [*Gateway architecture*](https://docs.openclaw.ai/concepts/architecture) (OpenClaw, n.d.) states the invariants this lesson implements on the wire.
 
-After handshake: {type:req, id, method, params} -> {type:res, id, ok, payload|error}. Events: {type:event, event, payload, seq?}. TypeBox schemas generate JSON Schema and Swift models.
+Transport: WebSocket, text frames, JSON payloads. First frame **must** be a `connect` request. Pre-connect frames are capped at 64 KiB (`MAX_PREAUTH_PAYLOAD_BYTES`). After handshake, follow `hello-ok.policy.maxPayload` and `hello-ok.policy.maxBufferedBytes` (OpenClaw, *Gateway protocol*, n.d.).
 
-All connects sign connect.challenge. Signature payload v3 also binds platform and deviceFamily. Side-effecting methods (send, agent) require idempotency keys. Events are not replayed.
+The generic [gateway](/en/m/gateway) lesson stays harness-agnostic. This one is the typed contract.
 
 <VisualSlot caption="connect first, req/res, events, challenge nonce, idempotency." />
 
-## Compare vs Hermes
+## Three envelopes
 
-Hermes has no public WS control plane; adapters emit MessageEvent in-process. OpenClaw protocol is the contract for every client and node.
+After handshake the page names three shapes. Copy them into the TryThis answer. Do not invent a fourth envelope named ping.
 
-## Case: ping first
+```json
+{
+  "type": "req",
+  "id": "…",
+  "method": "connect",
+  "params": {}
+}
+```
 
-**Case.** A dashboard sends health before connect; the socket closes with no useful body.
+```json
+{
+  "type": "res",
+  "id": "…",
+  "ok": true,
+  "payload": {}
+}
+```
 
-**Fix.** Handshake is mandatory. Then health/status/agent.
+```json
+{
+  "type": "event",
+  "event": "tick",
+  "payload": {},
+  "seq": 1
+}
+```
+
+Requests may carry an optional W3C `traceparent` string after authentication. Missing or malformed values within the 128-character field limit keep a fresh request trace and do not fail the RPC. Longer values make the request frame invalid. The initial `connect` never establishes trace context for later frames (OpenClaw, *Gateway protocol*, n.d.).
+
+Response errors use `code`, `message`, optional `details`, `retryable`, and `retryAfterMs`. Clients should branch on `code` and `details.code`. Method-level authorization failures use top-level `code` `FORBIDDEN` with structured missing-scope details: `MISSING_SCOPE`, `missingScope`, `requiredScopes`. HTTP scope failures mirror that object under `error.details` and use HTTP status 403.
+
+<Callout>
+Handshake is mandatory. Any non-JSON or non-connect first frame is a hard close. Events are not replayed; clients must refresh on gaps (OpenClaw, *Gateway architecture*, n.d.; *Gateway protocol*, n.d.).
+</Callout>
+
+## Handshake
+
+The Gateway sends a pre-connect challenge event `connect.challenge` with a nonce and `ts`. Device-auth clients use that `ts` as `connect.params.device.signedAt`. For WebSocket challenges, `ts` must be a non-negative integer. A received challenge with an absent or malformed `ts` is invalid (OpenClaw, *Gateway protocol*, n.d.).
+
+The client replies with method `connect`. Documented params include `minProtocol`, `maxProtocol`, `client` (id, version, platform, mode), `role`, `scopes`, `caps`, `commands`, `permissions`, `auth`, `locale`, `userAgent`, and `device` (id, publicKey, signature, signedAt, nonce). Nodes set `role` to `node` and fill caps, commands, and permissions. Operators set `role` to `operator` and send operator scopes.
+
+Gateway responds with `hello-ok`. `HelloOkSchema` requires `server`, `features`, `snapshot`, `policy`, and `auth`. `auth` reports the negotiated role and the current socket's effective authorization scopes even when no device token is issued. `deviceToken`, when present, is the primary reusable credential for the same device and role.
+
+`policy` in the protocol example advertises `maxPayload` 26214400, `maxBufferedBytes` 52428800, `tickIntervalMs` 15000, and optional `attachments` with `maxBytes` 20971520 and `maxImageBytes` 6291456. Honor those advertised numbers rather than the pre-handshake client defaults (OpenClaw, *Gateway protocol*, n.d.).
+
+While startup sidecars are still finishing, `connect` can return a retryable `UNAVAILABLE` with `details.reason` `startup-sidecars` and `retryAfterMs`. Retry within the connection budget.
+
+## Roles and scopes
+
+Roles (OpenClaw, *Gateway protocol*, n.d.):
+
+| Role | Meaning |
+| --- | --- |
+| `operator` | Control-plane client (CLI, UI, automation) |
+| `node` | Capability host (camera, screen, canvas, system.run) |
+| `worker` | Cloud execution host on the dedicated closed worker protocol |
+
+Operator scopes are a closed set: `operator.read`, `operator.write`, `operator.admin`, `operator.approvals`, `operator.pairing`, `operator.talk`, `operator.talk.secrets`. `operator.write` continues to satisfy `operator.talk` for compatibility. Reserved core prefixes `config.*`, `exec.approvals.*`, `wizard.*`, `update.*` always resolve to `operator.admin`.
+
+Nodes declare **claims**: `caps` (camera, canvas, screen, location, voice, talk), `commands` (invoke allowlist), `permissions` (granular toggles). The Gateway enforces server-side allowlists. Plugin tool descriptors are not accepted in `connect` params; the only publication path is `node.pluginTools.update` after connect.
+
+Operator clients may advertise optional capabilities in `connect.params.caps`: `tool-events` and `inline-widgets`. Client capabilities describe the connected client, not authorization. Channel-originated runs have no Gateway client capabilities, so capability-gated tools are unavailable even when tool policy allows them.
+
+## Versioning and client constants
+
+Current clients and servers run protocol v4. `PROTOCOL_VERSION`, `MIN_CLIENT_PROTOCOL_VERSION`, `MIN_NODE_PROTOCOL_VERSION`, and `MIN_PROBE_PROTOCOL_VERSION` live in `packages/gateway-protocol/src/version.ts` (OpenClaw, *Gateway protocol*, n.d.).
+
+| Constant | Default |
+| --- | --- |
+| `PROTOCOL_VERSION` | 4 |
+| `MIN_CLIENT_PROTOCOL_VERSION` | 4 |
+| `MIN_NODE_PROTOCOL_VERSION` | 3 |
+| `MIN_PROBE_PROTOCOL_VERSION` | 3 |
+| Request timeout per RPC | 30000 ms |
+| Preauth / connect-challenge timeout | 15000 ms |
+| Initial reconnect backoff | 1000 ms |
+| Max reconnect backoff | 30000 ms |
+| Default tick interval (pre hello-ok) | 30000 ms |
+| `MAX_PAYLOAD_BYTES` | 25 MiB |
+| Chat attachment ceiling | `agents.defaults.mediaMaxMb`, default 20 MB decoded |
+| Chat attachment image ceiling | min(attachment ceiling, 6 MB) |
+
+Authenticated clients with both `role` `node` and `client.mode` `node` may use the N-1 node protocol (currently v3). Device auth, pairing, scopes, command policy, and exec approvals are unchanged by that compatibility window. Plugin-owned node capabilities are withheld until the node upgrades to the current protocol.
+
+Tick-timeout close uses code 4000 when silence exceeds `tickIntervalMs` times 2. The reference client does not replay rejected requests after reconnecting (OpenClaw, *Gateway protocol*, n.d.).
+
+## Worker closed protocol
+
+Workers use a closed protocol through `/__openclaw__/worker` or a dedicated loopback ingress. The route selects worker mode before reading frames, so it never dispatches general auth, node events, operator RPCs, or plugin methods. The closed allowlist contains `worker.heartbeat`, `worker.transcript.commit`, `worker.live-event`, `worker.inference.start`, and `worker.inference.cancel`. Frames stay under 64 KiB, except a negotiated `worker.inference.start` may be up to 25 MiB (OpenClaw, *Gateway protocol*, n.d.).
+
+Do not call `health` on the worker path. Do not treat worker-hello-ok as operator hello-ok.
+
+## Idempotency, events, discovery
+
+Side-effecting methods require idempotency keys. The architecture page names `send` and `agent` (OpenClaw, *Gateway architecture*, n.d.). The server keeps a short-lived dedupe cache.
+
+`hello-ok.features.methods` is conservative discovery, not a dump of every callable helper. The protocol page names methods intentionally excluded from discovery: `push.test`, `web.login.start`, `web.login.wait`, `sessions.usage`.
+
+Broadcast events are scope-gated. Chat, agent, and tool-result frames require at least `operator.read`. Heartbeat, presence, tick, and connect/disconnect lifecycle stay unrestricted. Unknown broadcast families fail closed (OpenClaw, *Gateway protocol*, n.d.).
+
+Each client connection keeps its own per-client sequence number. Events are still not replayed across a reconnect.
+
+## Auth on connect
+
+Shared-secret gateway auth uses `connect.params.auth.token` or `connect.params.auth.password`, depending on `gateway.auth.mode` (`none`, `token`, `password`, `trusted-proxy`). Identity-bearing modes such as Tailscale Serve or non-loopback trusted-proxy satisfy the connect auth check from request headers (OpenClaw, *Gateway protocol*, n.d.). Private-ingress mode `none` skips shared-secret connect auth; do not expose that mode on public ingress.
+
+After pairing, the gateway issues a device token scoped to the connection role plus approved grant, returned in `hello-ok.auth.deviceToken`. `hello-ok.auth.scopes` is the current socket live authority and matches the scopes enforced by RPC dispatch.
+
+Trusted same-process backend clients (client.id gateway-client, client.mode backend) may omit device on direct loopback when authenticating with the shared gateway token or password. Remote, browser-origin, node, and explicit device-token clients still go through normal pairing (OpenClaw, *Gateway protocol*, n.d.).
+
+## Compare, without mixing knobs
+
+Hermes has no public WebSocket control plane of this shape. Adapters emit in-process events inside GatewayRunner (Nous Research, *Gateway Internals*, n.d.). Hermes ACP is JSON-RPC stdio wrapping AIAgent (Nous Research, *ACP Internals*, n.d.). OpenClaw protocol is the contract for every client and node on the Gateway socket.
+
+Do not paste Hermes MessageEvent into an OpenClaw WS client. Do not paste OpenClaw connect.challenge into hermes acp stdout. Cite the page you are implementing.
+
+**Case.** A dashboard sends health before connect. The socket closes with no useful body. Handshake is mandatory. Then health, status, or agent.
+
+**Case.** A retry of agent omits the idempotency key. Two runs are accepted. The documented fix is the key plus the short-lived dedupe cache, not a prompt that says please do not double-send.
 
 <TryThis>
-Write the three JSON envelopes (req, res, event) with the required keys only.
+Write the three JSON envelopes (req, res, event) with the required keys only. Name protocol v4 and the N-1 node exception. Name the closed operator scope set.
 </TryThis>
 
-Source: https://docs.openclaw.ai/concepts/architecture and https://docs.openclaw.ai/gateway/protocol
+Schemas are TypeBox. JSON Schema is generated from those schemas. Swift models are generated from the JSON Schema. The gateway-protocol package ships protocol.schema.json (OpenClaw, *Gateway protocol*, n.d.).
+
+Cite OpenClaw, *Gateway protocol*, n.d., as the parent of every field in this lesson. Cite *Gateway architecture* for the three invariants. Cite Nous Research only in the compare paragraph.
+
+This lesson stops at envelopes, handshake, roles, scopes, versioning, worker allowlist, and idempotency. The method catalog is not a teaching dump: hello-ok methods are discovery, not enumeration. Session RPCs live in the sessions lesson. Cron RPCs live in the cron lesson.
+
+Read *Pairing* when device identity is rejected. Read *Operator scopes* when FORBIDDEN carries MISSING_SCOPE. Read *Security* when mode is none. Read Hermes *Gateway Internals* only when the product is Hermes.
+
+The method sessions.observer.ask was removed; use sessions.companion.ask (OpenClaw, *Gateway protocol*, n.d.). Do not resurrect the old name in a client.
+
+All connects must sign the connect.challenge nonce. Signature payload v3 also binds platform and deviceFamily. Metadata changes require repair pairing.
+
+Attachment validation before send: check each file decoded size against maxImageBytes for images and maxBytes otherwise; then check encoded frame size against policy.maxPayload. A 20 MB file encoded as base64 is about 26.7 MB on the wire and exceeds the default 25 MiB frame limit on its own (OpenClaw, *Gateway protocol*, n.d.).
+
+Re-read policy values on every reconnect. They are a connection-time snapshot. A live mediaMaxMb edit reaches existing connections only after they reconnect.
+
+node.pair.request and node.pair.verify were removed in 2026.7 together with the standalone node pairing store; pending requests are created by the Gateway during node connects (OpenClaw, *Gateway protocol*, n.d.).
+
+Oversized inbound frames and slow outbound buffers, when diagnostics are enabled, emit payload.large events before the gateway closes or drops the frame. Those events carry surface, byte sizes, limits, and a safe reason code, never message bodies, attachment contents, raw frame bytes, tokens, cookies, or secrets.
+
+Clients should persist hello-ok.auth.deviceToken with hello-ok.auth.scopes after a successful connect when the token is new or different from the stored token. When the returned deviceToken exactly matches the token already stored for the same gateway, device, client, and role, preserve that record stored scopes instead of replacing them with a narrower live set (OpenClaw, *Gateway protocol*, n.d.).
+
+Tick-timeout close uses code 4000. The server advertises the effective policy.tickIntervalMs in hello-ok; clients should honor that rather than the 30000 ms pre-handshake default (OpenClaw, *Gateway protocol*, n.d.).
+
+Idempotency is a schema requirement for side-effecting methods, not a client courtesy. send and agent are the architecture-page examples. Teaching retry as safe without the key is a protocol bug in the client, not a Gateway bug.
+
+hello-ok.features.methods plus events are discovery metadata. Some real methods are intentionally excluded. Treat an absent name in that list as unknown-to-discovery, not as proof the method does not exist. Confirm against the protocol page before inventing absence.
+
+Worker frames stay under 64 KiB except negotiated worker.inference.start up to 25 MiB. Public worker admission collapses credential and environment details to admission-rejected (OpenClaw, *Gateway protocol*, n.d.).
+
+## Sources
+
+OpenClaw. (n.d.). *Gateway protocol*. https://docs.openclaw.ai/gateway/protocol
+
+OpenClaw. (n.d.). *Gateway architecture*. https://docs.openclaw.ai/concepts/architecture
+
+OpenClaw. (n.d.). *Pairing*. https://docs.openclaw.ai/gateway/pairing
+
+OpenClaw. (n.d.). *Security*. https://docs.openclaw.ai/gateway/security
+
+OpenClaw. (n.d.). *Operator scopes*. https://docs.openclaw.ai/gateway/operator-scopes
+
+Nous Research. (n.d.). *Gateway internals*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals
+
+Nous Research. (n.d.). *ACP internals*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/acp-internals
+

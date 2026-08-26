@@ -1,0 +1,229 @@
+## Two jobs, one plus sign
+
+Residual connections (He et al., 2016) are sold as an **identity highway**: the update
+
+$$
+h_l = h_{l-1} + f(h_{l-1})
+$$
+
+lets gradients skip a layer through the identity, so a 50-layer net can still train. That is job one, and it is real. Unroll the same recurrence and you see job two, which almost nobody names: every later layer receives a **uniform sum** of everything that came before
+
+$$
+h_l = h_1 + \sum_{i=1}^{l-1} f_i(h_i)
+$$
+
+The coefficients are welded to 1. Sequence mixing learned softmax in 2017 (Vaswani et al., 2017). Expert routing learned gates. Depth-wise aggregation never did. The stack is still a depth-RNN with every gate stuck at one.
+
+This lesson is [Attention Residuals](https://arxiv.org/abs/2603.15031) (Kimi Team, 2026; arXiv:2603.15031v1, 16 Mar 2026). Authors: **Kimi Team (Moonshot AI)**. Equal contribution: Guangyu Chen, Yu Zhang, Jianlin Su. Code: [MoonshotAI/Attention-Residuals](https://github.com/MoonshotAI/Attention-Residuals). The sequence-axis mixer is the previous lesson (Kimi Delta Attention). This one is the mixer on the **depth** axis.
+
+<Callout>
+A residual is not only a skip. It is also a depth-wise aggregator with unit weights. AttnRes keeps the skip idea and replaces the aggregator with softmax.
+</Callout>
+
+<VisualSlot caption="Residual: a stack of pluses, magnitudes growing down the page. Full AttnRes: every new layer fans in from all previous outputs. Block AttnRes: about eight group summaries, attention only over those." />
+
+## PreNorm dilution, with numbers you can feel
+
+Modern LLMs use **PreNorm** (Xiong et al., 2020): normalize the input of `f`, then add. PreNorm restores a clean identity path, which is why it beat PostNorm at scale. The cost is **unbounded magnitude growth**. If each `f` has comparable size, the running sum grows like `O(L)`. Layer 32's fresh output is about one part in 32 of the hidden state. Late layers are **diluted**. They must shout louder from a normalized input to stay relevant. Early layers sit on every downstream path, so their gradients dominate (Li et al., 2026).
+
+That is not a moral failing of skips. Skips were built to *pass* a signal, not to *select* which past layer is the right skip for this token. Empirically a surprising fraction of deep layers can be pruned with little loss: they were buried, not empty.
+
+<Myth>
+"Deeper is always more capacity." Under unit-weight PreNorm, extra depth can be extra sludge. The last third of the stack often looks quieter than the first. AttnRes is the claim that the mixer, not the layer count, was the missing degree of freedom.
+</Myth>
+
+## Duality: depth is time
+
+A residual over **layers** is the same shape as an RNN over **tokens**. Both compress the past into one state. For sequences, the Transformer replaced recurrence with attention: each position reads all previous positions with data-dependent weights (Vaswani et al., 2017). Kimi Team (2026) run the same move on depth. Standard residuals, and most of their cousins, are **depth-wise linear attention** (fixed or low-rank mixing). AttnRes is **depth-wise softmax attention**. Linear-to-softmax is the 2017 plot, replayed on a short axis of length `L` instead of `T`.
+
+Depth is modest (`L` well below 1000). `O(L^2)` over layers is cheap next to `O(T^2)` over tokens. You can afford a real softmax here.
+
+Walk the identity term once. Backprop through a residual product is
+
+$$
+\frac{\partial \mathcal{L}}{\partial h_l} = \frac{\partial \mathcal{L}}{\partial h_L} \prod_{j=l}^{L-1}\Bigl(I + \frac{\partial f_j}{\partial h_j}\Bigr)
+$$
+
+The `I` never vanishes. That is the highway. Expanding the product also gives every subset of Jacobians: early layers sit on **all** of those paths. There is no gate that can turn an early contribution down. Softmax over depth *is* that gate. Paths become competitive instead of compulsory.
+
+Highway networks (Srivastava, Greff, & Schmidhuber, 2015) already interpolates with a gate `g_l`, but still only sees `h` of layer `l-1`. Information lost in the sum cannot be recovered later. AttnRes stores the individual `v_i` (or block summaries) so a late layer can pick an early attention output without taking the MLP sludge that sat on top of it.
+
+
+## Full AttnRes
+
+Replace the plus with a weighted sum of previous layer outputs (including the embedding as source 0):
+
+$$
+h_l = \sum_{i \to l} \alpha_{i \to l}\, v_i
+$$
+
+Keys and values **are** those previous outputs: `v_0 = h_1` (the embedding), and `v_i = f_i(h_i)` for earlier layers. The kernel is
+
+$$
+\phi(q, k) = \exp\bigl(q^{\top} \mathrm{RMSNorm}(k)\bigr)
+$$
+
+and `alpha` is the softmax of those scores (Kimi Team, 2026). The query is **not** a projection of the current token. It is a **learned per-layer vector** `w_l` in `R^d`. Initialise `w_l` at **zero**. Every key then starts with the same logit, softmax is uniform, and the layer begins as an **average** of the past. Training learns which depths to overweight for which tokens.
+
+<Term id="rmsnorm">RMSNorm</Term> on the keys (Zhang & Sennrich, 2019) is not decoration. Without it, a loud layer (huge hidden-state norm) wins the softmax because it is loud. Relevance should be cosine-ish; volume is not a vote. The paper's ablation drops RMSNorm and loss gets worse. Treat it as required.
+
+Write the kernel without the acronym. You take the key, divide by its RMS, then take a dot with `w_l`, then exp. Layers that point the same way as `w_l` get mass; layers that are merely long vectors do not. That is the same geometry as cosine attention, minus the query-side norm because the query is a parameter and softmax is invariant to adding a constant to all logits of one row. The extra RMS on keys is there to stop the *keys* from cheating with length.
+
+
+Because `w_l` does not depend on `h`, the scores still vary across the sequence: keys are token-wise hidden states, so a math token and a code token can pick different depths from the same query direction.
+
+<Callout>
+Zero init is a training courtesy, not a serving flag. After training, `w_l` is just a vector in the checkpoint. You do not pass a "uniform average" switch to vLLM.
+</Callout>
+
+## Cost of the honest mixer
+
+For each token, Full AttnRes is `O(L^2 d)` arithmetic and `O(L d)` memory to store layer outputs. Depth is small, so FLOPs are modest. Memory is the story.
+
+**Vanilla training: no extra memory.** The layer outputs Full AttnRes wants are already kept for backpropagation. You are reusing the activation cache, not allocating a new tower.
+
+**At scale, that coincidence dies.** Activation recomputation (gradient checkpointing) would otherwise free those tensors and rebuild them on the backward. Pipeline parallelism would otherwise send one hidden state per hop. Full AttnRes must **keep** and **send** every layer output, so `O(L d)` becomes a real HBM and interconnect bill. That is why Block exists.
+
+## Block AttnRes: about eight summaries
+
+Partition `L` layers into `N` blocks of size `S = L/N`. Inside a block, keep ordinary residuals: sum the layer outputs into one block representation `b_n`. Across blocks, run softmax over the **N block summaries plus the in-flight partial sum** of the current block, and always include the embedding as `b_0`.
+
+- `N = L` recovers Full AttnRes (one "block" per layer).
+- `N = 1` recovers a residual (one running sum, embedding isolated).
+- `N ≈ 8` recovers **most** of the quality. Memory and communication drop to `O(N d)`.
+
+The 48B Kimi Linear run uses Block AttnRes with 6 layers per block on 54 layers (27 Transformer blocks), producing 9 blocks plus the embedding: 10 depth-wise sources.
+
+Intra-block, the first layer of a block attends only over completed previous blocks plus the embedding. Subsequent layers in the same block also see the **partial sum** of the current block. The last output layer aggregates all `N` block representations. RMSNorm inside `phi` is what stops a finished eight-layer block from bullying a two-layer partial in that softmax.
+
+
+<Compare a="PreNorm residual" b="Block AttnRes">
+<Side>
+`h := h + f(h)` at every layer. Magnitudes drift `O(L)`. Late layers dilute. Cheap: one add, no extra activations, no extra comm. The default for a decade of LLMs.
+</Side>
+<Side>
+Softmax over about 8 block summaries plus the partial. Magnitudes stay bounded. Grads more uniform across depth. Extra memory `O(N d)`. Serving tax under 2% once you use the two-phase schedule in the systems lesson.
+</Side>
+</Compare>
+
+## Init and RMSNorm are not optional
+
+Two knobs that look small and are not:
+
+1. **`w_l = 0` at init.** Non-zero random queries make early softmax peaked and volatile. Zero is the uniform average. The paper treats this as required.
+2. **RMSNorm on keys.** Ablation: Full without it 1.743 vs 1.737; Block without it 1.750 vs 1.746. Block needs it more, because a completed block can be much louder than a partial sum of two layers.
+
+Do not ship a fork that "simplifies" either.
+
+<Steps>
+1. Unroll the residual until you see a prefix sum with unit weights.
+2. Replace those weights with a softmax over previous outputs (Full) or over block summaries (Block).
+3. Set `w_l` to zero. Put RMSNorm on keys.
+4. Train with Block, `N` about 8. Leave Full for ablations.
+5. Serve whatever the checkpoint already contains. Do not reimplement depth-softmax in a wrapper.
+</Steps>
+
+## Scaling: 1.25 times the compute, without the compute
+
+Scaling-law sweeps (five MoE sizes, same hyperparameters as the baseline, which **favours the baseline**) fit power laws of validation loss versus compute. Block AttnRes matches a residual baseline trained with about **1.25×** the compute. Full and Block close with scale: at the largest size the gap is 0.001. On the 436M-active row of their Table 2, validation losses are baseline 1.766, mHC-lite 1.747, Block 1.746, Full 1.737.
+
+They then put Block AttnRes on [Kimi Linear](https://arxiv.org/abs/2510.26692) (Kimi Team, 2025): **48B total / 3B active**, 3:1 KDA:MLA, trained on **1.4T tokens**. Training dynamics (their Figure 5): output magnitudes stay **bounded** and periodic (reset at block boundaries) instead of walking off; gradient norms spread more evenly instead of piling in early blocks.
+
+**Table 3** (same recipe, baseline vs AttnRes):
+
+- GPQA-Diamond 36.9 → 44.4
+- MATH 53.5 → 57.1
+- HumanEval 59.1 → 62.2
+- MMLU 73.5 → 74.6
+
+Also from Table 3, smaller but consistent: BBH 76.3 → 78.0, TriviaQA 69.9 → 71.8, GSM8K 81.7 → 82.4, MBPP 72.0 → 73.9, C-Eval 79.6 → 82.5. MMLU-Pro is tied at 52.2. Nothing got worse. The hypothesis is compositional: multi-step items are the ones that need to retrieve an earlier representation without drowning it.
+
+
+The loudest deltas are multi-step work. Knowledge benches move less. That pattern matches the hypothesis: later layers can still **read** an early representation instead of swimming through an `O(L)` sum.
+
+**Case. Diluted late blocks, blamed as stupid.** A lab fine-tunes a deep PreNorm hybrid, watches late-layer grad norms collapse, and "fixes" it by dropping LR on the last blocks. Those blocks were diluted, not untalented. Block AttnRes lets a late mixer still retrieve an early `v_i` with mass 0.4 at layer 40, because softmax renormalises every step. You are averaging (a convex combination), not integrating.
+
+## Ablations you should be able to retell
+
+All on a 16-layer model, same budget, baseline loss 1.766 (Kimi Team, 2026, Table 4).
+
+- **DenseFormer** (Pagliardini et al., 2024): static, input-independent scalars over previous layers. Loss 1.767. **No gain.** Cross-layer access without content-dependent weights is not the trick.
+- **mHC** (Xie et al., 2026): 1.747. Full AttnRes 1.737, Block 1.746. AttnRes matches or beats multi-stream Hyper-Connections with one query vector per layer and far less residual I/O (5.5d vs 34d; systems lesson).
+- **Softmax vs sigmoid:** sigmoid 1.741. Softmax's competitive normalisation forces sharper selection.
+- **Input-independent mixing:** drop query and key, learn static scalars. 1.749. Hurts. The mix must see the token.
+- **Input-dependent query:** project `q` from `h`. 1.731, slightly better, but a `d × d` projection per layer and sequential decode. They default to the learned `w_l`.
+- **Multihead depth mix (H = 16):** 1.752 vs Block 1.746. Hurts. When a layer is relevant, it is relevant as a whole.
+- **Sliding window (W = 1+8):** 1.764. Weak. Distant layers matter more than many nearby ones.
+- **Block size sweep:** `S = 1` is Full (1.737). `S = 2, 4, 8` all land near 1.746. Coarser (`S = 16, 32`) slides toward baseline. Production picks `N ≈ 8` for infrastructure, not because 8 is magic.
+
+<Myth>
+"Any cross-layer residual is AttnRes." DenseFormer has cross-layer access and does nothing. mHC has input-dependent streams and still is linear attention over depth. The upgrade is softmax over actual previous outputs (or block summaries), with RMSNorm on keys and zero-init queries.
+</Myth>
+
+## Related work, in prose
+
+Highway networks put learned element-wise gates on a single predecessor: still one compressed state. ReZero and LayerScale put a static scalar or diagonal on `f`; DeepNorm rescales the skip. All of them still read only the immediate predecessor.
+
+SiameseNorm (Li et al., 2026) keeps two streams, one PreNorm and one PostNorm, to get identity gradients *and* bounded magnitudes. Hyper-Connections (Zhu et al., 2025) and mHC (Xie et al., 2026) widen the recurrence to `m` streams with learned mixing matrices: depth-wise **linear** attention with a bigger state. DDL applies a delta-rule erase-and-write on a matrix state over depth.
+
+DenseNet concatenates previous maps. DenseFormer (Pagliardini et al., 2024) learns static depth weights. Those are cross-layer access without a per-token softmax.
+
+AttnRes is orthogonal to stream-widening: it gives each layer selective access to **individual** earlier outputs (or block summaries) with one `d`-vector. You can combine it with other norms; the Kimi Linear run just drops it on the existing PreNorm hybrid.
+
+Linear attention over **tokens** (Katharopoulos et al., 2020) is the sequence cousin. Online softmax (Milakov & Gimelshein, 2018) is how the systems lesson streams the depth mix without materialising a dense `L × L` score matrix.
+
+
+## What the learned weights actually look like
+
+Kimi Team (2026, Figure 8) plot depth-softmax weights averaged over tokens for a 16-layer model. Three facts to remember:
+
+- **Locality is still the main road.** Each layer puts most mass on its immediate predecessor. AttnRes is not "ignore the residual and attend at random."
+- **The embedding never dies.** Source 0 keeps non-trivial weight, especially into pre-attention layers. The model keeps a skip all the way back to the token.
+- **Occasional long skips appear.** Layer 4 reaching early sources; late layers reaching back under the block setting. Those are learned highways the unit-weight residual could not express.
+
+Pre-attention rows have a broader receptive field; pre-MLP rows hug the diagonal. That matches the jobs: attention routes, MLPs rewrite locally. Block AttnRes, with sharper weights, **preserves this structure**. Compression into eight summaries is regularisation, not a different model.
+
+A capacity sweep under fixed FLOPs and active parameters (their Figure 7) shifts the optimum toward **deeper, narrower** nets: baseline likes `d_model / L_b ≈ 60`, AttnRes likes `≈ 45`. Depth becomes cheaper once dilution is gone. That is a diagnostic, not a serving order: deeper sequential stacks still cost latency (Kimi Team, 2026).
+
+## What you implement versus what you inherit
+
+You do **not** implement AttnRes yourself to *run* a released Kimi Linear checkpoint. If that checkpoint was trained with Block AttnRes, the mixer is already in the graph, like RMSNorm or SwiGLU. Serving cost is the next lesson (under 2% with two-phase online softmax). You do **not** pass `--attnres`.
+
+You **do** use Block, not Full, if you train or continued-pretrain at scale. Full's `O(L d)` activations and pipeline traffic are why Block exists. Full is the research cousin that proves depth-softmax works.
+
+The sequence-axis hybrid (KDA+MLA) and the depth-axis mixer (AttnRes) compose. One shrinks the KV tower. The other stops PreNorm from turning depth into sludge. Neither is a reason to throw away the other.
+
+Each Transformer block in this stack is two residual sites: one before attention, one before the MLP. The paper treats each as its own layer, with its own `w_l` and RMSNorm. Block size in code counts ATTN + MLP, so `block_size // 2` Transformer blocks per AttnRes block. When you read the GitHub pseudocode, that is why the boundary test looks like a half. Do not collapse the two sites into one mixer unless you are running an ablation.
+
+
+<TryThis>
+On paper, write eight layer boxes. Under residual, put `+` on each arrow and a running total 1, 2, 3, … 8. Under Full AttnRes, draw fan-in from all previous boxes into layer 8. Under Block, group as 1–3, 4–6, 7–8, one summary per group, fan-in only from those three plus the partial. Count how many tensors layer 8 must see. That count *is* the memory story. No GPU.
+</TryThis>
+
+Paper: [Attention Residuals, arXiv:2603.15031](https://arxiv.org/abs/2603.15031). Code: [github.com/MoonshotAI/Attention-Residuals](https://github.com/MoonshotAI/Attention-Residuals). Checkpoint family: [`moonshotai/Kimi-Linear-48B-A3B-Instruct`](https://huggingface.co/moonshotai/Kimi-Linear-48B-A3B-Instruct). How the systems optimizations actually work is the metal lesson.
+
+## References
+
+He, K., Zhang, X., Ren, S., & Sun, J. (2016). Deep residual learning for image recognition. *Proceedings of CVPR*, 770–778.
+
+Katharopoulos, A., Vyas, A., Pappas, N., & Fleuret, F. (2020). Transformers are RNNs: Fast autoregressive transformers with linear attention. *Proceedings of ICML*, 5156–5165.
+
+Kimi Team. (2025). *Kimi Linear: An expressive, efficient attention architecture* (arXiv:2510.26692). https://arxiv.org/abs/2510.26692
+
+Kimi Team. (2026). *Attention residuals* (arXiv:2603.15031). https://arxiv.org/abs/2603.15031
+
+Li, T., et al. (2026). *SiameseNorm: Breaking the barrier to reconciling Pre/Post-Norm* (arXiv:2602.08064).
+
+Milakov, M., & Gimelshein, N. (2018). *Online normalizer calculation for softmax* (arXiv:1805.02867).
+
+Pagliardini, M., et al. (2024). *DenseFormer: Enhancing information flow in transformers via depth weighted averaging* (arXiv:2402.02622).
+
+Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., Kaiser, Ł., & Polosukhin, I. (2017). Attention is all you need. *Advances in Neural Information Processing Systems, 30*.
+
+Xie, Z., et al. (2026). *mHC: Manifold-constrained hyper-connections* (arXiv:2512.24880).
+
+Xiong, R., Yang, Y., He, D., Zheng, K., Zheng, S., Xing, C., Zhang, H., Lan, Y., Wang, L., & Liu, T. (2020). *On layer normalization in the transformer architecture* (arXiv:2002.04745).
+
+Zhang, B., & Sennrich, R. (2019). Root mean square layer normalization. *Advances in Neural Information Processing Systems, 32*.
+
+Zhu, D., et al. (2025). *Hyper-Connections* (arXiv:2409.19606).

@@ -15,7 +15,7 @@
   "prereqs": [
     "agent-patterns"
   ],
-  "durationMin": 22,
+  "durationMin": 36,
   "tags": [
     "langgraph",
     "graphs",

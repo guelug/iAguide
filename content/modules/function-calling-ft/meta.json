@@ -15,7 +15,7 @@
   "prereqs": [
     "fine-tuning"
   ],
-  "durationMin": 20,
+  "durationMin": 32,
   "tags": [
     "function-calling",
     "lora",

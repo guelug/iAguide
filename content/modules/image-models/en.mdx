@@ -1,0 +1,200 @@
+## An image model is not an LLM with pixels glued on
+
+A large language model predicts the **next token** in a sequence. A modern open image generator, in the family this lesson uses, is almost always a **latent diffusion** model: it starts from noise in a compressed latent, and a neural net iteratively **denoises** toward an image that matches a text condition (Ho, Jain, & Abbeel, 2020, arXiv:2006.11239; Rombach, Blattmann, Lorenz, Esser, & Ommer, 2022, arXiv:2112.10752).
+
+Those are different machines:
+
+- The LLM's "brain" is a transformer checkpoint you chat with.
+- The image model's "brain" is a **UNet or DiT** that predicts noise (or velocity) in latent space, plus two smaller networks that the graph cannot skip: **CLIP** (text translator) and a **VAE** (latent ↔ pixels).
+
+Comfy-Org's models page is the operator contract: in ComfyUI, **models are the weight files that actually run your workflow**. They include checkpoints, VAEs, LoRAs, ControlNets, and upscalers. **The app install is small. These files are not included by default.** You download them, place them under `ComfyUI/models/`, then pick the file in the matching **Load** node ([Comfy-Org, Models](https://docs.comfy.org/basic-concepts/models)).
+
+<VisualSlot caption="Five slides: latent diffusion as text to denoise to pixels, the checkpoint as the artist brain, CLIP as the prompt translator, VAE as latent-to-RGB, and the ComfyUI/models folders." />
+
+<Callout>
+Practical tip, Comfy-Org: a single generative checkpoint is often **many gigabytes**. Budget disk and time. There is no uninstall button; you delete the file from the folder under `ComfyUI/models/` where you put it ([Models](https://docs.comfy.org/basic-concepts/models)).
+</Callout>
+
+## Checkpoint = the artist brain
+
+The CivitAI first-workflow article (article 22492, 15 November 2025, updated 2026) uses the same metaphor this course keeps: the `.safetensors` or `.ckpt` file is the artist's **brain**. Without it, the artist does not know how to hold a brush. The `Load Checkpoint` node wakes the artist and yields three outputs: `MODEL` (how to draw), `CLIP` (how to read your prompt), and sometimes `VAE` ([CivitAI, ComfyUI Tutorial #2](https://civitai.com/articles/22492/comfyui-tutorial-2-building-your-first-workflow)).
+
+Comfy-Org's wording is drier and you should prefer it when debugging paths: **built-in / first-party coverage is intentionally limited**. Not every checkpoint works out of the box. When a family gains first-class support you usually see a new entry in the [workflow template library](https://docs.comfy.org/interface/features/template). Many other models are enabled only through **community custom nodes**; always follow that project's README ([Comfy-Org, Models](https://docs.comfy.org/basic-concepts/models)).
+
+This lesson treats families as **concepts**, not as a leaderboard. Do not invent FID, CLIP-score, or "photorealism" numbers.
+
+- **Stable Diffusion 1.5** — latent diffusion at ~512², CompVis / Stability / Runway lineage of Rombach et al. (2022). Comfy-Org's official first-generation walk still downloads `v1-5-pruned-emaonly-fp16.safetensors` from Hugging Face as the default missing-model file ([First generation](https://docs.comfy.org/get_started/first_generation); weights: [Comfy-Org/stable-diffusion-v1-5-archive](https://huggingface.co/Comfy-Org/stable-diffusion-v1-5-archive/blob/main/v1-5-pruned-emaonly-fp16.safetensors)).
+- **SDXL** — larger UNet, two text encoders, native ~1024² (Podell et al., 2023, arXiv:2307.01952). A **concept** in this course: different latent size, different CLIP stack, different LoRA family. An SD1.5 LoRA on an SDXL checkpoint is the mismatch case of the LoRA lesson.
+- **Flux** — Black Forest Labs' rectified-flow family (FLUX.1, 2024; cards live on Hugging Face, e.g. [black-forest-labs/FLUX.1-dev](https://huggingface.co/black-forest-labs/FLUX.1-dev)). Conceptually: a later generator family with its own VAE/text-encoder pairing. ComfyUI support arrives as templates and loaders, not as a file inside the installer.
+
+<Myth>
+"ComfyUI ships SDXL." It does not. Comfy-Org is explicit: most installs **do not include base models by default**. After you load the default text-to-image workflow, if `v1-5-pruned-emaonly-fp16.safetensors` is missing you get a warning and a download link. That default is **SD 1.5**, not SDXL. Desktop may auto-download from Hugging Face; portable/manual installs save the file into `ComfyUI/models/checkpoints` yourself. Press `R` to refresh lists ([Comfy-Org, First generation](https://docs.comfy.org/get_started/first_generation); [Models](https://docs.comfy.org/basic-concepts/models)).
+</Myth>
+
+## CLIP = the text translator
+
+CLIP (Contrastive Language–Image Pre-training) learns a shared embedding space for images and text by contrastive training on image–caption pairs (Radford et al., 2021, arXiv:2103.00020). In a diffusion graph you almost never "chat" with CLIP. You **encode** a prompt into a conditioning vector that the denoiser attends to.
+
+The CivitAI article's operator version: your sentence is not something the artist can read. `CLIP Text Encode` turns words into numbers. It must be wired to the `CLIP` output of **this** checkpoint, because translation rules are **model-specific** ([CivitAI article 22492](https://civitai.com/articles/22492/comfyui-tutorial-2-building-your-first-workflow)). A second encode node holds the **negative** prompt (what you do not want).
+
+Comfy-Org lists CLIP (and CLIP Vision) as first-class folders under `ComfyUI/models/` in the extra-paths example: `clip:`, `clip_vision:` ([Models, extra_model_paths.yaml.example](https://docs.comfy.org/basic-concepts/models)). Some families (SDXL, Flux) use **more than one** text encoder. The template library is how you see the pairing; do not assume one CLIP node transfers across families.
+
+<Callout>
+Practical tip, CivitAI article: the more precise the prompt, the better the result — visual keywords (colours, styles, moods). That is craft, not a benchmark. The negative prompt is a second `CLIP Text Encode`, not a checkbox inside the positive box ([article 22492](https://civitai.com/articles/22492/comfyui-tutorial-2-building-your-first-workflow)).
+</Callout>
+
+## VAE = latent to pixels
+
+A variational autoencoder learns a compressed latent with a decoder back to data space (Kingma & Welling, 2013, arXiv:1312.6114). Latent diffusion's efficiency claim is exactly this: denoise in the VAE latent, not in RGB (Rombach et al., 2022). In the graph:
+
+- **Encode** (img2img / inpaint) maps pixels → latent.
+- **Decode** maps the sampler's latent → RGB.
+
+The CivitAI article calls the VAE "precision glasses": refine colours, contrast, sharpness. Some checkpoints **bundle** a VAE; adding one with `VAE Loader` can still change the look. The article recommends it especially with SDXL, and names `vae-ft-mse-840000.safetensors` as an example file ([article 22492](https://civitai.com/articles/22492/comfyui-tutorial-2-building-your-first-workflow)). Comfy-Org stores those files under `ComfyUI/models/vae/` ([Models](https://docs.comfy.org/basic-concepts/models)).
+
+If the VAE and the checkpoint **disagree** on latent scale, the decode is garbage: grey sludge, super-saturated brights, or a black frame. That is a pairing bug, not "ComfyUI is broken." Fix: use the VAE the model card names, or the one bundled in the checkpoint, matching the template.
+
+## Two catalogs: CivitAI and Hugging Face
+
+Comfy-Org tells you to get files from community sites such as [Hugging Face](https://huggingface.co), [Civitai](https://civitai.com) (their docs currently link a civitai.green mirror in one sentence — prefer the catalog you trust), or a project's GitHub, then put them in the type subfolder (`checkpoints`, `loras`, `vae`) ([Models](https://docs.comfy.org/basic-concepts/models)).
+
+Treat the two catalogs as **different jobs**:
+
+- **Hugging Face** — labs and orgs (Comfy-Org's SD1.5 archive, Black Forest Labs FLUX, Stability). Cards, licenses, `safetensors` by default on modern repos. Inference Providers can also **run** some image models server-side ([HF Inference Providers](https://huggingface.co/docs/inference-providers/index)) — that is a cloud call, not a local checkpoint.
+- **CivitAI** — community fine-tunes, merges, LoRAs, and articles such as [Tutorial #2](https://civitai.com/articles/22492/comfyui-tutorial-2-building-your-first-workflow). The [models catalog](https://civitai.com/models) is where you pick a **version**, read the **base model** tag, and read the creator's license. The next lesson is LoRAs on that catalog.
+
+<Compare a="Hugging Face card" b="CivitAI model card">
+<Side>
+Org-backed weights, DOI-like repo ids, usually safetensors, license on the model card (Apache, OpenRAIL, FLUX-dev non-commercial, …). Comfy-Org's first-generation download lands here. Good default when you want a **known** base.
+</Side>
+<Side>
+Creator versions, trigger words, sample images, base-model compatibility. You still owe the creator's terms. A merge called "XL" is not automatically SDXL-legal or SDXL-compatible — read the **base model** field before you drop it on a 1.5 graph.
+</Side>
+</Compare>
+
+## Safety: safetensors, not pickle
+
+PyTorch `.ckpt` / `.pt` checkpoints are typically **pickle**. The Python documentation is blunt: *the pickle module is not secure* — it can execute arbitrary code during unpickling ([Python Software Foundation, pickle](https://docs.python.org/3/library/pickle.html)). Hugging Face's [safetensors](https://huggingface.co/docs/safetensors/index) format exists to store tensors **without** that execution surface.
+
+Comfy-Org and the CivitAI article both talk `.safetensors` as the normal file. This course's rule, which you can trace to those two facts: **only download safetensors from sources you trust**. A random `.ckpt` from a mirror is not "the same weights with a different extension." It is a program.
+
+Custom nodes are a second surface: Comfy-Org says many models only run via community nodes, and you still install their Python dependencies ([Models](https://docs.comfy.org/basic-concepts/models); [install custom nodes](https://docs.comfy.org/installation/install_custom_node)). GGUF is **not** natively supported; you need a community node such as [ComfyUI-GGUF](https://github.com/city96/ComfyUI-GGUF) ([Models, common issues](https://docs.comfy.org/basic-concepts/models)).
+
+## Where the files live (desktop versus portable)
+
+Comfy-Org's first-generation page splits paths ([First generation](https://docs.comfy.org/get_started/first_generation); [Models](https://docs.comfy.org/basic-concepts/models)):
+
+- **Portable Windows:** `ComfyUI_windows_portable/ComfyUI/models/checkpoints`
+- **Comfy Desktop:** Help → Open folder → Open models folder (Windows example: `C:\Users\<you>\AppData\Roaming\ComfyUI\`; macOS: `~/Library/Application Support/ComfyUI/`). Extra model config is `extra_models_config.yaml` in that app-support dir, not the portable `extra_model_paths.yaml`.
+- **Manual / git:** `ComfyUI/models/` plus optional `ComfyUI/extra_model_paths.yaml` copied from the example (also used to share weights with Automatic1111 WebUI).
+
+If a file is on disk but missing in the dropdown: confirm the **subfolder**, press **`r`** to refresh node definitions, or restart. Desktop: Help menu → Open Model Folder to see what Comfy actually indexed.
+
+Beyond the main checkpoint, Comfy-Org lists the smaller helpers you will meet next: **LoRA** (style/character/concept), **ControlNet** (edges, depth, pose), **inpainting** (fill a region) ([Models](https://docs.comfy.org/basic-concepts/models)). Those are not "more SDXL in the installer." They are more files you fetch.
+
+**Case.** A classmate installs Comfy Desktop, hits Queue, and gets a missing-model warning. They search "download SDXL ComfyUI bundled" and waste an evening. The official first-generation page wanted **SD 1.5** `v1-5-pruned-emaonly-fp16.safetensors` in `models/checkpoints`, then `R`, then Run / `Ctrl+Enter` ([First generation](https://docs.comfy.org/get_started/first_generation)). SDXL is a **different** card you add later, on purpose.
+
+<TryThis>
+On paper, label three boxes: Checkpoint, CLIP, VAE. Write one sentence each that you can source: Ho et al. / Rombach et al. for why denoise is in a latent; Radford et al. for CLIP; Kingma & Welling for the autoencoder; Comfy-Org Models for "app small, weights not included"; CivitAI article 22492 for the brain / translator / glasses metaphors. Then write the folder you would drop a `.safetensors` checkpoint into on **your** install (Desktop versus portable). If you cannot name the folder from the docs, you are not ready to download 6 GB.
+</TryThis>
+
+
+## Denoising in one paragraph you can source
+
+DDPM trains a net to predict the noise that was added to data at a random timestep (Ho et al., 2020). Sampling starts from Gaussian noise and steps backward. Latent diffusion runs that loop in the VAE latent so the UNet sees a 4-channel 64×64 (SD1.5-class) tensor instead of a 3-channel 512×512 RGB tensor (Rombach et al., 2022). SDXL scales the same idea: larger backbone, two text encoders, ~1024² native (Podell et al., 2023). Flux-class models replace the discrete DDPM-style schedule with a **rectified flow** / velocity field; you still have a frozen autoencoder and a text stack, which is why ComfyUI still shows Load Checkpoint (or a diffusion-model loader), CLIP encode, VAE decode. This course will not paste a "Flux beats SDXL by X FID" line — no such number was fetched from an official card for this lesson.
+
+The sampler node (next lesson) is where **steps**, **CFG**, **sampler name**, and **seed** become knobs. Those knobs do not live inside the `.safetensors` file. The file is weights. The graph is the algorithm (CivitAI article 22492; [Comfy-Org first generation](https://docs.comfy.org/get_started/first_generation)).
+
+## Extra model paths, and sharing with WebUI
+
+Comfy-Org documents `extra_model_paths.yaml` for three honest reasons: several ComfyUI instances sharing one weight tree; sharing with another GUI such as Automatic1111; models "not recognised" because they sit outside the default tree ([Models](https://docs.comfy.org/basic-concepts/models)).
+
+Portable / manual: copy `ComfyUI/extra_model_paths.yaml.example` to `ComfyUI/extra_model_paths.yaml` and keep it in the ComfyUI **root**. Desktop: do **not** overwrite the config generated at install; append. Paths:
+
+- Windows Desktop: `C:\Users\<YourUsername>\AppData\Roaming\ComfyUI\extra_models_config.yaml`
+- macOS Desktop: `~/Library/Application Support/ComfyUI/extra_models_config.yaml`
+
+The example ships an `a111:` block pointing `checkpoints:` at `models/Stable-diffusion`, `loras:` at `models/Lora` and `models/LyCORIS`, `vae:` at `models/VAE`, `controlnet:` at `models/ControlNet`. Restart ComfyUI after saving. You can also add an extra **custom nodes** search path; that does not change where Comfy *installs* nodes, only where it *looks*. Dependencies still have to be installed in the running environment ([Models](https://docs.comfy.org/basic-concepts/models)).
+
+<Callout>
+Practical tip, Comfy-Org: if the file is in the wrong subfolder it will not appear in that loader's dropdown. Checkpoints in `loras/` are invisible to Load Checkpoint. Press `r`, then restart if `r` was not enough. Desktop: Help → Open folder → Open Model Folder is the ground truth of what the app indexes ([Models, common issues](https://docs.comfy.org/basic-concepts/models); [First generation](https://docs.comfy.org/get_started/first_generation)).
+</Callout>
+
+## What "natively supported" actually means
+
+Comfy-Org: first-party coverage grows as the ecosystem grows. When a model is natively supported you **usually see a template**. Keep ComfyUI [up to date](https://docs.comfy.org/installation/update_comfyui) and confirm the matching workflow in the [template library](https://docs.comfy.org/interface/features/template) before assuming your files are in the wrong place ([Models](https://docs.comfy.org/basic-concepts/models)).
+
+That sentence saves an evening: a brand-new DiT dump from a lab may need a custom node **even if** the file is valid safetensors. Conversely, SD1.5 in `models/checkpoints` should appear after `R` on a stock install.
+
+Official first-generation install, summarised from Comfy-Org without pasting their page:
+
+1. Launch ComfyUI (Desktop on Windows / Apple Silicon; portable Windows NVIDIA/CPU; or git install on any GPU vendor they list).
+2. Load the default text-to-image workflow, or **drag a PNG that contains workflow metadata**, or Workflows → Open a JSON.
+3. If the SD1.5 file is missing, use the in-app download (Desktop auto-saves to checkpoints; portable: browser download into that folder) or the Hugging Face link above.
+4. `R` to refresh. Select the file in Load Checkpoint. Run or `Ctrl+Enter`.
+
+Linux Desktop has **no official installer**; source only ([First generation](https://docs.comfy.org/get_started/first_generation)).
+
+## Helpers that are not "the" model
+
+Comfy-Org's "beyond the main checkpoint" list is the syllabus for the rest of this track ([Models](https://docs.comfy.org/basic-concepts/models)):
+
+- **LoRA** — low-rank adapter on a frozen base (Hu, Shen, Wallis, Allen-Zhu, Li, Wang, Wang, & Chen, 2022, arXiv:2106.09685). File in `models/loras`. Next two lessons.
+- **ControlNet** — extra conditioning from pose/depth/edges. File in `models/controlnet`. Mentioned, not taught here.
+- **Inpainting** — fill a masked region; often a specialised checkpoint or a graph, not a magic checkbox.
+- **Upscalers** (RealESRGAN and cousins) — `models/upscale_models`.
+
+Unsloth's LoRA story (train adapters on an LLM, freeze the base) is the **same algebra** you will apply to a diffusion UNet in the CivitAI LoRA lesson ([Unsloth fine-tuning guide](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide); [Comfy-Org LoRA example](https://docs.comfy.org/tutorials/basic/lora)).
+
+## Licenses are part of the file
+
+A Hugging Face card and a CivitAI card both carry a license. OpenRAIL, Apache-2.0, FLUX.1-dev non-commercial, creator "don't sell merges" notes — this course will not summarise a license you have not opened. Practical rule you can source: **read the card of the version you downloaded**, not the family name. CivitAI versions can differ in base model **and** in terms. Hugging Face repo ids pin a commit; CivitAI **modelVersionId** is the equivalent pin (see the download URLs in [Comfy-Org's LoRA example](https://docs.comfy.org/tutorials/basic/lora), which point at CivitAI `modelVersionId` 128713 and 32988).
+
+
+## A note on "community fine-tunes"
+
+Comfy-Org's background box: large **base** models from labs are general-purpose; the community **fine-tunes or merges** them into checkpoints and LoRAs that look better for a given style, run a bit lighter, or add behaviour. That is the same move as picking a favourite checkpoint on CivitAI or Hugging Face ([Models](https://docs.comfy.org/basic-concepts/models)). It is also how you inherit **license** and **pickle** risk from a stranger.
+
+Merges are not a third architecture. They are weight arithmetic on a family. If the merge's card says SD1.5, it still wants SD1.5 CLIP and VAE. If it says SDXL, it wants the SDXL pair. This course will not rank merges.
+
+Hugging Face can host the same file the CivitAI card points at. Prefer the copy whose **card you actually read**. Mirror hopping is how `.ckpt` pickle files sneak in next to a safetensors screenshot.
+
+When you later train a diffusion LoRA, you are back in the Unsloth algebra: freeze the base, train low-rank A and B (Hu et al., 2022). When you later train an LLM LoRA, same algebra, different forward pass ([Unsloth](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide)). The file still lands in `models/loras` for Comfy, or as an adapter directory for Unsloth. Do not cross-load them.
+
+
+## Recap, out loud
+
+An image generator in this course is a **latent diffusion** (or flow) loop, not a chat model. The **checkpoint** is the denoiser brain. **CLIP** translates the prompt with *this* checkpoint's rules. The **VAE** turns latents into pixels. ComfyUI is a small app; **you** fetch weights into `ComfyUI/models/…` from Hugging Face or CivitAI ([Comfy-Org, Models](https://docs.comfy.org/basic-concepts/models); [First generation](https://docs.comfy.org/get_started/first_generation); [CivitAI article 22492](https://civitai.com/articles/22492/comfyui-tutorial-2-building-your-first-workflow)). SD 1.5 is the official first-generation default file. SDXL and Flux are later families you add on purpose. Safetensors from a card you trust; pickle `.ckpt` is a program ([Python pickle](https://docs.python.org/3/library/pickle.html); [safetensors](https://huggingface.co/docs/safetensors/index)). ComfyUI does **not** ship SDXL.
+
+If you can say that paragraph with the URLs attached, the lesson worked.
+
+
+## What this lesson did not claim
+
+No FID, no CLIP-score, no "Flux is N percent better." Those would need a paper table we fetched and attributed. We fetched Comfy-Org, CivitAI article 22492, Hugging Face safetensors and Inference Providers, Unsloth's LoRA wording, and the classic papers (Ho et al., 2020; Rombach et al., 2022; Podell et al., 2023; Radford et al., 2021; Kingma & Welling, 2013; Hu et al., 2022). Installers, folders, and the SD1.5 default filename come from Comfy-Org's first-generation page as of August 2026. If that page changes the default checkpoint, believe the page, not this paragraph.
+
+The next metal lesson builds the first graph. The LoRA lesson puts an adapter on the frozen brain. Neither lesson ships weights for you.
+
+## Sources
+
+Primary documentation and papers for this lesson (URLs retrieved August 2026):
+
+
+
+- Ho, J., Jain, A., & Abbeel, P. (2020). *Denoising diffusion probabilistic models* (arXiv:2006.11239). https://arxiv.org/abs/2006.11239
+- Rombach, R., Blattmann, A., Lorenz, D., Esser, P., & Ommer, B. (2022). High-resolution image synthesis with latent diffusion models. *CVPR*. arXiv:2112.10752. https://arxiv.org/abs/2112.10752
+- Podell, D., English, Z., Lacey, K., Blattmann, A., Dockhorn, T., Müller, J., Penna, J., & Rombach, R. (2023). *SDXL: Improving latent diffusion models for high-resolution image synthesis* (arXiv:2307.01952). https://arxiv.org/abs/2307.01952
+- Radford, A., Kim, J. W., Hallacy, C., Ramesh, A., Goh, G., Agarwal, S., Sastry, G., Askell, A., Mishkin, P., Clark, J., Krueger, G., & Sutskever, I. (2021). Learning transferable visual models from natural language supervision. *ICML*. arXiv:2103.00020. https://arxiv.org/abs/2103.00020
+- Kingma, D. P., & Welling, M. (2013). *Auto-encoding variational Bayes* (arXiv:1312.6114). https://arxiv.org/abs/1312.6114
+- Python Software Foundation. (n.d.). *pickle — Python object serialization* ("the pickle module is not secure"). https://docs.python.org/3/library/pickle.html
+- Hugging Face. (n.d.). *safetensors*. https://huggingface.co/docs/safetensors/index
+- Hugging Face. (n.d.). *Inference Providers*. https://huggingface.co/docs/inference-providers/index
+- Comfy-Org. (n.d.). *Models*. https://docs.comfy.org/basic-concepts/models
+- Comfy-Org. (n.d.). *Getting started with AI image generation* (first generation). https://docs.comfy.org/get_started/first_generation
+- Comfy-Org. (n.d.). SD 1.5 archive checkpoint. https://huggingface.co/Comfy-Org/stable-diffusion-v1-5-archive/blob/main/v1-5-pruned-emaonly-fp16.safetensors
+- CivitAI. (2025, 15 November; updated 2026). *ComfyUI Tutorial #2 — Building your first workflow* (article 22492). https://civitai.com/articles/22492/comfyui-tutorial-2-building-your-first-workflow
+- CivitAI. (n.d.). Models catalog. https://civitai.com/models
+- Black Forest Labs. (2024). FLUX.1-dev model card. https://huggingface.co/black-forest-labs/FLUX.1-dev
+- Hu, E. J., Shen, Y., Wallis, P., Allen-Zhu, Z., Li, Y., Wang, S., Wang, L., & Chen, W. (2022). LoRA: Low-rank adaptation of large language models. *ICLR*. arXiv:2106.09685. https://arxiv.org/abs/2106.09685
+- Unsloth. (n.d.). Fine-tuning LLMs guide (LoRA versus QLoRA versus full FT). https://unsloth.ai/docs/get-started/fine-tuning-llms-guide
+- Comfy-Org. (n.d.). *ComfyUI LoRA example*. https://docs.comfy.org/tutorials/basic/lora

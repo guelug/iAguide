@@ -15,7 +15,7 @@
   "prereqs": [
     "smolagents"
   ],
-  "durationMin": 22,
+  "durationMin": 34,
   "tags": [
     "multi-agent",
     "vision",

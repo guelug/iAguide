@@ -1,10 +1,107 @@
 ## Particularity — from chatty NPCs to legal actions
 
-An LLM NPC can talk in character. An **agent** in a game chooses an action the engine will accept. Turn-based games (Pokémon-style combat) leave enough wall-clock for a thought-action-observation loop. Twitch plays of Claude in Pokémon show the other side: real-time FPS budgets do not wait for a 2k-token plan.
+*Named source: Hugging Face Agents Course, Bonus Unit 3, [From LLMs to AI Agents](https://huggingface.co/learn/agents-course/bonus-unit3/from-llm-to-agents) and [introduction](https://huggingface.co/learn/agents-course/bonus-unit3/introduction) (Burtenshaw, Thomas, Simonini, & Paniego, Apache-2.0).*
 
-Hugging Face Bonus Unit 3 wires this with **poke-env** (Python `Player` API), **Pokémon Showdown**, an `LLMAgentBase` that formats battle state and exposes `choose_move` / `choose_switch`, and a `TemplateAgent` you fill with your provider. The observation is the battle string; the action must match available moves or switches; illegal plans fall back to random.
+This is not a fifth track. It sits on the **metal** track because a game engine will not accept a paragraph. An LLM NPC can talk in character. An **agent** in a game chooses an action the engine will accept. Unit 1 already defined agents as systems that plan and decide. Bonus Unit 3 applies that definition to NPCs: with an LLM, a classic RPG NPC answers more naturally but stays static until you speak; with agentic AI it can go for help, set a trap, or avoid you even if you are not talking to it.
+
+Official course: https://huggingface.co/learn/agents-course · repo: https://github.com/huggingface/agents-course
 
 <VisualSlot caption="Battle state on the left, legal actions on the right, the LLM in the middle. Rose mode: a move not in the set." />
+
+## Why this bonus unit exists
+
+*Named source: Hugging Face Agents Course, Bonus Unit 3, [introduction](https://huggingface.co/learn/agents-course/bonus-unit3/introduction).*
+
+The authors want you to imagine NPCs that hold dynamic conversations, adapt to your strategies, and evolve as the story unfolds. You will learn to build an AI agent that can fight **Pokémon-style turn-based battles**, play against it, or challenge other agents online. They point at community examples such as visible extended thinking and Gemini Plays Pokémon on Twitch. Further, they name the [Machine Learning for Games Course](https://hf.co/learn/ml-games-course) and the [AI Playbook for Game Developers](https://thomassimonini.substack.com/).
+
+Practical tip: steal the turn-based constraint before you steal the lore. If your game is 30 FPS, this unit is a warning, not a starter kit.
+
+## Autonomy, adaptability, persistence — and the speed wall
+
+*Named source: Hugging Face Agents Course, Bonus Unit 3, [from-llm-to-agents](https://huggingface.co/learn/agents-course/bonus-unit3/from-llm-to-agents).*
+
+Agentic AI, in their list, gives NPCs:
+
+- **Autonomy** — independent decisions from game state
+- **Adaptability** — strategies that change with the player
+- **Persistence** — memory of past interactions
+
+The big limitation, in their heading, is **it’s slow (for now)**. Reasoning and planning add latency. Bad for *Doom* or *Super Mario Bros.* [Claude Plays Pokémon](https://www.twitch.tv/claudeplayspokemon) makes the token budget obvious: tokens to think plus tokens to act. Most games need around **30 FPS**, which would mean acting 30 times per second — not feasible with today’s agentic LLMs. **Turn-based games like Pokémon are the candidate**, because they leave wall-clock for a thought-action-observation loop.
+
+Practical tip: budget the turn, not the frame. If the engine must have an action in 50 ms, fail closed to a scripted policy. If it can wait two seconds, you may call a model.
+
+<Compare a="LLM NPC" b="Game agent">
+<Side>
+Talks in character. Reactive. Great for dialogue. Will not act unless you do. Covert Protocol and Suck Up! live here.
+</Side>
+<Side>
+Chooses a legal engine action. Needs a formatted state, a closed action set, and a fail-closed parse. Pokémon Showdown live here.
+</Side>
+</Compare>
+
+## LLMs in games, not yet agents
+
+*Named source: Hugging Face Agents Course, Bonus Unit 3, [The State of the Art in Using LLMs in Games](https://huggingface.co/learn/agents-course/bonus-unit3/state-of-art).*
+
+The unit walks four examples and then asks **where are the agents?**
+
+- **Covert Protocol** (NVIDIA and Inworld AI, GDC 2024) — private detective, AI NPCs that answer in real time and shift the narrative. Unreal Engine 5, NVIDIA ACE, Inworld. https://inworld.ai/blog/nvidia-inworld-ai-demo-on-device-capabilities
+- **NEO NPCs** (Ubisoft, GDC 2024) — generative NPCs that perceive, remember, converse. https://inworld.ai/blog/gdc-2024
+- **Mecha BREAK** with NVIDIA ACE — natural language NPCs; webcam recognition via GPT-4o. https://blogs.nvidia.com/blog/digital-human-technology-mecha-break/
+- **Suck Up!** (Proxima Enterprises) — a published vampire game where you talk AI NPCs into inviting you in. https://www.playsuckup.com/
+
+The unit’s own punchline: these showcase LLMs in games; they do not yet look like agents. The next section (and this particularity) is the distinction.
+
+Practical tip: if the NPC only speaks, you have a chat model in a costume. If it must emit `choose_move` with an id the engine owns, you have an agent.
+
+<Myth>
+A talking NPC is an agent. No. The unit spends a whole page on demos that talk, then asks where the agents are. RivalAI’s Hydro Pump was the opposite failure: it *acted*, but the action was illegal.
+</Myth>
+
+## Four building blocks the unit names
+
+*Named source: Hugging Face Agents Course, Bonus Unit 3, [Build Your Own Pokémon Battle Agent](https://huggingface.co/learn/agents-course/bonus-unit3/building_your_pokemon_agent).*
+
+They split the system into:
+
+1. **Poke-env** — Python library to train rule-based or RL Pokémon bots, reused here for agentic AI. `Player` class. Docs: https://poke-env.readthedocs.io/en/stable/ · repo: https://github.com/hsahovic/poke-env (Haris Sahovic).
+2. **Pokémon Showdown** — open-source battle simulator. https://pokemonshowdown.com/ · https://github.com/smogon/Pokemon-Showdown
+3. **LLMAgentBase** — custom class that extends `Player`, formats I/O, keeps battle context.
+4. **TemplateAgent** — starter you fill with your provider.
+
+Practical tip: do not rewrite Showdown. Inherit `Player`. The illegal-move problem is a parse problem, not a graphics problem.
+
+## LLMAgentBase: state in, legal action out
+
+*Named source: Hugging Face Agents Course, Bonus Unit 3, LLMAgentBase in [building_your_pokemon_agent](https://huggingface.co/learn/agents-course/bonus-unit3/building_your_pokemon_agent); full source https://huggingface.co/spaces/Jofthomas/twitch_streaming/blob/main/agents.py.*
+
+`STANDARD_TOOL_SCHEMA` exposes two tools:
+
+- `choose_move` — pick an attack
+- `choose_switch` — switch Pokémon
+
+The LLM should use those tools. Core method: `choose_move(battle)` each turn, returns an action string. Internals the unit names:
+
+- `_format_battle_state(battle)` — battle → string for the model (species, types, HP fraction, status, boosts, available moves with type/BP/accuracy/PP/category, available switches, weather, terrains, side conditions).
+- `_find_move_by_name(battle, move_name)` — exact id match first, display-name fallback, else `None`.
+- `_find_pokemon_by_name` — normalized species match, else `None`.
+- `_get_llm_decision(battle_state)` — abstract; your subclass calls the provider and parses.
+
+If the chosen move is not in `available_moves`, or the switch is not in `available_switches`, or the function name is unknown, or the API errors, the base class **prints a warning and chooses a random legal action** (`choose_random_move` / `choose_default_move`). That is fail-closed. RivalAI’s stream laugh is this branch.
+
+Practical tip: prompt “only use available moves,” **and** keep `_find_move_by_name` fail-closed. The prompt is optimism. The lookup is law.
+
+<Callout>
+Observation is the formatted battle string. Action must match available moves or switches. Illegal plans fall back to random. That sentence is the whole metal-track lesson.
+</Callout>
+
+## TemplateAgent is a hole you fill
+
+*Named source: Hugging Face Agents Course, Bonus Unit 3, TemplateAgent in [building_your_pokemon_agent](https://huggingface.co/learn/agents-course/bonus-unit3/building_your_pokemon_agent).*
+
+You implement `_get_llm_decision`. They provide complete examples using OpenAI, Mistral, and Gemini in the same `agents.py`. The template’s system prompt is “You are a …” — fill it. The code will not run out of the box; it is a blueprint. Return a decision dict with `name` and `arguments`, or an `error` key so the base class can fall back.
+
+Practical tip: parse tool calls with the same strictness as [dummy-agent](/course/dummy-agent). A Hydro Pump that is not in the PP list must become `None`, not a creative string the engine will reject mid-turn.
 
 <TryThis>
 Define for one turn: **state** (your HP, opponent type, available moves), **actions** (`choose_move`, `choose_switch`), **observation** (the formatted battle string). Write one illegal plan a model might emit and how the harness rejects it without crashing the match.
@@ -12,6 +109,93 @@ Define for one turn: **state** (your HP, opponent type, available moves), **acti
 
 ## Case — RivalAI’s forbidden Hydro Pump
 
-RivalAI’s agent planned Hydro Pump because the lore said Water beats Fire. The active Pokémon had not learned it — PP list was empty for that id. The base class fell back to random and the stream laughed. They prompted “only use available moves.” They also needed `_find_move_by_name` to fail closed, which it did; the case is the prompt’s optimism versus the state’s law.
+*Pedagogical case in iAguide voice; fail-closed lookup from Bonus Unit 3’s `_find_move_by_name`.*
 
-This lesson rewrites ideas from the [Hugging Face Agents Course](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.
+RivalAI’s agent planned Hydro Pump because the lore said Water beats Fire. The active Pokémon had not learned it — PP list empty for that id. The base class fell back to random and the stream laughed. They prompted “only use available moves.” They also needed `_find_move_by_name` to fail closed, which it did; the case is the prompt’s optimism versus the state’s law.
+
+They later put the available-move list in the system prompt *and* in the formatted state, and logged fallback_reason as a span (see [observability](/course/observability)). The random branch stopped being a surprise on stream.
+
+## Launching a battle, as they print it
+
+*Named source: Hugging Face Agents Course, Bonus Unit 3, [Launching Your Pokémon Battle Agent](https://huggingface.co/learn/agents-course/bonus-unit3/launching-agent-battle).*
+
+If you do not want to build, they host a livestream: https://www.twitch.tv/jofthomas. To challenge the stream agent: open the [Pokémon Showdown Space](https://huggingface.co/spaces/Jofthomas/Pokemon_showdown), choose a name, find the current agent username on the stream, search, send a battle invitation. Only one agent is online at once.
+
+If you did build: dedicated Space https://huggingface.co/spaces/PShowdown/pokemon_agents connected to their Showdown server. Their steps: duplicate the Space, paste your agent into `agent.py`, register it in `app.py`, select it, enter the Showdown username, send invitation, accept. Example code: https://huggingface.co/spaces/PShowdown/pokemon_agents/blob/main/agents.py. iAguide does not host their arena.
+
+Practical tip: keep the Space public if you want a fair fight. Private credentials in `agent.py` are a product incident, not a type advantage.
+
+## Practical checklist
+
+*Named source: Bonus Unit 3 pages under Sources; poke-env https://poke-env.readthedocs.io/en/stable/.*
+
+1. Turn-based only unless you have a scripted fallback inside the frame budget.
+2. Format state as a string the model can see: HP, types, PP, switches, weather.
+3. Close the action set: `choose_move`, `choose_switch`.
+4. Fail closed on unknown names; random legal is better than a crash.
+5. Talking demos are LLMs in games; they are not this lesson.
+6. Log fallback_reason. A silent random is how RivalAI shipped a meme.
+
+## What to remember
+
+*Synthesis of Bonus Unit 3, Hugging Face Agents Course (Burtenshaw, Thomas, Simonini, & Paniego, Apache-2.0).*
+
+LLM NPCs talk; agents choose a legal action. 30 FPS does not wait for a 2k-token plan; turn-based Pokémon does. poke-env `Player`, Showdown, `LLMAgentBase`, `TemplateAgent`. Illegal Hydro Pump → random. The lookup is the law.
+
+## Cross-links in this course
+
+*Named source: Hugging Face Agents Course, Bonus Unit 3 (whole unit); iAguide particularities that share the loop.*
+
+- Inner Think-Act-Observe: [dummy-agent](/course/dummy-agent)
+- Learned tool tokens if you train a battler: [function-calling-ft](/course/function-calling-ft)
+- Traces for fallback_reason: [observability](/course/observability)
+- Multi-agent only if you nest planners: [smolagents-multi](/course/smolagents-multi)
+
+Further named by the unit: https://hf.co/learn/ml-games-course · https://thomassimonini.substack.com/ · Claude Plays Pokémon https://www.twitch.tv/claudeplayspokemon
+
+## Formatted state is the observation
+
+*Named source: Hugging Face Agents Course, Bonus Unit 3, `_format_battle_state` in [building_your_pokemon_agent](https://huggingface.co/learn/agents-course/bonus-unit3/building_your_pokemon_agent).*
+
+The dummy loop’s Observation is an API body you append. Here the observation is a string the harness *builds* from the `Battle` object before the model speaks: your species and types, HP percent, status, boosts; the opponent’s same fields or “Unknown”; every available move with type, base power, accuracy, PP; every available switch; weather; terrains; both sides’ conditions. If a field is missing from that string, the model will hallucinate it from Pokédex lore. Hydro Pump appears because lore is not PP.
+
+Practical tip: never add a Pokédex tool that lists moves the active Pokémon has not learned. That tool fights `_format_battle_state`. The legal set is the observation.
+
+## Random fallback is a metric
+
+*Named source: Hugging Face Agents Course, Bonus Unit 3, `choose_move` fallback branch in [building_your_pokemon_agent](https://huggingface.co/learn/agents-course/bonus-unit3/building_your_pokemon_agent); Bonus Unit 2 metrics in [observability](/course/observability).*
+
+When `action_taken` stays false, the unit’s code prints `fallback_reason` and calls `choose_random_move`. That print is an **error span** in Bonus Unit 2’s language: a request error, not a latency problem. Alert on fallback ratio the way SignalOps should have alerted on CRM timeouts. A 40 percent random rate with a “smart” commentary track is a talking NPC glued onto a coin flip.
+
+Practical tip: count fallbacks per thousand turns before you argue about Gemini versus Mistral. The provider is downstream of a closed action set.
+
+A silent 40 percent random rate is SignalOps with a Pokédex. Name the span. Page it.
+
+Course: https://huggingface.co/learn/agents-course · poke-env: https://poke-env.readthedocs.io/en/stable/
+
+
+The Twitch stream the unit names for watching a live battler is https://www.twitch.tv/jofthomas — optional spectating, not a required lab.
+Playbook named in the introduction: https://thomassimonini.substack.com/
+
+## Sources
+
+Burtenshaw, B., Thomas, J., Simonini, T., & Paniego, S. (n.d.). *Hugging Face Agents Course* (Apache-2.0). https://huggingface.co/learn/agents-course · https://github.com/huggingface/agents-course
+
+- Bonus Unit 3 introduction: https://huggingface.co/learn/agents-course/bonus-unit3/introduction
+- From LLMs to AI Agents: https://huggingface.co/learn/agents-course/bonus-unit3/from-llm-to-agents
+- Building your Pokémon agent: https://huggingface.co/learn/agents-course/bonus-unit3/building_your_pokemon_agent
+- State of the art: https://huggingface.co/learn/agents-course/bonus-unit3/state-of-art
+- Launching agent battle: https://huggingface.co/learn/agents-course/bonus-unit3/launching-agent-battle
+- agents.py source: https://huggingface.co/spaces/Jofthomas/twitch_streaming/blob/main/agents.py
+- poke-env docs: https://poke-env.readthedocs.io/en/stable/
+- poke-env repo: https://github.com/hsahovic/poke-env
+- Pokémon Showdown: https://pokemonshowdown.com/
+- Pokémon Showdown repo: https://github.com/smogon/Pokemon-Showdown
+- Showdown Space: https://huggingface.co/spaces/Jofthomas/Pokemon_showdown
+- Challenger Space: https://huggingface.co/spaces/PShowdown/pokemon_agents
+- Covert Protocol write-up (named in the unit): https://inworld.ai/blog/nvidia-inworld-ai-demo-on-device-capabilities
+- NEO NPCs write-up: https://inworld.ai/blog/gdc-2024
+- Mecha BREAK write-up: https://blogs.nvidia.com/blog/digital-human-technology-mecha-break/
+- Suck Up!: https://www.playsuckup.com/
+- ML for Games Course: https://hf.co/learn/ml-games-course
+- Hugging Face docs: https://huggingface.co/docs

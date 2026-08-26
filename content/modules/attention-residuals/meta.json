@@ -1,0 +1,18 @@
+{
+  "id": "attention-residuals",
+  "order": 3.6,
+  "slug": "attention-residuals",
+  "track": "foundations",
+  "title": {
+    "en": "Attention Residuals (Kimi Team, 2026)",
+    "es": "Residuales de atención (Kimi Team, 2026)"
+  },
+  "summary": {
+    "en": "Depth-wise softmax over layer outputs: residual as identity highway and as unit-weight aggregation, PreNorm dilution, Full vs Block AttnRes, ablations, and the 1.4T Kimi Linear run.",
+    "es": "Softmax en profundidad sobre salidas de capa: el residual como autopista de identidad y como agregación de pesos unitarios, dilución PreNorm, AttnRes completo frente a por bloques, ablaciones y la corrida Kimi Linear de 1.4T."
+  },
+  "status": "complete",
+  "prereqs": ["attention"],
+  "durationMin": 40,
+  "tags": ["attnres", "prenorm", "depth", "kimi"]
+}

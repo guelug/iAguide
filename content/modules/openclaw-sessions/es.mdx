@@ -1,19 +1,180 @@
-## El Gateway posee las filas
+## sqlite posee el hilo
 
-sqlite por agente. dmScope y groupScope. Incognito en memoria.
+La fuente primaria es [*Session management*](https://docs.openclaw.ai/concepts/session) de OpenClaw (s. f.). OpenClaw enruta cada mensaje de entrada a una **sesion** segun de donde viene: DMs, chats de grupo, cron jobs, webhooks. Todo el estado de sesion lo posee el **gateway**; los clientes UI consultan el gateway por los datos de sesion.
 
-<VisualSlot caption="sqlite, dmScope, groupScope, main, incognito." />
+La leccion generica [sessions](/es/m/sessions) permanece agnostica del harness. Esta es el almacén OpenClaw.
 
-## Comparar vs Hermes
+Las filas de sesion viven en la base SQLite por agente `~/.openclaw/agents/<agentId>/agent/openclaw-agent.sqlite`. Los archivos de transcripcion archivados pueden seguir bajo `~/.openclaw/agents/<agentId>/sessions/`. Fuente de migracion legacy: `sessions.json`. El historial activo del agente se guarda en SQLite. El session ID es estable y lo elige OpenClaw. OpenClaw no lee carpetas de sesion de otras tools (OpenClaw, *Session management*, s. f.; *Agent runtime*, s. f., https://docs.openclaw.ai/concepts/agent).
 
-Hermes: un state.db. OpenClaw: sqlite por agente + pairing compartido.
+Para el default de agente personal — una conversacion continua compartida por todos tus canales DM, con actividad de grupo y trabajo de fondo fluyendo hacia ella — vean [*The main session*](https://docs.openclaw.ai/concepts/main-session) (OpenClaw, s. f.).
 
-## Caso: Alice ve a Bob
+<VisualSlot caption="ruta sqlite, dmScope, groupScope, main, incognito." />
 
-**Fix.** per-channel-peer.
+## Como se enrutan los mensajes
+
+| Fuente | Comportamiento |
+| --- | --- |
+| Mensajes directos | Sesion compartida por defecto |
+| Chats de grupo | Aislada por grupo por defecto |
+| Rooms/channels | Aislada por room por defecto |
+| Cron jobs | Sesion nueva por run |
+| Webhooks | Aislada por hook |
+
+## Aislamiento de DM
+
+Por defecto, todos los DMs comparten una sesion para continuidad, lo cual esta bien para setups de un solo usuario. Si varias personas pueden escribirle a tu agente, activa aislamiento de DM. Sin el, todos los usuarios comparten el mismo contexto, asi que los mensajes privados de Alice serian visibles para Bob (OpenClaw, *Session management*, s. f.).
+
+Opciones de `session.dmScope`:
+
+| Valor | Comportamiento |
+| --- | --- |
+| `main` (default) | Todos los DMs comparten la sesion main |
+| `per-peer` | Aislar por remitente, a traves de canales |
+| `per-channel-peer` | Aislar por canal mas remitente (recomendado) |
+| `per-account-channel-peer` | Aislar por cuenta mas canal mas remitente |
+
+Si la misma persona te contacta desde varios canales, usa `session.identityLinks` para mapear sus identidades a un peer id canonico y que compartan sesion. Verifica el setup con `openclaw security audit`.
+
+Los commands de dock mueven la ruta de respuesta de la sesion DM actual a otro canal vinculado sin arrancar una sesion nueva. Vean *Channel docking* (OpenClaw, s. f., https://docs.openclaw.ai/concepts/channel-docking).
+
+## Enrutado de grupos y rooms
+
+`session.groupScope` controla donde los peers no-directos guardan contexto de conversacion:
+
+| Valor | Comportamiento |
+| --- | --- |
+| `per-group` (default) | Conservar cada grupo, room o canal en su sesion scoped al canal |
+| `main` | Enrutar grupos, rooms y canales a la sesion main del agente |
+
+Un binding de ruta puede sobreescribir el valor global. Sirve cuando solo un room de equipo nombrado debe unirse a la conversacion main. Usen `peer.kind: "group"` para proveedores que clasifican el room como grupo. El override del binding gana sobre el `session.groupScope` global. Este setting cambia solo la seleccion de session-key: el enrutado DM, el gating de mention, el contexto de delivery y las respuestas al room de origen no cambian (OpenClaw, *Session management*, s. f.).
+
+<Callout>
+Si antes usaste aislamiento de DM y luego devolviste `session.dmScope` a `main`, previsualiza filas DM peer-keyed obsoletas con `openclaw sessions cleanup --dry-run --fix-dm-scope`. Aplicar el mismo flag retira esas filas DM directas viejas y conserva sus transcripciones como archivos deleted (OpenClaw, *Session management*, s. f.).
+</Callout>
+
+## Sesiones incognito
+
+Las sesiones incognito solo estan disponibles desde la pantalla **New thread** del Control UI. Activa **Incognito** antes de empezar el hilo para mantener su entrada de sesion, transcripcion y estado de compaction en memoria de proceso en vez de disco. El hilo desaparece cuando el Gateway reinicia, no corre el memory flush automatico de OpenClaw, y no crea un archivo de transcripcion cuando lo reseteas o borras. Los runs con Codex tambien arrancan su hilo de harness en modo efimero, asi que Codex no escribe rollout ni archivos locales de session-state; otros proveedores de modelo usan APIs HTTP y no guardan transcripcion de proveedor local en OpenClaw (OpenClaw, *Session management*, s. f.).
+
+El segmento `incognito-` esta reservado para claves internas de dashboard, subagent y hidden; `openclaw doctor --fix` renombra cualquier clave durable legacy que colisione.
+
+Incognito no restringe las tools normales del agente. Una peticion explicita de guardar informacion, o cualquier escritura de archivo via tool, puede persistir datos fuera del store incognito. El proveedor de modelo configurado sigue procesando los mensajes. En gateways multi-usuario, los hilos incognito solo son visibles para conexiones de scope admin y nunca aparecen a traves de las session tools o busqueda de transcripcion de otra sesion.
+
+## Recordar entre conversaciones
+
+Transcripciones separadas controlan el historial local de cada conversacion. Para un agente personal o de confianza plena, `memory.search.rememberAcrossConversations: true` añade un paso opcional de retrieval a traves de las otras conversaciones privadas de ese agente; no combina sus transcripciones.
+
+Bajo el default `session.groupScope: "per-group"`, grupos y canales quedan separados en ambas direcciones: sus transcripciones no son fuentes de recall privado, y las respuestas en esas conversaciones no reciben contexto de transcripcion privada. Este setting no cambia session keys, DM scope, routing, delivery ni `tools.sessions.visibility`. La memoria compartida del workspace en `MEMORY.md` y `memory/*.md` conserva su comportamiento (OpenClaw, *Session management*, s. f.; *Active Memory*, s. f., https://docs.openclaw.ai/concepts/active-memory).
+
+## Timestamps de ciclo de vida
+
+Las filas de sesion en la SQLite por agente guardan timestamps de ciclo de vida separados (OpenClaw, *Session management*, s. f.):
+
+- `sessionStartedAt`: cuando empezo el `sessionId` actual; el reset daily usa este.
+- `lastInteractionAt`: ultima interaccion de usuario/canal que alarga la vida idle.
+- `updatedAt`: ultima mutacion de la fila; util para listar y prune, pero no es autoridad para frescura daily o idle.
+
+Heartbeat, cron, exec y otros turnos de system-event pueden escribir metadatos de sesion, pero esas escrituras no alargan la frescura daily o idle. Los detalles siguen en la leccion de reset.
+
+Durante la migracion de installs viejos, el arranque del gateway y `openclaw doctor --fix` importan filas legacy de `sessions.json` y el historial JSONL caliente a SQLite automaticamente. Usen `openclaw doctor --session-sqlite inspect --session-sqlite-all-agents` cuando quieran inspeccion explicita.
+
+## Mantenimiento de sesiones
+
+OpenClaw acota el almacenamiento de sesiones en el tiempo via `session.maintenance`. Defaults: `mode: "enforce"`, `pruneAfter: "30d"`, `archiveDashboardAfter: "7d"`, `maxEntries: 500`. `preserveRecent` es opcional.
+
+`maxEntries` cuenta cada fila de sesion viva. Las sesiones archivadas o pineadas, el trabajo activo o admitido, las sesiones model-locked y los punteros durables a conversaciones externas estan protegidos de eviction automatica, pero siguen consumiendo el cap. El cleanup quita las filas desprotegidas mas viejas hasta alcanzar `maxEntries` o quedarse sin victimas elegibles.
+
+Las sesiones probe de model-run del Gateway que coinciden con `agent:*:explicit:model-run-*` usan retencion fija `24h`, gated por presion. Las sesiones normales direct, group, thread, cron, hook, heartbeat, ACP y sub-agent no heredan esa retencion de 24h.
+
+Las sesiones archivadas y pineadas estan protegidas por el usuario y exentas de todo camino automatico de mantenimiento hasta que desarchives, despinees o las borres explicitamente. Previsualiza cualquier run de mantenimiento con `openclaw sessions cleanup --dry-run`.
+
+## Inspeccionar sesiones
+
+| Command | Muestra |
+| --- | --- |
+| `openclaw status` | Ruta del store de sesion y actividad reciente |
+| `openclaw sessions --json` | Todas las sesiones (filtra con `--active`) |
+| `/status` en chat | Uso de contexto, modelo y toggles |
+| `/context list` | Que hay en el system prompt |
+
+`tools.sessions.visibility` default es `tree` (sesion actual mas sesiones spawned por ella; la sesion main puede alcanzar cada sesion del mismo agente). Otros valores: `self`, `agent`, `all`. Clamp de sandbox: cuando la sesion actual esta sandboxed y `agents.defaults.sandbox.sessionToolsVisibility` es `"spawned"` (el default), el acceso se queda limitado a sesiones spawned incluso si el caller es main o visibility es `"all"` (OpenClaw, *Tools and custom providers*, s. f., https://docs.openclaw.ai/gateway/config-tools).
+
+**Caso.** Alice y Bob le escriben DM al mismo bot de Telegram. El default `dmScope` `main` comparte una sesion. Bob ve el contexto privado de Alice. Pon `session.dmScope` en `per-channel-peer` (OpenClaw, *Session management*, s. f.).
 
 <TryThis>
-Ruta sqlite de main y un dmScope para un bot familiar.
+Escribe la ruta sqlite por agente. Nombra los cuatro valores de dmScope y el default. Nombra los dos valores de groupScope y el default. Escribe que tres timestamps existen y cuales dos usa de verdad el reset daily/idle. Nombra donde vive el estado incognito.
 </TryThis>
 
-Fuente: https://docs.openclaw.ai/concepts/session
+## Comparar, sin mezclar knobs
+
+Hermes persiste sesiones via `hermes_state.py` a SQLite mas `MEMORY.md` (Nous Research, *Agent Loop Internals*, s. f., https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop). OpenClaw posee las filas de sesion en el Gateway en `openclaw-agent.sqlite` por agente. Misma necesidad humana (un hilo durable). Distinto proceso dueño. Distintos knobs de scope.
+
+No peguen session ids de Hermes en `session.dmScope` de OpenClaw. No inventen un store vivo `sessions.json`; ese archivo es fuente de migracion legacy. Citen *Session management* para routing, scopes, incognito, timestamps y mantenimiento.
+
+**Caso.** Un room de Slack de grupo se bindea con `session.groupScope` `main` para que el room de equipo se una a la conversacion main del agente. Otros rooms se quedan `per-group`. El override del binding gana sobre el `session.groupScope` global. Las respuestas siguen yendo al room de origen (OpenClaw, *Session management*, s. f.).
+
+Los cron jobs reciben una sesion nueva por run. Las automatizaciones aisladas usan claves `cron:<jobId>`. Ese split continua en la leccion de cron. Compaction cambia lo que el modelo ve, no la identidad de la fila sqlite, salvo que un context engine devuelva un sucesor; eso continua en la leccion de compaction.
+
+## Session tools y visibilidad
+
+Las session tools de cara al agente (`sessions_list`, `sessions_history`, `sessions_send`, `sessions_spawn`) honran `tools.sessions.visibility`. El default `tree` significa sesion actual mas subagentes spawned; cuando el caller es la sesion main canonica, incluye cada sesion del mismo agente para list, history, search, send y status. `self` es solo la session key actual. `agent` es cualquier sesion que pertenece al agent id actual (puede incluir otros usuarios si corres sesiones per-sender bajo el mismo agent id). `all` es cualquier sesion; el targeting cross-agent sigue exigiendo `tools.agentToAgent` (OpenClaw, *Tools and custom providers*, s. f.).
+
+`self` permanece estricto para main. La denegacion incognito permanece absoluta. Cuando no es `all`, `sessions_list` incluye un campo compacto `visibility` que describe el modo efectivo y un aviso de que algunas sesiones pueden omitirse.
+
+Los watches ambientales de grupo siguen encolando avisos de actividad y dicen a la sesion main donde paso algo. No otorgan acceso: el acceso same-agent de main esta construido en `tree`. En un setup multi-usuario, `session.dmScope: "main"` comparte esa sesion main entre usuarios; usa un DM scope per-peer para aislamiento, o pon `tools.sessions.visibility: "self"` para acceso estricto a la sesion actual.
+
+Para continuar la misma sesion poseida por el Gateway en el Control UI, terminal o un harness de codigo, vean *Session synchronization and attachment* (OpenClaw, s. f., https://docs.openclaw.ai/concepts/session-attachment). El modo bridge ACP mapea sesiones ACP sobre session keys del Gateway; eso continua en la leccion ACP.
+
+Lectura adicional en el mismo sitio de docs: *Session search*, *Session pruning*, *Compaction*, *Session tools*, *Session management deep dive*, *Multi-agent*, *Background tasks*, *Channel routing* (OpenClaw, s. f.).
+
+**Caso.** Una sesion de grupo sandboxed pone `tools.sessions.visibility` en `all` esperando leer el DM main. El clamp de sandbox `sessionToolsVisibility` `"spawned"` sigue limitando el acceso a sesiones spawned. La config de visibility no es un escape del sandbox (OpenClaw, *Tools and custom providers*, s. f.; *Sandbox vs tool policy vs elevated*, s. f., https://docs.openclaw.ai/gateway/sandbox-vs-tool-policy-vs-elevated).
+
+Los clientes backed por Gateway consultan el gateway; no leen el archivo sqlite ellos mismos. Enseñar a una app macOS a abrir `openclaw-agent.sqlite` directo se salta pairing, scopes y mantenimiento. Citen *Session management* para la ruta del store y *Gateway protocol* para la superficie RPC (OpenClaw, *Session management*, s. f.; *Gateway protocol*, s. f., https://docs.openclaw.ai/gateway/protocol).
+
+Las sesiones durables de dashboard se auto-archivan tras 7 dias de inactividad por defecto (`archiveDashboardAfter: "7d"`). Otros tipos de sesion siguen exigiendo una accion de archive explicita. La proteccion de sesiones recientes (`preserveRecent`) no cambia el garbage collection de worktrees gestionados.
+
+Las entradas sinteticas de cron, hook, heartbeat, ACP y sub-agent pueden envejecer. El mantenimiento conserva punteros durables a conversaciones externas, incluidas sesiones de grupo y sesiones de chat scoped a thread. Por eso una flota de cron de alto volumen no evicta el room de Slack que los humanos siguen usando (OpenClaw, *Session management*, s. f.).
+
+`openclaw sessions cleanup --enforce` aplica el cap de inmediato. Las lecturas del store de sesion no podan ni capan entradas durante el arranque del Gateway, asi que el startup y las sesiones cron aisladas no pagan un cleanup completo del store.
+
+Los metadatos de origen en una fila de sesion registran como empezo la conversacion: canal, peer, cuenta. Send policy y queue mode pueden guardarse por sesion (overrides `/queue`). Origin no es `dmScope`; cambiar `dmScope` despues no reescribe claves viejas. Cleanup `--fix-dm-scope` es el camino explicito de retiro para filas DM peer-keyed sobrantes despues de volver a `main` (OpenClaw, *Session management*, s. f.).
+
+`openclaw sessions --json` es el dump de operador. `/status` en chat es la vista in-thread de uso de contexto, modelo y toggles. `/context list` muestra que hay en el system prompt, incluidos archivos de workspace inyectados de la leccion de workspace. Usen esos tres antes de asumir que el archivo sqlite esta corrupto.
+
+Session pruning recorta resultados de tool viejos in-memory por request; no es compaction y no es reset. Compaction resume turnos viejos en la transcripcion. Reset acuña un `sessionId` nuevo. Tres verbos distintos. Citen *Session pruning* (OpenClaw, s. f., https://docs.openclaw.ai/concepts/session-pruning) para el recorte de tool-result, *Compaction* para resúmenes, *Session management* para ids y scopes.
+
+Las claves ACP, subagent, cron, hook y heartbeat son sinteticas frente a DMs humanos. El mantenimiento puede envejecerlas mientras protege punteros de grupo y thread. Enseñar "maxEntries 500 significa solo 500 chats humanos" es falso: las filas protegidas siguen consumiendo el cap, asi que el total puede quedarse por encima de 500 (OpenClaw, *Session management*, s. f.).
+
+La pantalla New thread del Control UI es la unica entrada incognito documentada. No hay una clave de config `session.incognito` en esta pagina que haga cada DM efimero. No inventen una. Activen Incognito antes de empezar el hilo.
+
+Los identity links son la persona multi-canal. Sin `session.identityLinks`, `per-peer` sigue partiendo Alice-en-Telegram de Alice-en-WhatsApp. `per-channel-peer` es el aislamiento recomendado cuando varias personas pueden enviarte DM. `per-account-channel-peer` añade la dimension de cuenta para dos numeros de WhatsApp en un Gateway (OpenClaw, *Session management*, s. f.; *Multi-agent*, s. f., https://docs.openclaw.ai/concepts/multi-agent).
+
+Los webhooks aislan por hook. Cron aislan por run. Esas claves no son la sesion main. Poner un hook de Gmail en `main` es una decision de seguridad documentada en *Automations* (conserven un agente reader dedicado). Esta leccion solo registra la tabla de routing default.
+
+Doctor `--session-sqlite inspect --session-sqlite-all-agents` es el command de evidencia cuando una migracion desde `sessions.json` parece incompleta. Los imports de startup son automaticos; inspect es para operadores que necesitan un recibo (OpenClaw, *Session management*, s. f.; *Doctor*, s. f., https://docs.openclaw.ai/cli/doctor).
+
+Pinear una sesion en el Control UI la protege de todo camino automatico de mantenimiento, incluido prune por edad, caps de entradas, cleanup de model-run y eviction por presupuesto de disco. Despinea o borra cuando ya no necesites esa proteccion. Las filas protegidas siguen contando hacia `maxEntries`, asi que una flota de pines puede mantener el store por encima del cap a proposito (OpenClaw, *Session management*, s. f.).
+
+Citen *Session management* como padre de routing, scopes, incognito, timestamps y mantenimiento.
+
+Citen *Session pruning* y *Session attachment* como hermanas, no como aliases de este store.
+
+Esta leccion se detiene en routing, dmScope, groupScope, rutas sqlite, incognito y mantenimiento. Daily e idle reset continuan despues.
+
+## Fuentes
+
+OpenClaw. (s. f.). *Session management*. https://docs.openclaw.ai/concepts/session
+
+OpenClaw. (s. f.). *The main session*. https://docs.openclaw.ai/concepts/main-session
+
+OpenClaw. (s. f.). *Agent runtime*. https://docs.openclaw.ai/concepts/agent
+
+OpenClaw. (s. f.). *Active Memory*. https://docs.openclaw.ai/concepts/active-memory
+
+OpenClaw. (s. f.). *Tools and custom providers*. https://docs.openclaw.ai/gateway/config-tools
+
+OpenClaw. (s. f.). *Channel docking*. https://docs.openclaw.ai/concepts/channel-docking
+
+OpenClaw. (s. f.). *Gateway architecture*. https://docs.openclaw.ai/concepts/architecture
+
+Nous Research. (s. f.). *Agent loop internals*. Guia de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop

@@ -1,19 +1,187 @@
-## Dos formas de un turno
+## El loop embebido es el default
 
-Embebido por defecto. Codex nativo para openai/gpt-*. ACP lanza harnesses externos. Writer claim en el transcript.
+La fuente primaria es [*Agent runtimes*](https://docs.openclaw.ai/concepts/agent-runtimes) de OpenClaw (s. f.). Un **agent runtime** posee un loop de modelo preparado: recibe el prompt, conduce la salida del modelo, maneja tool calls nativas y devuelve el turno terminado a OpenClaw. [*Agent runtime*](https://docs.openclaw.ai/concepts/agent) (OpenClaw, s. f.) enuncia el contrato del loop embebido que esta leccion implementa.
 
-<VisualSlot caption="Embebido, RPC, Codex, ACP, writer claim." />
+La leccion generica [agent loop](/es/m/agent-loop) permanece agnostica del harness. Esta es cual loop posee el turno.
 
-## Comparar vs Hermes
+Los runtimes se confunden facil con providers porque ambos aparecen cerca de la config de modelo. Son capas distintas (OpenClaw, *Agent runtimes*, s. f.):
 
-Hermes siempre ES el harness. OpenClaw puede serlo o conducir otro.
+| Capa | Ejemplos | Significado |
+| --- | --- | --- |
+| Provider | `anthropic`, `github-copilot`, `openai` | Como OpenClaw autentica, descubre modelos y nombra refs |
+| Model | `claude-opus-4-6`, `gpt-5.6-sol` | El modelo seleccionado para el turno de agente |
+| Agent runtime | `claude-cli`, `codex`, `copilot`, `openclaw` | El loop o backend de bajo nivel que ejecuta el turno preparado |
+| Channel | Discord, Slack, Telegram, WhatsApp | Donde los mensajes entran y salen de OpenClaw |
 
-## Caso: ACP desde sandbox
+Un **harness** es la implementacion que provee un agent runtime (termino de codigo). Por ejemplo, el harness Codex bundled implementa el runtime `codex`. La config publica usa `agentRuntime.id` en entradas de provider o modelo; las claves de runtime de agente entero son legacy y se ignoran. `openclaw doctor --fix` quita pins viejos de runtime de agente entero y reescribe refs de modelo legacy a refs canonicos provider/model mas politica de runtime con alcance de modelo donde hace falta.
 
-**Fix.** ACP bloqueado en sesiones sandboxed.
+<VisualSlot caption="Embedded, agent RPC, Codex native, ACP spawn, writer claim." />
+
+## Dos familias de runtime
+
+- **Harnesses embebidos** corren dentro del loop de agente preparado de OpenClaw: el runtime built-in `openclaw`, mas harnesses de plugin registrados como `codex` y `copilot`.
+- **CLI backends** corren un proceso CLI local manteniendo la ref de modelo canonica. Por ejemplo, `anthropic/claude-opus-5` con un `agentRuntime.id: "claude-cli"` de alcance de modelo significa "selecciona el modelo Anthropic, ejecuta por Claude CLI." `claude-cli` no es un id de harness embebido y no debe pasarse a la seleccion AgentHarness (OpenClaw, *Agent runtimes*, s. f.).
+
+El harness `copilot` es un plugin externo opt-in para GitHub Copilot CLI. Reclama el provider de suscripcion canonico `github-copilot` y **nunca** lo selecciona `auto`. Opta por modelo o por provider via `agentRuntime.id` (OpenClaw, *Agent runtimes*, s. f.; *GitHub Copilot agent runtime*, s. f., https://docs.openclaw.ai/plugins/copilot).
+
+## Superficies Codex comparten nombre
+
+Varias superficies comparten el nombre Codex. Copia la tabla en la respuesta de TryThis. No las colapses en un solo knob.
+
+| Superficie | Nombre/config OpenClaw | Que hace |
+| --- | --- | --- |
+| Runtime nativo Codex app-server | refs de modelo `openai/*` | Corre turnos de agente embebidos OpenAI por Codex app-server. Setup usual de suscripcion ChatGPT/Codex |
+| Perfiles OAuth Codex | perfiles OAuth `openai` | Guarda auth de suscripcion ChatGPT/Codex que consume el harness Codex app-server |
+| Adapter ACP Codex | `runtime: "acp"`, `agentId: "codex"` | Corre Codex por el plano de control externo ACP/acpx. Usalo solo cuando se pide ACP/acpx de forma explicita |
+| Conjunto de commands de chat-control nativo Codex | `/codex ...` | Bind, resume, steer, stop e inspeccion de threads Codex app-server desde el chat |
+| Ruta API OpenAI Platform para superficies no-agente | `openai/*` mas auth de API-key | APIs OpenAI directas: images, embeddings, speech, realtime |
+
+Estas superficies son independientes a proposito. Habilitar el plugin `codex` hace disponibles las features nativas de app-server. Seleccionar `openai/*` para un modelo de agente ahora significa "corre esto por Codex" salvo que se use una superficie API OpenAI no-agente (OpenClaw, *Agent runtimes*, s. f.).
+
+Cuando el plugin bundled `codex` esta habilitado, usa la superficie nativa `/codex` (`/codex bind`, `/codex threads`, `/codex resume`, `/codex steer`, `/codex stop`) para control Codex en lenguaje natural en vez de ACP. Usa ACP para Codex solo cuando el usuario pide ACP/acpx de forma explicita o esta probando el camino adapter ACP. Claude Code, Gemini CLI, OpenCode, Cursor y harnesses externos similares siguen usando ACP.
+
+<Callout>
+ACP es el camino de harness externo, no el camino Codex por defecto. El plugin nativo Codex app-server posee los controles `/codex ...` y el runtime embebido default `openai/gpt-*` para turnos de agente; ACP posee los controles `/acp ...` y `sessions_spawn` con `runtime: "acp"` (OpenClaw, *ACP agents*, s. f., https://docs.openclaw.ai/tools/acp-agents).
+</Callout>
+
+## Ownership de runtime
+
+Distintos runtimes poseen distintas cantidades del loop (OpenClaw, *Agent runtimes*, s. f.):
+
+| Superficie | OpenClaw embebido | Codex app-server |
+| --- | --- | --- |
+| Owner del loop de modelo | OpenClaw, via el runner embebido OpenClaw | Codex app-server |
+| Estado canonico de thread | transcript OpenClaw | thread Codex, mas espejo de transcript OpenClaw |
+| Tools dinamicas OpenClaw | loop nativo de tools OpenClaw | puenteadas por el adapter Codex |
+| Tools nativas de shell y archivos | camino OpenClaw | tools nativas Codex, puenteadas por hooks nativos donde se soporta |
+| Context engine | ensamblado nativo OpenClaw | OpenClaw proyecta contexto ensamblado al turno Codex |
+| Compaction | OpenClaw o context engine seleccionado | compaction nativa Codex, con notificaciones OpenClaw y mantenimiento de espejo |
+| Entrega de canal | OpenClaw | OpenClaw |
+
+Regla de diseno: si OpenClaw posee la superficie, puede dar conducta normal de hooks de plugin. Si el runtime nativo posee la superficie, OpenClaw necesita eventos de runtime o hooks nativos. Si el runtime nativo posee el estado canonico de thread, OpenClaw espeja y proyecta contexto en vez de reescribir internos no soportados.
+
+## Seleccion de runtime
+
+OpenClaw resuelve un runtime embebido despues de resolver provider y modelo, en este orden (OpenClaw, *Agent runtimes*, s. f.):
+
+1. **Politica de runtime de alcance de modelo** gana. Vive en una entrada de modelo de provider, o en `agents.defaults.models["provider/model"].agentRuntime` / `agents.entries.*.models["provider/model"].agentRuntime`. Un wildcard de provider como `agents.defaults.models["vllm/*"].agentRuntime` aplica despues de la politica exacta de modelo.
+2. **Politica de runtime de alcance de provider**: `models.providers.<id>.agentRuntime`.
+3. **Modo `auto`**: los runtimes de plugin registrados pueden reclamar pares provider/model soportados.
+4. Si nada reclama el turno en modo `auto`, OpenClaw cae a `openclaw` como runtime de compatibilidad. Usa un id de runtime explicito cuando la corrida debe ser estricta.
+
+Los pins de runtime de sesion entera y de agente entero se ignoran: `OPENCLAW_AGENT_RUNTIME`, estado de sesion `agentHarnessId` / `agentRuntimeOverride`, `agents.defaults.agentRuntime` y `agents.entries.*.agentRuntime`. Ejecuta `openclaw doctor --fix` para quitar config stale de runtime de agente entero.
+
+Los runtimes de plugin explicitos de provider/model fallan cerrados: `agentRuntime.id: "codex"` en un provider o modelo significa Codex, o un error claro de seleccion/runtime. Nunca se enruta en silencio de vuelta a OpenClaw. Solo `auto` puede enrutar un turno no reclamado a OpenClaw.
+
+El modo `auto` es conservador a proposito para la mayoria de providers. Los modelos de agente OpenAI son la excepcion: runtime no fijado y `auto` resuelven ambos al harness Codex. La config explicita de runtime OpenClaw permanece un camino de compatibilidad opt-in para turnos de agente `openai/*`.
+
+La forma preferida de Claude CLI mantiene el provider/model canonico y pone el backend de ejecucion en la politica de runtime de provider/model:
+
+```json5
+{
+  agents: {
+    defaults: {
+      model: "anthropic/claude-opus-5",
+      models: {
+        "anthropic/claude-opus-5": {
+          agentRuntime: { id: "claude-cli" },
+        },
+      },
+    },
+  },
+}
+```
+
+Refs legacy como `claude-cli/claude-opus-4-7` se aceptan como entrada de compatibilidad. Las refs legacy `codex-cli/*` son distintas: doctor las migra a `openai/*` para que corran por el harness Codex app-server en vez de preservar un backend Codex CLI.
+
+## Arbol de decision
+
+1. **Codex bind/control/thread/resume/steer/stop** entonces `/codex` nativo cuando el plugin bundled `codex` esta habilitado.
+2. **Codex como runtime embebido** o la experiencia de agente Codex con suscripcion entonces `openai/<model>`.
+3. **OpenClaw elegido de forma explicita para un modelo OpenAI** entonces mantén la ref como `openai/<model>` y fija la politica de runtime de provider/model a `agentRuntime.id: "openclaw"`.
+4. **Refs de modelo Codex legacy en config** entonces repara con `openclaw doctor --fix` a `openai/<model>`.
+5. **ACP, acpx o adapter ACP Codex pedido de forma explicita** entonces `runtime: "acp"` y `agentId: "codex"`.
+6. **Claude Code, Gemini CLI, OpenCode, Cursor, Droid u otro harness externo** entonces ACP/acpx, no el runtime nativo de sub-agente.
+
+**Caso.** Un operador fija `agents.defaults.model` a `openai/gpt-5.6-sol` y se pregunta por que el loop es Codex. Esa ref ahora significa "corre esto por Codex app-server" salvo que se use una superficie API OpenAI no-agente. Para mantener OpenClaw como loop de ese modelo OpenAI, fija `agentRuntime.id` de alcance de modelo a `openclaw` (OpenClaw, *Agent runtimes*, s. f.).
+
+## Etiquetas de status
+
+La salida de status puede mostrar etiquetas `Execution` y `Runtime`. Leelas como diagnostico, no como nombres de provider:
+
+- Una ref de modelo como `openai/gpt-5.6-sol` es el provider/model seleccionado.
+- Un id de runtime como `codex` es el loop que ejecuta el turno.
+- Una etiqueta de canal como Telegram o Discord es donde ocurre la conversacion.
+
+Si una corrida muestra un runtime inesperado, inspecciona primero la politica de runtime del provider/model seleccionado. Los pins de runtime de sesion legacy ya no deciden el enrutado (OpenClaw, *Agent runtimes*, s. f.).
+
+El runtime de agente embebido es poseido por OpenClaw: descubrimiento de modelo, cableado de tools, ensamblado de prompt, gestion de sesiones y entrega de canal comparten una superficie de runtime integrada (OpenClaw, *Agent runtime*, s. f.).
 
 <TryThis>
-Tres cajas: embebido, ACP, Codex. Quien posee las tools.
+Nombra las cuatro capas: provider, model, agent runtime, channel. Escribe que superficie posee `/codex` frente a `/acp`. Escribe el orden de seleccion: politica de alcance de modelo, politica de alcance de provider, auto, fallback `openclaw`. Nombra un pin de agente entero que se ignora.
 </TryThis>
 
-Fuentes: https://docs.openclaw.ai/concepts/agent-loop
+## Compara, sin mezclar knobs
+
+Hermes tiene un loop: `AIAgent.run_conversation` (Nous Research, *Agent Loop Internals*, s. f., https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop). OpenClaw tiene un catalogo de runtime: `openclaw` embebido, plugin `codex`, `copilot` opt-in, CLI backend `claude-cli` y spawn ACP para harnesses externos. Misma necesidad humana (un loop de modelo). Distinto limite de proceso.
+
+No pegues `api_mode` de Hermes (`chat_completions`, `codex_responses`, `anthropic_messages`) en `agentRuntime.id` de OpenClaw. No pegues OpenClaw `runtime: "acp"` en un adapter ACP de Hermes; Hermes **es** el servidor ACP que un editor conduce. El spawn ACP de OpenClaw es el inverso: OpenClaw lanza Claude Code o Cursor como harness cliente. El modo bridge `openclaw acp` es el otro inverso: OpenClaw **es** el servidor ACP para editores (OpenClaw, *ACP*, s. f., https://docs.openclaw.ai/cli/acp). Ese split continua en la leccion ACP.
+
+**Caso.** Un portatil corre `openclaw acp` para que Zed hable con una sesion Gateway. Eso es modo bridge. `/acp spawn claude --bind here` es la otra direccion: OpenClaw lanza Claude Code. Comparten las letras ACP. No comparten una clave de config (OpenClaw, *ACP*, s. f.; *ACP agents*, s. f.).
+
+La reivindicacion de escritor en el camino embebido es la lane de sesion de la leccion de cola: una corrida activa por session key. Codex app-server posee su thread; OpenClaw espeja. Los harnesses ACP poseen su filesystem y tools nativas; OpenClaw posee enrutado, estado de background-task, entrega, bindings y politica. Cita la pagina que estas implementando.
+
+## Contrato de compatibilidad
+
+Cuando un runtime no es OpenClaw, su docs debe enunciar que superficies OpenClaw soporta (OpenClaw, *Agent runtimes*, s. f.):
+
+| Pregunta | Por que importa |
+| --- | --- |
+| Quien posee el loop de modelo? | Determina donde ocurren retries, continuacion de tools y la decision de respuesta final |
+| Quien posee la historia canonica de thread? | Determina si OpenClaw puede editar historia o solo espejarla |
+| Funcionan las tools dinamicas OpenClaw? | Messaging, sesiones, cron y tools poseidas por OpenClaw dependen de esto |
+| Funcionan los hooks de tools dinamicas? | Los plugins esperan `before_tool_call`, `after_tool_call` y middleware alrededor de tools poseidas por OpenClaw |
+| Funcionan los hooks de tools nativas? | Shell, patch y tools poseidas por el runtime necesitan soporte de hook nativo para politica y observacion |
+| Corre el ciclo de vida del context engine? | Memory y plugins de contexto dependen de assemble, ingest, after-turn y compaction |
+| Que datos de compaction se exponen? | Algunos plugins solo necesitan notificaciones; otros necesitan metadata de kept/dropped |
+| Que queda sin soporte a proposito? | El usuario no debe asumir equivalencia OpenClaw donde el runtime nativo posee mas estado |
+
+El contrato de soporte del runtime Codex esta documentado en *Codex harness runtime* (OpenClaw, s. f., https://docs.openclaw.ai/plugins/codex-harness-runtime#v1-support-contract).
+
+Las refs de modelo en config (por ejemplo `agents.defaults.model`) se parsean partiendo en el **primer** `/`. Usa `provider/model` al configurar modelos. Si el ID del modelo mismo contiene `/` (estilo OpenRouter), incluye el prefijo de provider, por ejemplo `openrouter/moonshotai/kimi-k2`. Si omites el provider, OpenClaw prueba un alias primero, luego un match unico de provider configurado, y solo entonces cae al provider default configurado (OpenClaw, *Agent runtime*, s. f.).
+
+Los prompts inbound que llegan a mitad de corrida se dirigen a la corrida actual por defecto. El runtime OpenClaw comprueba steering antes de lanzamientos de tool no arrancados y de la siguiente llamada al modelo. Un tool en marcha continua; las llamadas secuenciales no arrancadas se saltan, mientras las paralelas continuan tras cruzar su checkpoint de lanzamiento. Las llamadas saltadas reciben resultados emparejados sinteticos antes de que el modelo vea el steer. `/queue steer` es la conducta default de corrida activa (OpenClaw, *Agent runtime*, s. f.; *Command queue*, s. f., https://docs.openclaw.ai/concepts/queue).
+
+Las filas de sesion del runtime embebido viven en la base SQLite por agente `~/.openclaw/agents/<agentId>/agent/openclaw-agent.sqlite`. Los archivos JSONL de transcript pueden seguir bajo `~/.openclaw/agents/<agentId>/sessions/` como entradas de migracion legacy. La historia activa se guarda en SQLite. El session ID es estable y lo elige OpenClaw. OpenClaw no lee carpetas de sesion de otras tools (OpenClaw, *Agent runtime*, s. f.).
+
+**Caso.** La config aun tiene un pin de agente entero `agents.defaults.agentRuntime` de una release vieja. La seleccion de runtime lo ignora. Status muestra un loop `openclaw` o `codex` inesperado hasta que inspeccionas la politica de alcance de modelo y corres `openclaw doctor --fix` (OpenClaw, *Agent runtimes*, s. f.).
+
+Cita *Agent runtimes* para capas, superficies Codex, orden de seleccion y pins de agente entero ignorados. Cita *Agent runtime* para el workspace embebido y el checkpoint de steer. Cita *ACP agents* para spawn. Cita *ACP* para modo bridge. Cita Hermes *Agent Loop Internals* solo en el parrafo de compara.
+
+Los alias de CLI backend difieren de los ids de harness embebido. `claude-cli` es un CLI backend. `codex` es un harness de plugin embebido. `acp` es un runtime de spawn, no un `agentRuntime.id` que pones en `openai/*`. Mezclar esos tres identificadores es el misconfig habitual.
+
+El setup comun de suscripcion ChatGPT/Codex usa OAuth Codex para auth, pero mantiene la ref de modelo como `openai/*` y selecciona el runtime `codex`. Eso no significa "usa facturacion API", y no significa que el canal, el catalogo de provider o el session store de OpenClaw se vuelvan Codex (OpenClaw, *Agent runtimes*, s. f.).
+
+Si `openclaw doctor` avisa que el plugin `codex` esta habilitado mientras refs de modelo Codex legacy permanecen en config, tratalo como estado de ruta legacy y corre `openclaw doctor --fix` para reescribirlo a `openai/*` con el runtime Codex.
+
+Como minimo, fija `agents.defaults.workspace` y recomienda con fuerza `channels.whatsapp.allowFrom` (OpenClaw, *Agent runtime*, s. f.). La politica de runtime pertenece a rutas de provider/model, no a las claves ignoradas de runtime de agente entero.
+
+Esta leccion se detiene en familias de runtime, el split de nombre Codex, el orden de seleccion y la horquilla ACP frente a nativo. Los archivos de workspace, las sesiones y el spawn ACP viven en lecciones posteriores.
+
+## Fuentes
+
+OpenClaw. (s. f.). *Agent runtimes*. https://docs.openclaw.ai/concepts/agent-runtimes
+
+OpenClaw. (s. f.). *Agent runtime*. https://docs.openclaw.ai/concepts/agent
+
+OpenClaw. (s. f.). *ACP agents*. https://docs.openclaw.ai/tools/acp-agents
+
+OpenClaw. (s. f.). *ACP*. https://docs.openclaw.ai/cli/acp
+
+OpenClaw. (s. f.). *Codex harness runtime*. https://docs.openclaw.ai/plugins/codex-harness-runtime
+
+OpenClaw. (s. f.). *GitHub Copilot agent runtime*. https://docs.openclaw.ai/plugins/copilot
+
+OpenClaw. (s. f.). *Gateway architecture*. https://docs.openclaw.ai/concepts/architecture
+
+Nous Research. (s. f.). *Agent loop internals*. Guia de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop

@@ -1,0 +1,220 @@
+## Por qué Full es caro en cuanto sales del portátil
+
+En el entrenamiento vanilla, Full AttnRes es casi gratis: las salidas de capa sobre las que atiende **ya están en la caché de activaciones** para el backward (Kimi Team, 2026). En cuanto entrenas un modelo de clase 48B, esa coincidencia se acaba.
+
+Dos trucos estándar de escala pelean contra Full AttnRes:
+
+1. **Recompute de activaciones.** Checkpointeas la entrada de una capa, liberas el resto y reconstruyes en el backward. Full AttnRes necesita cada `v_i` previo *durante el forward de las capas posteriores*, así que esos tensores no se pueden liberar. Ahora guardas `O(L d)` activaciones vivas extra por token (por batch y secuencia).
+2. **Pipeline parallelism.** Un residual normal envía un estado oculto a la siguiente etapa. Full AttnRes debe enviar **cada salida de capa** que las etapas de abajo van a atender. La comunicación pasa a ser función de la profundidad, no una constante.
+
+Block AttnRes recorta el número de representaciones vivas de `L` a `N ≈ 8`. Eso es necesario pero no suficiente. Aún tienes que **mover** esos `N` resúmenes de bloque entre etapas de pipeline, y aún tienes que **leerlos** en cada capa del siguiente bloque. Esta lección es cómo el paper lo hace barato: **caché entre etapas** en el entrenamiento y un **schedule de softmax online en dos fases** en inferencia. Después de esta página deberías poder contar ambos, con la aritmética.
+
+<Callout>
+El estudiante que solo sabe decir "Block es más barato que Full" no ha terminado. El que puede escribir comm ingenua frente a cacheada, y recorrer Fase 1 y luego Fase 2, ha terminado.
+</Callout>
+
+<VisualSlot caption="Pipeline ingenuo: cada rank reenvía el historial que crece. Cacheado: cada salto envía solo el bloque nuevo. Dos fases: agrupa todas las queries de un bloque contra K/V previos, luego fusiona el parcial intra-bloque con softmax online." />
+
+## Comunicación de pipeline ingenua
+
+Toma un pipeline intercalado con `P` etapas físicas y `V` etapas virtuales por etapa física (Narayanan et al., 2021, 1F1B estilo Megatron). Chunks totales `C = P V`. Supón que cada etapa física produce de media `N_p` representaciones de bloque de ancho `d` por token.
+
+El chunk `j`-ésimo ha acumulado `j N_p` bloques. Si cada transición de etapa **reenvía el historial entero**, la comunicación por token es
+
+$$
+\mathrm{Comm}_{\mathrm{naive}} = \sum_{j=1}^{C-1} j N_p d = \frac{C(C-1)}{2}\, N_p d
+$$
+
+Eso es un número triangular. Duplica la profundidad del pipeline y más o menos cuadruplicas el tráfico residual. El coste pico por transición es `O(C) = O(P V)`: el último salto envía casi toda la pila.
+
+Los bordes de bloque no tienen por qué alinearse con los ranks físicos. En la Figura 3 del paper, cada bloque AttnRes cubre dos etapas físicas, así que solo cada dos saltos se completa un `b_n` nuevo. La fórmula de arriba es la envolvente; la topología es la misma.
+
+## Caché entre etapas (Figura 3 del paper)
+
+Cada rank **físico** corre varias etapas **virtuales** en sucesión. Los bloques recibidos en la etapa virtual 1 siguen en la memoria de ese rank cuando arranca la etapa virtual 2. No los envíes otra vez.
+
+- Etapa virtual `v = 1`: aún no hay caché. Acumula como siempre (la suma triangular sobre `P` saltos físicos).
+- Etapa virtual `v ≥ 2`: envía solo los bloques **incrementales** producidos desde que este receptor vio por última vez a su homólogo. Ese incremento es unos `P N_p` bloques nuevos, no el historial entero.
+
+La comunicación total pasa a ser
+
+$$
+\mathrm{Comm}_{\mathrm{cached}} = \frac{P(P-1)}{2}\, N_p d + (V-1)\, P^{2} N_p d
+$$
+
+Primer término: la primera etapa virtual sin caché. Segundo: cada etapa virtual posterior envía un incremento `P × P`. La caché baja el **coste pico por transición** de `O(C) = O(P V)` a `O(P)`, una mejora de factor `V`, que es lo que deja **solapar** el tráfico extra con el cómputo 1F1B en régimen. El backward usa la **misma caché**. No construyes un segundo protocolo.
+
+El croquis del paper es **4 ranks físicos × 2 etapas virtuales**. Las cajas rayadas marcan el fin de un bloque AttnRes. Los índices de micro-batch 1 y 2 están en las etapas. Para la etapa virtual 2, las flechas dicen `+[b1, b2]`: solo se mueve el par nuevo. La caché elimina seis transmisiones redundantes de bloque en esa figura (Kimi Team, 2026).
+
+Recorre la Figura 3 de izquierda a derecha, rank a rank, porque este es el dibujo que te van a pedir que redes.
+
+**Etapa virtual 0 (primera pasada).** El rank 0 guarda `[b0]` y produce las capas 1–2 de su chunk. El rank 1 ya tiene `[b0]` más `[b1]` (un bloque completado aterrizó). El rank 2 guarda `[b0, b1]`. El rank 3 guarda `[b0, b1]` más `[b2]`. Fíjate en el patrón: los ranks impares son los que *terminan* un bloque en este dibujo, porque cada bloque cubre dos etapas físicas. Las cajas rayadas son esos finales. Los números 1 y 2 en las losas son índices de micro-batch, no ids de capa. Un schedule 1F1B tiene varios micro-batches en vuelo; la caché es por rank, no por micro-batch de historial que ya enviaste.
+
+**Etapa virtual 1 (segunda pasada en las mismas cuatro GPU).** El rank 0 no recibe `b0` otra vez. Ya lo tiene. La flecha es `+[b1, b2]`: los dos bloques que nacieron aguas abajo (o en ranks posteriores) desde que este rank corrió por última vez este hueco virtual. El rank 1 recibe `+[b1, b2]` y en local ya tenía `b3` en vuelo. Los ranks 2 y 3 también toman un incremento, no un prefijo. Si dibujas cuatro ranks sin los signos más, estás dibujando el protocolo ingenuo.
+
+Por qué funciona el solape: en 1F1B estacionario, un rank computa un micro-batch mientras comunica el anterior. El tráfico pico ingenuo es `O(C)` vectores de longitud `d`. El cacheado es `O(P)`. Para `V = 8` etapas virtuales el pico es ocho veces más pequeño. Esa es la diferencia entre "la burbuja crece" y "los bytes extra se esconden bajo el matmul."
+
+Los bordes de bloque que cabalgan ranks (la nota al pie del paper) significan que algunos saltos envían **cero** bloques nuevos: el parcial sigue local. La lógica de caché tiene que permitir un salto que no comunica nada nuevo. No es un error; es la alineación.
+
+<Compare a="PP ingenuo" b="Caché entre etapas">
+<Side>
+Cada salto reenvía `b_0 … b_k`. Coste `C(C-1)/2 N_p d`. Pico `O(PV)`. El historial residual es una maleta que crece y se pasa por el tren.
+</Side>
+<Side>
+El rank guarda lo que ya recibió. Las etapas virtuales posteriores envían solo el bloque nuevo. Coste `P(P-1)/2 N_p d + (V-1) P^2 N_p d`. Pico `O(P)`. Factor `V` en el pico, solape con 1F1B.
+</Side>
+</Compare>
+
+**Case. El pipeline ingenuo reenvía el historial entero en cada salto.** Cuatro ranks, dos etapas virtuales, un bloque nuevo por etapa física. El rank 3 en la etapa virtual 2 ya vio `b_0, b_1` en la etapa virtual 1. El ingenuo igual envía `b_0 … b_4`. El cacheado envía `+[b2, b3]` (y lo que acaba de completarse). Mismo modelo, mismo Block AttnRes, la mitad del interconnect si recuerdas guardar la caché.
+
+## Memoria: la huella de activación no crece
+
+Con caché, cada bloque se guarda **una vez** en las `V` etapas virtuales. Frente a la caché de activación por capa habitual eso es pequeño. El checkpointing de activaciones borra después los intermedios de la atención entre bloques. La entrada checkpointeada tiene el mismo tamaño que el estado oculto que sustituye, así que **la huella de activación por capa no cambia**.
+
+Reloj de pared: Block AttnRes añade un sobrecoste de entrenamiento **negligible** cuando el pipeline parallel está apagado. Con pipeline parallel, el sobrecoste extremo a extremo medido es **bajo 4%**. Ese 4% es el residual de la comm cacheada más un softmax de profundidad barato, no una topología nueva.
+
+Pon el 4% en contexto. Un pipeline que ya está acotado por 1F1B mostrará la comm extra como una copia all-to-next-stage un poco más gorda, no como burbujas ociosas, *si* cacheaste. Si no cacheaste, la copia crece con el índice de etapa virtual y la burbuja crece con ella. Esa es toda la afirmación de sistemas de entrenamiento: Block sin caché sigue siendo `O(N)` por salto, que está más o menos bien; Block sin caché **y** un pipeline virtual profundo es la trampa; la caché vuelve a hacer barato el pipeline virtual profundo.
+
+<Callout>
+No corras Full AttnRes en un trabajo pipeline-parallel de producción. Full sigue necesitando tensores vivos `O(L d)` y `O(L)` de ellos en el cable. Block más caché es el objeto que se puede enviar. Full es la ablación que demuestra el mezclador.
+</Callout>
+
+## Inferencia en dos fases (Algoritmo 1)
+
+La inferencia Block ingenua, en cada capa, puntúa `w_l` contra todos los resúmenes de bloque previos. Eso es `O(L N)` accesos de memoria por token: cada capa relee la misma caché. El truco es que `w_l` es un **parámetro**, no una función de `h`. Las `S = L/N` queries dentro de un bloque se conocen antes de que el bloque corra. Puedes **agruparlas**.
+
+**Fase 1.** Apila las `S` queries del bloque actual. Una atención agrupada contra las K/V de bloques previos. Devuelve, para cada query: la salida ponderada, el **máximo** y el **log-sum-exp**. Lees los bloques previos una vez, no `S` veces.
+
+**Fase 2.** Recorre el bloque en orden. La capa 0 del bloque aún no tiene parcial intra-bloque, así que su estado oculto es solo la salida de la Fase 1 renormalizada. Cada capa posterior atiende la suma parcial actual (una key/value extra), luego **fusiona** con la Fase 1 usando softmax online (Milakov y Gimelshein, 2018) — el mismo máximo corriente / suma corriente numéricamente estable que FlashAttention usa en el eje de tokens, ahora en el eje de profundidad. Actualiza el parcial: `b ← b + f(h)`.
+
+Como la fusión es element-wise, la Fase 2 se fusiona con RMSNorm y el add residual de alrededor. La Fase 1 puede solaparse con la primera capa del bloque. Sobrecoste de inferencia extremo a extremo: **bajo 2%** en cargas típicas.
+
+<Steps>
+1. Agrupa las `S` queries del bloque contra las K/V de bloques previos (Fase 1). Guarda salida, max, log-sum-exp.
+2. Para la primera capa del bloque, eso *es* la mezcla. Corre `f`, arranca la suma parcial.
+3. Para cada capa posterior, puntúa `w_l` contra el parcial, fusiona con la Fase 1 vía softmax online, corre `f`, suma al parcial.
+4. En el borde de bloque, añade el `b_n` completado a la caché. La Fase 1 del siguiente bloque ve una key más.
+</Steps>
+
+Fusión online, en una línea que deberías poder reescribir. Sea `m` el máximo conjunto de los dos máximos, reescala ambas salidas y ambos normalizadores por `exp(old_max - m)`, suma, divide. Nunca construyes una matriz de scores `N` por `S` en HBM. Nunca vuelves a la Fase 1.
+
+Escribe la Fase 1 como un GEMM pequeño en la cabeza. `Q` tiene forma `[S, d]` — un `w_l` por capa del bloque, todos parámetros, todos ya en dispositivo. `K` y `V` tienen forma `[n, d]` para los `n` bloques previos completados (más embedding). RMSNorm pega a `K`. Los logits son `Q K^T`, softmax sobre el eje de profundidad, salida `O = softmax V`. Junto a `O` guardas el máximo por fila `m` y el log-sum-exp `ell` (o la suma cruda, la misma información). Esos tres tensores son `[S, d]`, `[S]`, `[S]`. Esa es toda la huella extra de la Fase 1, y es minúscula junto a una cabeza MLA.
+
+La Fase 2 no se puede agrupar. La suma parcial `b_n^i` depende de `f` de la capa anterior del bloque. Así que haces un bucle. Para la capa `i = 0`, sáltate el término intra-bloque: `h = O[0] / ell[0]` (ya normalizado si lo guardaste así). Para `i ≥ 1`, corre una atención de una key: puntúa `w_l` contra el RMSNorm del parcial, obtén una segunda salida `O2`, un segundo max `m2`, un segundo normalizador `ell2`. Fusión online:
+
+$$
+m \leftarrow \max(m_1, m_2),\quad
+h \leftarrow \frac{e^{m_1-m} O_1 + e^{m_2-m} O_2}{e^{m_1-m}\ell_1 + e^{m_2-m}\ell_2}
+$$
+
+Luego `partial ← partial + f(h)`. Numéricamente es lo mismo que concatenar las keys de bloques previos con el parcial y hacer un softmax. Algebraicamente exacto, en streaming, fusible.
+
+La razón de que este schedule exista es la **query desacoplada**. Si `q_l` fuera `W h_l`, la Fase 1 tendría que esperar a `h_l`, que es lo que estás intentando computar. La ablación que hizo `q` dependiente de la entrada (lección de foundations, pérdida 1.731) es un poco mejor y **mata este agrupado**. Por eso producción se queda con `w_l`.
+
+## Recorre la tabla de I/O hasta que Block se vea barato
+
+Tabla 1 del paper, **por token por capa**, solo el mecanismo residual (se excluyen las tripas de `f`). Números típicos: `L = 128`, `N = 8`, `S = 16`, streams mHC `m = 4`.
+
+**Residual estándar.** Lee el skip y la rama (`2d`), escribe la suma (`d`). Total **3d**. Un add.
+
+**mHC, `m = 4`.** Varias matrices de mezcla sobre `m` streams: computa puertas, aplícalas, fusiona. La suma del paper es `(8m+2)d + 2m^2 + 4m = 34d`. Multi-stream es expresividad que pagas en bytes.
+
+**Full AttnRes, dos fases.** La Fase 1 amortizada lee `(N-1)d` y escribe `d`. La Fase 2 lee `(S-1)d` y escribe `d`. Total `(S+N)d = 24d`. El Apéndice B lo deriva: Full ingenuo es `O(L)` lecturas por capa; agrupar las keys inter-bloque a través de las `S` queries de un bloque de *schedule* (no la compresión de Block AttnRes) lo baja a `O(S+N)`. La misma idea de dos fases, aún `L` fuentes reales.
+
+**Block AttnRes, dos fases.** La Fase 1 amortizada es `(N/S)d` lecturas más `d` de escritura — ocho resúmenes compartidos entre dieciséis capas es medio vector de lecturas por capa. La Fase 2 es `3d` lecturas (parcial, y el par residual habitual) más `d` de escritura. Total `(N/S + 5)d = 5.5d`.
+
+Lee otra vez esa última línea. Block es **5.5d** frente a residual **3d** frente a Full **24d** frente a mHC **34d**. Por eso Block es el mezclador de producción y Full no, y por eso ganar a mHC en pérdida y a la vez ganarle 6× en I/O residual importa.
+
+Deriva el 5.5d de Block para no memorizar una tabla. La Fase 1 lee `N` resúmenes previos **una vez por bloque** de `S` capas, así que por capa son `(N/S) d` lecturas, más un `d` de escritura de la salida agrupada. Con `N = 8`, `S = 16`, eso es `0.5d` lecturas y `d` de escritura. La Fase 2, para una capa interior típica, lee el parcial (`d`), lee el camino skip que habrías leído igual, lee la rama, escribe la fusión: el paper cuenta **3d** lecturas y **d** de escritura. Suma: `0.5d + d + 3d + d = 5.5d`. El baseline residual era `2d` lectura + `d` escritura = `3d`. Pagaste `2.5d` extra por un softmax de profundidad sobre ocho resúmenes. mHC pagó `34d` por cuatro streams. Full pagó `24d` porque la Fase 1 aún relee `(N-1)d` de historial *sin comprimir* amortizado, y la Fase 2 relee `(S-1)d` de capas intra-bloque.
+
+Álgebra del Apéndice B de Full, si la quieres una vez. Lecturas inter-bloque sobre todos los bloques: `d L (N-1)`. Lecturas intra-bloque: `N · S(S-1) d`. Escrituras: `2 L d`. Divide por `L`, usa `S N = L`: lecturas `(S+N-2)d`, escrituras `2d`, total `(S+N)d`. Para los números típicos eso es 24d. Full ingenuo sin agrupar habría sido unas `O(L) = 128d` lecturas. El schedule, no la arquitectura, es lo que le quita un cero.
+
+<Myth>
+"La atención de profundidad tiene que costar como la de secuencia." La atención de secuencia es caché `O(T)`. La de profundidad, con `N ≈ 8` y una Fase 1 agrupada, es un puñado de vectores `d` extra. El impuesto de servicio del 2% es ese puñado, fusionado.
+</Myth>
+
+## Prefill a 128K, sin una sorpresa de 15 GB
+
+Guardar representaciones de bloque en prefill son `N · T · d` elementos. El paper cita **15 GB** para una secuencia de 128K con 8 bloques. Esa es una asignación real si dejas la caché de bloques de toda la secuencia en un solo dispositivo.
+
+El <Term id="tensor-parallel">tensor parallel</Term> ya parte la secuencia para los matmuls grandes. Parte la caché de bloques igual: `N · (T/P) · d`. En 8 dispositivos TP los 15 GB pasan a unos **1.9 GB por dispositivo**. La Fase 1 corre entonces independiente en shards locales.
+
+La fusión de softmax online de la Fase 2 **se fusiona en el all-reduce de TP** que ibas a hacer igual: reduce-scatter de la salida, fusión local, all-gather. Kernel-fuse con RMSNorm. Combinado con **prefill por chunks** a 16K, la huella extra cae por debajo de **0.3 GB por dispositivo**.
+
+El decode es más fácil: `T = 1` token nuevo, `N` vectores minúsculos. El impuesto del 2% es un número de decode, no de prefill a 128K. El prefill es donde presupuestas de verdad.
+
+## Apéndice B: Full puede robar el mismo schedule
+
+Aunque insistas en Full AttnRes en inferencia (investigación, o un modelo pequeño), no recorras las `L` salidas previas en cada capa. Parte la pila en bloques de schedule de tamaño `S` con `N = L/S` de ellos. La Fase 1 agrupa las `S` queries contra las K/V reales por capa de *todos los bloques previos* (no resúmenes). La Fase 2 recorre intra-bloque. El I/O por capa cae de `O(L)` a `O(S+N)`. Para `L = 128`, `N = 8`, `S = 16` esa es la fila **24d**. La arquitectura sigue siendo Full; solo el *schedule* está bloqueado. No lo confundas con Block AttnRes, que comprime fuentes.
+
+## Bytes en el cable, no solo big-O
+
+Elige `d = 4096`, BF16 (2 bytes), `N_p = 1`, un token. El ingenuo `C = 8` envía `114688` elementos: `114688 × 2 ≈ 224 KB` por token. El cacheado envía `90112 × 2 ≈ 176 KB`. Por token parece pequeño. Multiplica por micro-batch 4 y secuencia 8192: el ingenuo es `224 KB × 4 × 8192 ≈ 7.3 GB` de tráfico de historial residual **por pasada de pipeline a través de esos ocho chunks**. El cacheado unos 5.8 GB. El factor es la `V` del pico, que es lo que siente la burbuja 1F1B. Con `V = 8`, `P = 4` el número triangular ingenuo es 496 frente a cacheado 118: más o menos 4× menos tráfico residual, y el salto pico es 8× más pequeño. Ese es el régimen en el que vive de verdad un trabajo PP de 48B.
+
+Backward: los mismos tensores fluyen al revés. Los gradientes respecto a los resúmenes de bloque necesitan el mismo historial que usó el forward. Reutiliza la caché; no inviertas un patrón de comunicación distinto. El checkpointing sigue reconstruyendo `f`, no la lista de bloques.
+
+## Por qué softmax online, no "simplemente softmax de la concatenación"
+
+Concatenar las keys de bloques previos con el parcial y llamar a un softmax fusionado es algebraicamente idéntico y es lo que deberías imaginar. **No** es lo que deberías asignar. La mitad de bloques previos ya se redujo en la Fase 1. Releerla en cada capa es el impuesto `O(L N)` que mataste. El softmax online te deja guardar solo `(O, m, ell)` de la Fase 1 y plegar una key nueva. FlashAttention hace esto sobre **tokens** porque `T` es enorme. Aquí `N` es 8, así que la victoria no es "inventamos FlashAttention para la profundidad." La victoria es **no revisitar** la caché de la Fase 1. Milakov y Gimelshein (2018) es el normalizador corriente numéricamente estable; sin el reescalado del máximo desbordas en exp.
+
+Las estadísticas de la Fase 1 deben ir en un acumulador más ancho que logits BF16 si quieres acuerdo bit a bit con un softmax de referencia. En la práctica el paper trata la fusión como exacta. Para un kernel de servicio, iguala lo que vLLM haya fusionado.
+
+## Receta práctica
+
+Entrena con **Block**, `N` unos **8**, `w_l = 0`, RMSNorm en las keys. **No** corras Full en un trabajo pipeline-parallel de producción. El servicio **hereda Block del checkpoint**: no hay flag `--attnres`, y no reimplementas softmax de profundidad en un cliente. Si un checkpoint Kimi Linear se entrenó con AttnRes, ya está dentro del grafo. El camino vLLM de la lección de servir simplemente lo ejecuta.
+
+Tres modos de fallo, con nombre, para reconocerlos en un profiler.
+
+1. **Entrenaste Full y luego hiciste pipeline.** Activaciones y comm explotan como `O(L d)`. La traza muestra cada etapa enviando una pila de estados ocultos. Arreglo: entrena Block. No "añadas caché" a Full y esperes; la caché ayuda a Block porque `N` es pequeño.
+2. **Implementaste la atención de profundidad como un bucle Python sobre capas, cada una puntuando todos los bloques.** Esa es la inferencia ingenua `O(L N)`. Arreglo: agrupa la Fase 1. Si tu motor no puede agrupar `w_l`, no estás corriendo el Algoritmo 1 del paper.
+3. **Asignaste `N × T × d` en una GPU para prefill de 128K.** Aparecen 15 GB, el allocator muere, culpas a AttnRes. Arreglo: parte la secuencia en TP, luego prefill por chunks. La fusión ya quiere vivir en el all-reduce.
+
+La pila de sistemas son tres frases que deberías poder decir en orden: cachea bloques incrementales entre etapas virtuales para que la comm de PP sea `O(P)` no `O(PV)`; agrupa las queries del bloque en la Fase 1 para leer los resúmenes previos una vez; fusiona el parcial con softmax online en la Fase 2 para no materializar nunca una matriz de scores de profundidad.
+
+<TryThis>
+Computa comunicación ingenua frente a cacheada para `P = 4`, `V = 2`, `N_p = 1`, `d = 4096`, por token. Ingenua: `C = 8`, así que `C(C-1)/2 × 4096 = 28 × 4096 = 114688` elementos. Cacheada: `P(P-1)/2 × 4096 + (V-1) P^2 × 4096 = 6 × 4096 + 16 × 4096 = 22 × 4096 = 90112`. El factor total es modesto con `V = 2`. Ahora el pico: el último salto ingenuo envía `7 × 4096`; el salto cacheado posterior envía `P × 4096 = 4 × 4096`. Factor de pico `7/4`, y en el sentido `O(·)` `C/P = V = 2`. Sube `V` a 8 (mismo `P`): ingenua `32×31/2 = 496` frente a cacheada `6 + 7×16 = 118`. Escribe ambos picos y ambos totales en papel. Esa es la historia del solape.
+</TryThis>
+
+Paper: [Attention Residuals, arXiv:2603.15031](https://arxiv.org/abs/2603.15031) §4 y Apéndice B. Código: [MoonshotAI/Attention-Residuals](https://github.com/MoonshotAI/Attention-Residuals). Softmax online: Milakov y Gimelshein (2018). Servir el checkpoint 48B es la lección metal anterior; esta es por qué Block no aparece como un impuesto 24d en el profiler.
+
+Una última recitación, en voz alta, sin mirar.
+
+Full AttnRes a escala es caro porque recompute más pipeline deben **guardar** y **enviar** cada salida de capa. La comunicación ingenua es `C(C-1)/2 N_p d`. La caché entre etapas, pipeline intercalado `P` físicas por `V` virtuales, guarda bloques en local para que las etapas virtuales posteriores envíen solo incrementos: `P(P-1)/2 N_p d + (V-1) P^2 N_p d`. Factor `V` en el pico, solape con 1F1B, sobrecoste de entrenamiento bajo 4% con PP, negligible sin él. El backward usa la misma caché. La huella de activación por capa no cambia gracias al checkpointing.
+
+Inferencia en dos fases: la Fase 1 agrupa las `S` queries de un bloque contra las K/V de bloques previos, devuelve salida más max más log-sum-exp. La Fase 2 suma parcial intra-bloque secuencial, fusión con softmax online. `w_l` es un parámetro, así que la Fase 1 se puede agrupar. Sobrecoste de inferencia bajo 2%. Prefill `N T d` son 15 GB a 128K con 8 bloques; parte la secuencia en TP a unos 1.9 GB; prefill por chunks 16K a menos de 0.3 GB; la fusión de la Fase 2 se mete en el all-reduce de TP. El Apéndice B aplica el mismo schedule a Full, I/O de `O(L)` a `O(S+N)`. Entrena Block, `N ≈ 8`, init a cero, RMSNorm en keys. No corras Full en PP de producción. El servicio hereda Block del checkpoint.
+
+Si puedes decir ese párrafo, la lección funcionó.
+
+## Qué no es esto
+
+Esto no es un kernel de atención nuevo en el eje de **tokens**. Eso ya lo hizo KDA. No es un segundo modelo que cargas al servir. No es una flag de vLLM. Es un recambio residual cuyo estado extra son `N` vectores de ancho `d` más un `w_l` por capa, y cuyo **algoritmo** extra es caché-más-dos-fases. Si un profiler muestra un stream residual 24d, estás corriendo el schedule de dos fases de Full o no comprimiste en bloques. Si muestra 5.5d, estás en el camino de producción del paper. Si muestra 34d, construiste mHC por accidente.
+
+La lección de foundations es *por qué* softmax sobre profundidad. Esta lección es *cómo* se agenda ese softmax para que un trabajo PP de 48B y un decode de contexto 1M apenas se enteren.
+
+Mantén los dos ejes rectos cuando depuras. Los mezcladores de secuencia (KDA, MLA) cambian **T**. Los de profundidad (AttnRes) cambian **L**. Un OOM de caché KV casi nunca es AttnRes; `N d` no crece con `T` salvo durante el prefill de la caché de bloques, que partiste. Una burbuja de PP que crece con el índice de etapa virtual casi nunca es KDA; mira si se están reenviando resúmenes de bloque.
+
+Código y diagramas viven en [MoonshotAI/Attention-Residuals](https://github.com/MoonshotAI/Attention-Residuals). El Algoritmo 1 es el bucle de dos fases. La Figura 3 es la caché. La Tabla 1 es el I/O. El Apéndice B es Full robando el schedule. Si puedes señalar esos cuatro artefactos y decir qué *hace* cada uno, puedes contar la historia de sistemas.
+
+Léelos en ese orden antes de parchear un kernel de servicio.
+
+Si el kernel de servicio no agrupa las `w_l`, no es el Algoritmo 1. Si el pipeline reenvía `b_0` en la segunda etapa virtual, no es la Figura 3. Si el profiler marca 24d por capa residual, no es Block. Esas tres comprobaciones bastan para no mentirte en un post-mortem.
+
+
+## Referencias
+
+Kimi Team. (2025). *Kimi Linear: An expressive, efficient attention architecture* (arXiv:2510.26692). https://arxiv.org/abs/2510.26692
+
+Kimi Team. (2026). *Attention residuals* (arXiv:2603.15031). https://arxiv.org/abs/2603.15031
+
+Milakov, M. y Gimelshein, N. (2018). *Online normalizer calculation for softmax* (arXiv:1805.02867).
+
+Narayanan, D. et al. (2021). *Efficient large-scale language model training on GPU clusters using Megatron-LM* (arXiv:2104.04473).
+
+Xie, Z. et al. (2026). *mHC: Manifold-constrained hyper-connections* (arXiv:2512.24880).
+
+Zhang, B. y Sennrich, R. (2019). Root mean square layer normalization. *Advances in Neural Information Processing Systems, 32*.
+
+El checkpoint [`moonshotai/Kimi-Linear-48B-A3B-Instruct`](https://huggingface.co/moonshotai/Kimi-Linear-48B-A3B-Instruct) no te pide que actives AttnRes. Si se entrenó con Block, el grafo ya lo trae. Tu trabajo de sistemas es no sustituir ese grafo por un add residual "para simplificar" y no asignar la caché de bloques de 128K en una sola GPU.
+
+Sirve con el motor que ya carga Kimi Linear. Mide TPOT. Si el impuesto residual no está cerca del 2%, estás en el camino ingenuo.
+

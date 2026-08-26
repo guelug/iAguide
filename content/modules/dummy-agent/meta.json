@@ -15,7 +15,7 @@
   "prereqs": [
     "agent-patterns"
   ],
-  "durationMin": 22,
+  "durationMin": 32,
   "tags": [
     "react",
     "smolagents",

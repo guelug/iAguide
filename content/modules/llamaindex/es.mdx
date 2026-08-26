@@ -1,19 +1,200 @@
 ## Particularidad — LlamaIndex tiene forma de recuperación
 
-LlamaIndex codifica el bucle general como **datos entra, respuestas salen**. LlamaHub es un registro de loaders. Los componentes arman un RAG: load → split → embed → store → `VectorStoreIndex`. El índice pasa a retriever, query engine o chat engine. Envuelve el engine como `QueryEngineTool` y tienes RAG agéntico: el modelo *puede* recuperar.
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.2, [Introduction to LlamaIndex](https://huggingface.co/learn/agents-course/unit2/llama-index/introduction) (Burtenshaw, Thomas, Simonini y Paniego, Apache-2.0; autor de la unidad David Berenstein).*
 
-Agentes en este stack: **function-calling** (si el LLM tiene esa API), **ReAct** (cualquier chat), o un workflow a medida. `AgentWorkflow` puede tener varios agentes con handoff. El estado es un `Context` — sin él, el agente no recuerda.
+LlamaIndex codifica el bucle general como **datos dentro, respuestas fuera**. La frase del curso: un toolkit completo para agentes con LLM sobre tus datos usando índices y workflows. Tres partes que realmente enseñan: **Components**, **Agents and Tools**, **Workflows**. Docs de producto en [docs.llamaindex.ai](https://docs.llamaindex.ai); LlamaHub en [llamahub.ai](https://llamahub.ai). Esta lección reescribe la unidad del Agents Course, no esas páginas al pie de la letra.
 
-<VisualSlot caption="LlamaHub al índice, retriever en el medio, workflow de agente a la derecha. El mismo ReAct; el producto es 'pregunta a mis datos.'" />
+Úsalo cuando el producto es "pregunta a mis datos." Usa smolagents cuando el producto es un bucle de código pequeño. Usa LangGraph cuando el producto es una máquina de estados. La intro de la Unidad 2 ya dijo que un framework es opcional si basta una cadena de prompts (Hugging Face Agents Course, [unit2/introduction](https://huggingface.co/learn/agents-course/unit2/introduction)).
 
-Los workflows (los de LlamaIndex) son grafos por eventos cuando el pipeline de retrieval tiene etapas. No empieces aquí si solo necesitabas un bucle.
+<VisualSlot caption="LlamaHub al índice, retriever en el medio, agent workflow a la derecha. El mismo ReAct; el producto es pregunta-a-mis-datos." />
+
+## LlamaHub es un registro, no un cargador mágico
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.2, [Introduction to the LlamaHub](https://huggingface.co/learn/agents-course/unit2/llama-index/llama-hub).*
+
+LlamaHub es un registro de cientos de integraciones, agentes y herramientas. El install sigue una forma fácil de recordar: `pip install llama-index-<component-type>-<framework-name>`. El ejemplo del curso: `pip install llama-index-llms-huggingface-api llama-index-embeddings-huggingface`. Las rutas de import siguen al install. Su snippet de LLM usa `HuggingFaceInferenceAPI` con `model_name="Qwen/Qwen2.5-Coder-32B-Instruct"`, `provider="auto"` y un token del Hub en el entorno. Esos nombres están en la página. No inventes un cuarto extra.
+
+Consejo práctico: antes de `pip install` una fila del Hub, lee la ficha de LlamaHub del tipo de componente (llm, embedding, vector store, reader). El formato es la API. Un extra equivocado es un import equivocado, no un bug de "LlamaIndex está roto."
+
+## Cinco etapas RAG, luego el QueryEngine
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.2, [What are components in LlamaIndex?](https://huggingface.co/learn/agents-course/unit2/llama-index/components).*
+
+Se centran en `QueryEngine` porque puede ser una herramienta RAG para un agente. Cinco etapas de casi cualquier app grande:
+
+1. **Loading** — traer datos de archivos, PDFs, un sitio, una base, una API. LlamaHub tiene readers; `SimpleDirectoryReader` es el default de carpeta local; **LlamaParse** es la vía PDF de pago, "seamless" porque nació para este stack.
+2. **Indexing** — casi siempre embeddings vectoriales, más estrategias de metadatos.
+3. **Storing** — persistir el índice para no re-embeber en cada arranque.
+4. **Querying** — muchas estrategias sobre un índice: subconsultas, multi-paso, híbrido.
+5. **Evaluation** — exactitud, fidelidad, latencia frente a otra receta.
+
+`SimpleDirectoryReader(input_dir=...)` y `load_data()` dan objetos `Document`. Un `IngestionPipeline` con `SentenceSplitter` y `HuggingFaceEmbedding(model_name="BAAI/bge-small-en-v1.5")` da `Node`s — trozos que siguen apuntando al documento padre. El curso engancha un `ChromaVectorStore` (`pip install llama-index-vector-stores-chroma`) y construye `VectorStoreIndex.from_vector_store(...)`. Usa el **mismo** modelo de embeddings a la hora de consultar. Mezclar embedders es un bug silencioso de recuperación.
+
+Consejo práctico: escribe el id del modelo de embeddings en el nombre del directorio del índice. Dentro de seis meses no recordarás `bge-small-en-v1.5` frente a lo que cambiaste.
+
+## Las interfaces de consulta aún no son agentes
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.2, [components](https://huggingface.co/learn/agents-course/unit2/llama-index/components).*
+
+`VectorStoreIndex` se convierte a interfaces. Las comunes en esa página: un **retriever** (solo nodos), un **query engine** (pregunta entra, respuesta sale, retrieve-then-read), un **chat engine** (igual, con memoria conversacional). `as_query_engine(llm=..., similarity_top_k=3)` es RAG ingenuo. Siempre recupera. Correcto para "resume este corpus." Incorrecto para "cuánto es 3 por 4." LedgerQ, en el caso de abajo, envolvió cada mensaje de usuario en `as_query_engine` y lo llamó agente. No lo era.
+
+Consejo práctico: si no puedes nombrar una pregunta que **no** deba tocar el índice, no tienes un problema agéntico. Tienes un buscador. Envía el query engine. Sáltate el agente.
+
+<Callout>
+LlamaParse es una API gestionada de pago. El curso lo dice. No pegues una promesa de "gratis para siempre." `SimpleDirectoryReader` es la vía que corre sobre una carpeta tuya sin esa factura.
+</Callout>
+
+## Herramientas: cuatro tipos, un contrato
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.2, [Using Tools in LlamaIndex](https://huggingface.co/learn/agents-course/unit2/llama-index/tools); Function Calling Guide https://docs.llamaindex.ai/en/stable/examples/workflow/function_calling_agent/.*
+
+1. `FunctionTool` — envuelve una función Python. Nombre y descripción opcionales pero con peso; las anotaciones de tipo y el docstring se vuelven el esquema. Su ejemplo del tiempo: `FunctionTool.from_defaults(get_weather, name="my_weather_tool", description="Useful for getting the weather for a given location.")` y luego `tool.call("New York")`.
+2. `QueryEngineTool` — envuelve un `QueryEngine` con **nombre** y **descripción** para que el LLM pueda elegirlo. `return_direct=False` significa que el modelo ve la recuperación como observación y puede continuar. `True` cortocircuita. Entérate de cuál pasaste.
+3. `Toolspecs` — paquetes de la comunidad (Gmail y compañía) desde LlamaHub, instalados como `llama-index-tools-...`.
+4. **Utility tools** — ayudantes para payloads grandes de otras herramientas.
+
+La regla de la lección dummy sigue: el modelo emite una llamada, el arnés la ejecuta. La vía de function-calling de LlamaIndex usa la API de tools del proveedor cuando el LLM la tiene; si no, un bucle ReAct (Hugging Face Agents Course, [Using Agents in LlamaIndex](https://huggingface.co/learn/agents-course/unit2/llama-index/agents)).
+
+Consejo práctico: el nombre más la descripción *son* la API que ve el modelo. "some useful name" en un tutorial es un placeholder. Si lo envías, el modelo elegirá la herramienta equivocada.
+
+## Agentes: function-calling, ReAct o un workflow a medida
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.2, [Using Agents in LlamaIndex](https://huggingface.co/learn/agents-course/unit2/llama-index/agents); BaseWorkflowAgent https://github.com/run-llama/llama_index/blob/main/llama-index-core/llama_index/core/agent/workflow/base_agent.py.*
+
+Tres tipos en esa página:
+
+- **Function calling agents** — necesitan un modelo con API de tools. Menos prompting, más esquema.
+- **ReAct agents** — cualquier modelo chat o texto; verbosos; ves el razonamiento. Mejor cuando el modelo no puede llamar nativo.
+- **Advanced custom agents** — `BaseWorkflowAgent` y compañía, cuando el bucle mismo es el producto.
+
+Inicialización en el curso: `AgentWorkflow.from_tools_or_functions([FunctionTool.from_defaults(multiply)], llm=llm)`. En el momento en que escribieron, el agente usa **automáticamente** function calling si el LLM lo tiene, si no ReAct. No asumas qué camino te tocó: regístralo.
+
+Los agentes son **stateless por defecto**. La memoria es un objeto `Context` que pasas: `ctx = Context(agent)` y luego `await agent.run("My name is Bob.", ctx=ctx)`. Sin `ctx`, el segundo turno no sabe el nombre. No es un bug de LlamaIndex. Es la lista de mensajes del dummy, hecha explícita.
+
+Las llamadas son **async** (`await agent.run(...)`). El curso apunta a la guía async de LlamaIndex: https://docs.llamaindex.ai/en/stable/getting_started/async_python/. Si llamas una corrutina sin await, tienes un warning, no una respuesta.
+
+Consejo práctico: envuelve un query engine como `QueryEngineTool.from_defaults(...)` y ponlo en un `AgentWorkflow` **junto** a una calculadora. El permiso de saltar la recuperación es todo el RAG agéntico. La Unidad 3 le echará una gala encima a esta forma.
+
+## Workflows: eventos, no un agente escondido
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.2, [Creating agentic workflows in LlamaIndex](https://huggingface.co/learn/agents-course/unit2/llama-index/workflows); install `llama-index-utils-workflow` como en esa página.*
+
+Un workflow son pasos disparados por eventos, que emiten eventos. `StartEvent` entra, `StopEvent` sale. `@step` sobre métodos async. Subclases `Event` propias llevan campos intermedios. El timeout es argumento del constructor (`timeout=10` en su hola-mundo). Así "estructuran comportamiento agéntico sin el uso explícito de agentes" (introducción Unidad 2.2).
+
+Beneficios que listan: pasos discretos, flujo dirigido por eventos, eventos con tipos, estado integrado, agentes simples o complejos. Es la respuesta LlamaIndex a "necesito un grafo pero ya vivo aquí." Si necesitas checkpointers y human-in-the-loop de LangGraph como ciudadanos de primera, vete allí. No empieces un workflow porque un post dijo "agentic."
+
+Consejo práctico: un workflow de un solo paso que solo llama a un query engine es un query engine con ceremonia. Añade eventos cuando hay una horquilla real (parsear PDF frente a tabla, esperar a un humano, reintentar el embed). Si no, quédate en `AgentWorkflow`.
+
+<Compare a="QueryEngine siempre encendido" b="QueryEngineTool en un agente">
+<Side>
+Cada cadena de usuario pega en Chroma. La aritmética recupera una factura. Rápido de demostrar. Equivocado cuando la pregunta no va del corpus. Esto es retrieve-then-read, el "RAG clásico" de la Unidad 3.
+</Side>
+<Side>
+El modelo puede recuperar. Nombre y descripción deben decir cuándo. Hace falta una segunda herramienta (calculadora, tiempo) para que "saltar" tenga a dónde ir. Esto es RAG agéntico, al que la Unidad 3 lanzará una gala.
+</Side>
+</Compare>
+
+<Myth>
+`AgentWorkflow` es stateful porque suena a sesión. No. Pasa `Context` o partes de cero en cada `run`. El curso es explícito. Olvidar `ctx` es la versión LlamaIndex de tirar la Observation.
+</Myth>
 
 <TryThis>
-Elige una fuente que de verdad tengas (PDFs, un export de Notion, una tabla SQL). Nombra los componentes: loader, splitter, embed, vector store, query engine, y si el agente recibe ese engine como tool o *es* el engine. Si no puedes nombrar la fuente, aún no tienes un problema de LlamaIndex.
+Elige una fuente de datos que de verdad tengas (una carpeta de PDFs, un export de Notion, una tabla SQL). Nombra los componentes LlamaIndex: loader, splitter, modelo de embeddings, vector store, query engine, y si el agente recibe ese engine como herramienta o *es* solo el engine. Escribe una pregunta que no deba recuperar. Si no puedes nombrar la fuente, aún no tienes un problema LlamaIndex.
 </TryThis>
+
+## Embeddings, Chroma y persistencia
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.2, [components](https://huggingface.co/learn/agents-course/unit2/llama-index/components); vector stores https://docs.llamaindex.ai/en/stable/module_guides/storing/vector_stores/.*
+
+La vía Chroma del curso: `chromadb.PersistentClient(path="./alfred_chroma_db")`, colección `"alfred"`, `ChromaVectorStore`, enganchado al `IngestionPipeline` para que la ingestión llene el store. La persistencia es el punto del client path. Un store en memoria que muere al salir del proceso es un tutorial, no un producto.
+
+`similarity_top_k=3` es un número que puedes defender con eval, no una ley. Súbelo y gastas contexto. Bájalo y te pierdes. La Unidad 2.2 lista **evaluation** como etapa; no te la saltes porque la primera respuesta pareció fluida.
+
+Consejo práctico: deja el chunk_overlap explícito. Su primer splitter usa `chunk_overlap=0` y luego un pipeline Chroma usa `chunk_size=25` — diminuto, pedagógico. Tus PDFs quieren un tamaño que hayas medido, no 25.
+
+## Multi-agente dentro de AgentWorkflow
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.2, [Using Agents in LlamaIndex](https://huggingface.co/learn/agents-course/unit2/llama-index/agents); intro AgentWorkflow https://docs.llamaindex.ai/en/stable/examples/agent/agent_workflow_basic/.*
+
+`AgentWorkflow` puede sostener varios agentes con nombre y mantener un **único hablante activo**, con handoff. El curso construye un `ReActAgent` calculadora (`add`, `subtract`) y un `ReActAgent` `info_lookup` que posee un `QueryEngineTool`, luego `AgentWorkflow(agents=[...], root_agent="calculator")`. `FunctionAgent` es para modelos con API de function calling; `ReActAgent` para cualquier LLM. Alcance más estrecho, más exactitud — la misma tesis de aislamiento que los workers de smolagents, otros nombres de clase.
+
+Los agentes también pueden ser **herramientas de otros agentes**. Eso es ReAct anidado otra vez. Si el grafo de handoff es el producto (esperar a un humano, persistir, ramificar por tipo de documento), ya estás en territorio workflow-o-LangGraph. No anides tres `ReActAgent` porque una diapositiva dijo "multi-agente."
+
+Consejo práctico: pon `root_agent` en el especialista que debe hablar primero para tu tráfico por defecto, no en un dios-agente. Una calculadora como root, como en el notebook, es honesta para una demo de mates y equivocada para un producto de corpus.
+
+## Bucles, ramas, dibujos y estado en workflows
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.2, [workflows](https://huggingface.co/learn/agents-course/unit2/llama-index/workflows).*
+
+Los type hints de los métodos `@step` son el flujo de control. Un paso que acepta `StartEvent | LoopEvent` y devuelve `ProcessingEvent | LoopEvent` es un bucle. Su ejemplo usa una moneda — pedagógico, no una política de reintento. Un reintento de verdad necesita un contador en `Context`, o darás vueltas hasta `timeout`. `draw_all_possible_flows(w, "flow.html")` escribe un dibujo. Míralo como miraste `visualize()` de smolagents.
+
+`Context` como parámetro de un paso es estado de todo el workflow: `await ctx.store.set("query", ...)` para que los pasos posteriores lo compartan. No es el mismo objeto que `Context(agent)` en `AgentWorkflow.run`, aunque el nombre choque. Lee en qué página estás antes de pasar uno al otro.
+
+Consejo práctico: si un paso-bucle no tiene contador de saltos, reintrodujiste el incidente LangGraph de Reviewly antes de tiempo. Pon `attempts` en el estado antes de añadir el tipo unión.
+
+## Alfred, como la unidad lo usa de verdad
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.2, [components](https://huggingface.co/learn/agents-course/unit2/llama-index/components) e [introduction](https://huggingface.co/learn/agents-course/unit2/llama-index/introduction).*
+
+Le pides a Alfred que planee una cena. Necesita el calendario, las dietas, menús pasados. El `QueryEngine` es cómo encuentra esos pasajes. Esa historia es RAG, no agencia. La agencia empieza cuando Alfred también puede llamar al tiempo, o rechazar el corpus, o pasar a un agente calculadora. La Unidad 3 le dará historias de invitados y una gala. No te saltes el índice aburrido. Un agente de gala con un Chroma vacío es un chatbot con cargo.
+
+Consejo práctico: indexa una carpeta de diez archivos que sepas de memoria. Pregunta algo cuya respuesta está en el archivo tres, y algo cuya respuesta no está en ninguno. Si ambas vuelven fluidas, tu eval es un espejo. Las métricas de fidelidad existen porque la fluidez es barata.
 
 ## Caso — el retriever siempre encendido de LedgerQ
 
-LedgerQ envolvía cada mensaje en `as_query_engine` y lo llamaba agente. “¿Cuánto es 3×4?” pegaba a Chroma, traía una factura al azar y contestaba con un proveedor. Necesitaban una calculadora y permiso para *no* recuperar. Convertir el engine en `QueryEngineTool` de un ReAct arregló la aritmética y dejó las facturas opcionales.
+*Caso pedagógico en voz iAguide; QueryEngine-como-herramienta citado de Hugging Face Agents Course, Unidad 2.2, [agents](https://huggingface.co/learn/agents-course/unit2/llama-index/agents) y [tools](https://huggingface.co/learn/agents-course/unit2/llama-index/tools).*
 
-Esta lección reescribe ideas del [curso de agentes de Hugging Face](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.
+LedgerQ envolvió cada mensaje de usuario en `as_query_engine` y lo llamó agente. "¿Cuánto es 3×4?" igual pegó en Chroma, recuperó una factura aleatoria y contestó con un nombre de proveedor. Necesitaban un `FunctionTool` calculadora y permiso para *no* recuperar. Convertir el engine en `QueryEngineTool` sobre un `AgentWorkflow` con una herramienta multiply arregló la aritmética e hizo las facturas opcionales.
+
+Un segundo bug: embedieron con `bge-small-en-v1.5` y consultaron con otro embedder por defecto tras un bump de biblioteca. Los vecinos más cercanos eran ruido. El aviso del curso de reutilizar el mismo `HuggingFaceEmbedding` en índice y consulta es toda la corrección. Habían tratado el embedder como detalle de implementación. Es el espacio.
+
+## Lista práctica
+
+*Fuente nombrada: páginas de la Unidad 2.2 listadas en Fuentes; docs LlamaIndex https://docs.llamaindex.ai.*
+
+1. Puedes nombrar el loader (directorio, reader de LlamaHub o LlamaParse) y la licencia/coste de esa elección.
+2. Splitter, id del modelo de embeddings y ruta del vector store están escritos. La consulta usa el mismo embedder.
+3. Sabes si el usuario pega siempre en un query engine, o en un agente que *puede* llamar a un `QueryEngineTool`.
+4. Cada herramienta tiene nombre y descripción reales. Los placeholders se fueron.
+5. Si necesitas memoria, pasas `Context`. Si necesitas una horquilla, escribiste un evento de workflow, no un prompt más gordo.
+6. El async se espera con await. El eval offline tiene al menos una pregunta que no debe recuperar.
+
+## Qué se considera "hecho"
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.2 [conclusion](https://huggingface.co/learn/agents-course/unit2/llama-index/conclusion).*
+
+Puedes nombrar loader, splitter, embedder, store y la interfaz (retriever / query engine / chat engine / herramienta de agente). Sabes si `Context` va en la llamada. Tienes una pregunta que no debe recuperar. Entonces se te permite abrir la Unidad 2.3 o la 3. No antes.
+
+## Qué recordar
+
+*Síntesis de la Unidad 2.2, Hugging Face Agents Course (Burtenshaw, Thomas, Simonini y Paniego, Apache-2.0; unidad LlamaIndex de David Berenstein).*
+
+LlamaIndex es ReAct con forma de recuperación. LlamaHub es cómo instalas las piezas. Cargar, partir, embeber, guardar, consultar, evaluar. Un query engine no es un agente. Un `QueryEngineTool` sobre `AgentWorkflow` sí. Function-calling frente a ReAct depende del modelo; registra qué camino te tocó. `Context` es memoria. Los workflows son pasos por eventos para cuando el pipeline mismo ramifica. LangGraph es lo siguiente si el flujo de control es el producto. La Unidad 3 es la gala encima de esta geometría.
+
+## Fuentes
+
+Burtenshaw, B., Thomas, J., Simonini, T. y Paniego, S. (s. f.). *Hugging Face Agents Course* (Apache-2.0). https://huggingface.co/learn/agents-course · https://github.com/huggingface/agents-course
+
+- Introducción Unidad 2: https://huggingface.co/learn/agents-course/unit2/introduction
+- Introducción LlamaIndex: https://huggingface.co/learn/agents-course/unit2/llama-index/introduction
+- LlamaHub: https://huggingface.co/learn/agents-course/unit2/llama-index/llama-hub
+- Components: https://huggingface.co/learn/agents-course/unit2/llama-index/components
+- Tools: https://huggingface.co/learn/agents-course/unit2/llama-index/tools
+- Agents: https://huggingface.co/learn/agents-course/unit2/llama-index/agents
+- Workflows: https://huggingface.co/learn/agents-course/unit2/llama-index/workflows
+- Conclusión: https://huggingface.co/learn/agents-course/unit2/llama-index/conclusion
+- Registro LlamaHub: https://llamahub.ai
+- Docs LlamaIndex: https://docs.llamaindex.ai
+- GitHub LlamaIndex: https://github.com/run-llama/llama_index
+- Guía async: https://docs.llamaindex.ai/en/stable/getting_started/async_python/
+- Vector stores: https://docs.llamaindex.ai/en/stable/module_guides/storing/vector_stores/
+- Integración Hugging Face Inference API: https://llamahub.ai/l/llms/llama-index-llms-huggingface-api
+- Agent learning guide: https://docs.llamaindex.ai/en/stable/understanding/agent/
+- AgentWorkflow basic introduction: https://docs.llamaindex.ai/en/stable/examples/agent/agent_workflow_basic/
+- Notebook components: https://huggingface.co/agents-course/notebooks/blob/main/unit2/llama-index/components.ipynb
+- Notebook tools: https://huggingface.co/agents-course/notebooks/blob/main/unit2/llama-index/tools.ipynb
+- Notebook agents: https://huggingface.co/agents-course/notebooks/blob/main/unit2/llama-index/agents.ipynb
+- Notebook workflows: https://huggingface.co/agents-course/notebooks/blob/main/unit2/llama-index/workflows.ipynb
+
+- Connectors docs: https://docs.llamaindex.ai/en/stable/module_guides/loading/connector/
+- LlamaParse notes: https://github.com/run-llama/llama_cloud_services/blob/main/parse.md

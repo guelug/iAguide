@@ -1,25 +1,180 @@
-## Three knobs, three answers
+## Three controls, three answers
 
-Sandbox (agents.defaults.sandbox.mode off/non-main/all) is WHERE tools run. Tool policy (allow/deny, profiles, group:runtime/fs/...) is WHICH tools exist. Elevated is exec-only: run outside the sandbox when already sandboxed — it does not grant extra tools.
+OpenClaw's [*Sandbox vs tool policy vs elevated*](https://docs.openclaw.ai/gateway/sandbox-vs-tool-policy-vs-elevated) (n.d.) is the primary source. OpenClaw has three related but different controls:
 
-deny always wins. If allow is non-empty, everything else is blocked. /exec cannot override a denied exec tool. group:runtime is exec/process/code_execution.
+1. **Sandbox** (`agents.defaults.sandbox.*`, `agents.entries.*.sandbox.*`, or a required creator-role policy) decides **where tools run** (sandbox backend vs host).
+2. **Tool policy** (`tools.*`, `tools.sandbox.tools.*`, `agents.entries.*.tools.*`) decides **which tools are available**.
+3. **Elevated** (`tools.elevated.*`) is an **exec-only escape hatch** from ordinary sandboxing (`gateway` by default, or `node` when the exec target is `node`). It cannot bypass a creator role's required sandbox.
 
-Debug: openclaw sandbox explain --json.
+The generic [tools](/en/m/tools) lesson stays harness-agnostic. This one is the OpenClaw three-layer jail.
 
-<VisualSlot caption="sandbox where, tool policy which, elevated exec hatch, groups, explain." />
+```bash
+openclaw sandbox explain
+openclaw sandbox explain --session agent:main:main
+openclaw sandbox explain --agent work
+openclaw sandbox explain --json
+```
 
-## Compare vs Hermes
+The inspector prints effective sandbox mode/scope/workspace access, whether the session is currently sandboxed (main vs non-main), effective sandbox tool allow/deny (and whether it came from agent/global/default), elevated gates, and fix-it key paths (OpenClaw, *Sandbox vs tool policy vs elevated*, n.d.).
 
-Hermes: toolsets + check_fn + iron_proxy egress. OpenClaw: sandbox location vs allow/deny vs elevated, with group:* shorthands.
+<VisualSlot caption="sandbox, tool policy, elevated, groups, explain." />
 
-## Case: I thought this was main
+## Sandbox: where tools run
 
-**Case.** Slack channel is sandboxed under mode non-main; exec blocked.
+`agents.defaults.sandbox.mode`:
 
-**Fix.** Channel keys are not main. Use sandbox explain; allow the tool or change mode.
+- `"off"`: sessions run on the host unless their creator's operator role requires sandboxing.
+- `"non-main"`: only non-main sessions are sandboxed (common surprise for groups/channels).
+- `"all"`: everything is sandboxed.
+
+`agents.defaults.sandbox.workspaceAccess` controls what the sandbox can see: `"none"`, `"ro"`, or `"rw"`.
+
+An operator role with `sandbox: "required"` overrides agent mode, cannot be escaped through elevated execution or host overrides, and fails closed when its sandbox cannot be provisioned. Cite *Named operator roles* (OpenClaw, n.d., https://docs.openclaw.ai/gateway/operator-scopes#named-operator-roles).
+
+The workspace is the default cwd, not a hard sandbox. Absolute paths can still reach elsewhere on the host unless sandboxing is enabled. Cite *Agent workspace* (OpenClaw, n.d., https://docs.openclaw.ai/concepts/agent-workspace) and *Sandboxing* (OpenClaw, n.d., https://docs.openclaw.ai/gateway/sandboxing).
+
+When sandboxing is enabled and `workspaceAccess` is not `"rw"`, tools operate inside a sandbox workspace under `~/.openclaw/sandboxes`, not your host workspace.
+
+Bind mounts pierce the sandbox filesystem. Default is read-write if you omit the mode; prefer `:ro` for source/secrets. `scope: "shared"` ignores per-agent binds. Binding `/var/run/docker.sock` effectively hands host control to the sandbox. OpenClaw validates bind sources twice, including after resolving through the deepest existing ancestor, so symlink-parent escapes do not bypass blocked-path checks.
+
+## Tool policy: which tools exist
+
+Two layers matter: tool profile (`tools.profile`) plus global/per-agent allow/deny, and **sandbox tool policy** that only applies when sandboxed (`tools.sandbox.tools.allow`/`deny`).
+
+Rules of thumb from the page (OpenClaw, *Sandbox vs tool policy vs elevated*, n.d.):
+
+- `deny` always wins.
+- If `allow` is non-empty, everything else is treated as blocked.
+- Tool policy is the hard stop: `/exec` cannot override a denied `exec` tool.
+- Tool policy filters by name; it does not inspect side effects inside `exec`. If `exec` is allowed, denying `write` does not make shell commands read-only.
+- `/exec` only changes session defaults for authorized senders; it does not grant tool access.
+
+Gateway logs include `agents/tool-policy` audit entries when a policy step removes tools or a sandbox tool policy blocks a call.
+
+<Callout>
+ACP sessions currently run on the host runtime, **not** inside the OpenClaw sandbox. Sandboxed requesters cannot spawn ACP. Elevated does not wrap ACP either. Use `runtime: "subagent"` for sandbox-enforced delegated work (OpenClaw, *ACP agents*, n.d., https://docs.openclaw.ai/tools/acp-agents).
+</Callout>
+
+## Groups inside sandbox policy
+
+Sandbox tool policy supports `group:*` shorthands. Copy the table from the comparison page you are teaching; the config-tools page lists a slightly different `group:ui` set (OpenClaw, *Sandbox vs tool policy vs elevated*, n.d.):
+
+| Group | Tools |
+| --- | --- |
+| `group:runtime` | `exec`, `process`, `code_execution` (`bash` aliases `exec`) |
+| `group:fs` | `read`, `write`, `edit`, `apply_patch` |
+| `group:sessions` | session list/history/send/spawn family plus `subagents` |
+| `group:memory` | `memory_search`, `memory_get` |
+| `group:web` | `web_search`, `x_search`, `web_fetch` |
+| `group:ui` | `browser`, `screen`, `terminal`, `canvas`, `progress_card`, `show_widget` |
+| `group:automation` | `heartbeat_respond`, `cron`, `gateway` |
+| `group:messaging` | `message` |
+| `group:nodes` | `nodes`, `computer` |
+| `group:openclaw` | most built-ins except fs/runtime primitives, `canvas`, and provider plugins |
+| `group:plugins` | loaded plugin-owned tools, including MCP via `bundle-mcp` |
+
+For read-only agents, deny `group:runtime` as well as mutating filesystem tools unless sandbox filesystem policy already enforces read-only.
+
+For sandboxed MCP servers, sandbox tool policy is a second allow gate. Add `bundle-mcp`, `group:plugins`, or a server glob to `tools.sandbox.tools.alsoAllow`. `openclaw doctor` checks this shape for OpenClaw-managed `mcp.servers`.
+
+## Elevated: exec-only
+
+Elevated does **not** grant extra tools; it only affects `exec`.
+
+- If you are ordinarily sandboxed, `/elevated on` (or `exec` with `elevated: true`) runs outside the sandbox (approvals may still apply). Creator-role-required sandboxes reject elevated execution.
+- `/elevated full` skips exec approvals for the session.
+- If you are already running direct, elevated is effectively a no-op (still gated).
+- Elevated is not skill-scoped and does not override tool allow/deny.
+- Elevated does not grant arbitrary cross-host overrides from `host=auto`; it follows normal exec target rules and only preserves `node` when the configured/session target is already `node`.
+
+Gates: `tools.elevated.enabled` and sender allowlists `tools.elevated.allowFrom.<channel>`. Per-agent elevated can only further restrict. Cite *Elevated Mode* (OpenClaw, n.d., https://docs.openclaw.ai/tools/elevated).
+
+**Case.** A Slack group is sandboxed because mode is `non-main`. The operator thought "this is my bot, so it is main." Group keys are never `agent:<id>:main`. Use `sandbox explain` and read the session key, or switch mode to `off` if that is the intent (OpenClaw, *Sandbox vs tool policy vs elevated*, n.d.).
+
+**Case.** `exec` is denied by tool policy. `/elevated on` does nothing useful. Elevated cannot restore a denied tool (OpenClaw, *Sandbox vs tool policy vs elevated*, n.d.).
 
 <TryThis>
-Map a blocked exec to the exact config key you would change (sandbox vs deny vs elevated).
+Name the three controls and which question each answers. Name the three sandbox.mode values. Write whether deny or allow wins. Write whether elevated grants extra tools. Write the inspector command.
 </TryThis>
 
-Source: https://docs.openclaw.ai/gateway/sandbox-vs-tool-policy-vs-elevated
+## Compare, without mixing knobs
+
+Hermes sandboxing, when present, is a Hermes-loop concern (Nous Research, *Agent Loop Internals*, n.d., https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop). OpenClaw sandbox is Gateway-provisioned backends plus a separate tool-policy layer plus an exec-only elevated hatch. Do not paste a Docker flag into `tools.deny`. Cite the comparison page for which key to change.
+
+Common jail fixes: disable ordinary sandboxing with `agents.defaults.sandbox.mode=off` (does not override a creator role's required sandbox); or allow the tool inside sandbox by removing it from sandbox deny or adding it to sandbox allow. Check `openclaw logs` for the `agents/tool-policy` entry.
+
+Sandbox clamp on session tools: when the current session is sandboxed and `agents.defaults.sandbox.sessionToolsVisibility` is `"spawned"` (default), access stays limited to spawned sessions even if visibility is `"all"`. Cite *Tools and custom providers* (OpenClaw, n.d., https://docs.openclaw.ai/gateway/config-tools).
+
+Browser `target: "host"` from a sandboxed session requires `agents.defaults.sandbox.browser.allowHostControl=true`. That is not implied by `tools.alsoAllow: ["browser"]`.
+
+The workspace `AGENTS.md` `## Tools` section does not control which tools exist. Policy does.
+
+This lesson stops at the three layers, `non-main` surprise, deny-wins, elevated-is-exec-only, and `sandbox explain`. Compaction and cron do not change the jail.
+
+Further reading: *Sandboxing* for backends and images, *Multi-Agent Sandbox & Tools* for per-agent overrides, *Session permission modes*, *Exec approvals* (OpenClaw, n.d.).
+
+The particularity: "blocked" is not one knob. Ask where, which tool, or exec-on-host, then pick sandbox, policy, or elevated.
+
+Provider tool keys accept either provider (for example anthropic) or provider/model. Order is base profile, then provider profile, then allow/deny. A provider profile of minimal on a coding global profile is how a cheap model loses exec without changing the agent default.
+
+docker.binds is a security quick check, not a convenience mount. Non-existent leaf paths are still checked safely. If a bind resolves through a symlinked parent to a blocked path or outside allowed roots, the bind is rejected.
+
+Workspace access is independent of bind modes. You can have workspaceAccess none and still pierce via a rw bind if you configured one. Read both knobs.
+
+For a per-agent configuration with several host folders, see Multiple folders for one agent on the Sandboxing page.
+
+Session permission modes and escalation reviewers live on a sibling page. Do not collapse those into sandbox.mode.
+
+When the inspector says the session is sandboxed because it is non-main, the fix is either join main on purpose via groupScope (a sessions lesson decision) or accept the jail and allow the tools you need inside sandbox policy.
+
+Gmail reader example on Automations uses sandbox mode all, scope session, workspaceAccess none, and an absolute per-agent allow of session_status. That is the shape to copy for untrusted ingress, not a custom story.
+
+ACP, cron command payloads, and elevated are three different host-side stories. Command payloads require operator.admin and run inside the Gateway scheduler; they are not tools.exec. Elevated is session-gated exec outside sandbox. ACP is an external harness process. Cite each page; do not merge them into "unsandboxed means root."
+
+Chromium noSandbox on the browser config is not this sandbox. Two words, two pages.
+
+If a creator role requires sandbox and provisioning fails, the run fails closed. There is no silent host fallback. That is the point of required.
+
+Related architecture: the Gateway provisions the backend. Nodes are not a second sandbox host unless exec target is node. Cite Nodes and Elevated together when the target is node.
+
+This classroom version keeps the three questions, the three mode values, deny-wins, elevated-is-exec-only, and the inspector. Full matrix of images and scopes stays on Sandboxing.
+
+**Case.** Sandbox mode all plus MCP outlook tools missing. Servers loaded. alsoAllow bundle-mcp missing from tools.sandbox.tools. Add it, reload, recapture the tool list (OpenClaw, *Sandbox vs tool policy vs elevated*, n.d.).
+
+Per-agent sandbox and tool restrictions for delegated runs live on Multi-agent sandbox tools. Precedence only tightens.
+
+Loop detection is disabled by default and is not a sandbox. Do not enable it thinking it jails exec.
+
+view_image is the inspection tool id after doctor. Old image policy entries are a doctor rewrite, not a sandbox bug.
+
+The sandbox backend (Docker by default in many setups) is documented on Sandboxing, not here. This lesson is which layer to change when something is blocked.
+
+Cite Exec approvals when the remaining question is whether the host command should ask.
+
+Keep sandbox explain in the muscle memory. Guessing the session key is how non-main surprises last a week.
+
+Where do tools run. Which tools exist. Can exec leave the jail. Three questions. Three keys.
+
+Cite Architecture for the Gateway as the process that provisions the backend.
+
+See also Session permission modes for session roots and escalation reviewers.
+
+See also Exec for host command policy that is not elevated.
+
+## Sources
+
+OpenClaw. (n.d.). *Sandbox vs tool policy vs elevated*. https://docs.openclaw.ai/gateway/sandbox-vs-tool-policy-vs-elevated
+
+OpenClaw. (n.d.). *Sandboxing*. https://docs.openclaw.ai/gateway/sandboxing
+
+OpenClaw. (n.d.). *Tools and custom providers*. https://docs.openclaw.ai/gateway/config-tools
+
+OpenClaw. (n.d.). *Elevated Mode*. https://docs.openclaw.ai/tools/elevated
+
+OpenClaw. (n.d.). *Agent workspace*. https://docs.openclaw.ai/concepts/agent-workspace
+
+OpenClaw. (n.d.). *ACP agents*. https://docs.openclaw.ai/tools/acp-agents
+
+OpenClaw. (n.d.). *Named operator roles*. https://docs.openclaw.ai/gateway/operator-scopes
+
+Nous Research. (n.d.). *Agent loop internals*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop

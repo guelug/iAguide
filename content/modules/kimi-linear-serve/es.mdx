@@ -1,0 +1,221 @@
+## Camino oficial, no el folklore del portátil
+
+Kimi Linear es un MoE de **48B total / 3B activos** con una pila 3:1 KDA:MLA y hasta **1M** de contexto, publicado en BF16. Checkpoints:
+
+- [`moonshotai/Kimi-Linear-48B-A3B-Instruct`](https://huggingface.co/moonshotai/Kimi-Linear-48B-A3B-Instruct)
+- [`moonshotai/Kimi-Linear-48B-A3B-Base`](https://huggingface.co/moonshotai/Kimi-Linear-48B-A3B-Base)
+
+Los motores que hoy conocen <Term id="kda">KDA</Term> son **Hugging Face Transformers + `fla-core`**, y **vLLM** (que consume los mismos kernels FLA). El entorno que pide la model card: `python >= 3.10`, `torch >= 2.6`, `fla-core >= 0.4.0`, y `trust_remote_code=True` porque la arquitectura es custom.
+
+```bash
+pip install -U fla-core
+```
+
+**No** inventes una historia GGUF / llama.cpp / Ollama / MLX para KDA. Esos stacks son excelentes para modelos softmax densos. No traen el kernel FLA de KDA. Empareja artefacto con motor — el mismo Case que local-inference: no alimentes GGUF a vLLM, y no alimentes este MoE safetensors a llama.cpp y esperes milagros. Cuando exista un puerto MLX o GGUF de la comunidad vivirá junto al checkpoint en el hub. Hasta entonces, no existe. No lo teclees.
+
+<VisualSlot caption="Portátil: 96 GB de pesos BF16 desbordando una tarjeta de 24 GB. Caja GPU: shards de tensor-parallel. Contexto 1M: una torre KV de MLA completa frente a un híbrido 75% más bajo más chips KDA fijos." />
+
+## Estación de trabajo: Transformers, `device_map="auto"`
+
+Una GPU si de verdad aguanta los shards; más a menudo un workstation con varias tarjetas y el device map de HF:
+
+```python
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+model = AutoModelForCausalLM.from_pretrained(
+    "moonshotai/Kimi-Linear-48B-A3B-Instruct",
+    torch_dtype="auto",
+    device_map="auto",
+    trust_remote_code=True,
+)
+tok = AutoTokenizer.from_pretrained(
+    "moonshotai/Kimi-Linear-48B-A3B-Instruct",
+    trust_remote_code=True,
+)
+```
+
+`trust_remote_code=True` es obligatorio en **modelo y tokenizer**. El código de modelado es custom (KDA, MLA+NoPE, MoE). Sin él, Transformers no construye el grafo. `fla-core>=0.4.0` tiene que ser importable o la primera capa KDA lanza. La primera corrida compila kernels Triton; eso es lento, no colgado.
+
+Ese es el camino "tengo una caja, quiero una respuesta". No es un servidor multi-usuario. Seguirá intentando colocar **todos los pesos de expertos** en algún sitio. 3B activos es la historia de cómputo, no la de residencia.
+
+## Servidor: vLLM compatible con OpenAI
+
+De la model card y la [receta vLLM](https://docs.vllm.ai/projects/recipes/en/latest/moonshotai/Kimi-Linear.html), la línea exacta de serve es:
+
+```bash
+vllm serve moonshotai/Kimi-Linear-48B-A3B-Instruct \
+  --port 8000 \
+  --tensor-parallel-size 4 \
+  --max-model-len 1048576 \
+  --trust-remote-code
+```
+
+Cuatro (u ocho) GPUs en un nodo es la forma documentada. Si haces OOM, las siguientes palancas de la receta son un `--max-model-len` **más pequeño** (sugieren p. ej. 65536) o `--gpu-memory-utilization` hasta 0.95 — no "cómprate una flag mística de KDA". Fija un build de vLLM que la receta liste de verdad; 0.12.0 tenía un bug conocido de init MLA (`indexer_rotary_emb`). Lee la receta el día que instales.
+
+`--trust-remote-code` es el mismo requisito que Transformers. `--tensor-parallel-size 4` es cómo 96 GB de pesos BF16 siquiera *consideran* caber. `--port 8000` es el servidor compatible OpenAI. Nada en esa línea activa AttnRes. Si el checkpoint se entrenó con AttnRes, **ya está dentro del grafo**.
+
+## 48B BF16 no cabe en una tarjeta de 24 GB
+
+Dilo en voz alta. **Una tarjeta de 24 GB no cabe 48B BF16.** 48B parámetros × 2 bytes ≈ **96 GB** de pesos. Recorre en papel un nodo 4×24 GB:
+
+- 96 GB de pesos / 4 = 24 GB por GPU **antes** de KV, contexto CUDA, fragmentación.
+- Resta 2–4 GB para el runtime. Te queda más o menos nada para caché en una pieza de 24 GB. Ese nodo es la forma equivocada para contexto 1M aunque la KV sea híbrida.
+- Cuatro piezas de 80 GB (clase H100) es la versión adulta: ~24 GB de pesos por rank, decenas de GB para caché híbrida, luego eliges `max-model-len` a partir de trazas.
+
+<Myth>
+"3B activos, así que cabe en 6 GB." Los parámetros activos son FLOPs por token. Los residentes son lo que ve el allocator. Este checkpoint es una casa de 96 GB con un taller de 3B.
+</Myth>
+
+## No pongas 1M de contexto a ciegas
+
+`1048576` es un número de folleto. 1M de tokens de **KV de MLA** sigue costando RAM, aunque tres cuartos de las capas guarden un estado KDA fijo. Dimensiona `max-model-len` a partir de los prompts que tu harness envía de verdad (sistema + tools + hilo + margen de respuesta), no del abstracto.
+
+Residencia a groso modo, aritmética de aula no un profiler:
+
+- **Pesos.** 48B parámetros × 2 bytes BF16 ≈ **96 GB**. Los expertos MoE se pueden partir en ranks tensor-parallel, así que cuatro tarjetas de 24 GB **no** se convierten por arte de magia en 96 GB de holgura cómoda — pueden *sostener* shards si además dejas sitio para KV, activaciones y fragmentación.
+- **KV.** Solo las capas MLA (unas 1/4 de la pila) guardan una caché real por token. Las capas KDA guardan un estado de convolución más una matriz delta de tamaño `d_k × d_v` por cabeza (**128×128**), constante en `T`.
+- **Una tarjeta de 24 GB no cabe 48B BF16.** Dilo en voz alta. Opciones: más GPUs + tensor parallel; mira **cuantizaciones de la comunidad en el árbol del modelo** (lo que el hub liste ahora — no asumas GGUF); o aplica la **misma idea 3:1 lineal:completo** a un híbrido más pequeño que *sí* puedas hospedar. La matemática de una torre KV corta sigue ayudando a 3B u 8B.
+
+<Callout>
+3B activos significa que cada forward toca un corte de expertos. No significa que los demás expertos se hayan ido a casa. Planifica RAM para los pesos que cargaste, luego para la caché híbrida, luego para el contexto que configuraste de verdad. Las cuantizaciones en el árbol del modelo, si el hub las lista, son un quizás. No asumas GGUF. No asumas que bitsandbytes 4-bit mantendrá KDA numéricamente feliz.
+</Callout>
+
+## Artefacto ↔ motor, una vez más
+
+<Compare a="GGUF softmax denso" b="Safetensors de Kimi Linear">
+<Side>
+llama.cpp, Ollama, LM Studio, MLX-LM para el formato que toque. La caché KV es la torre habitual por token. Las recetas de quant están maduras. Bien en un Mac si el GGUF cabe en memoria unificada.
+</Side>
+<Side>
+Transformers + fla-core en un workstation; vLLM para un servidor compatible OpenAI. KDA necesita el kernel FLA/vLLM. GGUF es el artefacto equivocado. Apple Silicon: espera un puerto MLX o de la comunidad; hasta entonces usa un lineal/híbrido más pequeño en local, o llama a vLLM remoto.
+</Side>
+</Compare>
+
+En un Mac, **48B BF16 es un modelo de servidor**. No falsifiques un one-liner de `mlx_lm`. La memoria unificada no inventa un kernel KDA.
+
+- **Pesos.** 96 GB BF16, partidos por TP.
+- **KV de MLA.** Solo unas 1/4 de las capas mezcladoras. Sigue lineal en `T`.
+- **Estado KDA.** Convolución más una matriz delta `128 × 128` por cabeza, **constante en `T`**. Ese es el recorte del 75%.
+- **Caché de bloques AttnRes**, si está en el grafo: `N × T × d` en prefill, partida por TP, `N × d` en decode. Minúscula junto a la KV de MLA. No culpes a AttnRes de un OOM a 1M.
+
+## Caché híbrida, sin un proyecto de ciencia el día uno
+
+Las capas KDA guardan **estado de convolución + delta** (tamaño constante). Las capas MLA guardan **KV real**. Los sistemas de prefix-cache como LMCache que crecieron con KV softmax necesitan una alineación estilo **mamba-cache-mode** y **grupos de objetos separados** para el estado lineal frente a la KV de MLA. Menciónalo para que no te sorprenda que un dump de prefijo de un modelo denso no se reproduzca. **No** tienes que configurar esto el día uno. Primero que `vllm serve` conteste `/v1/chat/completions`.
+
+AttnRes, si está en el checkpoint que bajaste (entrenamiento Kimi Linear más nuevo), ya está en el grafo. El sobrecoste de servir es la historia del **<2%** de la lección de residuales. No pasas `--attnres`.
+
+**Case.** Alguien suelta un "Kimi Linear Q4 GGUF" en Ollama porque así sirve todo lo demás, o copia el `--max-model-len 1048576` de la card a una sola GPU de 24 GB. Primer camino: el runtime no tiene op KDA, así que obtienes un error o un mezclador silenciosamente mal. Segundo camino: los pesos nunca caben, y aunque un quant cupiera, 1M de KV-MLA sigue volando el resto de VRAM. Patrón de arreglo: motor que implementa KDA, tensor parallel hasta que **quepan los pesos**, luego un `max-model-len` sacado de trazas que registraste, luego medir.
+
+## Mide, luego presumas del 6×
+
+El 6× de decode a 1M del paper es frente a un gemelo full-MLA, batch 1, su figura (1.84 ms vs 11.48 ms TPOT). Tu servidor tiene otro batch, otro interconnect, otro `max-model-len`. Registra TPOT a 4k, 32k, 128k con una longitud de generación fija. La curva híbrida debería quedarse más plana. Si sube como un modelo softmax, estás acotado por caché en el cuarto MLA o el TP está mal dimensionado.
+
+## Tensor parallel es una herramienta de residencia primero
+
+La gente conoce TP como palanca de throughput. Aquí es cómo **caben los pesos**. `--tensor-parallel-size 4` en cuatro GPUs es la forma mínima documentada para el 48B BF16, no un ajuste de rendimiento que te saltas en una sola tarjeta de 80 GB (96 GB de pesos más caché no caben en 80). El pipeline parallel es otro eje (capas entre ranks). La lección de sistemas de AttnRes es sobre PP de **entrenamiento**. Servir vLLM en un nodo es TP más quizá expert parallel. No enciendas un schedule PP de training en vLLM porque leíste la Figura 3.
+
+## La superficie compatible OpenAI
+
+Cuando `vllm serve` está arriba, el arnés habla HTTP. Usa el id de modelo que registró el servidor. La plantilla de chat vive en el tokenizer. Las tool calls van por la misma lista de messages. Las trazas largas de tools son por qué querías el híbrido — también son por qué `max-model-len` debe incluir el JSON que vas a añadir. Health check: `/v1/models` debería listar el id. Si generate se cuelga en la primera llamada, Triton está compilando KDA; espera.
+
+## Honestidad de hardware, una página
+
+| Caja | ¿Caben pesos 48B BF16? | ¿Cabe KV híbrida 1M? | Motor |
+| --- | --- | --- | --- |
+| 1×24 GB | no | no | ninguno de este checkpoint |
+| 1×80 GB | no (96 GB de pesos) | n/a | ninguno, salvo un quant listado que aterrice de verdad |
+| 4×24 GB | solo shards, sin caché | no | quizás contexto corto si sobre-suscribes; normalmente no |
+| 4×80 GB | sí | quizás, dimensiona `max-model-len` | vLLM TP=4 |
+| 8×80 GB | sí | más cerca de 1M | vLLM TP=8 |
+| Mac 128 GB unificado | pesos quizás | kernel no | espera MLX; no lo inventes |
+
+La única fila que es una moral es la de 24 GB: **no**.
+
+## AttnRes en la frontera de servir
+
+Si este checkpoint se entrenó con Block AttnRes, el forward ya contiene `w_l`, RMSNorm en keys y el agrupado en bloques. vLLM ejecutando el código custom lo correrá. Sobrecoste bajo 2% con softmax online en dos fases. No configuras N. No pasas tamaño de bloque. No "apagas AttnRes para ahorrar memoria" sin entrenar otro checkpoint.
+
+Si este checkpoint **no** se entrenó con AttnRes, no hay nada que encender. El 48B Kimi Linear de 2025 es KDA+MLA. El paper de residuales de 2026 pone AttnRes sobre esa arquitectura para una corrida de comparación 1.4T. Lee la model card del repo **exacto** que bajas.
+
+## Una llamada generate que no se salte KDA en silencio
+
+Después de `from_pretrained(..., trust_remote_code=True)`, inspecciona `model.config` por el nombre de arquitectura que documenta la card. Si ves un config Llama genérico, cargaste el repo equivocado o tiraste el remote code. Cuenta capas mezcladoras: quieres un patrón 3:1 de KDA y MLA, no 0:1. Luego envía un prompt dummy de 8k y uno de 128k y compara TPOT. Más plano es el híbrido; empinado es "no estás corriendo KDA."
+
+No envuelvas el modelo en un stack de speculative decoding que asuma KV softmax en cada capa. El día uno es greedy o sampling plano en el servidor que acabas de arrancar.
+
+## Lista para enviar a producción
+
+1. **Elige un motor que tenga KDA** (Transformers+FLA, o vLLM). No llama.cpp, no Ollama, no una UI GGUF aleatoria.
+2. **Dimensiona `max-model-len` a partir de prompts reales**, no del folleto de 1M. Registra p50/p95 de tokens de prompt una semana.
+3. **Tensor-parallel hasta que quepan los pesos.** 96 GB BF16 es un número multi-GPU. Una tarjeta de 24 GB no es candidata al checkpoint BF16 completo.
+4. **Mide TPOT a 4k vs 128k.** El híbrido debería quedarse más plano que un gemelo de atención completa. Si no, probablemente sigues acotado por caché en MLA (contexto demasiado gordo) o el TP está mal dimensionado.
+5. **AttnRes ya está dentro del entrenamiento Kimi Linear más nuevo.** El impuesto de servir es negligible. No reimplementes softmax de profundidad en tu wrapper.
+
+<TryThis>
+En papel, presupuesta un nodo 4×24 GB: 96 GB de pesos BF16 partidos en cuatro (24 GB/GPU antes de KV). Resta 2–4 GB para contexto CUDA y fragmentación. El resto es caché híbrida. Escribe dos filas: `max-model-len = 8192` y `max-model-len = 1048576`. Rodea cuál pasarías de verdad a `vllm serve` para un harness cuyo p95 de prompt es 12k tokens. Luego escribe (no hace falta ejecutar) el comando serve con **esa** longitud y `--tensor-parallel-size 4 --trust-remote-code`. Papel más un comando; la GPU es opcional.
+</TryThis>
+
+Paper del mezclador: [Kimi Linear, arXiv:2510.26692](https://arxiv.org/abs/2510.26692). Kernels: [FLA KDA ops](https://github.com/fla-org/flash-linear-attention/tree/main/fla/ops/kda). Receta de servir: [vLLM Kimi-Linear](https://docs.vllm.ai/projects/recipes/en/latest/moonshotai/Kimi-Linear.html). Residuales, si están en el checkpoint: [arXiv:2603.15031](https://arxiv.org/abs/2603.15031).
+
+<Steps>
+1. Elige un motor que tenga KDA: Transformers+FLA, o vLLM. No llama.cpp, no Ollama, no MLX, no una UI GGUF aleatoria.
+2. Instala `fla-core>=0.4.0`. Confirma `import fla` antes de bajar 96 GB.
+3. Tensor-parallel hasta que **quepan los pesos**. 96 GB BF16 es un número multi-GPU.
+4. Dimensiona `max-model-len` a partir de prompts reales (p50/p95 una semana), no 1048576 por defecto.
+5. Golpea `/v1/chat/completions`. Luego mide TPOT a 4k vs 128k. Luego, y solo luego, habla de 1M.
+6. Si el checkpoint incluye AttnRes, herédalo. El impuesto de servir es negligible. No lo reimplementes.
+</Steps>
+
+## Qué tecleas, qué heredas
+
+La línea exacta de vLLM otra vez, porque esta es la lección metal:
+
+```bash
+vllm serve moonshotai/Kimi-Linear-48B-A3B-Instruct --port 8000 --tensor-parallel-size 4 --max-model-len 1048576 --trust-remote-code
+```
+
+Cambia `--max-model-len` a un número que puedas defender. Cambia `--tensor-parallel-size` a las GPUs que de verdad tienes, siempre que quepan los pesos. No añadas `--attnres`. No añadas `--kda`. No apuntes `--model` a un GGUF.
+
+El camino generate de Transformers, una vez tengas VRAM, hará OOM en una tarjeta de 24 GB. Sigue siendo la API correcta.
+
+## Modos de fallo que te vas a encontrar
+
+- **Falta `trust_remote_code`.** El grafo no incluye KDA. Error o un fallback de atención densa en el que no deberías confiar.
+- **`fla-core` viejo.** Falta `fla.ops.kda`. Actualiza.
+- **Bug de init MLA de vLLM 0.12.0.** `indexer_rotary_emb`. Fija la versión de la receta. El MLA de Kimi Linear es NoPE; un indexer RoPE sobrante es olor a versión.
+- **TP size 1 en 48B BF16.** OOM inmediato. Los pesos nunca aterrizaron.
+- **1M en 4×24 GB.** Pesos quizás, KV no. Baja `max-model-len`.
+- **GGUF en Ollama.** Artefacto equivocado. Para.
+- **Prefix cache de un dump denso.** Estado lineal y KV de MLA mezclados. Grupos de objetos separados, o sáltate prefix cache el día uno.
+
+Si tu arnés ya habla OpenAI, apunta `base_url` a `http://127.0.0.1:8000/v1` y conserva la lista de messages. No reimplementes plantillas de chat en el cliente. No recortes JSON de tools para "ahorrar contexto" antes de haber medido el TPOT híbrido; eso es resolver el cuello de botella equivocado.
+
+El batch size en vLLM crecerá porque el estado KDA es constante. Esa es la historia de throughput a 1M. No es razón para poner `max-model-len` a 1M en una tarjeta que no aguanta el cuarto MLA. Mide, luego sube.
+
+## Referencias
+
+Kimi Team. (2025). *Kimi Linear: An expressive, efficient attention architecture* (arXiv:2510.26692). https://arxiv.org/abs/2510.26692
+
+Kimi Team. (2026). *Attention residuals* (arXiv:2603.15031). https://arxiv.org/abs/2603.15031
+
+La lección metal en un aliento: motor con KDA, `fla-core>=0.4.0`, `trust_remote_code`, TP hasta que quepan 96 GB de BF16, `max-model-len` de trazas no de 1M, no GGUF, no llama.cpp, no MLX hasta que exista un puerto, AttnRes heredado si está. Todo lo demás es una nota al pie.
+
+Siguiente lección de este track: cómo se optimiza AttnRes (caché, dos fases, tabla de I/O). Foundations previas: KDA, luego AttnRes. Necesitas esos nombres rectos antes de que se abra la ventana del profiler.
+
+Imprime en el runbook el comando serve que corriste de verdad, incluido el `max-model-len` que defendiste. El tú del futuro te lo agradecerá cuando la caja haga OOM a las 3am.
+
+Ese número, el tamaño de TP y la versión de vLLM son los tres campos que hacen reproducible un incidente de servir.
+
+Copia el comando vLLM. Luego piensa antes de ejecutarlo. `--max-model-len 1048576` es el 1M del folleto. Cuatro (u ocho) GPUs en un nodo es la forma documentada.
+
+Sistemas de AttnRes (caché, dos fases, I/O): la siguiente lección metal. No conviertas la Figura 3 de entrenamiento en una flag de vLLM.
+
+
+El comando exacto otra vez, en una sola línea, para que no se te escape un backslash:
+
+`vllm serve moonshotai/Kimi-Linear-48B-A3B-Instruct --port 8000 --tensor-parallel-size 4 --max-model-len 1048576 --trust-remote-code`
+
+Esa es la receta. El resto de la lección es por qué no la pegas ciega en una 24 GB.
+
+
+Una tarjeta de 24 GB no es candidata. Punto.

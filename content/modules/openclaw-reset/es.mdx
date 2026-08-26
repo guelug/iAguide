@@ -1,19 +1,181 @@
-## Frescura como politica
+## La frescura no es updatedAt
 
-none / daily / idle. sessionStartedAt y lastInteractionAt. Heartbeat no alarga. Overrides por tipo y canal.
+La fuente primaria de reset es [*Session management*](https://docs.openclaw.ai/concepts/session) de OpenClaw (s. f.). Las sesiones se reutilizan hasta que las reseteas a mano o optas por una politica de reset automatico. Compaction gestiona el contexto activo mientras la conversacion crece; reset acuña un `sessionId` nuevo.
+
+La leccion generica [sessions](/es/m/sessions) permanece agnostica del harness. Esta es daily e idle de OpenClaw.
+
+La fila SQLite por agente guarda tres timestamps. Copienlos en la respuesta de TryThis. No traten `updatedAt` como frescura idle.
+
+- `sessionStartedAt`: cuando empezo el `sessionId` actual; el reset **daily** usa este.
+- `lastInteractionAt`: ultima interaccion real de usuario o canal que alarga la vida **idle**.
+- `updatedAt`: ultima mutacion de la fila; util para listar y prune, no autoridad para frescura daily o idle.
+
+Heartbeat, cron, exec y otros turnos de system-event pueden escribir metadatos de sesion, pero esas escrituras **no** alargan la frescura daily o idle (OpenClaw, *Session management*, s. f.).
 
 <VisualSlot caption="none, daily, idle, timestamps, overrides." />
 
-## Comparar vs Hermes
+## Cuatro formas de terminar una sesion
 
-Hermes compacta; OpenClaw puede rotar el id por reloj.
+- **Sin reset automatico** (default `mode: "none"`) — las sesiones conservan el mismo `sessionId`; compaction gestiona el contexto activo mientras la conversacion crece.
+- **Reset daily** (`mode: "daily"`) — optar por una sesion nueva a una hora local configurada (`session.reset.atHour`, default `4`, rango 0-23) en el host del gateway. La frescura daily se basa en cuando empezo el `sessionId` actual, no en escrituras posteriores de metadatos.
+- **Reset idle** (`mode: "idle"`) — optar por una sesion nueva tras `session.reset.idleMinutes` de inactividad. La frescura idle se basa en la ultima interaccion real de usuario/canal, asi que heartbeat, cron y eventos de sistema exec no mantienen la sesion viva.
+- **Reset manual** — escribe `/new` o `/reset` en chat. `/new <model>` tambien cambia el modelo.
 
-## Caso: cron inmortal
+Cuando daily e idle estan configurados, gana el que expire primero. Cuando un reset rueda la sesion, los avisos de system-event en cola para la sesion vieja se descartan para que updates de fondo obsoletos no se antepongan al primer prompt de la sesion nueva (OpenClaw, *Session management*, s. f.).
 
-**Fix.** Idle mira lastInteractionAt, no metadata.
+Las sesiones con una sesion CLI poseida por el proveedor siguen el mismo default de no-reset-automatico. Usen `/reset` o configuren `session.reset` explicitamente cuando esas sesiones deban caducar con un timer.
+
+<Callout>
+Heartbeat no alarga idle. Cron no alarga idle. Los eventos de sistema exec no alargan idle. Solo una interaccion real de usuario o canal mueve `lastInteractionAt`. El reset daily ignora `lastInteractionAt` por completo y lee `sessionStartedAt` (OpenClaw, *Session management*, s. f.).
+</Callout>
+
+## Global mas overrides
+
+Opten por resets automaticos de forma global, luego sobreescribanlos por tipo de chat o canal:
+
+```json5
+{
+  session: {
+    reset: { mode: "daily", atHour: 4 },
+    resetByType: {
+      group: { mode: "idle", idleMinutes: 120 },
+      thread: { mode: "daily", atHour: 6 },
+    },
+    resetByChannel: {
+      discord: { mode: "idle", idleMinutes: 10080 },
+    },
+  },
+}
+```
+
+`resetByType` soporta `direct`, `group` y `thread`. Doctor migra entradas legacy `dm` a `direct` y `session.idleMinutes` a `session.reset.idleMinutes`; el schema rechaza ambas formas retiradas (OpenClaw, *Session management*, s. f.).
+
+La hora `4` es local en el **host del gateway**, no el timezone del telefono del remitente. Las expresiones cron sin `--tz` tambien usan el timezone del host gateway; los schedules `at` sin timezone se tratan como UTC. Ese split vive en *Automations* (OpenClaw, s. f., https://docs.openclaw.ai/automation/cron-jobs) y *Timezone* (OpenClaw, s. f., https://docs.openclaw.ai/concepts/timezone).
+
+## Que hace un reset
+
+Un reset acuña un `sessionId` nuevo. Compaction no es un reset: el historial completo de la conversacion se queda en disco, y compaction solo cambia lo que el modelo ve en el siguiente turno (OpenClaw, *Compaction*, s. f., https://docs.openclaw.ai/concepts/compaction). `/new` arranca una sesion fresca sin compactar.
+
+Los archivos bootstrap del workspace se inyectan de nuevo en el primer turno de la sesion nueva. Por eso un reset daily relee `SOUL.md` y `AGENTS.md`. Las ediciones que hiciste a archivos de persona durante el dia aparecen tras el roll, no a mitad de hilo, salvo que hagas `/new` tu mismo (OpenClaw, *Agent runtime*, s. f., https://docs.openclaw.ai/concepts/agent).
+
+En conversaciones ACP bindeadas, `/new` y `/reset` resetean la misma session key ACP in place (OpenClaw, *ACP agents*, s. f., https://docs.openclaw.ai/tools/acp-agents). Las sesiones cron aisladas ya son frescas por run; no heredan esta politica daily/idle como forma de mantener vivo un hilo de chore.
+
+Durante la migracion, las filas sin `sessionStartedAt` se resuelven desde el header de sesion del JSONL de transcripcion legacy cuando esta disponible. Si una fila vieja tambien carece de `lastInteractionAt`, la frescura idle cae a ese start time de sesion, no a escrituras posteriores de bookkeeping (OpenClaw, *Session management*, s. f.).
+
+**Caso.** Un heartbeat dispara cada 30 minutos y escribe metadatos de sesion. `updatedAt` se mueve. `lastInteractionAt` no. El reset idle a 120 minutos sigue disparando si el humano ha estado en silencio, aunque la fila se vea "fresca" en un listing ordenado por `updatedAt` (OpenClaw, *Session management*, s. f.; *Heartbeat*, s. f., https://docs.openclaw.ai/gateway/heartbeat).
+
+**Caso.** Reset daily a la hora 4. La sesion empezo a las 22:00 la noche anterior. A las 04:00 el Gateway la rueda porque `sessionStartedAt` es de ayer, aunque el humano haya enviado un mensaje a las 03:50. La frescura daily es start time, no last interaction. Si querias "silencio durante N minutos", eso es modo idle.
+
+## Jobs bindeados y archivos
+
+Archivar una sesion desactiva cada job de automatizacion habilitado bindeado a esa sesion: su sesion aislada `cron:<jobId>`, un target `session:<custom-id>`, o un lane de delivery/wake `sessionKey`. Restaurar la sesion no re-habilita esos jobs; usen `openclaw automations enable <id>` (OpenClaw, *Automations*, s. f.).
+
+Los hilos incognito no crean un archivo de transcripcion cuando los reseteas o borras. Tambien saltan el memory flush automatico. Resetear un hilo incognito es desaparicion, no un archivo que puedas `/resume` (OpenClaw, *Session management*, s. f.).
 
 <TryThis>
-JSON: daily a las 4 y grupos idle 120m.
+Escribe el modo de reset default. Escribe que timestamp usa daily y cual usa idle. Nombra un evento que escribe metadatos pero no alarga idle. Escribe el atHour daily default y su rango. Nombra las tres claves resetByType tras la migracion de doctor.
 </TryThis>
 
-Fuente: https://docs.openclaw.ai/concepts/session
+## Comparar, sin mezclar knobs
+
+La compression de Hermes crea un linaje de sesion hija; `/resume` retoma una sesion (Nous Research, *Agent Loop Internals*, s. f., https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop). El reset de OpenClaw acuña un `sessionId` nuevo en la misma familia de filas sqlite poseida por el Gateway. Compaction en OpenClaw conserva la identidad de sesion actual para el compactador SQLite builtin. No peguen `compression.protect_last_n` de Hermes en `session.reset.idleMinutes`. Citen *Session management* para reset. Citen *Compaction* para resúmenes.
+
+Las sesiones CLI poseidas por proveedor default a no-reset-automatico para que un hilo largo de Codex o Claude CLI no se mate a las 04:00 salvo que hayas optado. Eso es lo contrario de "el Gateway siempre rueda a las 4." Lean la pagina.
+
+## Por que el default es none
+
+El default `mode: "none"` existe porque una sesion main personal se supone una conversacion continua. Compaction, no reset, es como un DM de meses se queda dentro de la ventana del modelo. Activar reset daily porque "el contexto se siente viejo" tira la identidad del hilo; `/compact Focus on <topic>` o un memory flush suele ser el cuchillo mas pequeño (OpenClaw, *Session management*, s. f.; *Compaction*, s. f.).
+
+Idle reset es el cuchillo de chat de grupo. Un room de Slack que se queda en silencio dos horas a menudo no deberia retomar el debug a medias de ayer como si siguiera vivo. `resetByType.group` con `idleMinutes: 120` hace eso sin rodar el DM main del dueño a las 04:00.
+
+Daily reset es el cuchillo "mañana nueva, hilo nuevo". Es hora local en el host del Gateway. Un Gateway en UTC mas un humano en Europe/Madrid (UTC+2) rodara a las 04:00 UTC, que son las 06:00 para el humano, salvo que elijas `atHour` conociendo el timezone del host. Citen *Timezone* en vez de inventar un campo de hora local del remitente que la pagina de reset no documenta.
+
+Doctor migra `session.idleMinutes` legacy a `session.reset.idleMinutes` y las claves de tipo `dm` legacy a `direct`. El schema rechaza ambas formas retiradas. Si un config todavia tiene `session.idleMinutes`, corran `openclaw doctor --fix` en vez de enseñar ambas claves como vivas (OpenClaw, *Session management*, s. f.).
+
+Cuando un reset rueda, los avisos de system-event en cola para la sesion vieja se descartan. Asi una linea obsoleta "cron finished" no se convierte en el primer prompt visible del usuario de la mañana nueva. Las automatizaciones aisladas ya usan una sesion fresca `cron:<jobId>` por run; no son una forma de mantener vivo el hilo main desde un heartbeat.
+
+`/new` y `/reset` son el camino manual. `/new <model>` tambien cambia el modelo. En sesiones ACP bindeadas a chat, esos commands resetean la misma session key ACP in place en vez de acuñar un sibling no bindeado (OpenClaw, *ACP agents*, s. f.).
+
+Los eventos de automatizacion de sesion main son recordatorios de system-event autocontenidos. No incluyen automaticamente el prompt default de heartbeat ni el scratch del monitor heartbeat. Los turnos internos de automatizacion no alargan la frescura daily o idle; solo la actividad visible del usuario actualiza la frescura de sesion (OpenClaw, *Automations*, s. f.).
+
+Si los diagnosticos listan una sesion como `updatedAt` reciente porque un heartbeat escribio metadatos de routing, no traten eso como vida idle. Sort y prune pueden usar `updatedAt`. Reset no.
+
+**Caso.** Un canal de comunidad Discord pone `resetByChannel.discord` en idle 10080 minutos (siete dias). Los DMs directos se quedan en daily-at-4 global. El override es por canal, no por usuario. Un DM de Discord y un room de Discord comparten la clave de canal salvo que `resetByType` separe ademas `direct` vs `group` (OpenClaw, *Session management*, s. f.).
+
+Citen *Session management* para cada campo de reset. Citen *Compaction* cuando el objetivo es "caber en la ventana", no "id nuevo." Citen *Heartbeat* cuando alguien pregunte por que un monitor de 30 minutos no salvo el reloj idle. Citen Hermes *Agent Loop Internals* solo en el parrafo de comparar.
+
+Los minutos idle son inactividad de reloj de pared contra `lastInteractionAt`, no contra el ultimo token del modelo. Un run largo de agente que termina mientras el humano esta en silencio no cuenta como interaccion. Steerear un segundo mensaje de WhatsApp *si* es interaccion porque es un inbound real de canal.
+
+Daily `atHour` es un entero 0-23. No hay expresion cron en `session.reset`. Si quieres "solo dias laborables", eso no es este knob; deja `mode: "none"` en la sesion y usa automations para jobs de dias laborables (OpenClaw, *Session management*, s. f.; *Automations*, s. f.).
+
+`/new` sin modelo conserva el modelo actual. `/reset` es la misma familia que `/new` para rodar el id. Las sesiones ACP bindeadas resetean in place para que el editor o el binding de chat no quede colgando de una clave vieja.
+
+Cuando daily e idle estan puestos, gana el primer expiry. Una sesion que empezo a las 03:30 con idle 30 minutos y daily atHour 4 puede idle-rodar a las 04:00 si el humano se callo a las 03:30, o daily-rodar a las 04:00 si siguieron hablando. El predicado que dispare primero acuña el id nuevo y descarta avisos de system-event en cola para el viejo.
+
+Filas legacy: si falta `sessionStartedAt`, OpenClaw lo recupera del header JSONL de transcripcion cuando el archivo todavia existe. Si `lastInteractionAt` tambien falta, idle usa ese start time recuperado. Las escrituras de bookkeeping nunca rellenan frescura idle. Esa es la regla de migracion; citenla en vez de adivinar `updatedAt` (OpenClaw, *Session management*, s. f.).
+
+¿Necesitas pizarra limpia sin esperar las 04:00? `/new`. ¿Necesitas que el modelo olvide el medio de un hilo largo pero conserve el id? `/compact`. ¿Necesitas que el DM humano sobreviva la noche? deja `mode` `none`. Tres respuestas, tres paginas.
+
+Las sesiones CLI poseidas por proveedor (Claude CLI y similares) siguen el mismo default `none`. Un timer en esas sesiones es un opt-in explicito para que un hilo CLI alojado no se mate por la hora local del Gateway (OpenClaw, *Session management*, s. f.).
+
+Queue mode se guarda por sesion y no lo borra compaction; un reset acuña un id nuevo, asi que un override `/queue collect` no sigue en silencio el hilo de la mañana nueva salvo que lo pongas otra vez. Confirmen en la pagina viva si dependen de eso operativamente; esta leccion solo promete el `sessionId` nuevo.
+
+Inspeccionen con `openclaw sessions --json` y `/status`. La vista in-chat muestra uso de contexto; no muestra `sessionStartedAt` como epoch Unix salvo que el payload de status lo incluya. Al depurar un roll sorpresa, lean los timestamps sqlite via doctor inspect en vez de adivinar desde `updatedAt` en una lista UI.
+
+Un reset no es un revoke de pairing, no es un wipe del workspace, no es una compaction. Los tokens de pairing se quedan. `SOUL.md` se queda. Los archivos de transcripcion pueden quedar bajo `sessions/` como archivos deleted o reset. El `sessionId` de la fila viva cambia. Enseñar "reset borra el agente" es como alguien hace rm del workspace por error (OpenClaw, *Session management*, s. f.; *Agent workspace*, s. f., https://docs.openclaw.ai/concepts/agent-workspace).
+
+Las claves de grupo nunca son `agent:<id>:main`. En modo sandbox `non-main` estan sandboxed porque no son main; la politica de reset es un eje separado. Un grupo puede idle-resetear mientras permanece sandboxed. No colapsen modo sandbox y modo reset en un solo switch mental (OpenClaw, *Sandboxing*, s. f., https://docs.openclaw.ai/gateway/sandboxing).
+
+El tipo thread `resetByType.thread` cubre Discord threads y Telegram topics que OpenClaw trata como threads. Direct permanece `direct` despues de que doctor migra `dm` legacy. Si un config todavia dice `dm`, es invalido hasta que doctor lo reescriba.
+
+Paginas relacionadas: *Session pruning* para recorte de tool-result, *Compaction* para resúmenes, *Session tools* para trabajo cross-session, *Command queue* para overrides `/queue` que viven en la sesion hasta que el id rueda, *Heartbeat* para el monitor que no debe mantener idle vivo (OpenClaw, s. f.).
+
+La continuidad de sesion main a traves de canales DM es la forma default de agente personal. La politica de reset es como optas de esa continuidad con un timer. Si quieres continuidad y una ventana mas pequeña, compacta. Si quieres un hilo de mañana nueva, daily. Si quieres que los rooms olviden tras silencio, idle. Si no quieres nada de eso, deja `none`.
+
+**Caso.** Un operador ordena sesiones por `updatedAt` descendente, ve una fila tocada por heartbeat hace dos minutos, y desactiva idle reset "porque esta activa." El humano lleva tres horas en silencio. Idle deberia haber rodado. El listing mintio porque uso el timestamp equivocado. Lean `lastInteractionAt` (OpenClaw, *Session management*, s. f.).
+
+Un `/new` manual en un grupo no cambia `session.groupScope`. Rueda la clave aislada de ese grupo. El routing se queda per-group salvo que un binding lo sobreescriba a main. Reset y routing son tablas independientes en la misma pagina.
+
+`session.reset.atHour` default 4 es el mismo numero que muchos operadores recuerdan de "jobs nocturnos." Sigue siendo hora local del Gateway. Escribanlo al lado del timezone del host.
+
+Para stores de tamaño produccion, `maxEntries` de mantenimiento y la politica de reset interactuan: un roll daily crea una fila viva nueva; el id viejo se vuelve elegible para prune segun `pruneAfter` salvo que este archivado o pineado. Reset no es prune. Prune no es reset.
+
+Usen `openclaw doctor --session-sqlite inspect` cuando `sessionStartedAt` se vea mal tras un import JSONL. Los timestamps idle faltantes caen al start time, lo que hace que una fila migrada parezca idle-ready de inmediato. Esa sorpresa esta documentada (OpenClaw, *Session management*, s. f.).
+
+Los docs de heartbeat (`https://docs.openclaw.ai/gateway/heartbeat`) deberian estar abiertos mientras afinan idle. La pagina de heartbeat es la otra mitad de la historia idle: es un monitor, no una conversacion. Si lo tratan como conversacion, nunca entenderan por que idle sigue disparando.
+
+Cuando daily e idle aplican ambos, OpenClaw evalua ambos. Una sesion puede daily-rodar a las 04:00 y luego idle-rodar tras silencio de la tarde. Eso son dos ids nuevos en un dia de calendario. Los operadores que asumieron "daily significa una sesion por dia" subcuentan.
+
+No pongan secretos en el primer mensaje de usuario tras un roll esperando que el modelo "todavia sepa." La sesion nueva tiene archivos de workspace, memory search y archivos bootstrap — no la transcripcion previa. Si el secreto vivia solo en chat, se fue del contexto.
+
+Esta leccion es la mitad de politica de *Session management*. La mitad de routing es la leccion hermana `openclaw-sessions`. Lean ambas antes de cambiar `session.*` en produccion.
+
+Vean tambien el overview de arquitectura para donde el estado de sesion se sienta relativo al proceso Gateway (`https://docs.openclaw.ai/concepts/architecture`).
+
+Acrediten *Doctor* por la reescritura de `dm` a `direct` y de `session.idleMinutes` a `session.reset.idleMinutes` (`https://docs.openclaw.ai/cli/doctor`).
+
+Citen *Sandboxing* cuando alguien mezcle non-main y idle en un solo switch.
+
+Citen *Agent workspace* cuando alguien crea que reset borra SOUL.md.
+
+El rango de atHour es 0-23; no hay expresion cron en session.reset.
+
+Esta leccion se detiene en none/daily/idle, los tres timestamps, overrides, y el invariante heartbeat-no-alarga-idle. Compaction continua despues. Las sesiones cron aisladas continuan en la leccion de cron.
+
+## Fuentes
+
+OpenClaw. (s. f.). *Session management*. https://docs.openclaw.ai/concepts/session
+
+OpenClaw. (s. f.). *Compaction*. https://docs.openclaw.ai/concepts/compaction
+
+OpenClaw. (s. f.). *Agent runtime*. https://docs.openclaw.ai/concepts/agent
+
+OpenClaw. (s. f.). *Heartbeat*. https://docs.openclaw.ai/gateway/heartbeat
+
+OpenClaw. (s. f.). *Automations*. https://docs.openclaw.ai/automation/cron-jobs
+
+OpenClaw. (s. f.). *Timezone*. https://docs.openclaw.ai/concepts/timezone
+
+OpenClaw. (s. f.). *ACP agents*. https://docs.openclaw.ai/tools/acp-agents
+
+Nous Research. (s. f.). *Agent loop internals*. Guia de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop

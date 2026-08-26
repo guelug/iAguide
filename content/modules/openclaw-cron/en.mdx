@@ -1,23 +1,180 @@
-## Scheduler inside the Gateway
+## The scheduler lives in the Gateway
 
-openclaw automations (alias cron). Mutations need operator.admin. Agent jobs default isolated (fresh transcript).
+OpenClaw's [*Automations*](https://docs.openclaw.ai/automation/cron-jobs) (n.d.) is the primary source. Automations are OpenClaw's built-in scheduler. The scheduler persists jobs, wakes the agent at the right time, and can deliver output to a chat channel, a webhook, or nowhere.
 
-Delivery: announce, webhook, or none. Isolated jobs can skip bootstrap with --light-context. Jobs live in shared SQLite.
+Manage automations with the `openclaw automations` CLI; `openclaw cron` remains an alias for the same commands.
 
-<VisualSlot caption="create job, isolated session, announce, webhook, admin gate." />
+Automations run **inside the Gateway process**, not inside the model. The Gateway must be running for schedules to fire. Job definitions, runtime state, and run history persist in the shared SQLite state database, so restarts do not lose schedules. Every automation run creates a background task record (OpenClaw, *Automations*, n.d.).
 
-## Compare vs Hermes
+The generic [cron](/en/m/cron) lesson, if present, stays harness-agnostic. This one is OpenClaw Gateway automations.
 
-Hermes: jobs.json plus a fresh AIAgent. OpenClaw: Gateway-owned SQLite with isolated or main session choice.
+```bash
+openclaw automations create "2027-02-01T16:00:00Z" --name "Reminder" --session main --system-event "Reminder: check the automations docs draft" --wake now --delete-after-run
+openclaw automations list
+openclaw automations runs --id <job-id>
+```
 
-## Case: brief without SOUL.md
+<VisualSlot caption="create, isolated, announce, webhook, admin." />
 
-**Case.** --light-context skipped bootstrap.
+## Schedule kinds and timezone
 
-**Fix.** Drop --light-context if you want SOUL.
+| Kind | CLI flag | Description |
+| --- | --- | --- |
+| `at` | `--at` | One-shot timestamp (ISO 8601 or relative like `20m`) |
+| `every` | `--every` | Fixed interval (`10m`, `1h`, `1d`) |
+| `cron` | `--cron` | 5-field or 6-field cron expression with optional `--tz` |
+| `on-exit` | `--on-exit` | Fire once when a watched command exits |
+| `stream` | `--stream-command` | Fire from batched lines of a supervised command |
+
+Timestamps without a timezone are treated as **UTC**. Add `--tz America/New_York` to interpret an offset-less `--at` datetime, or to evaluate a cron expression, in that IANA timezone. Cron expressions without `--tz` use the **Gateway host timezone**. `--tz` is not valid with `--every` or `--on-exit` (OpenClaw, *Automations*, n.d.; *Timezone*, n.d., https://docs.openclaw.ai/concepts/timezone).
+
+Day-of-month and day-of-week use **OR** logic (Vixie/croner). `0 9 15 * 1` fires on every 15th and every Monday. To require both, use croner's `+` day-of-week modifier or guard in the prompt.
+
+Recurring top-of-hour expressions are automatically staggered by up to 5 minutes. Use `--exact` to force precise timing.
+
+Heartbeat scratch `tasks:` is retired. Run `openclaw doctor --fix` to convert each entry into an ordinary main-session automation job. Heartbeat scratch is now monitor prose only (OpenClaw, *Automations*, n.d.; *Heartbeat*, n.d., https://docs.openclaw.ai/gateway/heartbeat).
+
+## Session styles
+
+| Style | `--session` | Best for |
+| --- | --- | --- |
+| Main | `main` | Reminders, system events |
+| Isolated | `isolated` | Reports, background chores (`cron:<jobId>` keys) |
+| Current | `current` | Context-aware recurring work bound to the creation conversation |
+| Custom | `session:custom-id` | Workflows that build on history |
+
+Agent-turn jobs default to the creating conversation when the create request carries session context. CLI/API callers without a session key fall back to `isolated`. System events and heartbeats still default to `main`; command and script payloads still default to `isolated`.
+
+Internal automation turns do **not** extend daily or idle reset freshness; only visible user activity updates session freshness. Isolated jobs get a new transcript/session id per run and do not inherit ambient conversation context from an older automation row (OpenClaw, *Automations*, n.d.).
+
+Isolated automation and hook agent turns are explicitly unattended. The final reply must be the deliverable. Return `NO_REPLY` when nothing needs doing.
+
+<Callout>
+Command payloads are an operator-admin Gateway automation surface, not an agent `tools.exec` call. Creating, updating, removing, or manually running automation jobs requires `operator.admin`. Agent exec policy does not govern command payloads (OpenClaw, *Automations*, n.d.).
+</Callout>
+
+## Payloads and delivery
+
+Every job carries exactly one payload kind: system event (`--system-event`), agent message (`--message`), command (`--command` / `--command-argv`), or script (`--script`). One additional kind, `heartbeat`, is system-owned and cannot be created through the CLI.
+
+Delivery modes: `announce` (fallback-deliver final text if the agent did not send), `webhook` (POST finished event payload), `none` (no runner fallback). Webhook delivery cannot combine with chat delivery flags.
+
+Every outbound automation webhook uses the strict SSRF guard. Allow only the receiver you trust with `cron.webhookSsrfPolicy.allowedHostnames`. Leave the policy unset to keep strict behavior (OpenClaw, *Automations*, n.d.).
+
+On hosts with multiple configured channels, isolated announce jobs must set `--channel` unless a provider-prefixed `--to` or a preserved session route selects the channel. DM pairing-store approvals are not fallback automation recipients.
+
+`webhookToken` is sent as `Authorization: Bearer` on automation webhook POSTs. Webhook URLs must not include embedded username/password credentials.
+
+Archiving a session disables every enabled automation job bound to that session. Restoring the session does not re-enable those jobs; use `openclaw automations enable <id>`.
+
+**Case.** A morning brief uses `--session isolated --announce --channel slack --to "channel:C123"` with `--tz America/Los_Angeles`. Cron without `--tz` would have used the Gateway host timezone instead (OpenClaw, *Automations*, n.d.).
+
+**Case.** An agent creates a command payload job. It fails. Command payloads require `operator.admin`. Use `--message` for agent-authored chores (OpenClaw, *Automations*, n.d.).
 
 <TryThis>
-Write create 0 7 * * * summarizing overnight updates.
+Write the CLI name and its alias. Write where automations run. Name isolated versus main. Write which payload kind needs operator.admin. Write timezone rules for at versus cron without --tz.
 </TryThis>
 
-Source: https://docs.openclaw.ai/cli/cron
+## Compare, without mixing knobs
+
+Hermes cron, when present, is a Hermes scheduler (Nous Research, *Agent Loop Internals*, n.d., https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop). OpenClaw automations are Gateway-owned sqlite jobs. Do not paste a crontab line into `session.reset`. Cite *Automations* for jobs. Cite *Heartbeat* for the monitor. Cite *Session management* for idle clocks that automations do not extend.
+
+Disable automations with `cron.enabled: false` or `OPENCLAW_SKIP_CRON=1`. `cron.store` is retired; use CLI or Gateway API.
+
+One-shot jobs auto-delete only when `completionStatus` is `succeeded`. A required-delivery failure keeps the job disabled for inspection. Recurring execution errors back off 30s, 60s, 5m, 15m, 60m. A time-based recurring job auto-disables after 10 consecutive execution failures.
+
+Condition-trigger scripts and script payloads run unattended with the owning agent's full tool policy, including `exec`. Treat them as unattended code execution. Set `cron.triggers.enabled: false` for a hard stop.
+
+Gateway HTTP hooks (`/hooks/wake`, `/hooks/agent`) need `hooks.enabled` and a dedicated hook token. Query-string tokens are rejected. Keep hook endpoints behind loopback, tailnet, or a trusted reverse proxy. Do not reuse gateway auth tokens as hook tokens. Putting a Gmail hook on `main` is a security decision; keep a dedicated reader agent with sandbox `all`, `workspaceAccess: "none"`, and a tight allowlist (OpenClaw, *Automations*, n.d.).
+
+`/loop` in chat is an owner-only shortcut that creates a recurring agent-turn job bound to that conversation.
+
+Model override `--model` is the job primary. If it is not allowed, the run fails with a validation error rather than silently falling back. Configured fallback chains still apply unless `--fallbacks ""` makes the run strict.
+
+This lesson stops at Gateway-owned jobs, isolated versus main, announce versus webhook, sqlite persistence, and operator.admin for command payloads. Pairing is not a cron recipient. Compaction is not how isolated jobs stay small; they already start fresh.
+
+Per-run wall-clock budget: --timeout-seconds when set. Otherwise isolated agent-turn jobs are bounded by the scheduler 60-minute watchdog before the underlying agent-turn timeout (agents.defaults.timeoutSeconds, default 48 hours). Command jobs default to 10 minutes. Script payloads default to 5 minutes.
+
+On Gateway startup, overdue isolated agent-turn jobs are rescheduled instead of replayed immediately, keeping model bootstrap out of the channel-connect window.
+
+Isolated runs best-effort close tracked browser tabs for their cron session on completion. Cleanup failures are ignored so the run result still wins.
+
+Isolated runs with the narrow automation self-cleanup grant can read scheduler status and may remove only their own job.
+
+When a job hits timeoutSeconds, the scheduler aborts and gives a short cleanup window. If it does not drain, Gateway-owned cleanup force-clears that run session ownership so queued chat work is not stuck.
+
+Pacing: recurring jobs can set pacing.min and pacing.max. During an agent-turn run, a paced job can call automations with action next_check. Failed and skipped runs discard the proposal.
+
+Stream schedules keep an operator-authored argv command running. mode line accepts every line. mode match accepts only matching lines. Command payloads are rejected for stream schedules because process ownership would be ambiguous.
+
+Fast failures restart with error backoff. Five consecutive runs shorter than 60 seconds leave the job in an error state.
+
+New jobs that can run tools always store an explicit tool policy. Jobs created by an agent are capped to the tools available to that creating turn. Jobs created by an authenticated operator without --tools store an unrestricted star policy.
+
+Before an isolated run starts, OpenClaw checks reachable local endpoints for configured ollama and openai-completions providers on loopback or private network. A down endpoint records skipped rather than starting a model call. The result is cached for 5 minutes per endpoint.
+
+Failure notifications use one scheduler-owned threshold and cooldown. Default coverage after 2 consecutive failures with a 1-hour cooldown when a route exists. A time-based recurring job auto-disables after 10 consecutive execution failures; enable clears the reason.
+
+Automation jobs do not infer a reply language from channel or locale. Put the language rule in the scheduled message.
+
+openclaw automations create is an alias for add. cron.sessionRetention default 24h prunes isolated run-session entries.
+
+Doctor --fix imports historical ~/.openclaw/cron/jobs.json and related files into SQLite and archives originals with a .migrated suffix.
+
+**Case.** Gmail PubSub on main with full tools. The page recommends a dedicated mail_reader agent, sandbox all, workspaceAccess none, allow session_status, deliver false. Anything else is a security decision you must document (OpenClaw, *Automations*, n.d.).
+
+Hooks token via Authorization Bearer or x-openclaw-token. Keep hooks.path on a dedicated subpath; slash root is rejected. Persistent mapped hooks require a stable sessionKey or hooks.defaultSessionKey.
+
+The particularity: the Gateway is the cron daemon. Isolated keys are fresh per run. Command payloads are admin. Announce and webhook are delivery, not schedule. Heartbeat is a monitor, not a tasks: parser.
+
+Troubleshooting ladder: openclaw status, gateway status, automations status, automations list, automations runs, system heartbeat last, logs follow, doctor.
+
+reason not-due means the manual run was checked with --due and the job was not due yet.
+
+Delivery mode none means no runner fallback send. The agent can still send with the message tool when a chat route is available.
+
+If the isolated run returns only NO_REPLY, OpenClaw suppresses outbound delivery.
+
+Matrix room IDs are case-sensitive. Lowercased delivery.to from a copied job can fail.
+
+Cron expressions without --tz use the gateway host timezone. at schedules without timezone are treated as UTC. Heartbeat activeHours uses configured timezone resolution.
+
+Main-session automation events are self-contained system-event reminders. They do not automatically include the default heartbeat prompt or the heartbeat monitor scratch.
+
+Current-session jobs execute in a detached run session, read a bounded tail captured at creation, and commit the final visible assistant result back to that exact conversation.
+
+Webhook mode POSTs the finished run payload. Use --webhook on add or edit. Cannot combine with --announce.
+
+Keep hook payloads wrapped with safety boundaries by default. Untrusted inbox content is data, not instructions.
+
+Cite Architecture: one Gateway per host is also one scheduler per host. Two Gateways is two conflicting calendars.
+
+Cite Queue when isolated announce should not collide with a live steer. Heartbeat uses a nested lane; automations still enqueue.
+
+This classroom version keeps Gateway-owned sqlite jobs, isolated versus main, announce versus webhook, operator.admin for commands, and timezone split. Gmail wizard details stay on the Automations page.
+
+openclaw automations enable clears auto-disable streaks after you fix the cause.
+
+Use automations list --all to see disabled jobs.
+
+Force run with automations run. Wait with --wait for shutdown hooks that must block until success.
+
+Cite Background Tasks for the ledger that every automation run creates.
+
+## Sources
+
+OpenClaw. (n.d.). *Automations*. https://docs.openclaw.ai/automation/cron-jobs
+
+OpenClaw. (n.d.). *Automation overview*. https://docs.openclaw.ai/automation
+
+OpenClaw. (n.d.). *Heartbeat*. https://docs.openclaw.ai/gateway/heartbeat
+
+OpenClaw. (n.d.). *Timezone*. https://docs.openclaw.ai/concepts/timezone
+
+OpenClaw. (n.d.). *Background Tasks*. https://docs.openclaw.ai/automation/tasks
+
+OpenClaw. (n.d.). *Session management*. https://docs.openclaw.ai/concepts/session
+
+OpenClaw. (n.d.). *Gateway architecture*. https://docs.openclaw.ai/concepts/architecture
+
+Nous Research. (n.d.). *Agent loop internals*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop

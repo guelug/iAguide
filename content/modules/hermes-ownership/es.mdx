@@ -1,23 +1,187 @@
-## Empieza por el mapa de ownership
+## Los tests espejan el código; gana el dueño más estrecho
 
-Hermes es grande; la mayoria de PRs tocan un subsistema. El mapa oficial empareja directorios con docs (agent/, tools/, gateway/, hermes_state.py, iron_proxy, acp_adapter/).
+Hermes es un repositorio grande, y la mayoría de las contribuciones tocan exactamente un subsistema. La página de partida es *Codebase Ownership Map* de Nous Research (s. f.): encuentren el documento correcto, el directorio correcto y la carpeta de tests correcta antes de cambiar una línea. La lección genérica [el harness](/es/m/the-harness) permanece agnóstica; esta es la particularidad de Hermes.
 
-<VisualSlot caption="Mapa: tests espejan el codigo; preferir adaptadores a ramas en el nucleo." />
+El mapa es un contrato de contribución, no un mapa del sitio. Un plugin que necesita editar archivos del núcleo es un olor de diseño: ensanchen la superficie genérica de plugins (Nous Research, *Codebase Ownership Map*, s. f.; véase también la rúbrica de `AGENTS.md` en el repositorio). Cada añadido al núcleo del agente se paga en **cada** llamada a la API. Esa frase es la lección entera, reescrita como tabla de directorios.
 
-Convenciones: cambios dentro del subsistema; tests espejo; gana el dueno mas estrecho; el nucleo es cintura estrecha.
+<VisualSlot caption="mapa de subsistemas, tests espejo, gana el más estrecho, cintura estrecha, nota de UI." />
 
-Desktop/TUI/docs-site: fuera del espinazo de este curso; un apunte basta.
+## El mapa de subsistemas
 
-## Comparar con OpenClaw
+Cada fila es un lugar por donde empezar, no un permiso para cruzar. Directorios fuente, puntos de entrada de documentación y directorios de tests viajan juntos. La página de arquitectura es la orientación de primer nivel; el mapa de ownership es la regla de contribución que se sienta encima (Nous Research, *Architecture*, s. f.).
 
-En OpenClaw la cintura es el Gateway. En Hermes es AIAgent + registry.
+| Subsistema | Directorios fuente | Punto de entrada de docs |
+| --- | --- | --- |
+| Núcleo del agente (bucle, transports, compresión) | `agent/`, `run_agent.py` | Agent Loop; Context Compression and Caching |
+| Ensamblado de prompt | `agent/prompt_builder.py`, `agent/system_prompt.py` | Prompt Assembly |
+| Proveedores y transports | `agent/transports/`, `plugins/model-providers/`, `hermes_cli/models.py` | Adding Providers; Model Provider Plugins; Provider Runtime |
+| Tools integradas | `tools/` | Adding Tools; Tools Runtime |
+| Gateway de mensajería | `gateway/`, `plugins/platforms/` | Gateway Internals; Adding Platform Adapters |
+| CLI | `hermes_cli/` | Extending the CLI |
+| Sistema de plugins | `plugins/` | Build a Hermes Plugin |
+| Skills (incluidas y opcionales) | `skills/`, `optional-skills/` | Creating Skills |
+| Cron / trabajos programados | `cron/` | Cron Internals |
+| Almacenamiento de sesión | `hermes_state.py` | Session Storage |
+| Pila del navegador | `tools/browser_tool.py`, `tools/browser_supervisor.py`, `tools/browser_cdp_tool.py` | Browser Supervisor |
+| Firewall de egress | `agent/proxy_sources/iron_proxy.py` | Egress Internals |
+| ACP (integración IDE) | `acp_adapter/` | ACP Internals |
+| Sitio de docs | `website/` | Contributing |
+| Tests | `tests/`, `tests-js/` | Contributing, Before Submitting |
 
-## Caso: plugin que edita run_agent.py
+Desktop (`apps/desktop/`) y TUI (`ui-tui/`, `tui_gateway/`) tienen puntos de entrada de docs — Desktop Plugin SDK y Worktree UI Development — pero quedan **fuera de alcance** de este pack de aula. No traten un cambio de skin TUI como un cambio del bucle, y no abran esos árboles para esta lección. La página de ownership los lista para que quien contribuye pueda encontrarlos; listar no es un temario.
 
-**Caso.** Un plugin parchea el bucle en vez de registrar una tool.
+<Callout>
+Consejo: marquen el [mapa de ownership](https://hermes-agent.nousresearch.com/docs/developer-guide/codebase-ownership) antes de abrir un PR. Si no pueden nombrar el subsistema en una fila de esa tabla, no están listos para editar. El "Recommended reading order" de la página de arquitectura es la misma idea en lista numerada.
+</Callout>
+
+## Los tests viven al lado
+
+Los tests espejan el código. El código en `tools/` se prueba en `tests/tools/`. Los plugins viven bajo `tests/plugins/`. Un cambio en `plugins/platforms/telegram/` necesita `tests/plugins/platforms/` en verde, no solo el archivo de test que se les ocurrió (Nous Research, *Codebase Ownership Map*, s. f.).
+
+La página de arquitectura registra una suite pytest del orden de decenas de miles de tests en más de mil archivos (Nous Research, *Architecture*, s. f.). Esa escala solo funciona si el ownership permanece local: ejecuten el directorio espejo de **cada** directorio fuente que toquen. Las columnas declarativas de `hermes_state.py` tienen sus propios tests; egress tiene `tests/test_iron_proxy.py`, `tests/test_iron_proxy_cli.py` y un E2E con puerta. El espejo no es una metáfora. Es una ruta.
+
+**Caso.** Parchean la entrega de Telegram en `plugins/platforms/telegram/` y ejecutan un único archivo bajo `tests/gateway/`. Los tests del gateway pasan. Un fixture de plugin bajo `tests/plugins/platforms/` sigue fallando porque cambió la firma de la factory del adaptador. La regla del mapa es la más barata: ejecuten el espejo primero.
+
+El mismo patrón vale para plugins de proveedor (`tests/` junto a `plugins/model-providers/`), para cron (tests que cubren `cron/jobs.py` y `cron/scheduler.py`) y para ACP (`acp_adapter/` con su propia página de internos). Si no pueden nombrar el espejo, no han terminado el cambio.
 
 <TryThis>
-Elige un cambio (handler de reacciones Telegram) y nombra el dueno estrecho frente al archivo core que no debes tocar.
+Elijan un archivo que podrían cambiar — `agent/prompt_builder.py`, `cron/jobs.py` o `acp_adapter/`. Escriban el directorio de tests correspondiente y el punto de entrada de docs de la tabla. Si aplican dos filas, quédense con ambas; la sección siguiente dice cuál posee el cambio.
 </TryThis>
 
-Fuente: [Codebase ownership](https://hermes-agent.nousresearch.com/docs/developer-guide/codebase-ownership).
+## Cuando intervienen dos subsistemas, el más estrecho posee el cambio
+
+Prefieran un arreglo en un adaptador o plugin frente a una rama en el núcleo del agente. El núcleo es una **cintura estrecha**: `AIAgent` en `run_agent.py` sirve CLI, gateway, ACP, batch y la librería Python. Las diferencias de plataforma viven en el punto de entrada, no en el agente (Nous Research, *Architecture*, s. f., principio "Platform-agnostic core").
+
+Ese principio es la razón de que exista el mapa. Si el render de WhatsApp está mal, el cambio pertenece al adaptador de WhatsApp o a su `platform_hint`, no a `prompt_builder.py` para todas las superficies. Si hace falta un backend de inferencia nuevo, añadan un plugin de proveedor bajo `plugins/model-providers/` en lugar de una rama nueva en `runtime_provider.py` (Nous Research, *Provider Runtime Resolution*, s. f.). Añadir un plugin que llama a `register_provider()` basta para que el resolvedor lo recoja: no hace falta un branch en el resolvedor.
+
+Tres convenciones salen del mapa (Nous Research, *Codebase Ownership Map*, s. f.):
+
+1. Los cambios deben quedarse dentro de su subsistema.
+2. Ejecuten el directorio espejo de tests de cada directorio fuente que toquen.
+3. Cuando intervienen dos subsistemas, el más estrecho posee el cambio.
+
+**Caso.** La entrega cron a una plataforma plugin nueva falla. El parche tentador es una rama en `cron/scheduler.py`. El mapa dice: pongan `cron_deliver_env_var` en `ctx.register_platform()` para que el scheduler nunca aprenda el nombre de la variable de entorno. El dueño más estrecho es el adaptador. El núcleo sigue siendo cintura. La ruta built-in, en cambio, es una lista de más de 20 archivos (Nous Research, *Adding a Platform Adapter*, s. f.): eso es lo que parece un dueño más ancho, y por eso se recomienda la ruta plugin.
+
+## La cintura se paga en cada llamada
+
+"Cintura estrecha" no es un cumplido al tamaño de `run_agent.py`. Es un modelo de coste. Ensamblado de prompt, resolución de proveedor, dispatch de tools, compresión y persistencia viven dentro de `AIAgent`. Un caso especial en esa clase corre para el chat CLI, un DM de Telegram, una sesión ACP, un cron y una trayectoria batch. Un caso especial local al adaptador corre solo en esa superficie.
+
+El orden de lectura recomendado en la página de arquitectura empieza por el mapa de internos, luego Agent Loop, Prompt Assembly, Provider Runtime, Adding Providers, Tools Runtime, Session Storage, Gateway Internals, Context Compression y ACP Internals (Nous Research, *Architecture*, s. f.). Ese orden es cómo se quedan fuera de la cintura: leen el doc del subsistema **antes** de cambiar el archivo.
+
+| Si quieren cambiar… | Empiecen aquí, no en `run_agent.py` |
+| --- | --- |
+| Identidad del system prompt | `SOUL.md` y Prompt Assembly |
+| Un backend LLM nuevo | Model Provider Plugins; Provider Runtime |
+| Una tool nueva que el modelo pueda llamar | Adding Tools, o un plugin `ctx.register_tool` |
+| Un canal de mensajería nuevo | Adding Platform Adapters (ruta plugin) |
+| Política de compactación | Context Engine Plugins |
+| Búsqueda de sesión | Session Storage (`hermes_state.py`) |
+| Aislamiento de claves en sandbox | Egress Internals |
+| Integración con el editor | ACP Internals |
+| Trabajos de agente programados | Cron Internals |
+
+El acoplamiento laxo es el principio de diseño que acompaña: los subsistemas opcionales (MCP, plugins, proveedores de memoria, entornos RL) usan patrones de registro y gating con `check_fn`, no dependencias duras (Nous Research, *Architecture*, s. f.). Si su cambio necesita un import duro de `run_agent.py` hacia un plugin, están ensanchando la cintura. Ensanchen la superficie genérica de plugins.
+
+<Callout>
+No importen el lenguaje de ownership de nodos o skills de OpenClaw a la descripción de un PR de Hermes. El ownership de Hermes es directorio más docs más tests espejo. Las superficies de OpenClaw son otro harness. Los dos mapas no se componen. El equivalente Hermes de "pónganlo en una extensión" es `~/.hermes/plugins/` o un entry point de pip, no una rama en el núcleo.
+</Callout>
+
+## El aislamiento de perfil también es ownership
+
+Cada perfil (`hermes -p` más un nombre) obtiene su propio `HERMES_HOME`, config, memoria, sesiones y PID del gateway. Varios perfiles corren a la vez (Nous Research, *Architecture*, s. f., "Profile isolation"). No es una preferencia de UI. Es la razón de que existan token locks en los adaptadores y de que el estado de egress viva bajo el home del perfil y no en un `/tmp` global. Un cambio que escribe en un `~/.hermes` hardcodeado sin pasar por `get_hermes_home()` es una fuga de cintura: rompe el segundo perfil.
+
+**Caso.** Dos operadores comparten un host. Uno corre un gateway de Telegram en el perfil `work`, el otro en el perfil `home`. Ambos bots intentarían sostener el mismo token. El dueño más estrecho es el `acquire_scoped_lock()` del adaptador en `connect()`, documentado en la página de adaptadores. Un mutex de núcleo en `run_agent.py` sería la respuesta ancha y cara.
+
+<TryThis>
+Para un cambio que "solo necesita un singleton global", listen la alternativa acotada al perfil: un archivo bajo `HERMES_HOME`, un slot `ctx.state` de plugin, o un lock con alcance. Si ninguna sirve, están proponiendo un cambio de cintura y necesitan la página del Agent Loop, no una edición de paso.
+</TryThis>
+
+## Nota de UI, y se acaba
+
+La página de ownership lista Desktop y TUI para que quien contribuye pueda encontrarlos. Esta lección se detiene en la cintura del agente y los anillos de plugin/adaptador a su alrededor. Si el bug real es una captura, un skin o un panel TUI, ese es otro punto de entrada de docs y otro árbol de tests (`tests-js/` existe por una razón). El trabajo de aula aquí se queda en las filas que las lecciones posteriores de particularidad Hermes realmente enseñan: bucle, proveedores, ensamblado, compresión, sesiones, plugins, plataformas, egress.
+
+**Caso.** Alguien "arregla" el color del spinner CLI editando `agent/display.py` y luego lo "iguala" editando la entrega del gateway. Dos subsistemas, dos árboles de tests, un cambio cosmético. El dueño más estrecho de la pantalla CLI es `hermes_cli/` más los tests de `agent/display.py`; la entrega del gateway no es una API de color. El mapa está para que ese corte sea aburrido.
+
+Los plugins de producto de terceros — backends de observabilidad, conectores SaaS, ataduras de servicio de pago — se construyen y distribuyen como repos independientes, no se fusionan en `NousResearch/hermes-agent` (Nous Research, *Build a Hermes Plugin*, s. f.). Esa también es una regla de ownership: el núcleo se mueve rápido y Nous Research no posee su backend. Promuévanlos en Discord; no los envíen como PR de núcleo.
+
+<TryThis>
+Escriban una reivindicación de ownership en una frase para un cambio hipotético: "añadir una burbuja de respuesta lenta en LINE." Nombren el directorio fuente, la página de docs y el directorio de tests. Contrástenlo con [Adding a Platform Adapter](https://hermes-agent.nousresearch.com/docs/developer-guide/adding-platform-adapters): ruta plugin, no la lista de 20 archivos del built-in.
+</TryThis>
+
+La lección siguiente, [Hermes: puntos de entrada AIAgent](/es/m/hermes-aiagent), es cómo se ve la cintura desde fuera: seis puntos de entrada, una clase. Lean el [mapa de ownership](https://hermes-agent.nousresearch.com/docs/developer-guide/codebase-ownership) una vez más antes de abrir `run_agent.py`.
+
+## Principios de diseño que el mapa hace cumplir
+
+La página de arquitectura enuncia seis principios. El ownership es cómo siguen siendo ciertos después del primer merge (Nous Research, *Architecture*, s. f.):
+
+| Principio | Qué significa para un cambio |
+| --- | --- |
+| Estabilidad del prompt | No muten el system prompt cacheado a mitad de conversación salvo acciones explícitas como `/model`. |
+| Ejecución observable | Cada tool call es visible vía callbacks. No añadan una tool silenciosa en el núcleo. |
+| Interrumpible | Las llamadas a la API y las tools se pueden cancelar. No escriban una fila assistant parcial. |
+| Núcleo agnóstico de plataforma | Un `AIAgent` sirve CLI, gateway, ACP, batch y el servidor API. |
+| Acoplamiento laxo | Los subsistemas opcionales usan registros y `check_fn`, no imports duros. |
+| Aislamiento de perfil | Cada perfil `hermes -p` obtiene su propio `HERMES_HOME`, config, memoria, sesiones y PID del gateway. |
+
+Si un parche viola una fila, es un parche de cintura aunque el archivo viva bajo `plugins/`. El test es conductual, no un prefijo de ruta.
+
+## Cadena de dependencias de archivos
+
+El registro de tools ocurre en tiempo de import, antes de que exista ninguna instancia de agente (Nous Research, *Architecture*, s. f.):
+
+```text
+tools/registry.py
+  <- tools/*.py   (cada uno llama registry.register() al importar)
+    <- model_tools.py
+      <- run_agent.py, cli.py, batch_runner.py, environments/
+```
+
+Cualquier archivo `tools/*.py` con una llamada de nivel superior a `registry.register()` se descubre solo. No hay una lista manual de imports que "poseer". Añadir una tool integrada implica también tocar `toolsets.py`: eso es un segundo directorio fuente, así que es un segundo directorio espejo de tests. La [particularidad de tools](/es/m/hermes-tools) posee los detalles del registro; esta lección solo se ocupa de que la cadena es portante.
+
+La persistencia de sesión es el otro archivo compartido: `hermes_state.py`. CLI y gateway escriben ahí. El batch runner y las trayectorias RL **no** se guardan ahí (Nous Research, *Session Storage*, s. f.). No "arreglen" la exportación de trayectorias ensanchando `state.db`.
+
+## Ruta built-in frente a ruta plugin
+
+Para plataformas, Nous Research es explícito: la ruta plugin se recomienda para trabajo comunitario y de terceros; la ruta built-in modifica más de 20 archivos entre código, config y docs (Nous Research, *Adding a Platform Adapter*, s. f.). El ownership sigue ese tenedor.
+
+- Plugin: `~/.hermes/plugins/<name>/` con `plugin.yaml` más `register(ctx)`. Cero archivos de núcleo.
+- Built-in: enum, adaptador, config del gateway, runner del gateway, cron, CLI, tools, toolsets, `PLATFORM_HINTS` opcional, tests y ocho archivos de documentación.
+
+El mismo tenedor existe para tools (por defecto plugins; sigan *Adding Tools* solo para enviar una integrada) y para proveedores de modelo (un plugin `ProviderProfile`, no una rama en el resolvedor). "Ya tengo el repo clonado" no es razón para tomar la ruta built-in.
+
+**Caso.** Alguien añade `NEWPLAT` al enum `Platform` y luego olvida `website/sidebars.ts` y `tools/cronjob_tools.py`. La auditoría de paridad de la página de adaptadores existe porque el dueño built-in es *ancho*. El dueño plugin es un directorio. Elijan el dueño estrecho a propósito.
+
+## Cómo se sientan las lecciones posteriores en este mapa
+
+| Lección posterior | Fila de ownership que enseña |
+| --- | --- |
+| [Puntos de entrada AIAgent](/es/m/hermes-aiagent) | Núcleo del agente, visto desde los seis hosts |
+| [Runtime de proveedores](/es/m/hermes-providers) | Proveedores y transports |
+| [Tiers del prompt](/es/m/hermes-assembly) | Ensamblado de prompt |
+| [Doble compresión](/es/m/hermes-compression) | Núcleo, compresión y caché |
+| [state.db y FTS5](/es/m/hermes-sessions) | Almacenamiento de sesión |
+| [API de contexto de plugins](/es/m/hermes-plugins) | Sistema de plugins |
+| [Adaptadores de plataforma](/es/m/hermes-platforms) | Gateway más `plugins/platforms/` |
+| [Egress iron_proxy](/es/m/hermes-egress) | Firewall de egress |
+
+Desktop y TUI siguen listados en el mapa oficial y siguen fuera de este pack. Las ediciones del sitio de docs pertenecen a `website/` y a la página Contributing, no a una lección de particularidad.
+
+Las URLs oficiales de esta lección son el [mapa de ownership](https://hermes-agent.nousresearch.com/docs/developer-guide/codebase-ownership) y la [visión de arquitectura](https://hermes-agent.nousresearch.com/docs/developer-guide/architecture). Lean ambas antes de la siguiente clase. La cintura es más fácil de respetar cuando se han visto los seis puntos de entrada desde fuera.
+
+## Fuentes
+
+Nous Research. (s. f.). *Codebase ownership map*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/codebase-ownership
+
+Nous Research. (s. f.). *Architecture*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/architecture
+
+Nous Research. (s. f.). *Provider runtime resolution*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/provider-runtime
+
+Nous Research. (s. f.). *Adding a platform adapter*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/adding-platform-adapters
+
+Nous Research. (s. f.). *Agent loop internals*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop
+
+Nous Research. (s. f.). *Build a Hermes plugin*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/plugins
+
+Nous Research. (s. f.). *Prompt assembly*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/prompt-assembly
+
+Nous Research. (s. f.). *Egress proxy internals*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/egress-internals

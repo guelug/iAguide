@@ -4,33 +4,47 @@ import type { TrackId } from "@/content/tracks";
 
 import agentPatterns from "./agent-patterns/meta.json";
 import attention from "./attention/meta.json";
+import kimiDeltaAttention from "./kimi-delta-attention/meta.json";
+import attentionResiduals from "./attention-residuals/meta.json";
 import callsCacheThreads from "./calls-cache-threads/meta.json";
 import contextEngineering from "./context-engineering/meta.json";
 import costAndEconomics from "./cost-and-economics/meta.json";
+import quotasAndPricing from "./quotas-and-pricing/meta.json";
 import data from "./data/meta.json";
 import distributedTraining from "./distributed-training/meta.json";
 import embeddingsAndRetrieval from "./embeddings-and-retrieval/meta.json";
 import evaluation from "./evaluation/meta.json";
 import fieldGuide from "./field-guide/meta.json";
 import fineTuning from "./fine-tuning/meta.json";
+import unsloth from "./unsloth/meta.json";
+import unslothQwen38 from "./unsloth-qwen38/meta.json";
 import languageOfModels from "./language-of-models/meta.json";
 import localInference from "./local-inference/meta.json";
+import huggingfaceInference from "./huggingface-inference/meta.json";
+import comfyuiFirstWorkflow from "./comfyui-first-workflow/meta.json";
+import unslothQwen38Run from "./unsloth-qwen38-run/meta.json";
 import mathsYouNeed from "./maths-you-need/meta.json";
 import memoryHardware from "./memory-hardware/meta.json";
 import mixtureOfExperts from "./mixture-of-experts/meta.json";
 import modelZoo from "./model-zoo/meta.json";
+import huggingfaceHub from "./huggingface-hub/meta.json";
 import multimodal from "./multimodal/meta.json";
+import imageModels from "./image-models/meta.json";
+import civitaiLoras from "./civitai-loras/meta.json";
 import orientation from "./orientation/meta.json";
 import quantization from "./quantization/meta.json";
 import reinforcementLearning from "./reinforcement-learning/meta.json";
 import safetyAndInjection from "./safety-and-injection/meta.json";
 import servingAndThroughput from "./serving-and-throughput/meta.json";
+import kimiLinearServe from "./kimi-linear-serve/meta.json";
+import attnresOptimize from "./attnres-optimize/meta.json";
 import theHarness from "./the-harness/meta.json";
 import agentLoop from "./agent-loop/meta.json";
 import promptAssembly from "./prompt-assembly/meta.json";
 import toolsRuntime from "./tools-runtime/meta.json";
 import sessionsMod from "./sessions/meta.json";
 import gatewayMod from "./gateway/meta.json";
+import oauthAndKeys from "./oauth-and-keys/meta.json";
 import compressionCaching from "./compression-caching/meta.json";
 import pluginsAndSkills from "./plugins-and-skills/meta.json";
 import scheduledJobs from "./scheduled-jobs/meta.json";
@@ -107,6 +121,8 @@ const RAW = [
   languageOfModels,
   tokenization,
   attention,
+ kimiDeltaAttention,
+ attentionResiduals,
   mathsYouNeed,
   embeddingsAndRetrieval,
   theHarness,
@@ -115,6 +131,7 @@ const RAW = [
   toolsRuntime,
   sessionsMod,
   gatewayMod,
+  oauthAndKeys,
   compressionCaching,
   pluginsAndSkills,
   scheduledJobs,
@@ -171,15 +188,26 @@ const RAW = [
   distributedTraining,
   reinforcementLearning,
   fineTuning,
+ unsloth,
+ unslothQwen38,
   functionCallingFt,
   mixtureOfExperts,
   multimodal,
+  imageModels,
+  civitaiLoras,
   modelZoo,
+  huggingfaceHub,
   localInference,
+  huggingfaceInference,
+  comfyuiFirstWorkflow,
+ unslothQwen38Run,
   quantization,
   memoryHardware,
   servingAndThroughput,
+ kimiLinearServe,
+ attnresOptimize,
   costAndEconomics,
+  quotasAndPricing,
   gameAgents,
   fieldGuide,
 ] as ModuleMeta[];
@@ -227,6 +255,8 @@ export const VISUALS: Record<string, () => Promise<{ default: ComponentType }>> 
   "language-of-models": () => import("./language-of-models/Visual"),
   tokenization: () => import("./tokenization/Visual"),
   attention: () => import("./attention/Visual"),
+ "kimi-delta-attention": () => import("./kimi-delta-attention/Visual"),
+ "attention-residuals": () => import("./attention-residuals/Visual"),
   "maths-you-need": () => import("./maths-you-need/Visual"),
   "embeddings-and-retrieval": () => import("./embeddings-and-retrieval/Visual"),
   "the-harness": () => import("./the-harness/Visual"),
@@ -235,6 +265,7 @@ export const VISUALS: Record<string, () => Promise<{ default: ComponentType }>> 
   "tools-runtime": () => import("./tools-runtime/Visual"),
   sessions: () => import("./sessions/Visual"),
   gateway: () => import("./gateway/Visual"),
+  "oauth-and-keys": () => import("./oauth-and-keys/Visual"),
   "compression-caching": () => import("./compression-caching/Visual"),
   "plugins-and-skills": () => import("./plugins-and-skills/Visual"),
   "scheduled-jobs": () => import("./scheduled-jobs/Visual"),
@@ -293,14 +324,25 @@ export const VISUALS: Record<string, () => Promise<{ default: ComponentType }>> 
   "distributed-training": () => import("./distributed-training/Visual"),
   "reinforcement-learning": () => import("./reinforcement-learning/Visual"),
   "fine-tuning": () => import("./fine-tuning/Visual"),
+ unsloth: () => import("./unsloth/Visual"),
+ "unsloth-qwen38": () => import("./unsloth-qwen38/Visual"),
   "mixture-of-experts": () => import("./mixture-of-experts/Visual"),
   multimodal: () => import("./multimodal/Visual"),
+  "image-models": () => import("./image-models/Visual"),
+  "civitai-loras": () => import("./civitai-loras/Visual"),
   "model-zoo": () => import("./model-zoo/Visual"),
+  "huggingface-hub": () => import("./huggingface-hub/Visual"),
   "local-inference": () => import("./local-inference/Visual"),
+  "huggingface-inference": () => import("./huggingface-inference/Visual"),
+  "comfyui-first-workflow": () => import("./comfyui-first-workflow/Visual"),
+ "unsloth-qwen38-run": () => import("./unsloth-qwen38-run/Visual"),
   quantization: () => import("./quantization/Visual"),
   "memory-hardware": () => import("./memory-hardware/Visual"),
   "serving-and-throughput": () => import("./serving-and-throughput/Visual"),
+ "kimi-linear-serve": () => import("./kimi-linear-serve/Visual"),
+ "attnres-optimize": () => import("./attnres-optimize/Visual"),
   "cost-and-economics": () => import("./cost-and-economics/Visual"),
+  "quotas-and-pricing": () => import("./quotas-and-pricing/Visual"),
   "field-guide": () => import("./field-guide/Visual"),
 };
 

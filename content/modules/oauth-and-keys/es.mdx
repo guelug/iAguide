@@ -1,0 +1,217 @@
+## Dos caminos para que un harness hable con un modelo
+
+Un <Term id="harness">harness</Term> no "contiene" Claude ni GPT. **Llama** a un proveedor. A agosto de 2026, tanto [Hermes Agent](https://hermes-agent.nousresearch.com/docs/integrations/providers) (Nous Research) como [OpenClaw](https://docs.openclaw.ai/concepts/oauth) documentan **dos** caminos de pago e identidad. Mezclarlos es la fuente principal de tickets del tipo "el harness está roto".
+
+**Camino A — OAuth / suscripción ("tu sub").** Entras con el navegador o un código de dispositivo. El harness toma prestado un **plan de consumo**: ChatGPT / Codex, Claude Max con créditos extra de uso, GitHub Copilot, Nous Portal o xAI SuperGrok / X Premium+. Los tokens viven en el **almacén de auth** del harness y se **refrescan**. El login suele ser [PKCE](https://datatracker.ietf.org/doc/html/rfc7636) (Proof Key for Code Exchange; Sakimura, Bradley y Jones, RFC 7636, 2015) sobre OAuth 2.0 (Hardt, RFC 6749, 2012).
+
+**Camino B — Clave API.** Un secreto que empieza como `sk-...` vive en `~/.hermes/.env` o `~/.openclaw/.env` en el **host del gateway**. La facturación es **pago por token** contra la organización de esa clave. La página de autenticación del gateway de OpenClaw es explícita: para un gateway siempre encendido, una clave API es la opción **más predecible** ([OpenClaw, Authentication](https://docs.openclaw.ai/gateway/authentication.md)).
+
+<VisualSlot caption="Cinco diapositivas: los dos caminos, OAuth con PKCE y refresco, la clave API en el host del gateway, el sumidero de tokens que un doble login puede envenenar, y la rotación de claves del mismo proveedor ante 429." />
+
+<Callout>
+La autenticación de **conexión** al gateway (token o contraseña para que un cliente hable con OpenClaw) **no** es el OAuth del modelo. OpenClaw los separa a propósito: esta lección es identidad del proveedor del modelo. No pongas un refresh de ChatGPT en el campo de contraseña del gateway, y no trates el emparejamiento de `openclaw gateway` como "ya entré en Anthropic" ([OpenClaw, Authentication](https://docs.openclaw.ai/gateway/authentication.md); [OpenClaw, OAuth](https://docs.openclaw.ai/concepts/oauth)).
+</Callout>
+
+## `hermes model` frente a `/model`
+
+Hermes documenta dos comandos que la gente intercambia por error ([Nous Research, LLM and Model Providers](https://hermes-agent.nousresearch.com/docs/integrations/providers)):
+
+| Comando | Dónde | Qué puede hacer |
+| --- | --- | --- |
+| `hermes model` | Tu terminal, **fuera** de cualquier sesión | Asistente completo: añadir proveedores, OAuth, pegar claves, endpoints |
+| `/model` | **Dentro** de un chat de Hermes | Cambiar entre proveedores y modelos **ya configurados** |
+
+`/model` **no puede añadir proveedores**. Si solo tienes OpenRouter y escribes `/model` esperando Anthropic, Hermes solo mostrará OpenRouter. La corrección documentada: sal (`Ctrl+C` o `/quit`), ejecuta `hermes model`, termina el alta, abre una sesión nueva.
+
+<Callout>
+Consejo práctico de la misma página: incluso con Nous Portal, Codex o un endpoint custom, las tareas **auxiliares** (visión, resumen web, mezcla de agentes) usan un modelo aparte. El valor por defecto `auxiliary.*.provider: "auto"` las enruta al modelo **principal** de chat. Anula por tarea si quieres un auxiliar más barato. Es una palanca de gasto, no una nota al pie.
+</Callout>
+
+## Nous Portal: un OAuth, más de 300 modelos
+
+El camino recomendado por Nous Research es [Nous Portal](https://hermes-agent.nousresearch.com/docs/integrations/providers): un login OAuth cubre **más de 300** modelos agentic de frontera (Claude, GPT, Gemini, DeepSeek, Qwen, Kimi, GLM, MiniMax, Grok y otros) más el **Tool Gateway** (búsqueda web, imagen, TTS, automatización de navegador) facturado contra la suscripción Nous en lugar de cinco cuentas de proveedor.
+
+```bash
+hermes setup --portal
+hermes model
+hermes portal info
+```
+
+`hermes setup --portal` es el atajo de instalación nueva: OAuth + proveedor + gateway. Los suscriptores de pago obtienen Tool Gateway sin claves extra. Cada petición Portal de Hermes lleva una etiqueta `client=hermes-client-v...` alineada a la versión instalada. Se prefieren JWT con alcance `inference:invoke`; los refresh revocados se ponen en cuarentena para no ciclar un grant muerto ([Nous Research, providers](https://hermes-agent.nousresearch.com/docs/integrations/providers)).
+
+Las suscripciones se venden en [portal.nousresearch.com/manage-subscription](https://portal.nousresearch.com/manage-subscription). Esta lección **no** inventa un precio en dólares para ese plan.
+
+## Anthropic: la sorpresa número uno
+
+Hermes formula el corte de Claude sin ambigüedad ([Nous Research, providers, "Subscription plans: what your plan pays for"](https://hermes-agent.nousresearch.com/docs/integrations/providers)):
+
+- **Claude Max + OAuth** funciona. Hermes enruta como Claude Code contra tu cuenta Anthropic. **Exige Max y créditos extra de uso comprados**. Hermes consume **solo esos créditos extra/overage**. El **cupo base de Max** (el uso incluido en Claude Code por defecto) **no** lo consume Hermes.
+- **Claude Pro no puede usar el camino OAuth.** Pro parece que debería valer. No vale. La alternativa soportada es `ANTHROPIC_API_KEY`, facturada **pago por token** contra la organización de esa clave a precio de API, independiente de cualquier suscripción Claude.
+
+Hermes prefiere el almacén de credenciales de Claude Code antes que copiar el token a `~/.hermes/.env`, para que las credenciales refrescables sigan siéndolo. Los alias `--provider claude` y `--provider claude-code` apuntan a `anthropic`. Un `ANTHROPIC_TOKEN` de setup-token sigue siendo el fallback.
+
+La redacción de OpenClaw es paralela pero no idéntica. OpenClaw soporta **claves API** de Anthropic (facturación API normal) y **auth de Claude CLI / suscripción**. Personal de Anthropic dijo a los autores de OpenClaw que reutilizar Claude CLI y `claude -p` está permitido otra vez para esta integración salvo política nueva. **Para Anthropic en producción, una clave API sigue siendo el camino más seguro recomendado** ([OpenClaw, OAuth](https://docs.openclaw.ai/concepts/oauth)). La semántica directa de planes de Claude Code está en las páginas de Anthropic: [Using Claude Code with your Pro or Max plan](https://support.claude.com/en/articles/11145838-using-claude-code-with-your-pro-or-max-plan).
+
+Alta en el host para reutilizar Claude CLI con OpenClaw, de [OpenClaw Authentication](https://docs.openclaw.ai/gateway/authentication.md):
+
+```bash
+claude auth login
+claude auth status --text
+openclaw models auth login --provider anthropic --method cli --set-default
+```
+
+Son dos pasos: entra Claude Code en Anthropic en el host, luego dile a OpenClaw que enrute modelos Anthropic por el backend local `claude-cli`. OpenClaw **nunca lee, guarda, refresca ni reenvía** los tokens nativos de Claude. El proceso `claude` instalado los posee. `CLAUDE_CONFIG_DIR` elige un login Claude aparte cuando está definido en el proceso Gateway.
+
+**Caso.** Alguien con **Claude Pro** ejecuta `hermes model`, elige Anthropic OAuth, y el login falla o cada turno devuelve 403. Concluye que Hermes está roto. No lo está. Hermes documentó esto como la sorpresa habitual: Pro no tiene camino OAuth. Arreglo: pega `ANTHROPIC_API_KEY` (pago por token), o pasa a **Max más créditos extra**. No depuras el bucle del agente hasta cerrar ese corte.
+
+<Compare a="Claude Max + créditos extra (OAuth)" b="Claude Pro, o cualquier plan + clave API">
+<Side>
+El OAuth de Hermes funciona. El gasto pega **solo a créditos extra/overage**. El cupo base de Max queda intacto. OpenClaw puede reutilizar `claude auth login` en un host de escritorio. Sigue siendo un login de plan de consumo: refresh, navegador, dispositivo.
+</Side>
+<Side>
+Pro no puede hacer OAuth en Hermes. La clave API es pago por token contra la org, independiente de la cuota mensual de Claude. OpenClaw prefiere esto en un gateway siempre encendido. Misma familia de modelo, distinta factura.
+</Side>
+</Compare>
+
+## OAuth de ChatGPT / Codex
+
+Hermes: elige ChatGPT o Codex Subscription en `hermes model`. Login por código de dispositivo. Las credenciales se guardan en `~/.hermes/auth.json`. Hermes **puede importar** credenciales existentes del CLI de Codex desde `~/.codex/auth.json` si están. No hace falta instalar el CLI de Codex ([Nous Research, providers, nota Codex](https://hermes-agent.nousresearch.com/docs/integrations/providers)).
+
+Si un refresh falla con error terminal (HTTP 4xx, `invalid_grant`, grant revocado), Hermes marca el refresh como **muerto** y deja de reenviarlo. La siguiente petición muestra un mensaje tipado de re-auth. Ejecuta `hermes auth add openai-codex` (o otra vez `hermes model`) para un login nuevo.
+
+**La semántica de cuota del plan no está documentada por completo en Hermes.** Qué niveles de ChatGPT son elegibles, y cómo cuenta el uso de Hermes contra los límites de Codex, aparecen como **not currently documented** en la página de proveedores. Esta lección no los inventa. Mira el panel de facturación de ChatGPT / Codex.
+
+El OAuth de ChatGPT en OpenClaw es PKCE contra `https://auth.openai.com/oauth/authorize` con alcance `openid profile email offline_access`, callback en `http://localhost:1455/auth/callback` (solo loopback; el host se anula con `OPENCLAW_OAUTH_CALLBACK_HOST`). Comando:
+
+```bash
+openclaw models auth login --provider openai
+```
+
+El id canónico de proveedor es `openai`. Los ids antiguos `openai-codex:*` son legado; `openclaw doctor --fix` los reescribe ([OpenClaw, OAuth](https://docs.openclaw.ai/concepts/oauth)). Pegar a mano la URL de redirección compite con el callback del navegador; gana quien complete primero — útil en una caja remota o sin cabeza.
+
+## GitHub Copilot
+
+Copilot en Hermes es de primera clase. El modo `copilot` usa la API de Copilot (GPT-5.x, Claude, Gemini y otros a través de Copilot). El auth se comprueba en este orden: `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN`, luego `gh auth token`. Si no hay ninguno, `hermes model` ofrece **OAuth device code** — el mismo flujo que Copilot CLI y opencode ([Nous Research, providers](https://hermes-agent.nousresearch.com/docs/integrations/providers)).
+
+**Tipos de token.** La API de Copilot **no** admite Personal Access Tokens clásicos (`ghp_`). Soportados:
+
+| Tipo | Prefijo | Cómo |
+| --- | --- | --- |
+| Token OAuth | `gho_` | `hermes model` → GitHub Copilot → Login with GitHub |
+| PAT de grano fino | `github_pat_` | GitHub Settings → Developer settings, permiso Copilot Requests |
+| Token de GitHub App | `ghu_` | Vía instalación de GitHub App |
+
+Si `gh auth token` devuelve `ghp_`, usa el OAuth de `hermes model`. Ante HTTP 401 Hermes hace una recuperación de credencial de un solo disparo (resolver token, reconstruir cliente, reintentar una vez) antes del fallback. El modo `copilot-acp` lanza `copilot --acp --stdio` local y necesita el CLI de Copilot en el `PATH`.
+
+## xAI SuperGrok frente a `XAI_API_KEY`
+
+Hermes: SuperGrok y X Premium+ pueden entrar con **OAuth de navegador** (`hermes model` → xAI Grok OAuth, o `hermes auth add xai-oauth`). Sin clave API. El mismo bearer lo reutilizan las herramientas directas a xAI (TTS, imagen, vídeo, transcripción). X Search está documentado de forma explícita como uso de **cuota de suscripción en lugar de gasto de API** cuando se prefiere OAuth. La semántica de cuota de inferencia **más allá de eso** no está documentada ahora ([Nous Research, providers](https://hermes-agent.nousresearch.com/docs/integrations/providers)).
+
+**Un HTTP 403 después de un login correcto es una restricción de nivel en el lado de xAI, no un token caduco.** Solución: `XAI_API_KEY`. Hermes remoto necesita el túnel SSH documentado en "OAuth over SSH / Remote Hosts."
+
+El camino de clave API usa la Responses API (transporte `codex_responses`) y activa caché de prompt con `x-grok-conv-id` cuando hay id de sesión. Esa caché es **por credencial** — ver la lección siguiente cuando un pool rota.
+
+## Plan de consumo de Gemini: no hay OAuth documentado
+
+Hermes: hoy **no** hay forma de entrar con una suscripción de consumo de Gemini (Google AI Pro / Ultra). El proveedor `gemini` es **solo clave API** (`GOOGLE_API_KEY` o `GEMINI_API_KEY`). **Vertex AI** es otro producto: OAuth2 desde un **JSON de cuenta de servicio** o Application Default Credentials, facturado a un **proyecto GCP**, no a una sub de Gemini de consumo ([Nous Research, providers](https://hermes-agent.nousresearch.com/docs/integrations/providers)).
+
+Se recomienda un proyecto Google Cloud con facturación para uso agentic. **Las claves de nivel gratuito son demasiado pequeñas para sesiones largas de agente** — Hermes puede hacer varias llamadas al modelo por turno de usuario, así que una clave Gemini gratis muere en un puñado de turnos. Esa afirmación es de Hermes, no una conjetura.
+
+Vertex: `VERTEX_CREDENTIALS_PATH` en `~/.hermes/.env`, luego `hermes model` → Google Vertex AI → proyecto → región → modelo. Hermes emite un access token de ~1 hora y lo vuelve a emitir ante un 401 a mitad de sesión. En Vertex **no** hay clave API estática.
+
+## Sumidero de tokens de OpenClaw, PKCE y rotación de claves
+
+Los proveedores OAuth suelen emitir un **refresh nuevo en cada login/refresh** e invalidar el anterior. Síntoma: entras por OpenClaw **y** por Claude Code / Codex CLI, y uno de los dos se cierra solo más tarde. La respuesta de OpenClaw es el **token sink**: un almacén canónico por agente, SQLite en `~/.openclaw/agents/<agente>/agent/openclaw-agent.sqlite`, tablas `auth_profile_store` y `auth_profile_state` ([OpenClaw, OAuth](https://docs.openclaw.ai/concepts/oauth)).
+
+Cuando OpenClaw posee un perfil OAuth local, ese refresh es canónico. Si lo rechazan, OpenClaw pide reautenticación en lugar de caer al material del CLI externo. El bootstrap del CLI de Codex solo puede **sembrar un perfil vacío** estilo `openai:default` antes de que OpenClaw posea OAuth; después, los refresh de OpenClaw siguen siendo canónicos. Los agentes secundarios heredan por **lectura**, no clonan refresh, porque algunos proveedores rotan al usarlos.
+
+Los ficheros viejos `auth-profiles.json` / `auth.json` son restos. El runtime no los lee. Si SQLite está vacío, OpenClaw falla cerrado con `AUTH_PROFILE_MIGRATION_REQUIRED`. Arreglo: `openclaw doctor --fix`.
+
+Rotación de claves API en el gateway, de [OpenClaw Authentication](https://docs.openclaw.ai/gateway/authentication.md), orden de prioridad:
+
+1. `OPENCLAW_LIVE_<PROVIDER>_KEY` (fija una clave)
+2. `<PROVIDER>_API_KEYS` (lista separada por coma, espacio o punto y coma)
+3. `<PROVIDER>_API_KEY`
+4. `<PROVIDER>_API_KEY_*`
+
+OpenClaw rota a la siguiente clave **solo** cuando el error coincide con `rate_limit`, `rate limit`, `429`, `quota exceeded` / `quota_exceeded`, `resource exhausted` / `resource_exhausted`, o `too many requests`. Otros errores no se reintentan con claves alternativas.
+
+<Callout>
+Consejo práctico: pon la clave en `~/.openclaw/.env` en el **host del gateway** si el demonio es systemd/launchd, reinicia y ejecuta `openclaw models status` y `openclaw doctor`. Una clave en el shell de tu portátil no llega a un gateway remoto.
+</Callout>
+
+## Pools de credenciales (Hermes)
+
+Los [credential pools](https://hermes-agent.nousresearch.com/docs/user-guide/features/credential-pools) de Hermes registran varias claves API o tokens OAuth del **mismo** proveedor. Ante 429 o cuota de facturación, Hermes rota a la siguiente clave sana. Esto **no** son fallback providers (esos cambian de proveedor). Primero se prueba el pool; si se agotan todas las claves, se activa `fallback_model`.
+
+**La caché de prompt muere al rotar.** Las cachés de prompt del proveedor (Anthropic, OpenAI, OpenRouter) están acotadas a la cuenta/clave. La siguiente petición tras rotar relee toda la historia a precio de entrada sin descuento ([Nous Research, Credential Pools](https://hermes-agent.nousresearch.com/docs/user-guide/features/credential-pools)).
+
+Política de errores (misma página):
+
+| Error | Comportamiento | Enfriamiento por defecto |
+| --- | --- | --- |
+| 429 rate limit | Reintenta la misma clave una vez si es transitorio; el segundo 429 rota | 1 hora |
+| Límite de plan/uso (p. ej. ChatGPT "usage limit reached") | Rota al momento, sin reintento | — |
+| 402 billing | Rota al momento | 1 hora |
+| 401 auth expired | Primero refresh OAuth; rota si el refresh falla | 5 minutos |
+
+Estrategias: `fill_first` (por defecto), `round_robin`, `least_used`, `random`. Los subagentes lanzados con `delegate_task` **heredan el pool del padre** para el mismo proveedor. Un solo OAuth de Nous Portal cubre más de 300 modelos, así que la mayoría de usuarios Portal no necesitan pool.
+
+`hermes auth list` marca con `←` la credencial viva. `hermes auth add anthropic --type oauth` sigue exigiendo Claude Max + créditos extra.
+
+<Myth>
+"Entré en ChatGPT en el navegador, así que el gateway OpenClaw 24/7 ya está autenticado." No. OpenClaw quiere la clave (o el perfil OAuth) **en el host del gateway**, en el SQLite de ese agente o en `~/.openclaw/.env`. Una cookie de navegador en el portátil no es el sumidero. Hermes es la misma idea: `~/.hermes/auth.json` y `~/.hermes/.env` son ficheros de la máquina que ejecuta Hermes, no un ambiente de chatgpt.com.
+</Myth>
+
+## Otros OAuth documentados (Hermes)
+
+La página de proveedores también documenta OAuth de consumo fácil de confundir con el gemelo de clave API de la misma marca ([Nous Research, providers](https://hermes-agent.nousresearch.com/docs/integrations/providers)):
+
+- **Qwen OAuth (`qwen-oauth`)** — PKCE de navegador contra Qwen Portal; tokens en `~/.hermes/auth.json`; endpoint `https://portal.qwen.ai/v1`. **No** es `alibaba` / DashScope, que quiere `DASHSCOPE_API_KEY` y es el camino de producción. Alibaba Coding Plan es un tercer SKU (`alibaba-coding-plan`) que reutiliza la misma clave DashScope con otra factura.
+- **MiniMax OAuth (`minimax-oauth`)** — login de navegador, endpoint compatible Anthropic Messages `/anthropic`. Ignora `MINIMAX_API_KEY`. Los proveedores `minimax` / `minimax-cn` son los de clave.
+- **Ollama Cloud** — proveedor de primera clase con clave de ollama.com; Ollama local es un **endpoint custom** en `http://localhost:11434/v1` sin clave. No los mezcles.
+- **Hugging Face Inference Providers** — `HF_TOKEN` en `~/.hermes/.env`, proveedor `huggingface`. El token de grano fino debe habilitar "Make calls to Inference Providers." Hermes documenta un nivel gratuito de **0,10 USD al mes** de crédito y **sin recargo** sobre las tarifas del proveedor. Ese número está también en [Pricing and Billing](https://huggingface.co/docs/inference-providers/pricing) de Hugging Face (usuarios Free: 0,10 USD, sujeto a cambio). Trátalo como **crédito**, no como "el harness es gratis."
+
+<Callout>
+Consejo práctico, Hermes: si Hermes corre en un host remoto, un OAuth que necesita callback en localhost no termina salvo que reenvíes el puerto (Hermes documenta `ssh -L` para OAuth de xAI). El callback de ChatGPT en OpenClaw es `localhost:1455` y solo acepta hosts loopback. Sin cabeza: pega la URL de redirección; el pegado compite con el callback del navegador.
+</Callout>
+
+## Varias cuentas sin envenenar el sumidero
+
+El patrón documentado de OpenClaw para "personal frente a trabajo" es **agentes separados**, no dos logins peleando por un refresh ([OpenClaw, OAuth](https://docs.openclaw.ai/concepts/oauth)):
+
+```bash
+openclaw agents add work
+openclaw agents add personal
+```
+
+Avanzado: varios ids de perfil en un agente, elegidos en global con `auth.order` o por sesión con `/model ...@<perfil> -s`. Lista ids con `openclaw models auth list --provider <id>`. OpenClaw **fija** el perfil elegido automáticamente por sesión para mantener calientes las cachés del proveedor; no rota en cada petición ([OpenClaw, Model failover](https://docs.openclaw.ai/concepts/model-failover)). Un pin de usuario con `/model ...@perfil -s` sobrevive a `/new` y `/reset`.
+
+Hermes guarda el estado del pool en `~/.hermes/auth.json` bajo `credential_pool`. Las estrategias viven en `config.yaml` bajo `credential_pool_strategies`. Los secretos de runtime prestados (env, vault, llavero) persisten **metadatos y una huella**, no la clave cruda, salvo que hayas añadido una entrada manual ([Nous Research, Credential Pools](https://hermes-agent.nousresearch.com/docs/user-guide/features/credential-pools)).
+
+## Lista corta de operador (agosto 2026)
+
+1. Decide **host**: sesión de portátil frente a gateway siempre encendido. OpenClaw: clave API en el host del gateway es el camino predecible ([Authentication](https://docs.openclaw.ai/gateway/authentication.md)).
+2. Decide **identidad**: OAuth de consumo frente a clave API de org. No asumas que una cuota mensual Plus / Pro / Ultra cubre los tokens del harness.
+3. Para Anthropic + Hermes: Max **y** créditos extra, o una clave API. Nunca OAuth de Pro.
+4. Para Gemini: clave API o cuenta de servicio Vertex. No hay camino OAuth de consumo en los docs de Hermes.
+5. Para Copilot: `gho_` / `github_pat_` / `ghu_`, nunca `ghp_`.
+6. Tras el login, confirma el **almacén**: `~/.hermes/auth.json` o el SQLite por agente. Un doble login con Claude Code puede invalidar refresh ([OpenClaw, OAuth](https://docs.openclaw.ai/concepts/oauth)).
+7. Deja la contraseña/token del gateway **fuera** de este relato.
+
+<TryThis>
+Escribe cuál de (Claude Pro, Claude Max más créditos extra, una clave API cruda, Nous Portal) elegirías para (1) un gateway OpenClaw 24/7 y (2) una sesión Hermes en el portátil, y por qué. Aterricate a la semántica documentada: OpenClaw prefiere claves API en hosts siempre encendidos; el OAuth de Hermes para Anthropic necesita Max + créditos extra; Pro no tiene camino OAuth en Hermes; Portal es un OAuth para más de 300 modelos; Gemini no tiene OAuth de consumo. Sin importes en dólares salvo que hayas bajado tú la tabla de hoy del proveedor.
+</TryThis>
+
+## Fuentes
+
+- Hardt, D. (Ed.). (2012). *The OAuth 2.0 authorization framework* (RFC 6749). IETF. https://datatracker.ietf.org/doc/html/rfc6749
+- Sakimura, N., Bradley, J. y Jones, M. (2015). *Proof Key for Code Exchange by OAuth public clients* (RFC 7636). IETF. https://datatracker.ietf.org/doc/html/rfc7636
+- Nous Research. (s. f.). *LLM and model providers*. Documentación de Hermes Agent. https://hermes-agent.nousresearch.com/docs/integrations/providers
+- Nous Research. (s. f.). *Credential pools*. Documentación de Hermes Agent. https://hermes-agent.nousresearch.com/docs/user-guide/features/credential-pools
+- OpenClaw. (s. f.). *OAuth*. https://docs.openclaw.ai/concepts/oauth
+- OpenClaw. (s. f.). *Authentication* (auth del proveedor de modelo). https://docs.openclaw.ai/gateway/authentication.md
+- OpenClaw. (s. f.). *Model failover*. https://docs.openclaw.ai/concepts/model-failover
+- Anthropic. (s. f.). *Using Claude Code with your Pro or Max plan*. https://support.claude.com/en/articles/11145838-using-claude-code-with-your-pro-or-max-plan
+- Nous Research. (s. f.). Suscripciones Nous Portal. https://portal.nousresearch.com/manage-subscription
+- Hugging Face. (s. f.). *Pricing and Billing*. Inference Providers. https://huggingface.co/docs/inference-providers/pricing

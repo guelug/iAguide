@@ -1,19 +1,201 @@
 ## Particularidad — smolagents anidados
 
-Un manager con workers sigue siendo ReAct. Cada worker es un bucle anidado con menos tools y su memoria. El aislamiento es el punto: el padre ve un resumen, no cuarenta snippets. El coste es otro prefill.
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.1, [Multi-Agent Systems](https://huggingface.co/learn/agents-course/unit2/smolagents/multi_agent_systems) (Burtenshaw, Thomas, Simonini y Paniego, Apache-2.0).*
 
-Los agentes de retrieval aquí son RAG como tool (vector store, búsqueda, fallbacks), no un retrieve-then-read obligatorio. Los de visión reciben imágenes en `run(...)` o guardan capturas en `ActionStep`. Los de navegador añaden tools Helium/Selenium.
+Un manager más workers sigue siendo ReAct. Cada worker es un bucle anidado con una lista de herramientas más estrecha y memoria propia. El aislamiento es el punto: el padre ve un resumen, no cuarenta snippets de búsqueda. El coste es otro prefill.
+
+La Unidad 2.1 no se detiene en un CodeAgent solo. Después de tools, el curso añade **agentes de recuperación**, **sistemas multi-agente** y **agentes de visión / navegador** (Hugging Face Agents Course, [introducción smolagents](https://huggingface.co/learn/agents-course/unit2/smolagents/introduction)). Esta particularidad son esas tres páginas, reescritas como ingeniería, no como un segundo chiste de Wayne Manor.
 
 <VisualSlot caption="Un manager con workers de web, retriever y visión. Cambia a visión para ver el impuesto del bucle de capturas." />
 
-Esboza un manager que grafica y un worker que solo navega. `max_steps` del worker menor que el del manager. Si puede capturar, tira imágenes de más de dos pasos o la ventana se vuelve un flipbook.
+## Por qué partir
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.1, [Multi-Agent Systems](https://huggingface.co/learn/agents-course/unit2/smolagents/multi_agent_systems); docs [Multi-agent systems](https://huggingface.co/docs/smolagents/main/en/examples/multiagents).*
+
+La tarea de localizaciones de rodaje de Batman es deliberadamente demasiado gorda para una ventana: encontrar sitios, calcular tiempo de avión de carga a Gotham, añadir fábricas de supercoches, pintar un mapa. Un agente solo que busca, visita páginas y dibuja llenará la ventana de snippets y luego será más lento y más caro en cada salto. Dos beneficios que el curso nombra:
+
+- Cada agente está más centrado, y por tanto rinde mejor en su tarea nuclear.
+- Separar memorias reduce tokens de entrada en cada paso, y por tanto latencia y coste.
+
+Un diagrama típico de esa página: un **Manager Agent** coordina una vía de código/plot y un **Web Search Agent** que posee `DuckDuckGoSearchTool` o `GoogleSearchTool` más `VisitWebpageTool`. También puedes ver un retriever y un worker de imágenes bajo el mismo orquestador. Sigue siendo un ciclo ReAct por proceso. Anidado, no místico.
+
+Consejo práctico: dale al worker un `name` y una `description`. El manager lo llama como una herramienta. Si la descripción es "puede hacer cualquier cosa", construiste un agente solo con latencia extra.
+
+## Recuperación como herramienta, no como primer salto obligatorio
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.1, [Building Agentic RAG Systems](https://huggingface.co/learn/agents-course/unit2/smolagents/retrieval_agents).*
+
+El RAG clásico siempre recupera y luego lee. El RAG agéntico deja que el modelo **formule consultas, critique hits y recupere más de una vez**. El curso muestra primero un `CodeAgent` con `DuckDuckGoSearchTool` como retriever entero — la web como base. Luego una subclase `Tool` que envuelve un índice BM25 (`PartyPlanningRetrieverTool`) sobre una lista diminuta de documentos, usando `BM25Retriever` y `RecursiveCharacterTextSplitter` de LangChain en el notebook. Ese pegamento es del curso. iAguide no lo asciende a un vendor que no estuviera en la página.
+
+Limitaciones que nombran del RAG ingenuo: un **solo** paso de recuperación, y una fijación en similitud semántica directa que se pierde pasajes relevantes pero lejanos. El agente puede reescribir la consulta. El agente también puede **saltar** la recuperación si la pregunta es "cuánto es 3 por 4". Si tu descripción dice "busca siempre", reintrodujiste el RAG ingenuo.
+
+Consejo práctico: registra si el retriever disparó. Si dispara en cada turno, el bug es la descripción, no el índice. La particularidad LlamaIndex dirá lo mismo con `QueryEngineTool`.
+
+## Construir el worker, luego el manager
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.1, [Multi-Agent Systems](https://huggingface.co/learn/agents-course/unit2/smolagents/multi_agent_systems); notebook https://huggingface.co/agents-course/notebooks/blob/main/unit2/smolagents/multiagent_notebook.ipynb.*
+
+El worker web del curso es un `CodeAgent` con búsqueda, `VisitWebpageTool` y una herramienta `calculate_cargo_travel_time` (haversine, crucero 750 km/h, +10% de ruta, +1 hora de despegue — constantes del notebook, no física que debas rederivar). `name="web_agent"`, `description="Browses the web to find information"`, `verbosity_level=0`, `max_steps=10`. Silencioso a propósito: el padre no debe ahogarse en trazas hijas.
+
+El manager es otro `CodeAgent` con `managed_agents=[web_agent]`, imports de plot (`geopandas`, `plotly`, `shapely`, `pandas`, `numpy`, `json`) en `additional_authorized_imports`, `planning_interval=5`, `max_steps=15`, y opcionalmente `final_answer_checks`. El check del notebook abre `saved_map.png` y pregunta a un modelo multimodal si el plot responde la tarea. Eso es un `Final Answer` con portería, no una corazonada.
+
+`manager_agent.visualize()` imprime el árbol: herramientas del manager, luego las del worker. Léelo. Si el worker puede plotear, duplicaste al manager. Si el manager puede `visit_webpage`, duplicaste al worker. El aislamiento es una **lista de herramientas**, no un cargo.
+
+Consejo práctico: pon el `max_steps` del worker **menor** que el del manager. Un hijo que puede dar quince saltos web dentro de un paso del padre es cómo descubres la factura. El curso usa 10 / 15. Copia la desigualdad, no necesariamente los enteros.
+
+<Callout>
+`managed_agents` es cómo smolagents anida bucles. No es LangGraph. No hay máquina de estados compilada, ni reducer, ni nodo human-in-the-loop. Si necesitas eso, deja de envolver workers y abre [LangGraph](/course/langgraph).
+</Callout>
+
+## Visión: imágenes al inicio frente a imágenes en el log
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.1, [Vision Agents with smolagents](https://huggingface.co/learn/agents-course/unit2/smolagents/vision_agents).*
+
+Dos caminos oficiales:
+
+1. **Imágenes en `run(...)`.** Pasas una lista de imágenes PIL. Quedan como `task_images` junto al prompt. Alfred comparando la foto de un invitado con stills del Joker en Wikipedia es este camino. El curso lo probó con un VLM clase GPT-4o vía `OpenAIServerModel`. Avisan que los ejemplos necesitan un VLM capaz; véase [Why use smolagents](https://huggingface.co/learn/agents-course/unit2/smolagents/why_use_smolagents) para otros motores. No fingas que un 7B de texto hará esto.
+
+2. **Imágenes durante el bucle.** Las capturas del navegador caen en `ActionStep` como `observation_images`. El log ReAct ya tenía `SystemPromptStep`, `TaskStep`, `ActionStep`. La visión añade píxeles al tercero. Si nunca tiras capturas viejas, la ventana se vuelve un flipbook y la factura del VLM sigue.
+
+Extras de navegador en esa página: Helium y Selenium, más herramientas como `search_item_ctrl_f`, `go_back` y `close_popups`. Línea de install del curso: `pip install "smolagents[all]" helium selenium python-dotenv`. Los modales de cookies no son un problema de identidad. Son un problema de `close_popups`.
+
+Consejo práctico: guarda como mucho las **dos** últimas capturas en el prompt. El stub original de esta lección ya nombraba esa política. El diagrama del curso sobre memoria VLM dinámica es la razón: cada imagen son tokens.
+
+<Compare a="Imágenes en run()" b="Capturas en ActionStep">
+<Side>
+Conjunto cerrado, tamaño conocido. Sirve para "¿este invitado es el Joker?" El VLM ve un álbum cerrado. Fácil de presupuestar.
+</Side>
+<Side>
+Web abierta. Tamaño sin cota salvo que podes. Sirve para "averiguar quién es esta persona." Obligatorio `close_popups`, un tope de saltos y una política de retención de imágenes. Si no, mira hasta `max_steps`.
+</Side>
+</Compare>
+
+## El planning interval no es un segundo cerebro
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.1, [Multi-Agent Systems](https://huggingface.co/learn/agents-course/unit2/smolagents/multi_agent_systems).*
+
+Antes de partir, el curso prueba un agente solo con `planning_interval = 4` y un prompt de analista más estricto ("visita la URL fuente para confirmar números"). Ayudó a la concisión. No impidió que la ventana se llenara. Planificar es Thoughts de más. No es memoria de más. Parte cuando el **log** es el problema; planifica cuando la **descomposición** es el problema. Hacer ambas el primer día esconde qué palanca funcionó.
+
+Consejo práctico: una palanca por experimento. `planning_interval` XOR un worker nuevo, no ambos, hasta tener dos trazas que comparar.
+
+<Myth>
+Más agentes significa más inteligencia. No. Más agentes significa más prefills, más ocasiones de perder un hecho en el borde del resumen, y un manager que tiene que ser lo bastante fuerte para delegar. El curso da al manager un modelo más fuerte que al worker por una razón. Si ambos son el mismo 8B, pagaste el franqueo.
+</Myth>
+
+## Lo que el manager tiene prohibido hacer
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.1, [Multi-Agent Systems](https://huggingface.co/learn/agents-course/unit2/smolagents/multi_agent_systems) (árbol de visualize()).*
+
+Escribe una frase que el manager no deba hacer él mismo. En el mapa de Batman: el manager no navega. En un equipo de recuperación: el manager no embebe. En un portero de visión: el manager no guarda cada captura. Los verbos prohibidos son cómo compruebas el árbol de `visualize()`.
+
+El `final_answer` del worker es un **parte al padre**, no al usuario. Si dejas que el worker hable con el usuario, tienes dos bocas. El manager del curso agrega listas, dibuja, y solo entonces responde.
+
+Consejo práctico: lee una traza padre y cuenta llamadas hijas. Si el número es 1 y el hijo corrió 10 pasos, bien. Si el número es 10 y cada hijo corrió 10 pasos, anidaste una factura.
 
 <TryThis>
-En papel, esboza un manager+worker para “tres localizaciones de Batman y el tiempo de viaje.” Lista las tools del worker (search, visitar) y las del manager (plot, final_answer). Una frase que el manager tenga *prohibido* hacer él mismo.
+En papel, esboza un manager más worker para “encontrar tres localizaciones de rodaje de Batman y pintar el tiempo de viaje.” Lista las herramientas del worker (search, visit page) y las del manager (plot, final_answer). Escribe una frase que el manager tenga *prohibido* hacer él mismo. Añade un worker de visión solo si también escribes una regla de retención de dos capturas y una herramienta `close_popups`. Si no puedes nombrar la regla de retención, no tienes un worker de visión. Tienes una fuga.
 </TryThis>
+
+## La herramienta de tiempo de carga es un contrato, no un cuento
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.1, [Multi-Agent Systems](https://huggingface.co/learn/agents-course/unit2/smolagents/multi_agent_systems) (calculate_cargo_travel_time).*
+
+La herramienta de viaje del notebook toma origen y destino como tuplas latitud/longitud, `cruising_speed_kmh` opcional con default 750, radio terrestre 6371 km, haversine, un factor de ruta 1.1, más una hora de despegue y aterrizaje, redondeo a dos decimales. Esos números son **física dummy del curso**. Si los cambias, regístralo. No los cites como aviación.
+
+Por qué existe: para que el manager pinte un color que signifique algo. Un worker que devuelve nombres de ciudad sin números no puede colorear un mapa. Pon la herramienta numérica en **ambos** agentes solo si ambos deben calcular; el curso la pone en el agente único de baseline, en el web worker y otra vez en el manager. La duplicación aquí es intencional porque el número es barato y puro. Duplicar `VisitWebpageTool` no lo es.
+
+Consejo práctico: cualquier herramienta que sea función pura de sus argumentos puede vivir en varios agentes. Cualquiera que toque la red debe vivir en uno.
+
+## Proveedores de búsqueda, como el notebook los nombra
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.1, [Multi-Agent Systems](https://huggingface.co/learn/agents-course/unit2/smolagents/multi_agent_systems).*
+
+`GoogleSearchTool` en ese notebook habla con Serper. O pones `SERPAPI_API_KEY` y `provider="serpapi"`, o `SERPER_API_KEY` y `provider="serper"`. Si no tienes ninguno, la página dice usa `DuckDuckGoSearchTool` y cuidado con el rate limit. Esas son las dos horquillas oficiales. No inventes un tercer flag de proveedor.
+
+Together aparece como proveedor de inferencia para `InferenceClientModel` en el mismo notebook (`provider="together"`, Qwen2.5-Coder-32B-Instruct para el worker, DeepSeek-R1 para el manager). Los nombres de proveedor se mueven. Lee los docs de inferencia del Hub el día que ejecutes: https://huggingface.co/docs/huggingface_hub/en/guides/inference
+
+Consejo práctico: fija proveedor y `model_id` en el mismo archivo de config que `max_steps`. Un manager en un 8B y un worker en un 32B es lo contrario del split del curso, y parecerá que "multi-agente no ayuda."
+
+## final_answer_checks son tests, no adorno
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.1, [Multi-Agent Systems](https://huggingface.co/learn/agents-course/unit2/smolagents/multi_agent_systems) (check_reasoning_and_plot).*
+
+El checker del notebook afirma que existe `saved_map.png`, lo abre y pide a un modelo multimodal PASS o FAIL. En FAIL lanza. Eso es un **arnés de test alrededor de Final Answer**, la misma idea que el Bonus Unidad 2 llamará juez automático. Puedes cambiar el juez por una aserción más barata: el archivo existe, el dataframe tiene al menos seis filas, las columnas se llaman como pediste. Empieza con la aserción que puedes correr offline. Añade un juez VLM solo cuando el artefacto es una imagen.
+
+Consejo práctico: un check que siempre hace PASS es peor que ningún check. Registra el texto del juez. Si no puedes citar un FAIL que hayas visto, no has probado la portería.
+
+## Cuándo no anidar
+
+*Fuente nombrada: Hugging Face Agents Course, [introducción Unidad 2](https://huggingface.co/learn/agents-course/unit2/introduction); página Multi-Agent Systems.*
+
+Si la tarea es una búsqueda y una frase, un CodeAgent solo es el producto. Anidar añade un borde de resumen donde mueren los hechos. Si la tarea es un pipeline fijo (load, split, embed, query), querías [LlamaIndex](/course/llamaindex), no un manager. Si la tarea es "clasifica luego redacta luego espera a un humano," querías [LangGraph](/course/langgraph). Multi-agente smolagents es para **tipos de trabajo en paralelo** que si no compartirían un log hinchado.
+
+## Higiene de memoria en el borde del resumen
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.1, [Multi-Agent Systems](https://huggingface.co/learn/agents-course/unit2/smolagents/multi_agent_systems); Unidad 1 [Observations](https://huggingface.co/learn/agents-course/unit1/observations).*
+
+El `final_answer` del worker debe ser corto, tipado y completo: una tabla, una lista de coordenadas, un sí/no más URLs de evidencia. Si el worker devuelve prosa, el manager la citará y depurarás citas. La lección dummy ya dijo que Observation es la fuente de verdad. Una observación anidada es un **resumen**. Exige los campos que vas a plotear.
+
+No subas el log hijo entero. Cancelarías el ahorro de tokens. No subas nada. Cancelarías el trabajo. La descripción del worker es el esquema de ese resumen. Escríbela como si fuera el docstring de una herramienta — porque para el manager, lo es.
+
+Consejo práctico: imprime la última observación del worker en la traza padre. Si no la encuentras de un vistazo, el worker es demasiado ruidoso (`verbosity_level=0` en el hijo, como fija el curso).
+
+## Nota sobre paquetes
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.1, [Multi-Agent Systems](https://huggingface.co/learn/agents-course/unit2/smolagents/multi_agent_systems) (línea de install).*
+
+El notebook multi-agente instala `smolagents[litellm]` más `plotly geopandas shapely kaleido`. Visión añade `helium selenium python-dotenv`. Recuperación añade retrievers community de LangChain en **ese** notebook. Instala lo que nombra la página que estás siguiendo. No hagas la unión de todos los extras "por si acaso"; así fue como `os` llegó a la allowlist de PartyKit.
 
 ## Caso — las capturas eternas de Sightline
 
-El portero de visión de Sightline comparaba la cámara con Wikipedia. El callback guardaba cada captura y nunca limpiaba `observations_images`. Tras un modal de cookies, el agente “miró” hasta `max_steps`. Creían necesitar un VLM más grande. Necesitaban `close_popups` y retener solo dos capturas.
+*Caso pedagógico en voz iAguide; memoria de capturas citada de Hugging Face Agents Course, Unidad 2.1, [Vision Agents](https://huggingface.co/learn/agents-course/unit2/smolagents/vision_agents).*
 
-Esta lección reescribe ideas del [curso de agentes de Hugging Face](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.
+El portero de visión de Sightline comparaba una cámara de puerta con Wikipedia. El callback guardaba cada captura de navegador y nunca limpiaba `observation_images`. Tras un modal de cookies, el agente “miraba” hasta `max_steps`. Creyeron que necesitaban un VLM más grande. Necesitaban `close_popups` y una política de retención de dos capturas.
+
+Un bug hermano: el worker web y el manager tenían ambos `VisitWebpageTool`. El manager se saltó la delegación, visitó cinco URLs, y luego pidió al worker que "resumiera" un contexto que ya contenía las páginas. El aislamiento falló porque las listas se solapaban. `visualize()` habría mostrado el duplicado. Nadie lo ejecutó.
+
+## Lista práctica
+
+*Fuente nombrada: páginas multi-agente, retrieval y vision de la Unidad 2.1; docs [multiagents](https://huggingface.co/docs/smolagents/main/en/examples/multiagents).*
+
+1. Cada worker tiene una lista de herramientas más estrecha que el padre, un `name`, una `description` y un `max_steps` menor.
+2. La recuperación es una herramienta que el modelo **puede** saltarse. La descripción no dice siempre.
+3. La visión o toma una lista cerrada en `run(...)` o poda `observation_images` a los dos últimos pasos.
+4. Los agentes de navegador poseen `close_popups` y `go_back` antes de poseer un VLM.
+5. `planning_interval` se explica en una frase o es `None`.
+6. Has ejecutado `visualize()` una vez y el árbol casa con la lista de verbos prohibidos.
+
+Si el árbol no casa, no tienes un equipo. Tienes un bucle con objetos de más.
+
+
+## Cómo se ve el "hecho" en esta particularidad
+
+*Fuente nombrada: Hugging Face Agents Course, [conclusión smolagents](https://huggingface.co/learn/agents-course/unit2/smolagents/conclusion).*
+
+Puedes esbozar un árbol manager/worker, nombrar cada herramienta una vez, fijar dos presupuestos de saltos y explicar en una frase por qué existe una política de capturas. No has terminado la Unidad 2.1 de Hugging Face hasta haber visto también CodeAgent en la lección anterior. No has empezado la Unidad 2.2 hasta que el producto sea un índice. No colecciones frameworks como sellos. Una codificación por producto.
+
+## Qué recordar
+
+*Síntesis de las páginas multi-agente, retrieval y vision de la Unidad 2.1, Hugging Face Agents Course (Burtenshaw, Thomas, Simonini y Paniego, Apache-2.0).*
+
+Los smolagents anidados son bucles dummy anidados. El aislamiento es la virtud; los prefills extra son el impuesto. La recuperación es RAG como herramienta. La visión es un álbum cerrado en `run(...)` o un flujo de capturas que debes podar. Los modales de cookies son herramientas, no fallos del modelo. Dale al worker menos pasos y menos herramientas que al manager. LlamaIndex es lo siguiente si el producto es un índice; LangGraph si el producto es un grafo.
+
+## Fuentes
+
+Burtenshaw, B., Thomas, J., Simonini, T. y Paniego, S. (s. f.). *Hugging Face Agents Course* (Apache-2.0). https://huggingface.co/learn/agents-course · https://github.com/huggingface/agents-course
+
+- Introducción smolagents: https://huggingface.co/learn/agents-course/unit2/smolagents/introduction
+- Multi-Agent Systems: https://huggingface.co/learn/agents-course/unit2/smolagents/multi_agent_systems
+- Retrieval Agents: https://huggingface.co/learn/agents-course/unit2/smolagents/retrieval_agents
+- Vision Agents: https://huggingface.co/learn/agents-course/unit2/smolagents/vision_agents
+- Notebook multi-agente: https://huggingface.co/agents-course/notebooks/blob/main/unit2/smolagents/multiagent_notebook.ipynb
+- Notebook retrieval: https://huggingface.co/agents-course/notebooks/blob/main/unit2/smolagents/retrieval_agents.ipynb
+- Notebook visión: https://huggingface.co/agents-course/notebooks/blob/main/unit2/smolagents/vision_agents.ipynb
+- Script vision web browser: https://huggingface.co/agents-course/notebooks/blob/main/unit2/smolagents/vision_web_browser.py
+- Docs multi-agente smolagents: https://huggingface.co/docs/smolagents/main/en/examples/multiagents
+- Docs smolagents: https://huggingface.co/docs/smolagents
+- GitHub smolagents: https://github.com/huggingface/smolagents
+- Conclusión smolagents: https://huggingface.co/learn/agents-course/unit2/smolagents/conclusion
+- Inferencia del Hub: https://huggingface.co/docs/huggingface_hub/en/guides/inference
+
+- Observaciones Unidad 1 (ciclo que se anida): https://huggingface.co/learn/agents-course/unit1/observations

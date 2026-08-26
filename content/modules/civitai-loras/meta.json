@@ -1,0 +1,18 @@
+{
+  "id": "civitai-loras",
+  "order": 19.6,
+  "slug": "civitai-loras",
+  "track": "training",
+  "title": {
+    "en": "LoRAs on CivitAI and ComfyUI",
+    "es": "LoRAs en CivitAI y ComfyUI"
+  },
+  "summary": {
+    "en": "A LoRA is the same small adapter idea as Unsloth LoRA, dropped into models/loras and loaded between Checkpoint and KSampler. Trigger words, strength_model versus strength_clip, base-family compatibility, licenses, and ControlNet as the next step.",
+    "es": "Un LoRA es la misma idea de adaptador pequeño que el LoRA de Unsloth, en models/loras y cargado entre Checkpoint y KSampler. Palabras disparadoras, strength_model frente a strength_clip, compatibilidad de familia base, licencias y ControlNet como siguiente paso."
+  },
+  "status": "complete",
+  "prereqs": ["comfyui-first-workflow", "fine-tuning"],
+  "durationMin": 35,
+  "tags": ["lora", "civitai", "comfyui", "controlnet"]
+}

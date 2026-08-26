@@ -1,0 +1,200 @@
+## Two official walks, one graph
+
+This lesson rebuilds the **first text-to-image graph** from two sources, in iAguide voice, not as a paste:
+
+- Comfy-Org, *Getting started with AI image generation* — load a template or a PNG with workflow metadata, install the missing SD 1.5 checkpoint, press `R`, Run / `Ctrl+Enter` ([docs.comfy.org/get_started/first_generation](https://docs.comfy.org/get_started/first_generation)).
+- CivitAI article 22492, *ComfyUI Tutorial #2 — Building your first workflow* (15 November 2025, updated 2026) — node-by-node: Load Checkpoint, two CLIP Text Encode, KSampler, VAE Loader, Save Image, Queue Prompt, plus the ASCII recap ([civitai.com/articles/22492](https://civitai.com/articles/22492/comfyui-tutorial-2-building-your-first-workflow)).
+
+Neither page is a license to dump their screenshots into this course. We rewrite the **procedure** and keep the **filenames, shortcuts, and default knobs** they actually print.
+
+You already know what a checkpoint, CLIP, and VAE *are* (previous lesson). This page is the **wiring**.
+
+<VisualSlot caption="Five slides: Load Checkpoint and its three sockets, positive versus negative CLIP encode, KSampler at steps 20 / cfg 7 / euler, VAE decode into Save Image, Queue Prompt / Ctrl+Enter." />
+
+<Callout>
+Practical tip, Comfy-Org: every image ComfyUI writes can carry **workflow metadata**. Drag that PNG back onto the canvas (or Workflows → Open) to restore the graph. Export JSON via Workflows → Export if you want a file without pixels ([First generation](https://docs.comfy.org/get_started/first_generation)).
+</Callout>
+
+## Launch, then load a graph (do not start from a blank fear)
+
+Comfy-Org assumes a **local** install. Desktop: Windows 10+ (NVIDIA or AMD recommended) or macOS Apple Silicon. Portable: Windows NVIDIA or CPU, latest commits. Git/manual: NVIDIA, AMD, Intel, Apple Silicon, Ascend, Cambricon. Linux Desktop has **no official installer** — source only. Desktop tracks the **stable** release by default; portable/git is how you ride latest commits ([First generation](https://docs.comfy.org/get_started/first_generation)). Cloud is a separate product (Comfy Cloud, Google sign-in, credits) and is not this lesson's machine.
+
+On first launch ComfyUI **usually loads the default text-to-image workflow**. If it does not, load one of:
+
+1. A **template** from the template library.
+2. A **PNG with metadata** — Comfy-Org ships an example image on GitHub (`Comfy-Org/example_workflows`, `text-to-image-workflow.png`). Drag it in.
+3. A **JSON** workflow via Workflows → Open.
+
+The CivitAI article instead builds from an empty canvas with right-click → Add Node. Both are legal. Templates save you from a missing wire. Building from empty teaches the sockets. This course does the empty-canvas walk using the article's node list, then overlays Comfy-Org's install and refresh rules.
+
+## 1. Load Checkpoint — wake the brain
+
+CivitAI article 22492: right-click → Add Node → type `Load Checkpoint`. Open `ckpt_name` and pick a file (their example name is an SDXL-looking `sd_xl_base_1.0.safetensors`; Comfy-Org's **first-generation default** is `v1-5-pruned-emaonly-fp16.safetensors` from [Comfy-Org/stable-diffusion-v1-5-archive](https://huggingface.co/Comfy-Org/stable-diffusion-v1-5-archive/blob/main/v1-5-pruned-emaonly-fp16.safetensors)). For *this* first graph, prefer the Comfy-Org filename so the official troubleshooting matches. SDXL is a later family (Podell et al., 2023, arXiv:2307.01952); mixing the article's XL example with Comfy-Org's 1.5 download is how people get empty dropdowns.
+
+Outputs, from the article: `MODEL` (brain), `CLIP` (translator), `VAE` (sometimes bundled).
+
+Where to put the file, Comfy-Org ([First generation](https://docs.comfy.org/get_started/first_generation); [Models](https://docs.comfy.org/basic-concepts/models)):
+
+- Portable: `ComfyUI_windows_portable/ComfyUI/models/checkpoints`
+- Desktop: Help → Open folder → Open models folder, then `checkpoints`
+- After copy: press **`R`** (refresh object definitions) or restart
+
+Desktop can auto-download from Hugging Face when you click the missing-model warning. Portable: the browser downloads; **you** save into that checkpoints folder. If the download hangs, copy the link and do it manually — Comfy-Org says so.
+
+<Callout>
+Practical tip, both pages: if Load Checkpoint shows **null** or an empty list, the file is in the wrong tree or the list is stale. Confirm the path for **your** install (Desktop app-support dir versus portable `ComfyUI/models`), press `R`, restart ([First generation, troubleshooting](https://docs.comfy.org/get_started/first_generation); [Models, common issues](https://docs.comfy.org/basic-concepts/models)).
+</Callout>
+
+## 2. Two CLIP Text Encode — positive and negative
+
+CivitAI article: Add Node → `CLIP Text Encode`. Wire `CLIP` from Load Checkpoint into `clip` on the encode node. Write the prompt in `text`. Add a **second** encode for the negative prompt (the article's example negative: `blurry, ugly, deformed`).
+
+Why two nodes: the KSampler has **two** conditioning sockets, `positive` and `negative`. There is no "negative checkbox" inside one box. Translation rules come from **this** checkpoint's CLIP; do not leave the encode unconnected and hope ([article 22492](https://civitai.com/articles/22492/comfyui-tutorial-2-building-your-first-workflow)).
+
+Comfy-Org's first-generation page treats prompts as "telling an artist (the drawing model) your requirements (positive and negative)" and defers the long craft lesson to their [Text to Image](https://docs.comfy.org/tutorials/basic/text-to-image) chapter. For the first Queue, a short visual prompt is enough. The article's craft tip, which we keep: colours, styles, moods.
+
+## 3. KSampler — the conductor
+
+CivitAI article 22492 calls KSampler the conductor. It takes the loaded `MODEL` and the two CLIP embeddings and denoises step by step. The article's **starting knobs**, which this course copies rather than inventing:
+
+| Knob | Article starting value | What they say it does |
+| --- | --- | --- |
+| `steps` | **20** | Iterations to refine. More = more detail, slower. They mention 30–50 if the image is blurry |
+| `cfg` | **7** | How hard the model follows the prompt. They mention 7–12 if the model ignores you; FAQ black image: try `cfg = 10` plus a more detailed prompt |
+| `sampler_name` | **`euler`** | They call euler fast and creative; `dpmpp_2m` more precise but slower |
+| `seed` | example `123456789`, or blank for random | Write it down to reproduce |
+
+Wire, from the article: `model` ← `MODEL` from Load Checkpoint; `positive` / `negative` ← the two CLIP encodes.
+
+Those four numbers are **the article's**, not a paper optimum. Ho et al. (2020) and Rombach et al. (2022) explain *why* there are steps; they do not mandate 20. Comfy-Org's first-generation page does not reprint this table; it just says Run. We attribute 20 / 7 / euler to article 22492.
+
+## 4. VAE Loader — glasses, then pixels
+
+The article treats VAE as optional-but-recommended precision glasses, especially with SDXL, example file `vae-ft-mse-840000.safetensors`, wired into KSampler's `vae` input. On a **bundled** VAE (many SD1.5 checkpoints including Comfy-Org's default), you can skip the extra loader and use the VAE output of Load Checkpoint. If colours look dull or the decode is sludge, add an explicit `VAE Loader` from `ComfyUI/models/vae/` ([article 22492](https://civitai.com/articles/22492/comfyui-tutorial-2-building-your-first-workflow); [Comfy-Org Models](https://docs.comfy.org/basic-concepts/models)).
+
+Do not plug an SDXL VAE into an SD1.5 graph "because it is newer." Pairing is a scale agreement, previous lesson.
+
+## 5. Save Image — without it the dream evaporates
+
+Article: Add Node → `Save Image`. Wire the sampler's image output into `images`. `filename_prefix` is the stem (`my_fantasy_landscape`). They mention `output_path` toward `ComfyUI_windows_portable/output` and a `save_preview` checkbox. Comfy-Org: the result appears on the Save Image node; right-click to save locally ([First generation](https://docs.comfy.org/get_started/first_generation)). Stock Comfy often writes under `ComfyUI/output/`. If a widget name in your build differs, believe the node, not this sentence.
+
+The PNG you save is the **next** person's template if metadata is on. That is the Comfy-Org loop: generate → drag the PNG → teach.
+
+## 6. Queue Prompt / Ctrl+Enter
+
+Article: click **Queue Prompt** (they place it bottom right). Watch the console progress bar; the image appears in the preview. Comfy-Org: click **Run** or press **`Ctrl+Enter`** (macOS: `Cmd+Enter` in their LoRA page's wording) ([First generation](https://docs.comfy.org/get_started/first_generation); [LoRA example](https://docs.comfy.org/tutorials/basic/lora)).
+
+Same action, two labels. If nothing happens, the article's first check is **wires**. Comfy-Org's first check is **is a checkpoint selected**.
+
+## ASCII recap (from the article, not invented here)
+
+Article 22492 prints this shape. We keep it as a map, not as a screenshot dump:
+
+```text
+[Load Checkpoint]
+|
++-- MODEL --> [KSampler]
+|                 |
+|                 +-- positive <-- [CLIP Text Encode]   "a fantasy landscape..."
+|                 +-- negative <-- [CLIP Text Encode]   "blurry, ugly, deformed"
+|
++-- CLIP ----> [CLIP Text Encode]   (feeds the encodes above)
+|
+[VAE Loader] --> VAE --> [KSampler]
+                           |
+                           +-- OUTPUT --> [Save Image]
+```
+
+Your canvas will look like boxes and coloured noodles, not ASCII. The ASCII is the **contract**: three outputs from the checkpoint, two encodes, one sampler, optional extra VAE, one save.
+
+<Compare a="Comfy-Org first generation" b="CivitAI article 22492">
+<Side>
+Load a **template or PNG**. Install **SD 1.5** `v1-5-pruned-emaonly-fp16.safetensors` into `models/checkpoints`. `R` to refresh. Run / `Ctrl+Enter`. Desktop versus portable paths. Missing-model warning with Hugging Face download. Drag-generated-PNG to reload the graph.
+</Side>
+<Side>
+Build from **Add Node**. Load Checkpoint, two CLIP encodes, KSampler at **20 / 7 / euler**, VAE Loader, Save Image, Queue Prompt. ASCII map. FAQ: black image, ignored prompt, CUDA, nothing happens. Next steps they name: LoRAs, ControlNet.
+</Side>
+</Compare>
+
+## Troubleshooting from both, attributed
+
+**Black / all-black image.** Article FAQ: prompt too vague, or `cfg` too low; try `cfg = 10` and a more detailed prompt ([article 22492](https://civitai.com/articles/22492/comfyui-tutorial-2-building-your-first-workflow)). Also check VAE pairing from the previous lesson.
+
+**Blurry.** Article: raise `steps` (30–50) or change sampler (`dpmpp_2m`).
+
+**Model ignores the prompt.** Article: `cfg` in 7–12, and prompt clarity.
+
+**CUDA / GPU error.** Article: close other apps or lower resolution.
+
+**Nothing happens.** Article: re-check wires. Comfy-Org: Load Checkpoint empty/null → path + `R` + restart ([First generation](https://docs.comfy.org/get_started/first_generation)).
+
+**Missing model after install.** Comfy-Org: wrong subfolder; press `r`; restart; Help → Open Model Folder on Desktop ([Models](https://docs.comfy.org/basic-concepts/models)).
+
+**Series with the same style.** Article FAQ: lock the seed on KSampler and change only part of the prompt.
+
+We do **not** copy their "mix two models with ModelMerge" as a first-graph recipe. That is a later graph.
+
+**Case.** You follow the CivitAI article, pick `sd_xl_base_1.0.safetensors` in the dropdown, but the only file you downloaded is Comfy-Org's SD 1.5. The node shows the name you typed last week (stale) or null. Queue yields nothing or a crash. Fix: put `v1-5-pruned-emaonly-fp16.safetensors` in **this** install's `models/checkpoints`, press `R`, select **that** file. Do not chase SDXL until the 1.5 graph has produced one PNG you can drag back in ([First generation](https://docs.comfy.org/get_started/first_generation); [article 22492](https://civitai.com/articles/22492/comfyui-tutorial-2-building-your-first-workflow)).
+
+<Myth>
+"If I install ComfyUI I already have a workflow and SDXL." The app is small. Comfy-Org: base models are **not** included. The default first generation is **SD 1.5**. A workflow is either the auto-loaded default, a template, a PNG with metadata, or boxes you added. Installing the app is not Queue Prompt ([Models](https://docs.comfy.org/basic-concepts/models); [First generation](https://docs.comfy.org/get_started/first_generation)).
+</Myth>
+
+<TryThis>
+Build (or redraw on paper) the ASCII graph. Write the four KSampler starting values from article 22492 (20, 7, euler, a seed you chose). Write the **exact folder** for checkpoints on your Desktop or portable install from Comfy-Org. After one successful PNG, drag that PNG onto an empty canvas and confirm the graph returns. If it does not, you saved a PNG without metadata — use Workflows → Export JSON once so you have a file that does.
+</TryThis>
+
+## What the article names next (not this lesson)
+
+Article 22492's "next steps": LoRAs to refine styles, ControlNet for pose/composition, downloading pre-made workflows from CivitAI to study them. Comfy-Org's matching pages: [LoRA example](https://docs.comfy.org/tutorials/basic/lora), [Models](https://docs.comfy.org/basic-concepts/models) (ControlNet as a helper file under `models/controlnet`). The next training lesson is LoRAs. ControlNet is a mention, not a full class.
+
+## Attribution, so this is not a clone
+
+Procedure and default knobs: CivitAI article 22492 (15 Nov 2025, updated 2026) and Comfy-Org first-generation + models docs (retrieved 26 August 2026). We rewrote the tone (no "rookies, gather round") and we did not paste their pages. Filenames `v1-5-pruned-emaonly-fp16.safetensors` and the Hugging Face archive URL are Comfy-Org's. The 20 / 7 / euler starting set and the ASCII map are the article's. Shortcuts `R` and `Ctrl+Enter` are Comfy-Org's (the LoRA page also writes `Ctrl(cmd) + Enter`).
+
+
+## Desktop versus portable, as a checklist
+
+Write this on the machine you actually launched. Comfy-Org ([First generation](https://docs.comfy.org/get_started/first_generation); [Models](https://docs.comfy.org/basic-concepts/models)):
+
+**Comfy Desktop (Windows / macOS Apple Silicon).** Models folder is **not** the portable path. Logo (or Help) → Open folder → Open models folder. Extra config: Windows `AppData\Roaming\ComfyUI\extra_models_config.yaml`; macOS `~/Library/Application Support/ComfyUI/extra_models_config.yaml`. Auto-download from Hugging Face on the missing-model dialog; if it never starts, copy the link and save manually into `checkpoints`. Update channel default is **stable**.
+
+**Portable Windows.** Root looks like `ComfyUI_windows_portable/`. Checkpoints: `ComfyUI_windows_portable/ComfyUI/models/checkpoints`. Extra paths file: `ComfyUI/extra_model_paths.yaml` in **that** ComfyUI root. Browser download: you choose the folder. Latest commits.
+
+**Git / manual.** `ComfyUI/models/checkpoints`. Same extra-paths example. Linux: this is the official path; there is no Desktop installer.
+
+Mixing Desktop's app-support folder with a leftover portable `models/` is the silent empty-dropdown. `R` cannot index a file that lives in the other tree.
+
+Queue / Run is the same graph once the file is visible. `Ctrl+Enter` is the keyboard synonym Comfy-Org prints.
+
+## Seed hygiene (article FAQ, sourced)
+
+Article 22492: if you like the result, **note the seed**. To make a series in the same style, lock the seed and change only part of the prompt. That is not a paper result; it is the article's FAQ. A locked seed plus a VAE mismatch still gives sludge. Fix pairing first, then lock.
+
+
+## Recap
+
+Empty canvas or official template. Load Checkpoint on a **real** file in `models/checkpoints` (Comfy-Org default: SD 1.5 `v1-5-pruned-emaonly-fp16.safetensors`). Two CLIP Text Encode nodes, CLIP wired from the checkpoint. KSampler at the article's 20 / 7 / euler, seed written down. VAE from the checkpoint or VAE Loader. Save Image. Queue Prompt or `Ctrl+Enter`. `R` after copying weights. Black image: article says raise cfg and detail the prompt. Empty dropdown: Comfy-Org says path + `R` + restart. Drag the PNG back. Next: LoRAs ([Comfy-Org LoRA](https://docs.comfy.org/tutorials/basic/lora); [CivitAI 22492](https://civitai.com/articles/22492/comfyui-tutorial-2-building-your-first-workflow); [First generation](https://docs.comfy.org/get_started/first_generation)).
+
+If you can point at each box on the ASCII map and name the source of its default, the lesson worked.
+
+URLs retrieved 26 August 2026. We did not paste either page verbatim.
+
+## Sources
+
+Primary documentation for this lesson (Comfy-Org + CivitAI article 22492).
+
+Papers below are the diffusion background from the previous lesson, not a new result.
+
+
+
+
+- Comfy-Org. (n.d.). *Getting started with AI image generation*. https://docs.comfy.org/get_started/first_generation
+- Comfy-Org. (n.d.). *Models*. https://docs.comfy.org/basic-concepts/models
+- Comfy-Org. (n.d.). *ComfyUI LoRA example* (`Ctrl(cmd)+Enter`). https://docs.comfy.org/tutorials/basic/lora
+- Comfy-Org. (n.d.). *Text to Image*. https://docs.comfy.org/tutorials/basic/text-to-image
+- Comfy-Org. (n.d.). SD 1.5 archive. https://huggingface.co/Comfy-Org/stable-diffusion-v1-5-archive/blob/main/v1-5-pruned-emaonly-fp16.safetensors
+- CivitAI. (2025, 15 November; updated 2026). *ComfyUI Tutorial #2 — Building your first workflow* (article 22492). https://civitai.com/articles/22492/comfyui-tutorial-2-building-your-first-workflow
+- Ho, J., Jain, A., & Abbeel, P. (2020). *Denoising diffusion probabilistic models* (arXiv:2006.11239). https://arxiv.org/abs/2006.11239
+- Rombach, R., Blattmann, A., Lorenz, D., Esser, P., & Ommer, B. (2022). High-resolution image synthesis with latent diffusion models (arXiv:2112.10752). https://arxiv.org/abs/2112.10752
+- Podell, D. et al. (2023). *SDXL* (arXiv:2307.01952). https://arxiv.org/abs/2307.01952

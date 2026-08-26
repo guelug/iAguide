@@ -1,0 +1,18 @@
+{
+  "id": "kimi-delta-attention",
+  "order": 3.5,
+  "slug": "kimi-delta-attention",
+  "track": "foundations",
+  "title": {
+    "en": "Kimi Delta Attention",
+    "es": "Kimi Delta Attention"
+  },
+  "summary": {
+    "en": "Linear attention as a fixed matrix state, the channel-wise gated delta rule, constrained DPLR kernels, and the 3:1 KDA+MLA hybrid that cuts KV cache by up to 75%.",
+    "es": "Atención lineal como estado matriz fijo, la regla delta con puerta por canal, kernels DPLR acotados, y el híbrido 3:1 KDA+MLA que recorta la caché KV hasta un 75%."
+  },
+  "status": "complete",
+  "prereqs": ["attention"],
+  "durationMin": 40,
+  "tags": ["kda", "linear-attention", "kv-cache", "kimi"]
+}

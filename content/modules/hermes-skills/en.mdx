@@ -1,27 +1,180 @@
-## Skill when instructions suffice
+## Skills when instructions suffice
 
-Skill = instructions + shell + existing tools. Tool = Python, keys, streaming, binaries.
+Nous Research's [*Creating Skills*](https://hermes-agent.nousresearch.com/docs/developer-guide/creating-skills) (n.d.) is the primary source. Skills are the preferred way to add capabilities to Hermes Agent: easier than tools, no code change to the agent, shareable with the community. A skill is instructions plus shell plus existing tools. A tool is Python, keys, streaming, or binaries. The generic [plugins and skills](/en/m/plugins-and-skills) lesson stays harness-agnostic; this one is the Hermes particularity.
 
-Bundled in skills/; optional-skills/ via hermes skills browse; niche via hub install.
-
-Frontmatter: platforms, requires_toolsets/tools, fallback_for_*, required_environment_variables, optional blueprint schedule.
-
-skill_view loads body on demand. Secrets stay in .env — never shown to the model. Blueprints become suggested cron via /suggestions — install never auto-schedules.
+Make it a skill when the capability wraps an external CLI or API the agent can call via `terminal` or `web_extract`, and it does not need custom Python or API-key management baked into the agent. Documented examples: arXiv search, git workflows, Docker management, PDF processing, email via CLI tools. Make it a tool when you need end-to-end integration with API keys, auth flows, multi-component configuration, custom processing that must execute precisely every time, binary data, streaming, or real-time events. Documented examples: browser automation, TTS, vision analysis (Nous Research, *Creating Skills*, n.d.; *Adding Tools*, n.d.).
 
 <VisualSlot caption="SKILL.md, gates, on-demand view, blueprint suggestion." />
 
-## Compare vs OpenClaw
+## Where a skill lives
 
-OpenClaw lists available_skills with a file path; the model reads SKILL.md. Hermes uses skill_view + hub trust levels.
+Bundled skills live in `skills/` organized by category. Official optional skills use the same structure in `optional-skills/`:
 
-## Case: skill that should be a tool
+```text
+skills/
+├── research/
+│   └── arxiv/
+│       ├── SKILL.md
+│       └── scripts/
+│           └── search_arxiv.py
+```
 
-**Case.** GIF skill inlines Tenor parsing every turn.
+`SKILL.md` is required. `scripts/` and `references/` are optional. Bundled skills ship with every install and should be broadly useful (documents, web research, common dev workflows, system administration). Official-but-not-universal skills go in `optional-skills/`: they ship with the repo, are discoverable via `hermes skills browse` labeled "official", and install with built-in trust. Niche or community skills belong on a Skills Hub via `hermes skills install` (Nous Research, *Creating Skills*, n.d.).
 
-**Fix.** scripts/ helper + required_environment_variables, or a real tool.
+## Frontmatter is the contract
+
+The documented YAML frontmatter includes `name`, `description` (shown in skill search), `version`, `author`, `license`, optional `platforms` (`macos`, `linux`, `windows`; omit to load on all), and a `metadata.hermes` block: `tags`, `related_skills`, `requires_toolsets`, `requires_tools`, `fallback_for_toolsets`, `fallback_for_tools`, optional `config` keys, optional `blueprint`. Optional `required_environment_variables` and `required_credential_files` sit at the top level.
+
+When `platforms` is set, the skill is hidden from the system prompt, `skills_list()`, and slash commands on incompatible operating systems. Empty or omitted loads everywhere (backward compatible). See `skills/apple/` for macOS-only examples.
+
+Conditional activation (Nous Research, *Creating Skills*, n.d.):
+
+| Field | Behavior |
+| --- | --- |
+| `requires_toolsets` | Hidden when ANY listed toolset is not available |
+| `requires_tools` | Hidden when ANY listed tool is not available |
+| `fallback_for_toolsets` | Hidden when ANY listed toolset is available |
+| `fallback_for_tools` | Hidden when ANY listed tool is available |
+
+Use `fallback_for_*` for a workaround when a primary tool is missing. The documented example is a `duckduckgo-search` skill with `fallback_for_tools: [web_search]` that only shows when the web search tool (API key required) is not configured. Use `requires_*` so a scraping workflow with `requires_toolsets: [web]` does not clutter the prompt when web tools are off.
+
+<Callout>
+`skill_view` loads the skill body on demand. The compact skills index in the system prompt is not the full SKILL.md. Secrets stay in `~/.hermes/.env` and are never shown to the model. Gateway and messaging sessions show local setup guidance instead of collecting secrets in-band.
+</Callout>
+
+## Secrets, config, and credential files
+
+`required_environment_variables` entries have `name` (required), optional `prompt`, `help`, `required_for`. Missing values do **not** hide the skill from discovery. Hermes prompts for them securely when the skill is loaded in the local CLI. The user can skip setup and keep loading. Declared vars that are set are automatically passed through to `execute_code` and `terminal` sandboxes, including remote backends like Docker and Modal. Users can also set `terminal.env_passthrough` in `config.yaml`. Legacy `prerequisites.env_vars` remains a backward-compatible alias.
+
+Non-secret settings go under `metadata.hermes.config`: `key` (dotpath), `description`, optional `default`, optional `prompt`. Values are written to `config.yaml` under `skills.config.<key>`. `hermes config migrate` scans enabled skills for unconfigured settings. At load time, resolved values are appended to the skill message as a `[Skill config ...]` block so the agent need not read `config.yaml`. Manual: `hermes config set skills.config.myplugin.path ~/my-data`.
+
+`required_credential_files` is for OAuth tokens and other files relative to `~/.hermes/`. Missing files trigger `setup_needed`. Existing files are mounted read-only into Docker, synced into Modal (at creation and before each command, so mid-session OAuth works), and available locally with no special handling. See `skills/productivity/google-workspace/SKILL.md` for a combined example (Nous Research, *Creating Skills*, n.d.).
+
+**Case.** A GIF skill inlines Tenor parsing in SKILL.md every turn. The documented fix is a helper under `scripts/` plus `required_environment_variables` for `TENOR_API_KEY`, or a real tool if you need streaming. Do not paste parsers into the prompt.
+
+## Guidelines the page actually states
+
+Prefer stdlib Python, curl, and existing Hermes tools (`web_extract`, `terminal`, `read_file`). If a dependency is needed, document installation in the skill. Progressive disclosure: common workflow first, edge cases at the bottom, to keep token use low. Include helper scripts for XML/JSON parsing; do not expect the LLM to write parsers inline every time.
+
+If the skill produces a high-resolution screenshot or chart where lossy preview would hurt, emit the literal directive `[[as_document]]` in the response (commonly the last line). The gateway strips the directive and delivers extracted media paths as downloadable attachments instead of inline image bubbles.
+
+When a skill loads, the activation message exposes the absolute skill directory as `[Skill directory: /abs/path]` and substitutes `${HERMES_SKILL_DIR}` and `${HERMES_SESSION_ID}` anywhere in the SKILL.md body. Disable substitution with `skills.template_vars: false`. Inline shell snippets written as bang-backtick in SKILL.md are **off by default** because they run on the host without approval; enable only for skill sources you trust (`skills.inline_shell: true`, timeout default 10 seconds, output capped at 4000 characters). Failures show as `[inline-shell error: ...]` rather than breaking the skill.
+
+Test: `hermes chat --toolsets skills -q "Use the X skill to do Y"`.
+
+## Blueprints and `/suggestions`
+
+A blueprint is an ordinary skill that also declares `metadata.hermes.blueprint`: `schedule` (cron expr, `every 2h`, or ISO timestamp), optional `deliver` (default origin), optional `prompt`, optional `no_agent`. Installing a blueprint **never** auto-schedules. Hermes registers it as a suggested cron job. You review via `/suggestions` then `accept` or `dismiss`. Accepting calls the same `cron.jobs.create_job` the `cronjob` tool uses. Dismissed suggestions latch by a stable key. The pending list is capped so it never becomes a nag wall (Nous Research, *Creating Skills*, n.d.; *Cron Internals*, n.d.).
+
+`/suggestions` sources: `catalog` (curated starters: daily briefing, important-mail monitor, weekly review, workday-start reminder), `blueprint` (you installed a skill with `blueprint:`), `usage` (background review noticed a recurring ask), `integration` (you connected Gmail, GitHub, and the obvious automations are offered). The important-mail monitor scores inbox items with a cheap classifier (`auxiliary.monitor` in `config.yaml`) and delivers only those above an urgency threshold.
+
+Sharing: a blueprint loaded by a cron job (`hermes cron create --skill ...`) can be exported back to SKILL.md and published. No new object type: the blueprint is a skill, the schedule is a cron job, sharing is publish/tap/index.
+
+## Hub trust and publishing
+
+```bash
+hermes skills publish skills/my-skill --to github --repo owner/repo
+hermes skills tap add owner/repo
+```
+
+Hub-installed skills go through a scanner: data exfiltration, prompt injection, destructive commands, shell injection. Trust levels: `builtin` (ships with Hermes, always trusted), `official` (`optional-skills/`, built-in trust, no third-party warning), `trusted` (openai/skills, anthropics/skills, huggingface/skills), `community` (non-dangerous findings overridable with `--force`; `dangerous` verdicts remain blocked).
+
+Discovery models: direct GitHub identifiers (`openai/skills/k8s`), `skills.sh` identifiers, well-known endpoints at `/.well-known/skills/index.json`.
+
+OpenClaw lists `available_skills` with a file path and the model reads SKILL.md (OpenClaw, *Tools overview*, n.d.). Hermes uses `skill_view` plus hub trust levels. Do not invent OpenClaw ClawHub install JSON in a Hermes skill.
 
 <TryThis>
-YAML frontmatter for duckduckgo-search with fallback_for_tools: [web_search].
+Write YAML frontmatter for a `duckduckgo-search` skill with `fallback_for_tools: [web_search]`. Then write one sentence on why installing a blueprint must not create a cron job until `/suggestions accept`.
 </TryThis>
 
-Source: https://hermes-agent.nousresearch.com/docs/developer-guide/creating-skills
+**Case.** A community skill is marked `dangerous` by the scanner. `--force` will not override that verdict. Only non-dangerous community findings can be forced. Builtin and official skip the third-party warning because they ship in-tree.
+
+## Body of SKILL.md
+
+After frontmatter, Nous Research shows a teaching skeleton: title, brief intro, When to Use, Quick Reference, Procedure, Pitfalls, Verification. That order is progressive disclosure: the model reads the top first, so the common path must live there (Nous Research, Creating Skills, n.d.).
+
+Platform field examples from the same page: macos only for Apple-only workflows; macos plus linux; windows only. Hide platform-specific skills in frontmatter rather than documenting failure in Pitfalls.
+
+Classify secrets versus config versus credential files. API keys belong in required_environment_variables and live in the Hermes dotenv file, never shown to the model. Paths and preferences belong in metadata.hermes.config and live in config.yaml. OAuth files belong in required_credential_files under the Hermes home directory.
+
+## Template tokens and trust
+
+HERMES_SKILL_DIR is replaced with the absolute skill directory. HERMES_SESSION_ID is replaced with the active session id, or left in place if there is no session. A SKILL.md can therefore point the terminal tool at a bundled script without path math and without an extra skill_view round-trip.
+
+Inline shell snippets in SKILL.md are off by default because they run on the host without approval. Output is capped at 4000 characters. Enable inline_shell only for skill sources you would also mark builtin or official.
+
+Publishing uses hermes skills publish to GitHub. Taps use hermes skills tap add. Well-known skill index endpoints allow discovery without a GitHub-only installer. A dangerous scanner verdict stays blocked even with force.
+
+OpenClaw skills are SKILL.md packs loaded into the prompt; plugins add runtime capabilities from ClawHub (OpenClaw, Tools overview, n.d.). Hermes hub scanning and trust levels are the particularity of this lesson.
+
+**Case.** You install a blueprint and assume a 09:00 briefing will fire tomorrow. Nothing fires. Installing only added a suggestion. Until suggestions accept, create_job has not run. That is the documented opt-in (Nous Research, Creating Skills, n.d.).
+
+## Catalog, usage, and integration suggestions
+
+The suggestions surface is one command regardless of origin. Catalog entries are curated starters: daily briefing, important-mail monitor, weekly review, workday-start reminder. Blueprint entries appear after you install a skill that carries a blueprint block. Usage entries appear when background review notices a recurring ask a schedule would serve. Integration entries appear after you connect an account such as Gmail or GitHub (Nous Research, Creating Skills, n.d.).
+
+Accepting always calls the same create_job path as the cronjob tool. There is no second job engine. Suggestions never auto-create jobs. Dismissed items latch by a stable key so the same proposal is never re-offered. The pending list is capped so it does not become a nag wall.
+
+The important-mail monitor is the poll, classify, surface pattern: it scores inbox items with a cheap classifier model under auxiliary.monitor in config.yaml and delivers only items above an urgency threshold, staying silent otherwise.
+
+A blueprint loaded by a cron job can be exported back to SKILL.md and published, so an automation you tuned becomes a one-command install for someone else. The blueprint layer adds no new object type, store, or transport.
+
+## Scanner classes
+
+The hub scanner checks for data exfiltration patterns, prompt-injection attempts, destructive commands, and shell injection (Nous Research, Creating Skills, n.d.). Trust levels remain builtin, official, trusted, and community as listed above. Third-party discovery includes GitHub identifiers, skills.sh identifiers, and well-known index.json endpoints.
+
+Do not invent a Hermes equivalent of OpenClaw allowUploadedArchives. Do not invent auto-schedule on install. Both would contradict the named pages.
+
+Read Creating Skills before writing Python. If the page says skill, do not open tools/. If the page says tool, do not stuff API parsing into SKILL.md.
+
+## Sandbox passthrough is automatic on load
+
+When the skill is loaded, declared environment variables that are set are passed through to execute_code and terminal sandboxes, including remote backends such as Docker and Modal. Skill scripts can read those variables without extra operator config. That is documented under Secure Setup on Load in Creating Skills (Nous Research, n.d.).
+
+Users can also list extra names under terminal.env_passthrough in config.yaml. That list is for names the skill did not declare, not a replacement for required_environment_variables.
+
+Credential files that exist are mounted read-only into Docker containers, synced into Modal sandboxes at creation and before each command so mid-session OAuth still works, and available on the local backend with no special handling. Missing files trigger setup_needed rather than hiding the skill.
+
+## What not to fork
+
+Most users should treat agent/prompt_builder.py as implementation, not a configuration surface. For identity, edit SOUL.md. For repo rules, edit project context files. For reusable procedures, add or modify skills (Nous Research, Prompt Assembly, n.d.). Creating Skills is the procedure path.
+
+OpenClaw plugin-bundled skills list in available_skills when the plugin is enabled; full instructions load on demand (OpenClaw, Browser, n.d., for the browser-automation skill). Hermes bundled skills live in skills/ and optional-skills/. Same idea, different trees.
+
+**Case.** A skill declares TENOR_API_KEY, the operator skips CLI setup, and a gateway session tries to collect the key in a Telegram chat. The page says gateway sessions show local setup guidance instead of collecting secrets in-band. That is the correct failure: the skill loads, the secret is not in the prompt, the operator finishes setup on the host.
+
+## Media as documents
+
+If a skill produces a high-resolution screenshot, chart, or any image where lossy preview compression would hurt, emit the literal as_document directive somewhere in the response, commonly the last line. The gateway strips the directive and delivers every extracted media path in that response as a downloadable file attachment instead of an inline image bubble. Skill output and media delivery is the named companion topic on the same developer guide (Nous Research, Creating Skills, n.d.).
+
+## Test command
+
+The official test is hermes chat with the skills toolset enabled and a query that names the skill. If the agent ignores When to Use, shorten that section. If it re-implements a parser in the prompt, you omitted scripts/. If it asks for a secret in a messaging session, you leaked setup into the wrong surface.
+
+Cite Creating Skills in the pull request, not a gist. Cite Cron Internals when the skill carries a blueprint. Cite Adding Tools when you decided against a skill.
+
+Related Hermes pages for the next lessons: Cron Internals for jobs.json and the recursion guard that disables the cronjob toolset inside cron runs; Tools Runtime for when the capability must be Python; Gateway Internals for why cron deliveries are not mirrored into live chat history.
+
+This lesson is the skill side of that triangle. A blueprint is still a skill. A cron job is still a cron job. A tool is still a tool. Nous Research kept those three objects separate on purpose.
+
+Read the frontmatter table once more before authoring. requires_* hides when a dependency is missing. fallback_for_* hides when the primary tool exists. platforms hides on the wrong OS. required_environment_variables does not hide. Those four sentences are the whole gating exam.
+
+If you remember only one number from Cron Internals after this page, remember that install never auto-schedules. Acceptance is always explicit.
+
+The apple category under skills/ remains the official macos-only example set. Copy that frontmatter pattern rather than inventing a new OS key. Valid platforms are macos, linux, and windows only, as listed on Creating Skills (Nous Research, n.d.).
+
+License and author fields in frontmatter are for hub provenance, not for prompt text. Keep SKILL.md body as procedure. Keep provenance in YAML. That split is how scanners and humans both read the same file.
+
+Cite Creating Skills by URL in every skill pull request.
+
+## Sources
+
+Nous Research. (n.d.). *Creating skills*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/creating-skills
+
+Nous Research. (n.d.). *Adding tools*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/adding-tools
+
+Nous Research. (n.d.). *Cron internals*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/cron-internals
+
+Nous Research. (n.d.). *Tools runtime*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/tools-runtime
+
+OpenClaw. (n.d.). *Tools overview*. https://docs.openclaw.ai/tools

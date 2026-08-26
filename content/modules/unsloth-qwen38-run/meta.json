@@ -1,0 +1,27 @@
+{
+  "id": "unsloth-qwen38-run",
+  "order": 21.5,
+  "slug": "unsloth-qwen38-run",
+  "track": "metal",
+  "title": {
+    "en": "Run Qwen3.8 locally after Unsloth",
+    "es": "Ejecutar Qwen3.8 en local después de Unsloth"
+  },
+  "summary": {
+    "en": "Serve a Qwen3.8-27B you trained or downloaded: hardware table, thinking versus instruct sampling, Desktop, llama.cpp, NVFP4, and the chat-template contract after export.",
+    "es": "Sirve un Qwen3.8-27B entrenado o descargado: tabla de hardware, muestreo thinking frente a instruct, Desktop, llama.cpp, NVFP4 y el contrato de plantilla de chat tras exportar."
+  },
+  "status": "complete",
+  "prereqs": [
+    "local-inference",
+    "unsloth-qwen38"
+  ],
+  "durationMin": 35,
+  "tags": [
+    "unsloth",
+    "qwen",
+    "gguf",
+    "vllm",
+    "nvfp4"
+  ]
+}

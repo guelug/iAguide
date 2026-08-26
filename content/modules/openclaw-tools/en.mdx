@@ -1,23 +1,181 @@
-## Tools vs skills vs plugins
+## Tools, skills, plugins are three nouns
 
-Tools are typed functions. Skills are SKILL.md packs. Plugins add tools from ClawHub.
+OpenClaw's [*Tools overview*](https://docs.openclaw.ai/tools) (n.d.) is the primary source. Exhaustive policy, groups, defaults, and allow/deny live on [*Tools and custom providers*](https://docs.openclaw.ai/gateway/config-tools) (OpenClaw, n.d.). A **tool** is a typed function the agent can call (`exec`, `browser`, `web_search`, `message`). A **skill** is a `SKILL.md` instruction pack loaded into the prompt. A **plugin** adds runtime capabilities: tools, providers, channels, hooks, packaged skills.
 
-group:runtime, group:fs, group:web, group:ui. Policy filters what the model sees. Coding profile has web_search but not browser.
+The generic [tools](/en/m/tools) lesson stays harness-agnostic. This one is the OpenClaw inventory.
+
+The model only sees tools that survive the active profile, allow/deny policy, provider restrictions, sandbox state, channel permissions, and plugin availability (OpenClaw, *Tools overview*, n.d.).
 
 <VisualSlot caption="builtin, groups, plugins, skills, policy." />
 
-## Compare vs Hermes
+## Built-in categories
 
-Hermes uses named toolsets. OpenClaw uses groups plus allow/deny plus a sandbox tool gate.
+The overview table is representative, not the full policy reference. Cite *Tools and custom providers* for exact groups (OpenClaw, *Tools overview*, n.d.).
 
-## Case: missing browser
+| Category | Representative tools |
+| --- | --- |
+| Runtime | `exec`, `process`, `terminal`, `code_execution` |
+| Files | `read`, `write`, `edit`, `apply_patch` |
+| Human input | `ask_user` |
+| Web | `web_search`, `x_search`, `web_fetch` |
+| Browser | `browser` |
+| Operator UI | `screen` |
+| Messaging | `message` |
+| Sessions and agents | `sessions_*`, `subagents`, `session_status`, `get_goal` |
+| Automation | `cron`, `heartbeat_respond` |
+| Gateway and nodes | `gateway`, `nodes` |
+| Media | `view_image`, `image_generate`, `tts` |
 
-**Case.** Coding profile hides browser.
+Code Mode and Tool Search are experimental OpenClaw agent surfaces. Codex harness runs use Codex-native code mode, native tool search, deferred dynamic tools, and nested tool calls instead of `tools.codeMode` or `tools.toolSearch` (OpenClaw, *Tools overview*, n.d.).
 
-**Fix.** alsoAllow browser; plugins.allow must include browser.
+## Profiles then allow/deny
+
+`tools.profile` sets a base allowlist before `tools.allow`/`tools.deny`. Local onboarding defaults new local configs to `tools.profile: "coding"` when unset (OpenClaw, *Tools and custom providers*, n.d.).
+
+| Profile | Includes |
+| --- | --- |
+| `minimal` | `session_status` only |
+| `coding` | `group:fs`, `group:runtime`, `group:web`, `group:sessions`, `group:memory`, plus goals, `ask_user`, media generate, `cron` |
+| `messaging` | `group:messaging` plus session/list/send/spawn family and `ask_user` |
+| `full` | No restriction (same as unset) |
+
+`coding` and `messaging` also implicitly allow `bundle-mcp` (configured MCP servers).
+
+<Callout>
+`deny` always wins. If `allow` is non-empty, everything else is treated as blocked. `allow` and `alsoAllow` cannot both be set in the same scope; config validation rejects it. Merge `alsoAllow` into `allow`, or drop `allow` and use profile plus `alsoAllow` (OpenClaw, *Tools and custom providers*, n.d.).
+</Callout>
+
+## Group shorthands
+
+Tool policies (global, agent, sandbox) support `group:*` entries (OpenClaw, *Tools and custom providers*, n.d.):
+
+| Group | Tools |
+| --- | --- |
+| `group:runtime` | `exec`, `process`, `code_execution` (`bash` aliases `exec`) |
+| `group:fs` | `read`, `write`, `edit`, `apply_patch` |
+| `group:sessions` | session list/history/send/spawn family plus `subagents`, `session_status` |
+| `group:memory` | `memory_search`, `memory_get` |
+| `group:web` | `web_search`, `x_search`, `web_fetch` |
+| `group:ui` | `browser`, `screen`, `dashboard`, `terminal`, `portal`, `canvas`, `show_widget` |
+| `group:automation` | `heartbeat_respond`, `cron`, `gateway` |
+| `group:messaging` | `message` |
+| `group:nodes` | `nodes`, `computer` |
+| `group:agents` | `agents_list`, goals, `progress_card`, `ask_user`, `skill_workshop` |
+| `group:media` | `image`, `image_generate`, `music_generate`, `video_generate`, `tts` |
+| `group:openclaw` | most built-ins except fs/runtime primitives, `canvas`, and provider plugins |
+| `group:plugins` | all loaded plugin-owned tools, including MCP via `bundle-mcp` |
+
+Copy that table from *Tools and custom providers*, not from memory of a sibling page. The sandbox comparison page lists a slightly different `group:ui` set; cite the page you are teaching.
+
+Tool policy filters by **name**. It does not inspect side effects inside `exec`. If `exec` is allowed, denying `write` does not make shell commands read-only. `write` and `apply_patch` are separate ids: `deny: ["write"]` does not deny `apply_patch`. To block all file mutation, deny `group:fs` or list each mutating tool (OpenClaw, *Tools and custom providers*, n.d.).
+
+## Skills versus plugins
+
+Use a skill when the agent already has the tools it needs but needs a repeatable workflow. Skills live in a workspace, a shared skill directory, a managed OpenClaw skill root, or a plugin package. Cite *Skills* (OpenClaw, n.d., https://docs.openclaw.ai/tools/skills).
+
+Use a plugin when the capability has code, credentials, lifecycle hooks, manifest metadata, or installable packaging. Plugins register tools through `api.registerTool(...)` and the manifest `contracts.tools`. Cite *Plugins* (OpenClaw, n.d., https://docs.openclaw.ai/tools/plugin).
+
+`AGENTS.md` `## Tools` is local environment notes. It does **not** control which tools exist. That particularity belongs to the workspace lesson and to this policy page together (OpenClaw, *Agent workspace*, n.d., https://docs.openclaw.ai/concepts/agent-workspace).
+
+## Image tool rename
+
+OpenClaw exposes one semantic image inspection capability named `view_image`. Existing policy entries named `image` must be migrated to `view_image`; run `openclaw doctor --fix` to update supported config policy surfaces and persisted automation `toolsAllow` lists (OpenClaw, *Tools overview*, n.d.).
+
+When the active harness supplies its own loader, OpenClaw suppresses the duplicate. Codex's native implementation accepts one local filesystem `path`. Callers must follow the active tool schema.
+
+**Case.** A coding profile plus `tools.alsoAllow: ["browser"]` is how a spawned sub-agent sees browser. `tools.subagents.tools.allow: ["browser"]` alone is not enough because sub-agent policy is applied after profile filtering (OpenClaw, *Browser*, n.d., https://docs.openclaw.ai/tools/browser).
 
 <TryThis>
-Pick groups for a read-only research agent.
+Name the three nouns (tool, skill, plugin). Name the four profiles and which one local onboarding defaults. Write whether deny or allow wins. Name the group that holds `exec`. Write the image inspection tool id after doctor.
 </TryThis>
 
-Source: https://docs.openclaw.ai/tools
+## Compare, without mixing knobs
+
+Hermes tools are registered on `AIAgent` and filtered by the Hermes tool policy in the loop (Nous Research, *Agent Loop Internals*, n.d., https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop). OpenClaw tools are Gateway-owned schemas sent to the model after profile plus allow/deny plus sandbox plus plugin availability. Same human need (a callable surface). Different owner. Different group shorthands.
+
+Do not paste Hermes tool names into `tools.deny`. Do not invent a `group:hermes`. Cite *Tools overview* for the nouns and *Tools and custom providers* for the knobs.
+
+Gateway logs include `agents/tool-policy` audit entries when a tool policy step removes tools or a sandbox tool policy blocks a call. Use `openclaw logs` to see the rule label, config key, and affected tool names (OpenClaw, *Sandbox vs tool policy vs elevated*, n.d., https://docs.openclaw.ai/gateway/sandbox-vs-tool-policy-vs-elevated).
+
+`tools.byProvider` further restricts for a provider id or a `provider/model` key. Order: base profile, then provider profile, then allow/deny. `tools.toolsBySender` is defense-in-depth on top of channel access; sender values must come from the channel adapter, not message text (OpenClaw, *Tools and custom providers*, n.d.).
+
+`tools.sessions.visibility` defaults to `tree`. Sandbox clamp: when the current session is sandboxed and `agents.defaults.sandbox.sessionToolsVisibility` is `"spawned"`, access stays limited to spawned sessions even if visibility is `"all"`. That continues in the sessions lesson.
+
+Loop detection is **disabled by default**. Set `tools.loopDetection.enabled` true to activate. Elevated is exec-only and does not grant extra tools; that continues in the sandbox lesson.
+
+If the model cannot see a tool, walk the official troubleshoot list: active profile and allow/deny; provider restrictions; channel permissions, sandbox, elevated; owning plugin installed; per-agent restrictions for delegated runs; Code Mode or Tool Search for large catalogs (OpenClaw, *Tools overview*, n.d.).
+
+Plugin-provided tools include diffs, show-widget, screen, LLM Task, Lobster, Tokenjuice, Tool Search, Canvas. They exist only when the owning plugin is enabled. A missing plugin is not a deny-list bug.
+
+`tools.codeMode` gates the generic OpenClaw code-mode surface. `enabled` defaults to `"auto"`, which engages only for models whose catalog flags `compat.codeMode: "preferred"`. Codex harness runs do not use this knob (OpenClaw, *Tools and custom providers*, n.d.).
+
+Per-agent `agents.entries.*.tools.*` can only further restrict relative to global policy in several elevated and sandbox paths. Teaching "the agent allowlist restores a globally denied tool" is the wrong direction. Tool policies become more restrictive as global, provider, agent, and sandbox rules combine (OpenClaw, *Tools overview*, n.d.).
+
+**Case.** Sandbox mode `all` plus MCP servers in `mcp.servers`. The servers load, but sandboxed turns only show built-ins until `bundle-mcp`, `group:plugins`, or a server glob lands in `tools.sandbox.tools.alsoAllow`. Restart or reload, then recapture the tool list. `openclaw doctor` checks this shape for OpenClaw-managed servers (OpenClaw, *Tools and custom providers*, n.d.).
+
+`/exec` only changes session defaults for authorized senders; it does not grant tool access. Tool policy is the hard stop: `/exec` cannot override a denied `exec` tool (OpenClaw, *Sandbox vs tool policy vs elevated*, n.d.).
+
+This lesson stops at nouns, profiles, groups, deny-wins, and the plugin/skill split. Browser, ACP, sandbox, and cron continue as dedicated particularities.
+
+Further official reading: *Exec approvals*, *Elevated exec*, *Skills*, *Creating skills*, *Plugin SDK*, *Code Mode*, *Tool Search*, *Sub-agents* (OpenClaw, n.d.).
+
+Provider-backed Python lives under `code_execution`, not as a silent extra `exec`. Shared operator terminals are `terminal`. Do not collapse those three into one "shell tool" when teaching the runtime category.
+
+`progress_card` is the durable plan tool. Older configs used `tools.experimental.planTool` or the name `update_plan`. Doctor moves the kill switch to `tools.updatePlan`. Use `progress_card` in new allow/deny lists (OpenClaw, *Tools and custom providers*, n.d.).
+
+`tools.agentToAgent` is off by default. Cross-agent `sessions_send` still requires it even when visibility is `all`. That pairing is how a Gmail reader is kept from paging the main agent unless you opted in.
+
+Media understanding uses `tools.media.models` with explicit `capabilities` of `image`, `audio`, or `video`. Screenshot-as-text for a text-only main model reuses that list; there is no browser-specific vision key. Cite *Browser* for the wrap, *Tools and custom providers* for the list.
+
+Web search and fetch have their own `tools.web.search` and `tools.web.fetch` blocks (Brave key, Firecrawl provider, char caps). Enabling `group:web` without credentials still leaves search failing at the provider, which is not a deny-list miss.
+
+GitHub identity is a managed `tools.github` profile, not a tool name you put in `allow`. The `github_publish` path records a bounded publication request; credentials do not enter the sandbox or a node host (OpenClaw, *Tools and custom providers*, n.d.).
+
+When you restrict a coding agent to read-only intent, deny `group:runtime` as well as mutating filesystem tools unless a sandbox filesystem policy already enforces read-only. A `deny` of `write` with `exec` still allowed is a paper wall (OpenClaw, *Sandbox vs tool policy vs elevated*, n.d.).
+
+Subagent spawn attachments are opt-in under `tools.sessions_spawn.attachments.enabled`. ACP attachments are image-only. Do not invent a generic file pipe into Claude Code through this knob; cite *ACP agents* for harness spawn (OpenClaw, *Tools and custom providers*, n.d.; *ACP agents*, n.d., https://docs.openclaw.ai/tools/acp-agents).
+
+The particularity: policy is enforced **before** the model call. If policy removes a tool, the model does not receive that schema for the turn. Teaching the model "please do not use browser" is not a substitute for `tools.deny`.
+
+
+**Case.** An operator sets `tools.profile` `minimal` on a reader agent, then adds `tools.allow: ["session_status", "web_fetch"]`. The non-empty allowlist is the whole world: `session_status` from the profile is not magically unioned unless it is also in `allow`. Prefer profile plus `alsoAllow` when you mean "profile and also these." Validation rejects `allow` and `alsoAllow` together in one scope (OpenClaw, *Tools and custom providers*, n.d.).
+
+Doctor is the migration tool for renamed ids (`image` to `view_image`, `update_plan` to `progress_card`). Teaching both old and new names as live is how a deny list silently misses the current schema.
+
+Related pages to keep open while editing `tools.*`: *Exec* for host commands, *Exec approvals* for the ask path, *Elevated exec* for the sandbox escape that is still exec-only, *Per-agent sandbox and tool restrictions* for delegated runs (OpenClaw, n.d.).
+
+A plugin that registers the same tool name as a builtin (the `browser` plugin is the canonical case) is swapped by disabling the bundled entry, not by denying the name and hoping a second schema appears. Defaults need both `plugins.entries.browser.enabled` and `browser.enabled` true (OpenClaw, *Browser*, n.d.).
+
+This lesson is the inventory. The sandbox lesson is the three-layer "why is this blocked" page. Read both before changing `tools.sandbox.tools.*`.
+
+
+`tools.profile` `full` is unrestricted only at the profile layer. A later deny, a sandbox allowlist, a provider profile, or a missing plugin can still hide a tool. "Full" is not a promise that the model sees every schema OpenClaw has ever shipped.
+
+Sender policy keys use explicit prefixes: `channel:<channel>:<id>`, `id:`, `e164:`, `username:`, `name:`, or `"*"`. Matching order is channel+id, then id, e164, username, name, then wildcard. Per-agent `toolsBySender` overrides the global match when it matches, even with an empty object (OpenClaw, *Tools and custom providers*, n.d.).
+
+Do not put channel ids in message text and expect `toolsBySender` to honor them. The adapter must emit the requester identity. That is the same requester-scoped story as *Security* (OpenClaw, n.d., https://docs.openclaw.ai/gateway/security).
+
+When in doubt, print the effective set with `openclaw sandbox explain` even if you think sandbox is off. The inspector prints sandbox tool allow/deny and whether it came from agent, global, or default. Cite that command on the sandbox page; this lesson only points at it.
+
+Cite *Architecture* for where the Gateway owns the tool surface (`https://docs.openclaw.ai/concepts/architecture`).
+
+The particularity sentence again: policy runs before the model call.
+
+## Sources
+
+
+OpenClaw. (n.d.). *Tools overview*. https://docs.openclaw.ai/tools
+
+OpenClaw. (n.d.). *Tools and custom providers*. https://docs.openclaw.ai/gateway/config-tools
+
+OpenClaw. (n.d.). *Sandbox vs tool policy vs elevated*. https://docs.openclaw.ai/gateway/sandbox-vs-tool-policy-vs-elevated
+
+OpenClaw. (n.d.). *Skills*. https://docs.openclaw.ai/tools/skills
+
+OpenClaw. (n.d.). *Plugins*. https://docs.openclaw.ai/tools/plugin
+
+OpenClaw. (n.d.). *Browser*. https://docs.openclaw.ai/tools/browser
+
+OpenClaw. (n.d.). *Agent workspace*. https://docs.openclaw.ai/concepts/agent-workspace
+
+Nous Research. (n.d.). *Agent loop internals*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop

@@ -1,31 +1,181 @@
-## Message flow
+## A long-running process, not a WS control plane
 
-Adapter -> MessageEvent -> GatewayRunner._handle_message: session key via build_session_key (agent:main:{platform}:{chat_type}:{chat_id}), authorize, slash command or AIAgent, deliver.
+Hermes Gateway is the process that sits in front of 20-plus messaging platforms and funnels every inbound event into one `AIAgent` loop. Nous Research's [*Gateway Internals*](https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals) (n.d.) is the primary source for this lesson. It is an in-process runner inside the same Python application as `AIAgent`, not a typed WebSocket product. OpenClaw's Gateway, by contrast, *is* the product process: protocol, pairing, channels, and agent RPC on one daemon (OpenClaw, *Gateway architecture*, n.d.). Keep those two objects apart or you will debug the wrong waist.
 
-Two-level guard: (1) BasePlatformAdapter queues if session active and sets interrupt; /approve /deny /stop bypass. (2) Runner intercepts /stop /new /queue /status /approve /deny; else running_agent.interrupt(). /model while running is rejected.
-
-Auth order: per-platform allow-all, allowlist, DM pairing, global GATEWAY_ALLOW_ALL_USERS, default deny. /pair issues a code the new user types back.
-
-Token locks: acquire_scoped_lock in connect so two profiles cannot share one bot token.
-
-Hooks: gateway:startup, session:*, agent:*, command:* from ~/.hermes/hooks/ (builtin_hooks ships empty).
-
-Cron deliveries are not mirrored into gateway history.
+The runner lives in `gateway/run.py` as `GatewayRunner`. Session keys and persistence live in `gateway/session.py`. Outbound delivery is `gateway/delivery.py`. DM pairing is `gateway/pairing.py`. Token locks are `gateway/status.py`. Platform adapters sit either under `plugins/platforms/` (bundled plugin adapters) or under `gateway/platforms/` (legacy/direct adapters plus the shared `base.py`).
 
 <VisualSlot caption="Runner, session key, two-level guard, pairing code, token lock." />
 
-## Compare vs OpenClaw
+## Message flow, as documented
 
-OpenClaw pairing is device-based (connect.challenge + device token) and DM pairing codes expire in 1h. Hermes pairing is DM-code plus allowlists; WS protocol is not the control plane.
+When a message arrives from any platform, Nous Research (*Gateway Internals*, n.d.) specifies this order:
 
-## Case: two profiles, one bot token
+1. The platform adapter receives the raw event and normalizes it into a `MessageEvent`.
+2. The base adapter checks the active-session guard. If an agent is already running for that session, the adapter queues the message and sets an interrupt event. Commands `/approve`, `/deny`, and `/stop` bypass the guard and are dispatched inline.
+3. `GatewayRunner._handle_message()` receives the event: it resolves a session key, checks authorization, dispatches slash commands, intercepts running-agent commands such as `/stop` and `/status`, or else creates an `AIAgent` and runs the conversation.
+4. The response is sent back through the platform adapter.
 
-**Case.** hermes -p work and -p home both start Telegram.
+Session keys encode the full routing context. The documented format is:
 
-**Fix.** Scoped lock; second connect fails loud.
+```text
+agent:main:{platform}:{chat_type}:{chat_id}
+```
+
+Example from the same page: `agent:main:telegram:private:123456789`. Thread-aware platforms (Telegram forum topics, Discord threads, Slack threads) may include thread IDs in the `chat_id` portion. Never construct session keys by hand — always use `build_session_key()` from `gateway/session.py`.
+
+<Callout>
+A session key is a routing address, not a personality. Two Telegram chats with different `chat_id` values are two sessions even if the same human is typing. Cron deliveries use their own session on purpose, so they never land in the middle of a live user/assistant pair.
+</Callout>
+
+## Two sequential guards
+
+When an agent is actively running, inbound messages pass two guards, in order (Nous Research, *Gateway Internals*, n.d.):
+
+**Level 1 — Base adapter** (`gateway/platforms/base.py`). Checks `_active_sessions`. If the session is active, the message is queued in `_pending_messages` and an interrupt event is set. This catches the message before it reaches the runner.
+
+**Level 2 — Gateway runner** (`gateway/run.py`). Checks `_running_agents`. Intercepts `/stop`, `/new`, `/queue`, `/status`, `/approve`, `/deny` and routes them. Everything else triggers `running_agent.interrupt()`.
+
+Commands that must reach the runner while the agent is blocked (the documented example is `/approve`) are dispatched inline via `await self._message_handler(event)` so they bypass the background task system and avoid a race.
+
+A running-agent guard also rejects `/model` while the agent is processing: the documented reply is to wait or `/stop` first. Bypass commands have special handling. This is why a second WhatsApp message does not start a second `AIAgent` on the same session: the interrupt path of [*Agent Loop Internals*](https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop) (Nous Research, n.d.) abandons the HTTP thread, and the queued message becomes the next user row.
+
+## Authorization, in evaluation order
+
+The gateway uses a multi-layer check, evaluated in this order (Nous Research, *Gateway Internals*, n.d.):
+
+1. Per-platform allow-all flag (for example `TELEGRAM_ALLOW_ALL_USERS`). If set, every user on that platform is authorized.
+2. Platform allowlist (for example `TELEGRAM_ALLOWED_USERS`), comma-separated user IDs.
+3. DM pairing — authenticated users can pair new users via a pairing code.
+4. Global allow-all (`GATEWAY_ALLOW_ALL_USERS`). If set, every user across all platforms is authorized.
+5. Default: **deny**. Unauthorized users are rejected.
+
+DM pairing, from the same page:
+
+```text
+Admin: /pair
+Gateway: "Pairing code: ABC123. Share with the user."
+New user: ABC123
+Gateway: "Paired! You're now authorized."
+```
+
+Pairing state is persisted in `gateway/pairing.py` and survives restarts. Compare that with OpenClaw: OpenClaw pairing is **device-based**. Every WebSocket client signs `connect.challenge`; the Gateway issues a device token; Tailnet and LAN connects still require explicit pairing (OpenClaw, *Gateway architecture*, n.d.; OpenClaw, *Node pairing*, n.d.). Hermes pairing is a DM code plus allowlists. Hermes has no public WS control plane for operators and nodes.
+
+**Case.** Two people DM the Telegram bot. The allowlist is empty, `TELEGRAM_ALLOW_ALL_USERS` is unset, and nobody ran `/pair`. Default deny. The second person is rejected until an already-authorized admin issues `/pair` and the newcomer types the code. Do not "fix" this by setting the global allow-all on a public group.
+
+## Slash commands and config sources
+
+All slash commands flow through the same pipeline: `resolve_command()` from `hermes_cli/commands.py` maps input to a canonical name (aliases, prefix matching); the name is checked against `GATEWAY_KNOWN_COMMANDS`; `_handle_message()` dispatches; some commands are gated on config via `gateway_config_gate` on `CommandDef`.
+
+The gateway reads configuration from three sources (Nous Research, *Gateway Internals*, n.d.):
+
+| Source | What it provides |
+| --- | --- |
+| `~/.hermes/.env` | API keys, bot tokens, platform credentials |
+| `~/.hermes/config.yaml` | Model settings, tool configuration, display options |
+| Environment variables | Override any of the above |
+
+Unlike the CLI (which uses `load_cli_config()` with hardcoded defaults), the gateway reads `config.yaml` directly via a YAML loader. Config keys that exist in the CLI defaults dict but not in the user's file may therefore behave differently between CLI and gateway. That is a documented footgun, not a bug in your shell.
+
+## Adapters, deferred loading, token locks
+
+Most messaging platforms ship as plugin adapters under `plugins/platforms/<name>/adapter.py`; a few legacy adapters still live in `gateway/platforms/`. All extend `BasePlatformAdapter`. Bundled `kind: platform` plugins register cheap `register_deferred` loaders in `gateway/platform_registry.py` so platform SDKs import only when the gateway starts, delivers, or runs setup/status — not on plain `hermes chat`. Resolution loads one adapter on lookup.
+
+Adapters implement `connect()` / `disconnect()`, `send()`, and inbound normalization into `MessageEvent`. Adapters that connect with unique credentials call `acquire_scoped_lock()` in `connect()` and `release_scoped_lock()` in `disconnect()`. This prevents two profiles from using the same bot token at once.
+
+**Case.** `hermes -p work` and `hermes -p home` both start Telegram against one bot token. The scoped lock makes the second `connect()` fail loud. Without it you would have two GatewayRunners fighting one Telegram long-poll, duplicate replies, and a pairing store that no longer matches reality.
+
+Experimental connector-backed platforms use the generic relay adapter in `gateway/relay/` when `GATEWAY_RELAY_URL` or `gateway.relay_url` is set. The gateway dials the connector over an outbound WebSocket and receives `descriptor`, `inbound`, and `interrupt_inbound` frames. The source-grounded wire contract lives in `docs/relay-connector-contract.md` (Nous Research, *Gateway Internals*, n.d.). Do not invent extra frame names.
+
+## Delivery, hooks, and what cron must not do
+
+Outgoing deliveries (`gateway/delivery.py`) cover four paths:
+
+- Direct reply to the originating chat.
+- Home-channel delivery for cron outputs and background results.
+- Explicit target delivery (`telegram:-1001234567890`), via `hermes send` and cron `deliver:` targets.
+- Cross-platform delivery to a different platform than the origin.
+
+**Cron job deliveries are not mirrored into gateway session history.** They live in their own cron session only. Nous Research states this as a deliberate design choice to avoid message-alternation violations (*Gateway Internals*, n.d.; *Cron Internals*, n.d.). If you paste a cron briefing into a live Telegram thread as if it were an assistant turn, the next provider call can reject two assistants in a row.
+
+Gateway hooks are Python modules with a `HOOK.yaml` manifest and `handler.py`. Documented events: `gateway:startup`, `session:start`, `session:end`, `session:reset`, `agent:start`, `agent:step`, `agent:end`, `command:*`. Discovery is from `gateway/builtin_hooks/` (currently empty in the shipped distribution; `_register_builtin_hooks()` is a no-op stub) and `~/.hermes/hooks/` for user-installed hooks.
+
+When a memory provider plugin (Honcho is the documented example) is enabled, the gateway creates an `AIAgent` per message with the session ID; `MemoryManager` initializes the provider; provider tools are routed through `AIAgent._invoke_tool()` to `self._memory_manager.handle_tool_call`. On session end, reset, or expiry: built-in memories flush to disk, the provider's `on_session_end()` fires, a temporary `AIAgent` runs a memory-only turn, then context is discarded or archived.
+
+## Process management and background work
+
+The gateway runs as a long-lived process: `hermes gateway start` / `stop`, `systemctl` on Linux, `launchctl` on macOS. PID file at `~/.hermes/gateway.pid` is profile-scoped. `hermes gateway stop` stops only the current profile; `hermes gateway stop --all` uses global `ps aux` scanning to kill all gateway processes (used during updates).
+
+Background maintenance, alongside message handling: cron ticking, session expiry, proactive memory flush before expiry, cache refresh of model lists and provider status.
 
 <TryThis>
-Write the session key for Telegram private chat 123. Name the two guard levels.
+Write the session key for a Telegram private chat whose id is 123. Name the two guard levels, in order, and the one slash command that is rejected while the agent is running. Then write why a cron delivery must not be appended as an assistant row in that same session.
 </TryThis>
 
-Source: [Gateway internals](https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals).
+
+## Where adapters live
+
+Nous Research (*Gateway Internals*, n.d.) splits adapters into two trees. Plugin-packaged adapters (one directory each, typically `adapter.py` plus `plugin.yaml`) include Telegram (Bot API, long polling or webhook), Discord (`discord.py`), Slack Socket Mode, WhatsApp Business Cloud API, Matrix via mautrix with optional E2EE, Mattermost WebSocket, email via IMAP/SMTP, SMS via Twilio, DingTalk, Feishu/Lark, WeCom, LINE, Microsoft Teams, IRC (the canonical scoped-lock example), Home Assistant, plus google_chat, ntfy, photon, raft, simplex, and others. Direct adapters still in `gateway/platforms/` include Signal via signal-cli REST, Weixin via iLink Bot API, BlueBubbles for iMessage, QQ Bot Official API v2, Yuanbao, Microsoft Graph change-notification webhooks, inbound/outbound webhook, and the REST API server adapter.
+
+That inventory is a teaching map, not a promise that every adapter is loaded on `hermes chat`. Deferred loading is the point: a CLI session must not import Discord.py because you once enabled Telegram. [*Adding a Platform Adapter*](https://hermes-agent.nousresearch.com/docs/developer-guide/adding-platform-adapters) (Nous Research, n.d.) adds a second invariant for plugin platforms: cron can fire in a **separate process** from the gateway (`hermes cron run` versus `hermes gateway`). Built-in platforms ship direct REST helpers in `tools/send_message_tool.py` so delivery works without a live runner. Plugin platforms historically depended on `_gateway_runner_ref()`, which returns `None` outside the gateway process. Without `standalone_sender_fn`, cron-side send fails with "No live adapter for platform". `cron_deliver_env_var` makes the platform a recognized `deliver=` target. `pii_safe` redacts. `hermes status` shows plugin platforms with a `(plugin)` tag. `hermes gateway setup` lists them in the setup menu.
+
+**Case.** You write a plugin platform, enable it, and schedule a morning briefing with `deliver: myplat`. The gateway is not running at 09:00; `hermes cron` ticks in another process. Delivery fails unless you registered `standalone_sender_fn`. The failure is not "cron is broken"; it is the documented process split.
+
+## Channel directory and mirroring
+
+`gateway/channel_directory.py` maps chat IDs to human-readable names so cron `deliver: slack:#engineering` can resolve at fire time, not at create time (Nous Research, *Cron Internals*, n.d.). Named channels resolve against the directory the gateway builds from connected adapters; raw IDs always work. `gateway/mirror.py` handles cross-session message mirroring for `send_message`. Cron deliveries are still excluded from that mirror, for the same alternation reason.
+
+IRC is documented as the canonical scoped-lock example: two profiles must not share one nick/token. Copy that pattern in `connect()` when you add a platform, rather than inventing a second lock file.
+
+## Hermes Gateway versus OpenClaw Gateway
+
+| Concern | Hermes (Nous Research, *Gateway Internals*, n.d.) | OpenClaw (*Gateway architecture*, n.d.) |
+| --- | --- | --- |
+| Process | `GatewayRunner` in the same Python app as `AIAgent` | One long-lived Gateway daemon |
+| Control plane | Slash commands and adapters; no public WS protocol | Typed WebSocket, first frame must be `connect` |
+| Default bind | Profile-scoped PID, platform sockets | `127.0.0.1:18789` |
+| Pairing | DM code plus allowlists | Device identity, `connect.challenge`, device token |
+| Nodes | Not a Hermes object | `role: node` on the same WS |
+| One writer | Two-level guard plus HTTP-thread abandon | Session lane plus `activeWriterRunId` |
+
+Do not send an OpenClaw `connect` frame to Hermes. Do not expect Hermes `/pair` to issue a device token. The compare table is so you can choose a product, not so you can mix their knobs.
+
+OpenClaw's equivalent waist is a single daemon on WebSocket `127.0.0.1:18789` by default, with a mandatory `connect` first frame and device pairing (OpenClaw, *Gateway architecture*, n.d.). Hermes does not speak that protocol. If you need IDE stdio, Hermes uses ACP (`hermes acp`) wrapping the same `AIAgent` (Nous Research, *ACP Internals*, n.d.). Different products, same need: one writer per session.
+
+
+## What to run, and what not to invent
+
+Start with `hermes gateway start` for a profile, then `hermes gateway setup` so plugin platforms appear in the menu. Supervise with systemd or launchd; the PID file is the profile-scoped handle, not a cluster lock. `hermes gateway stop --all` is an update tool, not a daily hammer: it scans `ps aux` and will kill every gateway on the host.
+
+Do not invent a Hermes WebSocket `connect` handshake. Do not invent OpenClaw-style `operator.read` scopes on Hermes slash commands. Do not treat `GATEWAY_ALLOW_ALL_USERS` as a convenience flag on a public network. The default deny at the bottom of the authorization list is the academic result of the documented order: every earlier layer is an explicit widening.
+
+When a memory provider is on, remember the flush lifecycle is part of the gateway, not an optional courtesy. Session reset, resume, or expiry flushes built-in memories, fires `on_session_end()`, runs a memory-only `AIAgent` turn, then discards or archives context (Nous Research, *Gateway Internals*, n.d.). Skipping that turn is how durable facts die at `/new`.
+
+**Case.** An operator runs two profiles, `work` and `home`, each with its own Telegram bot token, each with its own PID file. That is the intended multi-profile shape. The failure mode is sharing one token, not running two profiles. The scoped lock is the test: a second connect against the same token must fail.
+
+If you need a control plane that nodes and IDEs share, you are describing OpenClaw's architecture page, not this one. If you need the same `AIAgent` on Telegram, Discord, and cron, you are on this page.
+
+
+## Inline dispatch is a race fix
+
+The documented inline path for `/approve` is easy to skip on a first read. If approval went through the same background task queue as chat, a second event could sit behind the still-running agent, and the human "yes" would never arrive while the agent was blocked on `approval_callback`. Inline `await self._message_handler(event)` is how Nous Research avoids that deadlock (*Gateway Internals*, n.d.). `/stop` and `/deny` need the same privilege: they must be able to reach the runner while the HTTP thread is still outstanding.
+
+Level 1 queues ordinary chat. Level 2 interrupts ordinary chat. Only the bypass set is allowed to cut the line. If you add a custom slash command that must work during a run, it has to be in that set or it will be treated as a new user message and will interrupt the call you meant to steer.
+
+
+Read [*Gateway Internals*](https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals) before changing `gateway/run.py`. It is a large file; the page tells you which neighbouring modules own session keys, delivery, pairing, locks, and hooks so a one-line "fix" does not land in the wrong subsystem.
+
+## Sources
+
+Nous Research. (n.d.). *Gateway internals*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals
+
+Nous Research. (n.d.). *Agent loop internals*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop
+
+Nous Research. (n.d.). *Cron internals*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/cron-internals
+
+Nous Research. (n.d.). *ACP internals*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/acp-internals
+
+Nous Research. (n.d.). *Adding a platform adapter*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/adding-platform-adapters
+
+OpenClaw. (n.d.). *Gateway architecture*. https://docs.openclaw.ai/concepts/architecture
+
+OpenClaw. (n.d.). *Node pairing*. https://docs.openclaw.ai/gateway/pairing

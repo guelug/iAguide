@@ -15,7 +15,7 @@
   "prereqs": [
     "evaluation"
   ],
-  "durationMin": 18,
+  "durationMin": 30,
   "tags": [
     "otel",
     "traces",

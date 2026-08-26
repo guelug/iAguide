@@ -1,0 +1,306 @@
+## Un 27B denso que ve, y que piensa
+
+Qwen3.8-27B no es un MoE disperso. La [guía de entrenamiento de Unsloth](https://unsloth.ai/docs/models/qwen3.8/train) lo llama un **<Term id="vlm">VLM</Term> unificado denso de 27B**: **texto, imagen y vídeo** nativos, con controles de thinking y una ventana de **262K**. La [página de ejecución](https://unsloth.ai/docs/models/qwen3.8) hermana también dice **256K** en la prosa y después lista el contrato como **262.144** tokens, extensible a 1M con YaRN al servir. Trata **262.144** como el número contra el que dimensionas. No entrenarás tan lejos en una tarjeta de 24GB.
+
+El id de arquitectura es `qwen3_5`. No es un errata de esta lección. La página de Unsloth dice que Qwen3.8 usa la arquitectura `qwen3_5`, así que sigues el camino Unsloth de Qwen3.5 cuando un flag es compartido (sobre todo RL). Necesitas **Transformers v5 reciente**. La primera corrida de train es más lenta mientras compilian los kernels de **Gated DeltaNet** y **Flash Linear Attention**. Esos kernels son la misma familia de atención lineal que Kimi Delta Attention — lee [Kimi Delta Attention](/es/m/kimi-delta-attention) si quieres el mezclador, no solo el flag del entrenador.
+
+La afirmación de Unsloth **en este modelo**, frente a un montaje FlashAttention-2: **unas 1.5× más rápido**, **un 50% menos de VRAM**, **sin pérdida de exactitud**. Es el número de la página de train de Qwen3.8, no la línea general 2× / 70% de la lección anterior. Cita la página que quieres decir.
+
+<VisualSlot caption="Cuatro diapositivas: Studio frente a Kaggle gratis, escalera de VRAM QLoRA / LoRA / ajuste completo, mezcla de razonamiento al 75 por ciento, tres artefactos de exportación que conservan una plantilla de chat." />
+
+## Dos caminos honestos: Studio o Kaggle
+
+No hace falta empezar en un notebook. Unsloth Desktop tiene una pestaña **Train**. Busca **Qwen3.8-27B**, elige el modelo y el dataset, ajusta hiperparámetros y contexto, arranca. Mira la pérdida. Debe bajar de forma constante. Cuando termina, Studio guarda el modelo. Pulsa **Compare Mode** para sentar el LoRA junto al original. Exporta **GGUF** o **safetensors** desde la app.
+
+Studio entrena **GPUs NVIDIA** hoy. El entrenamiento en Intel, MLX y AMD figura como próximo en esa misma página de Qwen3.8. Ya puedes *ejecutar* en Mac, Windows y Linux. El entrenamiento es la historia NVIDIA hasta que esos backends lleguen. Core Python en NVIDIA sigue siendo el camino con la receta impresa abajo.
+
+Instalación, de esa página oficial:
+
+```bash
+# Mac / Linux / WSL
+curl -fsSL https://unsloth.ai/install.sh | sh
+```
+
+```powershell
+# Windows PowerShell
+irm https://unsloth.ai/install.ps1 | iex
+```
+
+Descargas: [macOS](https://unsloth.ai/download/mac) · [Windows](https://unsloth.ai/download/windows) · [Linux](https://unsloth.ai/download/linux).
+
+<Myth>
+No puedes entrenar este 27B desde un GGUF, ni fingir que el notebook conversacional es Colab. Entrena desde `unsloth/Qwen3.8-27B-unsloth-bnb-4bit` (safetensors / dynamic 4-bit), y después exporta GGUF. El camino SFT gratis que publica Unsloth es **Kaggle**, 30 horas, 2× T4. Una URL Colab de SFT 27B no está en el índice oficial.
+</Myth>
+
+El camino de GPU **gratis** para este 27B es **Kaggle**, no un notebook Colab dedicado de SFT 27B. Unsloth da **30 horas** con **2× Tesla T4**. El índice de notebooks lista el conversacional Qwen3.8 27B como notebook de **Kaggle**, aunque se siente bajo un encabezado de Colab. No inventes una URL Colab de SFT 27B.
+
+| Trabajo | Notebook oficial |
+| --- | --- |
+| SFT conversacional (puedes activar Vision en el notebook) | [Kaggle-Qwen3.8 (27B) Conversational](https://www.kaggle.com/notebooks/welcome?src=https://github.com/unslothai/notebooks/blob/main/nb/Kaggle-Qwen3.8_(27B)-Conversational.ipynb&accelerator=nvidiaTeslaT4) |
+| RL GRPO | [Kaggle Muse Glimmer (30B) GRPO](https://www.kaggle.com/notebooks/welcome?src=https://github.com/unslothai/notebooks/blob/main/nb/Kaggle-Muse_Glimmer_(30B)-GRPO.ipynb&accelerator=nvidiaTeslaT4) — **cambia el modelo a Qwen3.8** |
+
+Repo: [unslothai/notebooks](https://github.com/unslothai/notebooks). Índice: [notebooks de Unsloth](https://unsloth.ai/docs/get-started/unsloth-notebooks).
+
+<Callout>
+Kaggle es un producto de Google, como Colab, con un regalo de GPU distinto. Para este 27B, el artefacto SFT gratis de Unsloth es el notebook conversacional de Kaggle. Si un gist privado afirma un enlace Colab de SFT 27B, no es el índice oficial.
+</Callout>
+
+## VRAM en este modelo: QLoRA a 24GB
+
+Los números de la guía de train para **Qwen3.8-27B**, que *no* son la tabla genérica de mínimos:
+
+- **<Term id="qlora">QLoRA</Term> funciona con 24GB.**
+- **<Term id="lora">LoRA</Term> necesita más de 36GB.**
+- **<Term id="full-ft">El ajuste completo</Term> usa 4× más VRAM.**
+
+Empieza en 4-bit desde [`unsloth/Qwen3.8-27B-unsloth-bnb-4bit`](https://huggingface.co/unsloth/Qwen3.8-27B-unsloth-bnb-4bit). Después del entrenamiento **exportas** a NVFP4, FP8, GGUF y compañía. Entrenar en 4-bit no es el mismo objeto que servir en 4-bit; el adapter es pequeño en ambos casos.
+
+La tabla genérica de requisitos listaba QLoRA 27B a 22GB mínimo. Esta página dice que 24GB funciona. Cree a la **página del modelo** para esta arquitectura, y aun así trata 24GB como un presupuesto que puedes reventar con contexto, visión y batch.
+
+<Compare a="QLoRA en 24GB" b="LoRA por encima de 36GB, o ajuste completo">
+<Side>
+Checkpoint dynamic 4-bit de Unsloth, adapters LoRA, checkpointing `"unsloth"`, `offload_embedding=True`. Es la receta de abajo. Así una tarjeta clase 4090 o un par de T4 de Kaggle se vuelve una corrida real a `max_seq_length=2048`.
+</Side>
+<Side>
+LoRA 16-bit quiere más de 36GB. El ajuste completo es cuatro veces la VRAM de LoRA. La capacidad es real. También la factura. Úsalos cuando hayas medido subajuste en el adapter y tengas la GPU, no porque "completo" suene serio.
+</Side>
+</Compare>
+
+## Conservar el razonamiento, o olvidarás cómo pensar
+
+Qwen3.8 es un modelo de **thinking híbrido**. Si quieres **conservar la capacidad de razonar**, la regla de la guía de train es precisa: mezcla **ejemplos con estilo de razonamiento** con **respuestas directas**, y mantén **al menos un 75% de datos de razonamiento**.
+
+¿Por qué 75%, y no "unas trazas de adorno"? El SFT sobre respuestas directas cortas es **<Term id="catastrophic-forgetting">olvido catastrófico</Term>** de la traza de think. El modelo sigue completando. Deja de *mostrar el trabajo* que pagaste al elegir un checkpoint thinking. Las filas de respuesta directa enseñan "sáltate el bloque, emite la etiqueta". Si esas filas dominan, el token de think se vuelve raro en la distribución de entrenamiento, y al servir los controles híbridos no tienen nada sobre lo que condicionar.
+
+La mezcla es una decisión de datos, no de rango. Subir `r` no restaurará trazas que nunca mostraste. Después de la corrida, evalúa en prompts que **necesiten** una traza — herramientas de varios pasos, demostraciones, políticas largas — no solo en FAQs de una línea.
+
+**Case.** Un equipo hace fine-tune solo con respuestas directas cortas: FAQs de una línea, sin trazas. La pérdida se ve sana. Al servir, el modelo híbrido deja de pensar. El arreglo es la mezcla: **al menos 75% con estilo de razonamiento**, el resto puede ser directo. Después evalúa en prompts que de verdad exijan una traza.
+
+## Datos: una columna `text`, ya en la plantilla Qwen
+
+La receta SFT quiere JSONL cuyas filas ya tienen un campo **`text`**, renderizado con la **plantilla de chat Qwen**. No entregues al entrenador `messages` crudos y esperes. Aplica primero `tokenizer.apply_chat_template`. La misma plantilla que servirás. **El mismo EOS.**
+
+Forma de un JSONL de un ejemplo. El valor de `text` es lo que produjo `apply_chat_template` — no inventes un segundo dialecto:
+
+```json
+{"text": "<the exact string tokenizer.apply_chat_template produced for one conversation>"}
+```
+
+Cómo se produce esa cadena:
+
+```python
+messages = [
+    {"role": "user", "content": "Reset the warehouse printer."},
+    {"role": "assistant", "content": "<think>\nNeed the official power-cycle steps, then a status check.\n</think>\nPower off. Wait ten seconds. Power on. Confirm idle."},
+]
+text = tokenizer.apply_chat_template(
+    messages,
+    tokenize=False,
+    add_generation_prompt=False,
+)
+```
+
+`dataset_text_field="text"` en `SFTConfig` es cómo TRL encuentra esa columna. Si tu archivo usa `prompt` o `output`, el entrenador no verá la conversación renderizada salvo que renombres. `add_generation_prompt=False` porque estas filas son turnos **completados**.
+
+## Receta SFT de texto, cada flag
+
+Esta es la receta mínima oficial de la [guía de train](https://unsloth.ai/docs/models/qwen3.8/train). Los hiperparámetros coinciden con esa página. Vuelve a leerla el día que corras; los flags se mueven.
+
+```python
+from unsloth import FastModel
+from datasets import load_dataset
+from trl import SFTTrainer, SFTConfig
+
+max_seq_length = 2048
+
+dataset = load_dataset(
+    "json",
+    data_files = "train.jsonl",
+    split = "train",
+)
+
+model, tokenizer = FastModel.from_pretrained(
+    model_name = "unsloth/Qwen3.8-27B-unsloth-bnb-4bit",
+    max_seq_length = max_seq_length,
+    load_in_4bit = True,
+    full_finetuning = False,
+    offload_embedding = True,
+)
+
+model = FastModel.get_peft_model(
+    model,
+    finetune_vision_layers     = False,
+    finetune_language_layers   = True,
+    finetune_attention_modules = True,
+    finetune_mlp_modules       = True,
+    r = 16,
+    lora_alpha = 16,
+    lora_dropout = 0,
+    bias = "none",
+    use_gradient_checkpointing = "unsloth",
+    random_state = 3407,
+    use_rslora = False,
+    loftq_config = None,
+)
+
+trainer = SFTTrainer(
+    model = model,
+    tokenizer = tokenizer,
+    train_dataset = dataset,
+    args = SFTConfig(
+        dataset_text_field = "text",
+        max_seq_length = max_seq_length,
+        per_device_train_batch_size = 1,
+        gradient_accumulation_steps = 4,
+        warmup_steps = 10,
+        max_steps = 100,
+        learning_rate = 2e-4,
+        logging_steps = 1,
+        optim = "adamw_8bit",
+        output_dir = "outputs_qwen38",
+        seed = 3407,
+        dataset_num_proc = 1,
+        report_to = "none",
+    ),
+)
+
+trainer.train()
+```
+
+Léela como lista de comprobación, no como papel pintado.
+
+**`FastModel`, no `FastLanguageModel`.** Qwen3.8 es un VLM en arquitectura `qwen3_5`. La página de train importa `FastModel`.
+
+**`max_seq_length = 2048`.** Un contexto de corrida de humo. Los 262k de la ficha son un número de servicio. En 24GB, 2048 es el arranque documentado. Súbelo solo después de que una corrida corta termine.
+
+**`load_dataset("json", data_files="train.jsonl", split="train")`.** JSONL local. El nombre de split `train` es el que Hugging Face Datasets usa para un solo archivo sin splits internos.
+
+**`model_name="unsloth/Qwen3.8-27B-unsloth-bnb-4bit"`.** Quant dynamic 4-bit de Unsloth, la base QLoRA. No es un GGUF. No es el original 16-bit salvo que tengas la VRAM.
+
+**`load_in_4bit=True`, `full_finetuning=False`.** QLoRA. Solo un método verdadero a la vez.
+
+**`offload_embedding=True`.** Opcional. Aparca el **embedding de entrada no atado**, grande, en RAM para que **baje la VRAM residente**. Unsloth **lo desactiva solo en plataformas no soportadas**. Déjalo encendido en NVIDIA 24GB salvo que el loader lo apague.
+
+**`finetune_vision_layers=False`.** Este dataset es texto. No quieres que el encoder de visión se desvíe en filas que nunca muestran un píxel. Lenguaje, atención y MLP se quedan en **True** para que LoRA pegue en el mezclador y en el feed-forward, que es cómo Unsloth (citando QLoRA) iguala la calidad del ajuste completo.
+
+**`r=16`, `lora_alpha=16`.** Rango 16 es el arranque documentado — capacidad sin un pico de memoria. Alpha igual al rango, así `alpha / rank = 1`, la línea base oficial. Dropout **0** porque Unsloth optimiza ese camino. `bias="none"` para entrenar más rápido y con menos memoria; entrenar términos de sesgo añade parámetros casi sin ganancia.
+
+**`use_gradient_checkpointing="unsloth"`.** Su checkpointing, no un `True` genérico. Holgura extra de VRAM; consérvalo cuando hay OOM.
+
+**`random_state=3407` y `seed=3407`.** Reproducibilidad. Los notebooks de Unsloth usan esta semilla para que tu corrida de humo sea comparable a la suya.
+
+**`use_rslora=False`, `loftq_config=None`.** LoRA estabilizado por rango y LoftQ son avanzados. LoftQ puede disparar la memoria al arrancar. Déjalos apagados en la primera corrida.
+
+**`dataset_text_field="text"`.** El nombre de la columna. Si no coincide con la clave del JSONL, estás entrenando sobre nada útil.
+
+**`per_device_train_batch_size=1`, `gradient_accumulation_steps=4`.** Batch efectivo 4. Batch 1 es el suelo de VRAM. Accum 4 mantiene estables las actualizaciones. Unsloth hizo equivalentes batch y accum tras su arreglo de acumulación de gradiente.
+
+**`warmup_steps=10`, `max_steps=100`, `learning_rate=2e-4`.** Warmup de diez pasos en una corrida de **humo** de 100. `2e-4` es el valor por defecto de LoRA/QLoRA. **`max_steps=100` no es un producto.** Sustitúyelo por `num_train_epochs` en 1–3 cuando los datos sean reales.
+
+**`logging_steps=1`.** Para ver moverse la pérdida. La instrucción de Studio es la misma: la pérdida debe bajar de forma constante.
+
+**`optim="adamw_8bit"`.** AdamW de 8-bit, para que el estado del optimizador no cancele el ahorro del 4-bit.
+
+**`output_dir="outputs_qwen38"`.** Checkpoints locales. Cámbialo. No compartas directorio con otra corrida.
+
+**`dataset_num_proc=1`.** Un proceso para mapear/tokenizar. Más seguro en Kaggle y en máquinas pequeñas; trabajadores extra pueden hacer OOM de la RAM del host durante el map.
+
+**`report_to="none"`.** Sin wandb salvo que te hayas apuntado.
+
+Si hay OOM: **reduce `max_seq_length`**, mantén **batch size 1**, mantén el checkpointing `"unsloth"`. Esa es la tríada oficial. No "subas el batch" en una T4.
+
+<Steps>
+1. Renderiza el JSONL con la plantilla de chat Qwen en una columna `text`. Conserva al menos un 75% de filas con estilo de razonamiento si necesitas trazas al servir.
+2. Carga `unsloth/Qwen3.8-27B-unsloth-bnb-4bit` en 4-bit, `full_finetuning=False`, `offload_embedding=True`.
+3. Engancha LoRA con checkpointing Unsloth. Capas de visión **apagadas** para texto. `r=16`, `lora_alpha=16`.
+4. Entrena con el `SFTConfig` de arriba. Si hay OOM, recorta `max_seq_length`, deja batch 1.
+5. Evalúa en prompts reservados que aún necesiten una traza de razonamiento. Después exporta con la misma plantilla y el mismo EOS.
+</Steps>
+
+## Visión: enciende el encoder solo cuando hay píxeles
+
+Qwen3.8 admite imagen y vídeo nativos. Para SFT multimodal, pon **`finetune_vision_layers=True`** y usa **`UnslothVisionDataCollator`** con un dataset conversacional de visión, como describe la página de [ajuste fino de visión](https://unsloth.ai/docs/basics/vision-fine-tuning). El notebook conversacional de Kaggle puede **activar Vision** — ese es el camino gratis soportado.
+
+```python
+model = FastModel.get_peft_model(
+    model,
+    finetune_vision_layers     = True,
+    finetune_language_layers   = True,
+    finetune_attention_modules = True,
+    finetune_mlp_modules       = True,
+    r = 16,
+    lora_alpha = 16,
+    lora_dropout = 0,
+    bias = "none",
+    use_gradient_checkpointing = "unsloth",
+    random_state = 3407,
+)
+```
+
+¿Solo texto? Deja las capas de visión en **False**. Un encoder que nunca ve una imagen sigue consumiendo VRAM si lo entrenas, y puede desviarse.
+
+La página de visión de Unsloth también pide imágenes de tamaño parecido, más o menos 300–1000 px, para que el entrenamiento no explote. Concatena un poco de Q&A general con datos de visión de nicho si no quieres que el modelo olvide el lenguaje. Es su nota de Ministral; el principio transfiere.
+
+## RL: camino `qwen3_5`, y `fast_inference=False`
+
+El aprendizaje por refuerzo usa el mismo id de arquitectura, así que sigues el **camino RL Unsloth de Qwen3.5**. Desactiva la inferencia vLLM rápida. La página de train imprime esta carga:
+
+```python
+from unsloth import FastModel
+
+model, tokenizer = FastModel.from_pretrained(
+    model_name = "unsloth/Qwen3.8-27B-unsloth-bnb-4bit",
+    max_seq_length = 2048,
+    load_in_4bit = True,
+    fast_inference = False,
+)
+```
+
+**¿Por qué `fast_inference=False`?** La guía RL de Unsloth es explícita para arquitecturas cuyos kernels vLLM no están listos: pon `fast_inference=False` al cargar, como documentan para Qwen3.5 y para "RL en modelos no soportados". Qwen3.8 comparte `qwen3_5`. Los kernels vLLM rápidos **no** son el camino de entrenamiento para esta arquitectura todavía. La instrucción oficial es apagar ese flag, no "activar vLLM para ir más rápido" en este modelo.
+
+Enlaza esto con la [guía RL de Unsloth](https://unsloth.ai/docs/get-started/reinforcement-learning-rl-guide). **GRPO** (Group Relative Policy Optimization) muestrea **G** respuestas por pregunta, las puntúa con una **recompensa verificable**, y convierte esas recompensas en ventajas por **Z-score**. **No hay modelo de valor** ni modelo de recompensa aprendido al estilo PPO — por eso GRPO cabe en una GPU. RLVR significa que la recompensa se puede comprobar (mates, código, una rúbrica de chequeos pequeños), no una intuición.
+
+La paciencia es el método. Unsloth te dice que esperes **cientos de pasos** antes de que la recompensa suba de verdad; 300 es el número que escriben como mínimo, y a veces son 1000. Parte de un checkpoint **Instruct**, no de un base, si la probabilidad de una muestra correcta es ~0 — si esa probabilidad es siempre cero, RL nunca ve un rollout bueno. Usa recompensas **verificables**. Para Qwen3.8, el camino gratis es el [notebook GRPO Kaggle de Muse Glimmer 30B](https://www.kaggle.com/notebooks/welcome?src=https://github.com/unslothai/notebooks/blob/main/nb/Kaggle-Muse_Glimmer_(30B)-GRPO.ipynb&accelerator=nvidiaTeslaT4) con el **id de modelo cambiado a Qwen3.8**. Unsloth dice que RL también funciona en **24GB**. No pegues ese notebook en esta lección; cambia el id del modelo y conserva su entrenador.
+
+La tasa de aprendizaje GRPO en la guía de hiperparámetros arranca cerca de **`5e-6`**, no `2e-4`. Si reutilizas la de SFT en GRPO, no estás siguiendo la página de RL.
+
+## Exportación: misma plantilla, mismo EOS
+
+Lo que envíes — adapter, GGUF, 16-bit fusionado — debe usar la **misma plantilla de chat y el mismo EOS** con los que entrenaste. El desajuste es un bug silencioso de calidad. La página de problemas GGUF es la misma historia de la lección anterior, ahora con una plantilla Qwen enganchada.
+
+**Solo adapters:**
+
+```python
+model.save_pretrained("qwen38_lora")
+tokenizer.save_pretrained("qwen38_lora")
+```
+
+**GGUF** (llama.cpp / Desktop), `q4_k_m` recomendado:
+
+```python
+model.save_pretrained_gguf(
+    "qwen38_gguf",
+    tokenizer,
+    quantization_method = "q4_k_m",
+)
+```
+
+**vLLM** (16-bit fusionado):
+
+```python
+model.save_pretrained_merged(
+    "qwen38_finetuned",
+    tokenizer,
+    save_method = "merged_16bit",
+)
+```
+
+Desde QLoRA 4-bit también puedes exportar **NVFP4** y **FP8** para servir — eso es una decisión del módulo de ejecución. Primero el artefacto de entrenamiento; el quant para la caja en la que te sentarás.
+
+<TryThis>
+Abre el [notebook conversacional de Kaggle](https://www.kaggle.com/notebooks/welcome?src=https://github.com/unslothai/notebooks/blob/main/nb/Kaggle-Qwen3.8_(27B)-Conversational.ipynb&accelerator=nvidiaTeslaT4). En papel, lista las **seis celdas** que cambiarías para *tu* JSONL y `max_seq_length=2048`: (1) ruta del dataset / llamada a `load_dataset`, (2) la celda que renderiza `text` con la plantilla de chat Qwen, (3) `finetune_vision_layers` (False salvo que tengas imágenes), (4) `max_seq_length = 2048` junto a `from_pretrained` y `SFTConfig`, (5) `max_steps` o epochs, (6) `output_dir` y la celda de exportación (`save_pretrained`, `save_pretrained_gguf` o `save_pretrained_merged`). No corras todavía. Si no puedes nombrar seis celdas, no tienes un dataset — tienes una intuición.
+</TryThis>
+
+**Case.** Una tarjeta de 24GB. El usuario activa **visión**, pone el contexto a **8192** y carga **LoRA 16-bit**. La corrida hace OOM antes del paso 1. Recorre los mandos oficiales, en orden. Primero, esta página del modelo dice que **QLoRA funciona con 24GB** y que **LoRA necesita más de 36GB** — así que `load_in_4bit=True` sobre `unsloth/Qwen3.8-27B-unsloth-bnb-4bit`, no LoRA 16-bit. Segundo, **visión apagada** si el trabajo es texto: `finetune_vision_layers=False`. El encoder no es gratis. Tercero, **`max_seq_length=2048`**, el valor por defecto de la receta; 8192 es una ambición de servicio, no un presupuesto de train de 24GB. Cuarto, **batch 1**, conserva el checkpointing `"unsloth"`. Quinto, **`offload_embedding=True`** para que el embedding no atado viva en RAM. Si aún hay OOM después de esos cinco, recorta otra vez el contexto, no el rango primero. El rango 16 ya es el arranque pequeño.
+
+Fuentes oficiales: [guía de train Qwen3.8](https://unsloth.ai/docs/models/qwen3.8/train) (y [train.md](https://unsloth.ai/docs/models/qwen3.8/train.md)), [índice de notebooks](https://unsloth.ai/docs/get-started/unsloth-notebooks), [repo de notebooks](https://github.com/unslothai/notebooks), [guía RL](https://unsloth.ai/docs/get-started/reinforcement-learning-rl-guide), [ajuste fino de visión](https://unsloth.ai/docs/basics/vision-fine-tuning). Servir el GGUF es la lección de metal que sigue.

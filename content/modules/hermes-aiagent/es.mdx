@@ -1,25 +1,183 @@
-## Una clase, cinco puertas
+## Seis hosts, un `AIAgent`
 
-CLI, Gateway, ACP, Batch, API Server y la libreria convergen en **AIAgent** (`run_agent.py`).
+CLI, Gateway, ACP, el batch runner, el servidor API y la librería Python llaman a la misma clase: `AIAgent` en `run_agent.py`. *Architecture* de Nous Research (s. f.) es el mapa de primer nivel; *Agent Loop Internals* (s. f.) es la cintura. Esta lección es la particularidad de los puntos de entrada. El módulo genérico [el harness](/es/m/the-harness) permanece agnóstico a propósito.
 
-`chat()` devuelve string. `run_conversation()` devuelve dict con mensajes y uso.
+Dos métodos públicos envuelven el mismo bucle (Nous Research, *Agent Loop Internals*, s. f.):
 
-<VisualSlot caption="Las entradas convergen en AIAgent." />
+```python
+response = agent.chat("Fix the bug in main.py")
 
-<Myth>
-"Hermes es el arnes." **Nous Hermes** es familia de modelos. **Hermes Agent** es este arnes.
-</Myth>
+result = agent.run_conversation(
+    user_message="Fix the bug in main.py",
+    system_message=None,
+    conversation_history=None,
+    task_id="task_abc123",
+)
+```
 
-## Comparar con OpenClaw
+`chat()` es un envoltorio delgado que extrae `final_response`. `run_conversation()` devuelve el dict con mensajes, metadatos y uso. Si incrustan Hermes en un host, llamen al método completo para persistir el historial ustedes. Cada uno de los seis puntos de entrada es un host en ese sentido.
 
-OpenClaw embebe el bucle en el Gateway. Hermes exporta AIAgent usable desde cron sin gateway.
+<VisualSlot caption="puntos de entrada, AIAgent, chat(), run_conversation, cisma de nombres." />
 
-## Caso: la libreria reinventando el gateway
+## Cisma de nombres: familia de modelos frente a este harness
 
-**Caso.** Importan AIAgent sin SessionDB ni callbacks de interrupt.
+**Nous Hermes** es una familia de modelos. **Hermes Agent** es este harness de orquestación, publicado por Nous Research. Mezclar los dos nombres es el primer error de aula. Pueden correr Hermes Agent contra Claude, GPT, Gemini, Grok, un servidor vLLM local o un checkpoint Nous Hermes. El harness no "contiene" el modelo. **Llama** a un proveedor. La identidad del proveedor es la lección siguiente; esta lección es quién construye `AIAgent`.
+
+<Callout>
+Consejo: cuando un paper o un post de Discord dice "corrimos Hermes", pregunten cuál. Un fine-tune de Hermes-3 en Hugging Face no es este bucle. Este bucle es el repo cuya documentación vive en [hermes-agent.nousresearch.com](https://hermes-agent.nousresearch.com).
+</Callout>
+
+La visión de sistema de la página de arquitectura dibuja seis cajas arriba, una caja en el medio (`AIAgent`) y dos abajo (almacenamiento de sesión; backends de tools). Ese dibujo es la reivindicación que enseña esta lección. Las diferencias de plataforma viven en el punto de entrada, no en el agente (Nous Research, *Architecture*, s. f., "Platform-agnostic core").
+
+## Los seis puntos de entrada
+
+| Punto de entrada | Archivos principales | Cómo obtiene `AIAgent` |
+| --- | --- | --- |
+| CLI | `cli.py`, `hermes_cli/main.py` | Terminal interactiva: `HermesCLI.process_input()` y luego `run_conversation()` |
+| Gateway | `gateway/run.py` | `GatewayRunner._handle_message()` crea un agente con historial de sesión |
+| ACP | `acp_adapter/` | Agente nativo del editor por stdio/JSON-RPC (VS Code, Zed, JetBrains) |
+| Batch runner | `batch_runner.py` | Generación de trayectorias; no se guarda en `state.db` |
+| Servidor API | adaptador API server en `gateway/platforms/` | Host HTTP alrededor del mismo bucle |
+| Librería Python | import de `AIAgent` desde `run_agent.py` | Incrustar la clase en un host propio |
+
+Cron no es un séptimo cerebro. Cron es un scheduler que **crea un `AIAgent` fresco sin historial**, inyecta skills adjuntas como contexto, ejecuta el prompt del job y entrega (Nous Research, *Architecture*, s. f., flujo Cron Job). La [particularidad de cron](/es/m/hermes-cron) posee el archivo de jobs. Esta lección posee el hecho de que el job sigue pasando por `AIAgent`.
+
+**Caso.** Quien incrusta la librería llama a `agent.chat()` en un handler de peticiones y descarta la cadena devuelta. La petición siguiente no tiene historial, ni `task_id`, ni forma de `/resume`. El arreglo documentado es `run_conversation()` más persistir los mensajes devueltos: el mismo contrato que usa la CLI cuando escribe SQLite.
 
 <TryThis>
-Dibuja cinco cajas hacia AIAgent. Etiqueta que metodos usarias en un test sin GPU.
+Esbocen el host que van a escribir. ¿Necesitan el dict devuelto (mensajes, metadatos, uso)? Si sí, son un host de librería: llamen a `run_conversation()`. Si solo necesitan texto en stdout, `chat()` es el atajo con forma de CLI, no un segundo bucle.
 </TryThis>
 
-Fuente: [Architecture](https://hermes-agent.nousresearch.com/docs/developer-guide/architecture).
+## Tres flujos de datos, la misma cintura
+
+### Sesión CLI
+
+```text
+Entrada del usuario
+  -> HermesCLI.process_input()
+    -> AIAgent.run_conversation()
+      -> prompt_builder.build_system_prompt()
+      -> runtime_provider.resolve_runtime_provider()
+      -> llamada API (chat_completions / codex_responses / anthropic_messages)
+      -> tool_calls? -> model_tools.handle_function_call() -> bucle
+      -> respuesta final -> display -> guardar en SessionDB
+```
+
+### Mensaje de gateway
+
+```text
+Evento de plataforma -> Adapter.on_message() -> MessageEvent
+  -> GatewayRunner._handle_message()
+    -> autorizar usuario
+    -> resolver clave de sesión
+    -> crear AIAgent con historial de sesión
+    -> AIAgent.run_conversation()
+    -> entregar la respuesta por el adaptador
+```
+
+### Job de cron
+
+```text
+Tick del scheduler -> cargar jobs vencidos de jobs.json
+  -> crear AIAgent fresco (sin historial)
+  -> inyectar skills adjuntas como contexto
+  -> ejecutar el prompt del job
+  -> entregar la respuesta a la plataforma destino
+  -> actualizar estado del job y next_run
+```
+
+Esas tres listas siguen el espíritu de Nous Research (*Architecture*, s. f.). Fíjense en lo que comparten: `run_conversation()`. Fíjense en lo que no comparten: autorización, claves de sesión, entrega, e "historial fresco frente a reanudado". Eso pertenece al host.
+
+ACP es el host con forma de editor: stdio, JSON-RPC, callbacks. Hoy pone `thinking_callback` en `None` y reenvía el razonamiento por `step_callback` (Nous Research, *ACP Internals*, s. f.). Es una elección de adaptador, no un cambio del bucle. La [particularidad ACP](/es/m/hermes-acp) posee el protocolo. Esta lección posee el hecho de que ACP sigue construyendo `AIAgent`.
+
+## Qué vive dentro de la clase
+
+La caja del medio en la página de arquitectura no está vacía. `AIAgent` posee tres columnas interiores (Nous Research, *Architecture*, s. f.):
+
+| Columna | Archivos | Trabajo |
+| --- | --- | --- |
+| Prompt | `agent/prompt_builder.py`, `agent/system_prompt.py` | Ensamblar stable, luego context, luego volatile |
+| Resolución de proveedor | `hermes_cli/runtime_provider.py` | Mapear proveedor más modelo a `api_mode`, clave, `base_url` |
+| Dispatch de tools | `model_tools.py`, `tools/registry.py` | Más de 70 tools en unos 28 toolsets |
+
+Debajo: compresión y caché; tres modos de API (`chat_completions`, `codex_responses`, `anthropic_messages`); el registro de tools. Bajo la clase: almacenamiento de sesión (`hermes_state.py`, SQLite más FTS5) y backends de tools (terminal, navegador, web, MCP, archivo, visión). No reimplementen esas columnas en un host. Construyan `AIAgent` e instalen callbacks.
+
+`AIAgent` es síncrono. Las plataformas instalan callbacks para que un spinner TUI o un IDE puedan seguir el ritmo. La tabla de callbacks vive en la [particularidad del bucle](/es/m/hermes-loop). La regla del punto de entrada es más simple: el host posee las implementaciones de callback; la clase posee cuándo disparan.
+
+<Callout>
+No subclasifiquen `AIAgent` para "añadir una plataforma". Registren un adaptador de plataforma y dejen que el gateway construya el agente. Subclasificar la cintura es cómo cada superficie hereda un bug.
+</Callout>
+
+## Principios de diseño, vistos desde un host
+
+| Principio | Lo que un host no debe hacer |
+| --- | --- |
+| Estabilidad del prompt | No mutar el system prompt entre turnos salvo acciones explícitas como `/model`. |
+| Ejecución observable | No tragarse el progreso de las tools. Conecten `tool_progress_callback` o acepten que el usuario no ve nada. |
+| Interrumpible | Honren `/stop` y la preempción entrante abandonando el hilo HTTP. No inyecten un assistant parcial. |
+| Núcleo agnóstico de plataforma | Pongan las reglas Markdown-frente-a-texto-plano en `platform_hint`, no en `run_agent.py`. |
+| Acoplamiento laxo | Filtren features opcionales con `check_fn` y registros. |
+| Aislamiento de perfil | Resuelvan rutas con `get_hermes_home()`. Un `~/.hermes` hardcodeado rompe `hermes -p`. |
+
+**Caso.** Un host de WhatsApp quiere respuestas más cortas. El parche incorrecto es `if platform == "whatsapp":` dentro de `run_conversation()`. El parche correcto es el `platform_hint` de WhatsApp (y, si hace falta, `max_message_length` en el adaptador). La [particularidad de plataformas](/es/m/hermes-platforms) posee ese contrato. La cintura sigue aburrida.
+
+<TryThis>
+Para cada uno de los seis puntos de entrada, escriban una frase: "este host añade X, la clase sigue haciendo Y." X debería ser autorización, persistencia, entrega o UI. Y debería ser prompt, proveedor, tools, compresión, reintentos. Si su X es un asunto del bucle, están a punto de ensanchar la cintura.
+</TryThis>
+
+## Incrustar la librería: el quinto host que se saltan
+
+La página de arquitectura lista "Python Library" como un punto de entrada igual a la CLI. El patrón documentado es: construir `AIAgent`, llamar a `run_conversation()`, persistir el historial devuelto si necesitan reanudar. Títulos de sesión, búsqueda FTS5 y emparejamiento del gateway **no** se implican con el import. Eso pertenece a `hermes_state.py` y a `gateway/`. Importar la clase no arranca un gateway.
+
+El batch runner es el sexto host que se confunde con la librería. Genera trayectorias en formato ShareGPT a partir de sesiones del agente para datos de entrenamiento (Nous Research, *Architecture*, s. f., Trajectories). Esas trayectorias son un sistema aparte; no son filas de `state.db`. No "arreglen" la exportación batch escribiendo en la base de sesiones.
+
+**Caso.** Un script evaluador abre `AIAgent`, corre 100 prompts y se pregunta por qué `hermes sessions` está vacío. Los hosts batch y librería que se saltan `SessionDB` están permitidos. CLI y gateway son los hosts que escriben SQLite. Un `sessions` vacío es una elección de host, no una regresión del bucle.
+
+## Archivos que un host importa de verdad
+
+| Archivo | Por qué un host lo toca |
+| --- | --- |
+| `run_agent.py` | `AIAgent` — construir y llamar |
+| `hermes_cli/runtime_provider.py` | Solo si resuelven proveedores ustedes; normalmente lo hace la clase |
+| `agent/prompt_builder.py` | No lo importen. Alimenten `SOUL.md`, archivos de contexto y `system_message` |
+| `model_tools.py` | No despachen tools ustedes. El bucle llama a `handle_function_call()` |
+| `hermes_state.py` | Opcional: persistir si quieren un `/resume` compatible con la CLI |
+| `hermes_constants.py` | `HERMES_HOME`, rutas conscientes del perfil |
+
+El [mapa de ownership](/es/m/hermes-ownership) dijo que el núcleo es una cintura estrecha. Esta lección es la vista desde fuera de esa cintura: seis puertas, una sala. La lección siguiente, [runtime de proveedores](/es/m/hermes-providers), es cómo esa sala elige un modelo sin que cada puerta crezca su propio código de auth.
+
+## Interrupción e historial son visibles para el host
+
+El bucle abandona el hilo HTTP al interrumpir y no inyecta un assistant parcial (Nous Research, *Agent Loop Internals*, s. f.). Un host que escribe tokens a un socket según llegan debe tratar `/stop` como "tirar la fila en vuelo". ACP y la CLI ya lo hacen vía callbacks. Un host de librería que hace streaming con `stream_delta_callback` tiene el mismo deber.
+
+La preempción a nivel gateway (un segundo mensaje de WhatsApp mientras corre un turno) es una política de host encima de ese invariante. La [particularidad del gateway](/es/m/hermes-gateway) posee el guardia de dos niveles. La clase posee el hecho de que el resultado HTTP descartado nunca se convierte en una fila de historial.
+
+**Caso.** Un host de API server propio hace streaming de tokens a un navegador y, al desconectar el cliente, añade el assistant parcial "para que el usuario pueda reanudar." La siguiente llamada al proveedor da 400 por alternancia. El principio interrumpible de la página de arquitectura no es opcional para hosts de librería.
+
+Lectura recomendada después de esta lección: [Provider Runtime Resolution](https://hermes-agent.nousresearch.com/docs/developer-guide/provider-runtime) para cómo cada host comparte auth, y luego [Prompt Assembly](https://hermes-agent.nousresearch.com/docs/developer-guide/prompt-assembly) para lo que `build_system_prompt()` concatena de verdad. No empiecen en la línea uno de `run_agent.py`.
+
+Esta lección no es:
+
+- el bucle turno a turno (eso es [interior del bucle](/es/m/hermes-loop))
+- OAuth frente a claves API (eso es [oauth y claves](/es/m/oauth-and-keys), con el detalle del resolvedor de Hermes en [runtime de proveedores](/es/m/hermes-providers))
+- cómo se conecta Telegram (eso es [adaptadores de plataforma](/es/m/hermes-platforms))
+
+Es la reivindicación de que esos temas construyen la misma clase.
+
+## Fuentes
+
+Nous Research. (s. f.). *Architecture*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/architecture
+
+Nous Research. (s. f.). *Agent loop internals*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop
+
+Nous Research. (s. f.). *Codebase ownership map*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/codebase-ownership
+
+Nous Research. (s. f.). *ACP internals*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/acp-internals
+
+Nous Research. (s. f.). *Provider runtime resolution*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/provider-runtime
+
+Nous Research. (s. f.). *Prompt assembly*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/prompt-assembly
+
+Nous Research. (s. f.). *Session storage*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/session-storage
+
+Nous Research. (s. f.). *Cron internals*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/cron-internals

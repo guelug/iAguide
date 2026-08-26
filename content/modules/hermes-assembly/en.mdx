@@ -1,31 +1,186 @@
-## Tiers in code
+## Cached prefix versus call-time overlays
 
-agent/system_prompt.py joins **stable -> context -> volatile**.
+Hermes deliberately separates cached system-prompt state from ephemeral API-call-time additions. Nous Research's [*Prompt Assembly*](https://hermes-agent.nousresearch.com/docs/developer-guide/prompt-assembly) (n.d.) is the source of truth. That split affects token usage, prompt-caching effectiveness, session continuity, and memory correctness. Primary files: `run_agent.py`, `agent/prompt_builder.py`, `agent/system_prompt.py`, `tools/memory_tool.py`.
 
-Stable: SOUL.md (or DEFAULT_AGENT_IDENTITY), tool guidance, skills index, environment + platform hints (config.yaml platform_hints append/replace).
+The generic harness lesson does not own `SOUL.md`. This one does.
 
-Context: caller system_message plus **one** project file, first match: .hermes.md/HERMES.md (walk to git root) > AGENTS.md (cwd) > CLAUDE.md > .cursorrules.
+<VisualSlot caption="SOUL.md, one context file, MEMORY/USER, platform hint, skip_context." />
 
-Volatile: MEMORY.md, USER.md, external memory-provider block, timestamp/session/model line.
+## Three ordered tiers
 
-skip_context_files (subagents) skips SOUL.md and uses DEFAULT_AGENT_IDENTITY.
+The cached system prompt is assembled as three ordered tiers, then joined `stable` then `context` then `volatile` (Nous Research, *Prompt Assembly*, n.d.):
 
-Files are security-scanned and truncated (70/20 head/tail). Ephemeral overlays (HERMES_EPHEMERAL_SYSTEM_PROMPT, pre_llm_call) do not mutate the cached prefix.
+| Tier | What goes in | Why it sits there |
+| --- | --- | --- |
+| stable | Identity (`SOUL.md` or fallback), tool/model guidance, skills prompt, environment hints, platform hints | Byte-stable across turns so provider caches hit |
+| context | Caller-supplied `system_message` plus **one** project context file | Repo rules, still cached, first-match-wins |
+| volatile | `MEMORY.md` snapshot, `USER.md` snapshot, external memory-provider block, timestamp/session/model/provider line | Changes across sessions; still in the cached prompt, not a mid-turn overlay |
 
-<VisualSlot caption="SOUL, one context file, MEMORY/USER snapshots, platform hint. Subagents skip SOUL." />
+Skills are part of the **stable** tier. Memory and profile snapshots are part of the **volatile** tier. Both are still in the cached system prompt. They are not injected as ad-hoc mid-turn overlays. When `skip_context_files` is set (subagent delegation is the documented example), `SOUL.md` is not loaded and the hardcoded `DEFAULT_AGENT_IDENTITY` is used instead.
 
-## Compare vs OpenClaw
+<Callout>
+Tip: if you want a different assistant, edit `~/.hermes/SOUL.md`. If you want different repo rules, edit a project context file. If you want reusable procedures, add a skill. Edit `prompt_builder.py` only as a product change, not as a per-user knob (Nous Research, *Prompt Assembly*, n.d., "When to edit code instead").
+</Callout>
 
-OpenClaw injects several bootstrap files (SOUL, IDENTITY, USER, AGENTS, BOOTSTRAP). Hermes picks one project context type so two instruction files cannot fight.
+## How `SOUL.md` appears
 
-## Case: AGENTS.md ignored
+`SOUL.md` lives at `~/.hermes/SOUL.md` and is the very first section of the system prompt. `load_soul_md()` reads it, runs a security scan, truncates (cap scales with the model context window, 20k-character floor; a config override wins), and returns the text. When that returns content, it **replaces** `DEFAULT_AGENT_IDENTITY`. `build_context_files_prompt()` is then called with `skip_soul=True` so the same file does not appear twice.
 
-**Case.** Repo has both .hermes.md and AGENTS.md. Contributors edit AGENTS.md; the agent never sees it.
+If the file is missing, the fallback identity is the Nous Research default: Hermes Agent, created by Nous Research, helpful, knowledgeable, direct, targeted rather than verbose. Do not invent a different default in classroom notes.
 
-**Why.** First match wins.
+**Case.** An operator puts persona text in `AGENTS.md` and wonders why subagents ignore it. Subagents set `skip_context_files`, which also skips `SOUL.md` and uses `DEFAULT_AGENT_IDENTITY`. The parent has a soul; the child has the factory identity on purpose, so a delegated coder does not inherit the parent's jokes.
 
 <TryThis>
-List the four context filenames in priority order. Circle which one a Cursor-only repo would hit.
+Write the two-path diagram: `SOUL.md` present versus absent. On the present path, mark `skip_soul=True` on the context-file builder. On the absent path, write `DEFAULT_AGENT_IDENTITY`. Confirm you do not also list `SOUL.md` as a project context file.
 </TryThis>
 
-Source: [Prompt assembly](https://hermes-agent.nousresearch.com/docs/developer-guide/prompt-assembly).
+## One project context file, first match wins
+
+`build_context_files_prompt()` loads **only one** project context type (Nous Research, *Prompt Assembly*, n.d.):
+
+| Priority | Files | Search scope |
+| --- | --- | --- |
+| 1 | `.hermes.md`, `HERMES.md` | CWD up to git root |
+| 2 | `AGENTS.md` | CWD only (subdirectories discovered progressively via `agent/subdirectory_hints.py`) |
+| 3 | `CLAUDE.md` | CWD only |
+| 4 | `.cursorrules`, `.cursor/rules/*.mdc` | CWD only |
+
+All context files are security-scanned (invisible unicode, "ignore previous instructions", credential-exfiltration patterns), truncated at `context_file_max_chars` with a 70/20 head/tail split (20,000-char floor, 500K ceiling; an explicit config value always wins), and YAML frontmatter on `.hermes.md` is stripped.
+
+**Case.** A repo has both `.hermes.md` at the git root and `AGENTS.md` in a nested app directory. Hermes loads `.hermes.md` because it walks to the git root first. The nested `AGENTS.md` is not a second identity; subdirectory hints may surface it later, but the first-match rule still holds for the initial project context slot.
+
+Do not concatenate all four types. The priority list exists so Cursor rules cannot silently override Hermes-native config sitting one directory up.
+
+## Platform hints stay in the stable tier
+
+Layer 10 of the documented assembly example is the per-surface hint: Telegram, WhatsApp, Slack, CLI, and others. Built-in defaults live in `PLATFORM_HINTS` (`agent/system_prompt.py`); plugin platforms supply theirs through the platform registry. An administrator can append or replace a single platform's hint from `config.yaml` via top-level `platform_hints` without touching any other platform (Nous Research, *Prompt Assembly*, n.d.).
+
+```yaml
+platform_hints:
+  whatsapp:
+    append: >
+      When tabular output would be useful, invoke the table_formatting
+      skill instead of emitting a Markdown table.
+  slack:
+    replace: "You are on Slack. Keep responses tight and avoid wide tables."
+  telegram: "Prefer short messages; split long answers."
+```
+
+Rules: `append` keeps the built-in hint; `replace` substitutes it; a bare string is shorthand for `append`; `replace` wins over `append` when both are present; a malformed entry is ignored and falls back to the unmodified default. The override is resolved when the system prompt is built (session start, and again on compaction because that rebuilds the prompt). It produces a **byte-stable** hint for a fixed config, so it lives in the stable tier and does not break prompt caching.
+
+<Callout>
+A live mid-session mutation of a frozen prompt is exactly what this architecture forbids. Change `platform_hints` in config, then start a new session or wait for a compaction rebuild. Do not PATCH the hint into an in-flight turn.
+</Callout>
+
+## MEMORY and USER are snapshots, not live files
+
+Local memory and user profile data are captured in the volatile tier. Mid-session writes update disk state but **do not mutate** the already-built cached system prompt until a rebuild path runs: new session, or an explicit invalidation such as compression-triggered rebuild (Nous Research, *Prompt Assembly*, n.d.).
+
+That is why the loop flushes memory **before** summarising. The snapshot in the prompt can be stale relative to `MEMORY.md` on disk for the rest of the session. Flush-then-compress is the durability rule; this lesson is why the prompt itself does not chase every `memory` tool write.
+
+The supported customisation surfaces, in the order the docs ask you to try them:
+
+1. `~/.hermes/SOUL.md` — identity.
+2. `~/.hermes/MEMORY.md` and `~/.hermes/USER.md` — durable facts and profile.
+3. Project context files (`.hermes.md`, `HERMES.md`, `AGENTS.md`, `CLAUDE.md`, `.cursorrules`).
+4. Skills — reusable workflows without editing Python.
+5. Optional system prompt config / API overrides.
+6. Ephemeral overlays such as `HERMES_EPHEMERAL_SYSTEM_PROMPT` or prefill messages — turn-scoped, **not** part of the cached prefix.
+
+## API-call-time-only layers
+
+These are intentionally **not** persisted as part of the cached system prompt (Nous Research, *Prompt Assembly*, n.d.):
+
+- `ephemeral_system_prompt`
+- prefill messages
+- gateway-derived session context overlays
+- later-turn Honcho/external recall injected into the current-turn **user** message
+- `pre_llm_call` plugin context, appended to the current turn's user message
+
+When multiple plugins return context, Hermes concatenates those blocks. Injection into the user message, not the system prompt, is how Anthropic and OpenRouter keep a cacheable prefix. A plugin that "helpfully" rewrites the system prompt every turn is a cache-breaker and a design smell; the [plugin particularity](/en/m/hermes-plugins) restates the same rule on `pre_llm_call`.
+
+**Case.** A memory plugin returns 20,000 characters of recall on `pre_llm_call`. Per-hook context is capped (default 10,000 characters); overflow spills to `$HERMES_HOME/hook_outputs/` with a head/tail preview. The system prompt does not grow. The user message for that turn does. That is the point of the split.
+
+<TryThis>
+List one fact that belongs in `MEMORY.md`, one rule that belongs in `.hermes.md`, and one overlay that belongs in `HERMES_EPHEMERAL_SYSTEM_PROMPT`. If all three landed in `SOUL.md`, say which cache and which subagent behaviour you just broke.
+</TryThis>
+
+## Concrete layering, simplified
+
+The docs give a ten-layer view of a fully assembled prompt. Classroom version, still faithful:
+
+1. Identity from `SOUL.md`.
+2. Tool-aware behaviour guidance (including `session_search` when past context may exist).
+3. Optional Honcho static block when that provider is active.
+4. Optional system message from config or API.
+5. Frozen `MEMORY.md` snapshot.
+6. Frozen `USER.md` snapshot.
+7. Skills index (`skill_view` to load; compact list in-prompt).
+8. The one project context file.
+9. Timestamp plus session id.
+10. Platform hint.
+
+Layers 1, 2, 7, and 10 are stable. Layers 4 and 8 are context. Layers 5, 6, and 9 are volatile. Honcho's static block, when present, sits with identity-adjacent data in the documented example; live Honcho recall still goes through the call-time user-message path.
+
+The architecture is optimised to preserve provider-side prompt caching, avoid mutating history unnecessarily, keep memory semantics understandable, and let gateway/ACP/CLI add context without poisoning persistent prompt state (Nous Research, *Prompt Assembly*, n.d.). The [compression particularity](/en/m/hermes-compression) is what happens when that cached prefix plus the message list still do not fit.
+
+## Identity fallback, quoted
+
+When `SOUL.md` is absent, Nous Research documents this fallback (n.d.):
+
+```text
+You are Hermes Agent, an intelligent AI assistant created by Nous Research.
+You are helpful, knowledgeable, and direct. You assist users with a wide
+range of tasks including answering questions, writing and editing code,
+analyzing information, creative work, and executing actions via your tools.
+You communicate clearly, admit uncertainty when appropriate, and prioritize
+being genuinely useful over being verbose unless otherwise directed below.
+Be targeted and efficient in your exploration and investigations.
+```
+
+Do not replace that quote with a classroom paraphrase when you are explaining the skip-soul path. Subagents that skip context files see this text, not your `SOUL.md`.
+
+The loading helper, simplified from the same page:
+
+```python
+def load_soul_md():
+    soul_path = get_hermes_home() / "SOUL.md"
+    if not soul_path.exists():
+        return None
+    content = soul_path.read_text(encoding="utf-8").strip()
+    content = _scan_context_content(content, "SOUL.md")
+    content = _truncate_content(content, "SOUL.md")
+    return content
+```
+
+`get_hermes_home()` is profile-aware. A `SOUL.md` under a hardcoded `~/.hermes` is the wrong file when `hermes -p work` is running.
+
+## Skills index versus project context
+
+The skills system contributes a **compact index** to the prompt when skills tooling is available. Full skill bodies load through `skill_view`. Plugin skills are not listed in `<available_skills>`; they are opt-in explicit loads (Nous Research, [*Build a Hermes Plugin*](https://hermes-agent.nousresearch.com/docs/developer-guide/plugins), n.d.). That is why a plugin skill does not blow the stable prefix the way dumping `SKILL.md` into `SOUL.md` would.
+
+GPT/Codex-shaped models get an extra tool-use enforcement block in the documented assembly example: use tools, do not merely describe the plan. That block is model-family guidance inside the stable tier, not a user-editable file.
+
+## Security scan is part of assembly
+
+Context files and `SOUL.md` pass `_scan_context_content`. The documented classes of hit: invisible unicode, "ignore previous instructions", credential-exfiltration attempts. A file that fails the scan is not a badge of honour. It is a poisoned prefix. Truncation is separate: a 70/20 head/tail split with a marker, so the end of `AGENTS.md` (where people hide "always run the linter") can survive.
+
+**Case.** A vendor drops a 2 MB `CLAUDE.md` into a monorepo. Without `.hermes.md` higher up, that file wins priority 3, then hits the cap. The tail split is why the last 20 percent still reaches the model. The lesson is not "raise the cap to 2 MB." The lesson is "put a short `.hermes.md` at the git root so the vendor file never loads."
+
+<TryThis>
+In a throwaway directory, create `.hermes.md` with one sentence and `AGENTS.md` with a contradictory sentence. Predict which sentence the assembled prompt contains. Then delete `.hermes.md` and predict again. Check against the priority table, not against folklore from other harnesses.
+</TryThis>
+
+## Sources
+
+Nous Research. (n.d.). *Prompt assembly*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/prompt-assembly
+
+Nous Research. (n.d.). *Context compression and caching*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/context-compression-and-caching
+
+Nous Research. (n.d.). *Agent loop internals*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop
+
+Nous Research. (n.d.). *Architecture*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/architecture
+
+Nous Research. (n.d.). *Build a Hermes plugin*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/plugins
+
+Nous Research. (n.d.). *Adding a platform adapter*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/adding-platform-adapters

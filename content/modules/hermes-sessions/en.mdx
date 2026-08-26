@@ -1,27 +1,180 @@
-## One database, CLI and gateway
+## `state.db` is the transcript, not a JSONL pile
 
-Default path ~/.hermes/state.db (HERMES_HOME). WAL for concurrent readers plus one writer. Tables include sessions, messages, FTS5 virtual tables (unicode, trigram, CJK), compression_locks, schema_version (currently 23).
+Hermes Agent persists session metadata, full message history, and model configuration in a SQLite database at `~/.hermes/state.db`. Nous Research's [*Session Storage*](https://hermes-agent.nousresearch.com/docs/developer-guide/session-storage) (n.d.) is the source of truth. Source file: `hermes_state.py`. This replaces the earlier per-session JSONL approach.
 
-Writes: SQLite timeout 1s, app retry 15 times with 20-150ms jitter, BEGIN IMMEDIATE, WAL checkpoint every 50 writes -- avoids convoy effect.
+The path is profile-aware: `hermes_constants.get_hermes_home()` resolves to `~/.hermes/` by default, or `HERMES_HOME`. The database file, WAL file (`state.db-wal`), and shared-memory file (`state.db-shm`) live in the same directory. Batch runner trajectories and RL data are **not** stored here.
 
-Lineage via parent_session_id when in_place is false. In-place compaction keeps one id; old messages active=0 compacted=1, still FTS-searchable.
+<VisualSlot caption="state.db, WAL + FTS5, write retries, lineage, session_search." />
 
-session_search is intercepted in the agent loop and queries this DB (sanitize FTS5 user input).
+## Schema at a glance
 
-<VisualSlot caption="state.db: WAL writers, FTS5, lineage chain versus one stable id." />
+```text
+~/.hermes/state.db (SQLite, WAL mode)
+├── sessions
+├── messages
+├── session_model_usage
+├── messages_fts
+├── messages_fts_trigram
+├── messages_fts_cjk
+├── state_meta
+├── gateway_routing
+├── compression_locks
+├── async_delegations
+└── schema_version
+```
 
-## Compare vs OpenClaw
+Key design decisions (Nous Research, *Session Storage*, n.d.):
 
-OpenClaw stores per-agent openclaw-agent.sqlite plus a shared ~/.openclaw/state/openclaw.sqlite for pairing. Hermes uses one profile-scoped state.db.
+- WAL mode for concurrent readers plus one writer (gateway multi-platform).
+- FTS5 virtual tables for fast text search across all session messages.
+- Session lineage via `parent_session_id` chains (compression-triggered splits, **legacy** path).
+- Source tagging (`cli`, `telegram`, `discord`, …) for platform filtering.
+- Batch runner and RL trajectories stay in separate systems.
 
-## Case: gateway plus CLI lock storm
+`sessions` holds metadata, token counts, and billing. Extra columns documented in `SCHEMA_SQL` include gateway routing (`session_key`, `chat_id`, `chat_type`, `thread_id`, `display_name`, `origin_json`, `expiry_finalized`), workspace fields (`cwd`, `git_branch`, `git_repo_root`), handoff and compression-failure fields, `profile_name`, `rewind_count`, `archived`, and `pinned`. There is a unique index on `title` where title is not NULL.
 
-**Case.** Worktree agents plus gateway plus CLI all write; default 30s SQLite timeout piled up.
+`messages` holds the transcript. `tool_calls`, `reasoning_details`, `codex_reasoning_items`, and `codex_message_items` are JSON strings. `reasoning` stores raw reasoning text when the provider exposes it. `api_content` is a byte-fidelity sidecar: the exact content string sent to the API when it differs from `content` (ephemeral memory or plugin injections). `NULL` means `content` was sent verbatim. Timestamps are Unix epoch floats.
 
-**Fix.** Short timeout plus jittered retries as documented.
+<Callout>
+Tip: `api_content` exists so prompt-cache-stable replay can send the same bytes the provider saw. Do not "simplify" it away when you export a session. Lone surrogates are scrubbed because sqlite3 cannot bind them; the conversation loop scrubs them from every outgoing payload anyway.
+</Callout>
+
+## FTS5 is how `session_search` works
+
+```sql
+CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
+    content, tool_name, tool_calls,
+    content='messages', content_rowid='id'
+);
+```
+
+Triggers keep FTS in sync on INSERT, UPDATE, and DELETE, gated on `fts_rebuild_high_water` / `fts_rebuild_progress` markers in `state_meta` so a background rebuild does not double-index. A second virtual table uses a trigram tokenizer (CJK / substring search). A third uses `cjk_unicode61`. Current schema version: **23**. Version 23 redesigns FTS storage as external-content tables replacing the v11 inline-mode copies, as an opt-in transition for existing DBs (Nous Research, *Session Storage*, n.d.).
+
+Simple column additions go through `_reconcile_columns()` (diff live columns against `SCHEMA_SQL`, `ALTER TABLE ADD COLUMN`, idempotent). The version-gated chain is reserved for data migrations and FTS/index changes that cannot be expressed declaratively.
+
+`search_messages()` supports FTS5 query syntax with sanitisation: unmatched quotes stripped, hyphenated terms wrapped in quotes, dangling boolean operators removed.
+
+| Syntax | Example | Meaning |
+| --- | --- | --- |
+| Keywords | `docker deployment` | Both terms (implicit AND) |
+| Quoted phrase | `"exact phrase"` | Exact phrase match |
+| Boolean OR | `docker OR kubernetes` | Either term |
+| Boolean NOT | `python NOT java` | Exclude term |
+| Prefix | `deploy*` | Prefix match |
+
+Filtered search takes `source_filter`, `exclude_sources`, and `role_filter`. Each result includes `id`, `session_id`, `role`, `timestamp`, an FTS snippet with `>>>match<<<` markers, plus/minus-one context truncated to 200 characters, and parent-session `source`, `model`, `session_started`.
+
+**Case.** A user types `chat-send` into `session_search`. Unsanitised FTS5 would treat the hyphen as an operator. `_sanitize_fts5_query()` wraps it as a quoted phrase. That is why hyphenated tool names remain searchable.
 
 <TryThis>
-If you have ~/.hermes/state.db, do not open it if you do not own the machine -- instead write the SQL you would use to list recent session titles. If not, sketch the sessions table keys: id, source, parent_session_id.
+Write three queries: a phrase from a tool result, a CLI-only filter, and a NOT query that excludes Java. Then name which FTS table a CJK substring would prefer. Check against the official syntax table, not against LIKE folklore.
 </TryThis>
 
-Source: [Session storage](https://hermes-agent.nousresearch.com/docs/developer-guide/session-storage).
+## Lineage versus in-place
+
+Sessions can form chains via `parent_session_id`. That happens when context compression triggers a session **split** — the legacy rotating path (`compression.in_place: false`). Recursive SQL on the official page walks ancestors and descendants.
+
+Default compression is **in-place**: same session id, old turns soft-archived (`active=0`, `compacted=1`), still in FTS. There is no parent chain and no `name #N` renumbering (Nous Research, [*Context Compression and Caching*](https://hermes-agent.nousresearch.com/docs/developer-guide/context-compression-and-caching), n.d.). Title helpers still exist for the rotating world: `set_session_title`, `resolve_session_by_title` (most recent in lineage), `get_next_title_in_lineage` returning `"Fix Docker Build #2"`.
+
+**Case.** Gateway code that assumed "new id means compaction happened" broke when in-place shipped. Consumers must read `in_place` on `session:compress` / `_last_compaction_in_place`, not diff ids. The sessions table still has `parent_session_id` because the legacy path remains configurable.
+
+Do not delete compacted rows to "save disk." They are the recovery corpus for `session_search` and for the lean-mode recovery pointer.
+
+## Write contention: short timeout, jitter, BEGIN IMMEDIATE
+
+Multiple Hermes processes (gateway plus CLI sessions plus worktree agents) share one `state.db`. `SessionDB` handles write contention with (Nous Research, *Session Storage*, n.d.):
+
+- Short SQLite timeout (1 second) instead of the default 30s.
+- Application-level retry with random jitter (20–150 ms, up to 15 retries).
+- `BEGIN IMMEDIATE` transactions to surface lock contention at transaction start.
+- Periodic WAL checkpoints every 50 successful writes (PASSIVE mode).
+
+```text
+_WRITE_MAX_RETRIES = 15
+_WRITE_RETRY_MIN_S = 0.020
+_WRITE_RETRY_MAX_S = 0.150
+_CHECKPOINT_EVERY_N_WRITES = 50
+```
+
+This avoids the convoy effect where SQLite's deterministic internal backoff makes all competing writers retry at the same intervals.
+
+<Callout>
+Do not raise the SQLite timeout to 30s "to make the gateway more patient." That is how a CLI writer plus a Telegram writer plus a worktree agent convoy. The jittered 15-retry loop is the documented fix.
+</Callout>
+
+## Common operations a host actually calls
+
+```python
+from hermes_state import SessionDB
+db = SessionDB()  # ~/.hermes/state.db
+db.create_session(session_id="sess_abc123", source="cli",
+                  model="anthropic/claude-sonnet-4.6", user_id="user_1",
+                  parent_session_id=None)
+msg_id = db.append_message(session_id="sess_abc123", role="assistant",
+                           content="Here's the answer...", token_count=150)
+conversation = db.get_messages_as_conversation("sess_abc123")
+```
+
+`get_messages` returns raw rows. `get_messages_as_conversation` returns OpenAI-format dicts for API replay. Export: `export_session`, `export_all`. Cleanup: `prune_sessions(older_than_days=90)` (ended sessions only), `clear_messages`, `delete_session`. `end_session` / `reopen_session` manage `ended_at` and `end_reason`.
+
+Four tools never reach the registry dispatcher because they need agent-local state; `session_search` is one of them (Nous Research, [*Agent Loop Internals*](https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop), n.d.). The schema still lives in the registry so the model can see the tool. The handler that talks to FTS5 is the agent intercept.
+
+**Case.** A plugin calls SQLite on `state.db` with its own connection and a 30s timeout. It convoys with the gateway writer. The sanctioned plugin storage is `plugin_data_dir` / `plugin_db`, not this file (Nous Research, [*Build a Hermes Plugin*](https://hermes-agent.nousresearch.com/docs/developer-guide/plugins), n.d.). `state.db` has one owner: `SessionDB`.
+
+<TryThis>
+List the WAL trio (db, wal, shm) under a non-default `HERMES_HOME`. Then name two things that must never land in this database: batch trajectories, and plugin runtime cursors. Confirm against the official "not stored here" bullet and the plugin storage guide.
+</TryThis>
+
+Profile isolation means a second `hermes -p work` is a second `state.db`. Sharing one file across profiles is a waist leak. The next lesson, [plugin context API](/en/m/hermes-plugins), is how extensions register without opening this database themselves.
+
+## Schema versions you might actually meet
+
+Current version is 23. Selected gated steps from the official table (Nous Research, *Session Storage*, n.d.):
+
+| Version | Change |
+| --- | --- |
+| 1 | Initial schema (sessions, messages, FTS5) |
+| 5 | Billing columns: cache tokens, reasoning tokens, cost fields |
+| 10 | `messages_fts_trigram` (CJK / substring) plus backfill |
+| 11 | Re-index FTS to cover `tool_name` plus `tool_calls`; inline mode |
+| 16 | Tag delegate subagent rows in `model_config` so pickers stay clean |
+| 20 | Per-model usage attribution seeded into `session_model_usage` |
+| 22 | Task-dimension usage; `task` participates in the PRIMARY KEY |
+| 23 | External-content FTS redesign (opt-in for existing DBs) |
+
+Versions not listed were declarative column adds. If a gateway and a CLI on the same `HERMES_HOME` disagree on version, one of them is too old to open the file. Upgrade the binary, do not hand-edit `schema_version`.
+
+Indexes worth naming: `idx_sessions_source`, `idx_sessions_parent`, `idx_sessions_started`, unique title; `idx_messages_session` on (`session_id`, `timestamp`) and (`session_id`, `id`).
+
+**Case.** Someone "optimises" FTS by dropping trigram because ASCII search "is enough." CJK substring search and `chat-send` recovery both suffer. Schema 10 existed for a reason; schema 23 changed storage, not the product requirement.
+
+`compression_locks` exists because gateway and CLI can both decide to compress. Cross-process locking belongs in SQLite, not in a home-rolled pidfile next to `state.db`. `async_delegations` bookkeeps subagent work that outlives a single `run_conversation` call. Neither table is a plugin playground.
+
+If you need durable plugin state, use `plugin_data_dir`, not a new column on `sessions`.
+
+Official URL: [Session Storage](https://hermes-agent.nousresearch.com/docs/developer-guide/session-storage).
+
+## Classroom checklist
+
+1. Name the default path and the function that relocates it.
+2. Recite WAL plus FTS5 plus lineage as the three design decisions.
+3. Distinguish in-place soft-archive from `parent_session_id` rotation.
+4. Quote the write-retry constants (15, 20–150 ms, checkpoint every 50).
+5. Sanitise one hyphenated FTS query.
+6. Refuse to store batch/RL/plugin state here.
+
+Official URL: [Session Storage](https://hermes-agent.nousresearch.com/docs/developer-guide/session-storage).
+
+## Sources
+
+Nous Research. (n.d.). *Session storage*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/session-storage
+
+Nous Research. (n.d.). *Context compression and caching*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/context-compression-and-caching
+
+Nous Research. (n.d.). *Agent loop internals*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop
+
+Nous Research. (n.d.). *Architecture*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/architecture
+
+Nous Research. (n.d.). *Build a Hermes plugin*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/plugins
+
+Nous Research. (n.d.). *Prompt assembly*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/prompt-assembly

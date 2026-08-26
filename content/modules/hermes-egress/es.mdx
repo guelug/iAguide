@@ -1,19 +1,198 @@
-## Credenciales opacas
+## Por qué el sandbox no debe guardar claves reales
 
-iron-proxy intercambia tokens. CIDRs denegados (loopback, RFC1918, IMDS). Perfiles con HERMES_HOME propio.
+Cuando Hermes ejecuta el agente dentro de un sandbox Docker de terminal, ese sandbox normalmente sostiene sus claves reales de API de upstream. Un agente con prompt injection puede hacer `printenv | grep -i key` y exfiltrarlas. El proxy de egress lo corrige: el sandbox sostiene **tokens opacos de proxy**, nunca las claves reales. Todo el tráfico de salida del sandbox enruta por un demonio local iron-proxy en el host, que termina TLS y sustituye el token de proxy por la credencial real antes de reenviar aguas arriba (Nous Research, [*Egress credential-injection proxy*](https://hermes-agent.nousresearch.com/docs/user-guide/egress/iron-proxy), s. f.). El cableado de contribuidores vive en [*Egress proxy internals*](https://hermes-agent.nousresearch.com/docs/developer-guide/egress-internals) (s. f.).
 
-<VisualSlot caption="Firewall, swap, CIDRs, docker, perfil." />
+Esta lección es la particularidad: por qué, token swap, CIDRs denegados (incluido IMDS), cableado solo Docker, y `HERMES_HOME` / perfiles. **No** es el agregador OAuth entrante `hermes proxy` — comando distinto (`hermes egress`), dirección distinta.
 
-## Comparar vs OpenClaw
+<VisualSlot caption="why, token swap, deny CIDRs, docker, HERMES_HOME." />
 
-OpenClaw: sandbox / tool policy / elevated. Hermes: firewall de credenciales.
+## Qué es, y qué no es
 
-## Caso: tres llamadas a bloquear
+| Es | No es |
+| --- | --- |
+| Subproceso gestionado `iron-proxy` en el host | El reverse proxy OAuth entrante `hermes proxy` |
+| CA local en `~/.hermes/proxy/ca.crt` confiada por el sandbox | Un proxy entre su terminal local y los proveedores |
+| Allowlist `proxy.yaml` más mapa de tokens `mappings.json` | Reescritura de credenciales de las llamadas LLM in-process del host |
+| Defensa en profundidad ante compromiso del **sandbox** | Protección ante un proceso de **host** comprometido |
 
-IMDS, docker.sock, POST de clave real.
+Arranque rápido (Nous Research, *Egress credential-injection proxy*, s. f.):
+
+```bash
+hermes egress install
+hermes egress setup
+hermes egress start
+hermes egress status
+```
+
+`setup` descubre claves de proveedor del entorno y de `~/.hermes/.env` automáticamente. Volver a ejecutar `setup` detiene un demonio en marcha (config en memoria) y ofrece reinicio. Pasen `--restart` / `--no-restart` en scripts. `hermes egress restart` es el stop-then-start de un comando cuando cambian secretos; `hermes egress reload` recarga en caliente el ruleset sin soltar conexiones.
+
+<Callout>
+Consejo: comprometan el sandbox y el atacante se lleva tokens que solo funcionan detrás del límite de proxy de confianza configurado. La clave privada de la CA y la integridad del endpoint del proxy forman parte de ese límite. Si el tráfico puede redirigirse a infraestructura de proxy controlada por el atacante, la garantía del token deja de sostenerse (Nous Research, *Egress credential-injection proxy*, s. f.).
+</Callout>
+
+## Token swap
+
+```text
+Docker sandbox  --CONNECT w/ proxy token-->  iron-proxy (host)  --HTTPS w/ real key-->  upstream
+```
+
+1. El sandbox hace POST a un host allowlisted con `Authorization: Bearer hermes-proxy-…` (token opaco).
+2. Como `HTTPS_PROXY` está fijado, la petición va a iron-proxy como túnel CONNECT.
+3. iron-proxy comprueba el allowlist, emite un leaf cert de la CA local, termina TLS.
+4. El transform `secrets` hace match de la cadena del proxy-token y sustituye el valor real de env del propio entorno del demonio.
+5. La petición se re-cifra y se reenvía. Un host no allowlisted recibe HTTP 403 antes de que salga ningún byte del host.
+
+Esquemas de auth cubiertos (Nous Research, *Egress credential-injection proxy*, s. f.):
+
+| Familia | Ejemplos de env | Se sustituye en |
+| --- | --- | --- |
+| Bearer | OpenRouter, OpenAI, Groq, Together, DeepSeek, Mistral, xAI, Nous | `Authorization` |
+| Header | Anthropic `ANTHROPIC_API_KEY` | `x-api-key` + `Authorization` |
+| Header | Azure OpenAI | `api-key` + `Authorization` |
+| Header / query | Gemini / Google AI Studio | `x-goog-api-key` o `?key=` |
+
+**No cubiertos.** SigV4 (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`) y OAuth de service-account de GCP (`GOOGLE_APPLICATION_CREDENTIALS`) no se pueden sustituir con un reemplazo estático de header. Si esas env vars están presentes, el sandbox sostiene credenciales reales para esos proveedores y la garantía de aislamiento es incompleta para ellos. Aparecen como avisos; nunca bloquean el arranque. Háganles `unset` si no usan esos proveedores desde sandboxes.
+
+**Caso.** Un operador vuelve a ejecutar `hermes egress setup --rotate-tokens`. Los sandboxes existentes aún sostienen los tokens viejos y empiezan a recibir 401 hasta reiniciarlos. El `setup` por defecto **preserva** tokens previos de proveedores solapados para que re-ejecutar no rompa sandboxes vivos en silencio. `--rotate-tokens` es el opt-in explícito; en un tty pide que escriban `rotate`, y primero respalda `mappings.json` a un sibling con timestamp.
+
+## CIDRs denegados, incluido IMDS
+
+`proxy.upstream_deny_cidrs` por defecto es una lista segura aplicada con independencia del allowlist. Un DNS rebinding a través de un hostname allowlisted no puede alcanzar IMDS ni su red interna (Nous Research, *Egress credential-injection proxy*, s. f.):
+
+| CIDR | Propósito |
+| --- | --- |
+| `127.0.0.0/8`, `::1/128` | Loopback v4 + v6 |
+| `169.254.0.0/16`, `fe80::/10` | Link-local — incluido IMDS cloud en `169.254.169.254` |
+| `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` | RFC1918 |
+| `fc00::/7` | IPv6 ULA |
+| `::ffff:0:0/96` | IPv4-mapped IPv6 — cierra el bypass dual-stack de IMDS |
+| `100.64.0.0/10` | RFC6598 CGNAT |
+| `198.18.0.0/15` | Rango de benchmark RFC2544 |
+
+Omítanlo / déjenlo null para el default. Fijen una lista vacía explícita solo en tests herméticos que deban alcanzar un upstream en loopback. Los hosts allowlisted por defecto cubren OpenRouter, OpenAI, Anthropic, Google, xAI, Mistral, Groq, Together, DeepSeek e inference de Nous Research; añadan otros bajo `proxy.extra_allowed_hosts` (wildcards soportados).
+
+**Política de bind.** El proxy nunca hace bind a `0.0.0.0`. En Linux hace bind al gateway del bridge docker para que los contenedores lo alcancen vía `host.docker.internal:host-gateway`. En macOS / Windows Docker Desktop hace bind a loopback (VPNkit enruta `host.docker.internal` al host). Las métricas se fijan a `127.0.0.1:0` para que nunca choquen con `tunnel_port: 9090` (Nous Research, *Egress proxy internals*, s. f.).
 
 <TryThis>
-Escribe esas tres y una permitida a openrouter.ai.
+Nombren tres CIDRs que deban permanecer denegados aunque un hostname allowlisted haga rebind. Luego digan qué dirección de bind está prohibida, y a qué listener (`tunnel_listen` frente a `http_listen`) apunta `HTTPS_PROXY`.
 </TryThis>
 
-Fuente: https://hermes-agent.nousresearch.com/docs/developer-guide/egress-internals
+## Solo Docker (por ahora)
+
+Esta release cablea el proxy de egress solo en el backend **Docker**. Modal, Daytona, SSH y Singularity aún no reciben env vars de proxy ni mounts de CA (Nous Research, *Egress credential-injection proxy*, s. f.). Nota de contribuidor: `_egress_proxy_args_for_docker` es específico de Docker; otros backends necesitan su propio análogo (~150 líneas de trabajo similar).
+
+Cuando `proxy.enabled: true` y el demonio está escuchando, el backend Docker:
+
+- Monta `ca.crt` en solo lectura en `/etc/ssl/certs/hermes-egress-ca.crt`
+- Fija `HTTPS_PROXY` (puerto túnel), `HTTP_PROXY` (puerto túnel + 1), `NO_PROXY` y las cuatro env vars de CA-bundle
+- Añade `NODE_OPTIONS=--use-openssl-ca` (preserva sus flags Node existentes)
+- Añade `--add-host=host.docker.internal:host-gateway` en Linux
+- Exporta tokens opacos bajo los nombres estándar de env de proveedor **más** alias diagnósticos `HERMES_PROXY_TOKEN_<ENV_NAME>`
+- Fija `HERMES_EGRESS_PROXY=1` como sentinel
+
+Con `enforce_on_docker: true` (default), la creación del sandbox se niega a arrancar si el proxy está habilitado pero no corre, o si `docker_env` / `docker_forward_env` / `docker_extra_args` colisionan con vars de control de egress o con claves reales de proveedor mapeadas. Pongan `enforce_on_docker: false` solo cuando caigan a propósito al legado "credenciales reales dentro del sandbox."
+
+**Caso.** Una config fija `docker_env.OPENROUTER_API_KEY` a una clave real mientras egress está enforced. Hermes lanza antes de que arranque el contenedor. Esa detección de colisión es la guardia de carga ante derrotar el aislamiento por accidente.
+
+## `HERMES_HOME` y perfiles
+
+Todo lo que iron-proxy mantiene vive bajo el home Hermes del perfil — por defecto `~/.hermes/proxy/`, o `$HERMES_HOME/proxy/` cuando un perfil aísla el estado. Modos (Nous Research, *Egress proxy internals*, s. f.):
+
+| Ruta | Modo | Propósito |
+| --- | --- | --- |
+| dir `proxy/` | `0o700` | Solo de ustedes |
+| `ca.crt` | `0o644` | CA pública distribuida a sandboxes |
+| `ca.key` | `0o600` | Clave de firma de la CA — nunca sale del host |
+| `proxy.yaml` | `0o600` | Config de iron-proxy |
+| `mappings.json` | `0o600` | Token del sandbox → env var de upstream |
+| `iron-proxy.pid` / `.nonce` | `0o600` | PID más defensa ante reciclado |
+| `iron-proxy.log` | `0o600` | Demonio + registros por petición en v0.39 |
+| `audit.log` | `0o600` | Reservado para un stream partido futuro |
+
+Los perfiles son `HERMES_HOME`. Un segundo perfil con su propio home obtiene su propia CA, mappings y estado de demonio — no compartan `ca.key` a mano entre límites de confianza.
+
+El modo Bitwarden (`hermes egress setup --from-bitwarden`) fija `credential_source: bitwarden` y vuelve a traer secretos en cada arranque del demonio. Fail-loud: token de acceso ausente, `project_id` ausente, o valores BWS vacíos para proveedores mapeados se niegan a arrancar. Caer al env del host en modo BW reintroduce el bug de stale que el camino BW existe para derrotar. `allow_env_fallback: true` es el opt-in de migración. Volver a ejecutar un `setup` plano **preserva** `credential_source`; usen `--no-bitwarden` para volver a env de forma explícita.
+
+Defensa PID / nonce: cada arranque planta un nonce en el env del demonio y en disco. `stop` recomprueba el starttime de `/proc/<pid>/stat` antes de SIGKILL y suprime la señal ante reciclado. El env del subproceso es allowlisted — nunca `os.environ.copy()` (Nous Research, *Egress proxy internals*, s. f.).
+
+## Lista de aula
+
+1. Enuncien el threat model en una frase: compromiso del sandbox, no del host.
+2. Distingan `hermes egress` del `hermes proxy` entrante.
+3. Reciten: tokens opacos en el sandbox, claves reales solo en el demonio del host.
+4. Nombren IMDS `169.254.169.254` y la forma IPv4-mapped-v6 como default-deny.
+5. Recuerden: solo Docker hoy; Modal / SSH / Daytona / Singularity no están cableados.
+6. Traten los perfiles como `HERMES_HOME` — estado de proxy separado por perfil.
+7. Nunca hagan bind a `0.0.0.0`; nunca caigan en silencio en modo Bitwarden.
+8. Preserven tokens en re-setup; roten solo con `--rotate-tokens`.
+9. Traten `iron-proxy.log` como fuente de verdad en v0.39; `audit.log` está reservado.
+10. Recuerden que `dest='egress_command'` es disjunto del `proxy_command` entrante.
+11. En Linux, si el firewall tira tráfico a docker0, permitan tunnel_port y tunnel_port+1 en el bridge.
+
+URLs oficiales: [Egress credential-injection proxy](https://hermes-agent.nousresearch.com/docs/user-guide/egress/iron-proxy) · [Egress proxy internals](https://hermes-agent.nousresearch.com/docs/developer-guide/egress-internals).
+
+## Comandos de ciclo de vida que conviene memorizar
+
+| Comando | Rol |
+| --- | --- |
+| `hermes egress install [--force]` | Descargar binario pineado; SHA-256 verificado |
+| `hermes egress setup` | CA, mappings, `proxy.yaml`, flag enabled |
+| `hermes egress setup --from-bitwarden` | Fuente de credenciales = Bitwarden, fail-loud |
+| `hermes egress setup --no-bitwarden` | Vuelta explícita a env |
+| `hermes egress setup --rotate-tokens` | Emitir tokens frescos para cada proveedor |
+| `hermes egress start` / `stop` / `restart` | Ciclo de vida del demonio |
+| `hermes egress reload` | Recarga en caliente del ruleset desde `proxy.yaml` |
+| `hermes egress status [--show-tokens]` | Binario + config + pid + listening + mappings |
+| `hermes egress disable` | Pone `proxy.enabled = false` (no detiene un proxy en marcha) |
+| `hermes egress config` | Imprime la ruta a `proxy.yaml` |
+
+Layout de módulos para contribuidores (Nous Research, *Egress proxy internals*, s. f.): `agent/proxy_sources/iron_proxy.py` es el core de funciones puras; `hermes_cli/proxy_cli.py` es el wizard; `hermes_cli/main.py:_dispatch_egress` usa `dest='egress_command'` — intencionadamente disjunto del subparser OAuth entrante `hermes proxy` (`dest='proxy_command'`). El cableado Docker vive en `tools/environments/docker.py` (`_egress_proxy_args_for_docker`, detección de colisiones, append-merge de `NODE_OPTIONS` vía un sentinel). Tests herméticos: `tests/test_iron_proxy.py`, `tests/test_iron_proxy_cli.py`; E2E en vivo gated en `HERMES_RUN_E2E=1`.
+
+## Invariantes de seguridad (lista corta de aula)
+
+- Filesystem: dir proxy `0o700`; secretos (`ca.key`, `proxy.yaml`, `mappings.json`, pid, nonce, logs) `0o600`; cert de CA público `0o644`. Las escrituras usan `O_NOFOLLOW` + chequeo de uid — sin ventana de umask de `shutil.copy2`.
+- Env del subproceso: solo allowlist. Tiren vars de recursión `HTTPS_PROXY`. Nunca copien el env completo del host al demonio.
+- Listener de métricas pineado a loopback efímero para que no pelee con `tunnel_port`.
+- Modo Bitwarden fail-loud cuando `allow_env_fallback` es falso (default).
+- Preservación de tokens en re-setup salvo `--rotate-tokens`.
+- Preservación de `credential_source` en un re-setup plano.
+
+**Caso.** Un shim hostil de `ip` en PATH intenta inyectar `0.0.0.0` como dirección del bridge docker. `_detect_docker_bridge_ip` valida vía `ipaddress.IPv4Address` y rechaza unspecified / loopback / multicast / reserved / link-local / global. El bind cae a loopback con un aviso. Un peer de LAN con un token de sandbox filtrado sigue sin poder alcanzar el proxy desde la red externa.
+
+Lo que egress **no** protege: proceso de host comprometido; clave privada de CA robada o endpoint de proxy hijackeado; procesos del sandbox que eluden `HTTPS_PROXY` con un socket crudo (Node parcialmente mitigado vía `--use-openssl-ca`); archivos de credenciales montados explícitamente en Docker; exfiltración de datos a hosts allowlisted en bodies de petición; proveedores SigV4 / OAuth GCP no cubiertos; zeroisation in-memory de secretos de iron-proxy.
+
+Caveat de Node.js: `NODE_EXTRA_CA_CERTS` *añade* al store del sistema mientras Python/curl lo *reemplazan*. `--use-openssl-ca` estrecha la asimetría pero no cubre código que pase su propia opción `ca` a `tls.connect()`. No ejecuten Node no confiable que abra sockets crudos en un sandbox del que dependan para el aislamiento de egress.
+
+URL oficial: [Egress proxy internals](https://hermes-agent.nousresearch.com/docs/developer-guide/egress-internals).
+
+## Modos de fallo que el aula debe reconocer
+
+De la página oficial de usuario (Nous Research, *Egress credential-injection proxy*, s. f.):
+
+| Síntoma | Causa / primer movimiento |
+| --- | --- |
+| La creación del sandbox se niega | `enabled: true` pero el demonio caído, y `enforce_on_docker: true` |
+| HTTP 403 desde el proxy | Host no está en el allowlist default ni en `extra_allowed_hosts` |
+| HTTP 401 desde upstream | Rotación de tokens sin reiniciar sandboxes, o fallback BW stale |
+| Errores de verificación SSL | CA no montada, o el entrypoint de la imagen tiró las env de CA-bundle |
+| "iron-proxy exited immediately" | Puerto ocupado, `proxy.yaml` malo, o perms de `ca.key` |
+| Timeout en Linux hacia el proxy | Firewall del host tirando docker0 → tunnel_port / tunnel_port+1 |
+| BWS_ACCESS_TOKEN no fijado | Modo Bitwarden sin el token; `--no-bitwarden` para salir |
+
+`hermes egress disable` pone `proxy.enabled = false` pero **no** detiene un demonio en marcha. `stop` es un paso aparte. Los contenedores Docker persistentes incluyen una etiqueta de postura de egress para que Hermes no reutilice un contenedor pre-egress o pre-rotación en sesiones nuevas.
+
+Limitaciones v1 a recitar: solo backend Docker; SigV4 / OAuth GCP no cubiertos; sin binario nativo Windows (Linux / macOS / WSL); la CA es un cert auto-firmado a 10 años en la primera generación; iron-proxy v0.39 tiene un solo bind y un stream de log combinado.
+
+## Fuentes
+
+Nous Research. (s. f.). *Egress credential-injection proxy (iron-proxy)*. Guía de usuario de Hermes Agent. https://hermes-agent.nousresearch.com/docs/user-guide/egress/iron-proxy
+
+Nous Research. (s. f.). *Egress proxy internals*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/egress-internals
+
+Nous Research. (s. f.). *Architecture*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/architecture
+
+Nous Research. (s. f.). *Docker*. Guía de usuario de Hermes Agent. https://hermes-agent.nousresearch.com/docs/user-guide/docker
+
+Nous Research. (s. f.). *hermes secrets bitwarden*. Guía de usuario de Hermes Agent. https://hermes-agent.nousresearch.com/docs/user-guide/features/bitwarden
+
+Nous Research. (s. f.). *Agent loop internals*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop

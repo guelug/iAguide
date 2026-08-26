@@ -1,0 +1,18 @@
+{
+  "id": "kimi-linear-serve",
+  "order": 24.5,
+  "slug": "kimi-linear-serve",
+  "track": "metal",
+  "title": {
+    "en": "Serve Kimi Linear",
+    "es": "Servir Kimi Linear"
+  },
+  "summary": {
+    "en": "Deploy Kimi Linear with Transformers or vLLM: size 96 GB of BF16 weights vs hybrid KV, pick an engine that has KDA, never invent GGUF or llama.cpp support.",
+    "es": "Despliega Kimi Linear con Transformers o vLLM: dimensiona 96 GB de pesos BF16 frente a KV híbrida, elige un motor con KDA, nunca inventes soporte GGUF o llama.cpp."
+  },
+  "status": "complete",
+  "prereqs": ["local-inference", "kimi-delta-attention"],
+  "durationMin": 40,
+  "tags": ["vllm", "kimi-linear", "serve", "kv-cache"]
+}

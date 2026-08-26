@@ -1,0 +1,18 @@
+{
+  "id": "quotas-and-pricing",
+  "order": 25.3,
+  "slug": "quotas-and-pricing",
+  "track": "metal",
+  "title": {
+    "en": "Quotas, prices, and what a harness actually spends",
+    "es": "Cuotas, precios y lo que un harness gasta de verdad"
+  },
+  "summary": {
+    "en": "Subscription quota versus API pay-per-token versus local electricity. Hermes plan table as documented, Hugging Face Inference Providers 0.10 USD monthly credit, agent turns as many model calls, credential-pool 429 versus 402, and the Plus-is-free myth.",
+    "es": "Cuota de suscripción frente a API de pago por token frente a electricidad local. Tabla de planes de Hermes tal como está documentada, crédito mensual de 0,10 USD de Hugging Face Inference Providers, turnos de agente como muchas llamadas, 429 frente a 402, y el mito de que Plus deja el harness gratis."
+  },
+  "status": "complete",
+  "prereqs": ["cost-and-economics", "oauth-and-keys"],
+  "durationMin": 35,
+  "tags": ["quotas", "pricing", "hermes", "openclaw", "huggingface"]
+}

@@ -1,25 +1,181 @@
-## Gateway owns the rows
+## sqlite owns the thread
 
-~/.openclaw/agents/<id>/agent/openclaw-agent.sqlite holds runtime session rows. Transcript archives under sessions/. Shared pairing DB is ~/.openclaw/state/openclaw.sqlite.
+OpenClaw's [*Session management*](https://docs.openclaw.ai/concepts/session) (n.d.) is the primary source. OpenClaw routes every inbound message to a **session** based on where it came from: DMs, group chats, cron jobs, webhooks. All session state is owned by the **gateway**; UI clients query the gateway for session data.
 
-dmScope: main (all DMs share), per-peer, per-channel-peer (recommended for multi-user), per-account-channel-peer. groupScope: per-group (default) or main.
+The generic [sessions](/en/m/sessions) lesson stays harness-agnostic. This one is the OpenClaw store.
 
-Incognito threads stay in process memory — gone on Gateway restart, no memory flush.
+Session rows live in the per-agent SQLite database `~/.openclaw/agents/<agentId>/agent/openclaw-agent.sqlite`. Archived transcript files can still live under `~/.openclaw/agents/<agentId>/sessions/`. Legacy row migration source: `sessions.json`. Active agent history is stored in SQLite. The session ID is stable and chosen by OpenClaw. OpenClaw does not read session folders from other tools (OpenClaw, *Session management*, n.d.; *Agent runtime*, n.d., https://docs.openclaw.ai/concepts/agent).
 
-<VisualSlot caption="sqlite path, dmScope, groupScope, main session, incognito." />
+For the personal-agent default — one rolling conversation shared by all your DM channels, with group activity and background work flowing into it — see [*The main session*](https://docs.openclaw.ai/concepts/main-session) (OpenClaw, n.d.).
 
-## Compare vs Hermes
+<VisualSlot caption="sqlite path, dmScope, groupScope, main, incognito." />
 
-Hermes: one profile-scoped ~/.hermes/state.db with FTS5. OpenClaw: per-agent sqlite plus a shared pairing DB. Session keys encode channel/peer, not just chat_id.
+## How messages are routed
 
-## Case: Alice sees Bob
+| Source | Behavior |
+| --- | --- |
+| Direct messages | Shared session by default |
+| Group chats | Isolated per group by default |
+| Rooms/channels | Isolated per room by default |
+| Cron jobs | Fresh session per run |
+| Webhooks | Isolated per hook |
 
-**Case.** Two people DM the bot; dmScope is main.
+## DM isolation
 
-**Fix.** per-channel-peer. Verify with openclaw security audit.
+By default, all DMs share one session for continuity, which is fine for single-user setups. If multiple people can message your agent, enable DM isolation. Without it, all users share the same conversation context, so Alice's private messages would be visible to Bob (OpenClaw, *Session management*, n.d.).
+
+`session.dmScope` options:
+
+| Value | Behavior |
+| --- | --- |
+| `main` (default) | All DMs share the main session |
+| `per-peer` | Isolate by sender, across channels |
+| `per-channel-peer` | Isolate by channel plus sender (recommended) |
+| `per-account-channel-peer` | Isolate by account plus channel plus sender |
+
+If the same person contacts you from multiple channels, use `session.identityLinks` to map their identities to one canonical peer id so they share a session. Verify your setup with `openclaw security audit`.
+
+Dock commands move the current direct-chat session's reply route to another linked channel without starting a new session. See *Channel docking* (OpenClaw, n.d., https://docs.openclaw.ai/concepts/channel-docking).
+
+## Group and room routing
+
+`session.groupScope` controls where non-direct peers store conversation context:
+
+| Value | Behavior |
+| --- | --- |
+| `per-group` (default) | Keep each group, room, or channel in its existing channel-scoped session |
+| `main` | Route groups, rooms, and channels into the agent's main session |
+
+A route binding can override the global value. This is useful when only a named team room should join the main conversation. Use `peer.kind: "group"` for providers that classify the room as a group. The binding override wins over global `session.groupScope`. This setting changes session-key selection only: DM routing, mention gating, delivery context, and replies to the source room remain unchanged (OpenClaw, *Session management*, n.d.).
+
+<Callout>
+If you previously used DM isolation and later returned `session.dmScope` to `main`, preview stale peer-keyed DM rows with `openclaw sessions cleanup --dry-run --fix-dm-scope`. Applying the same flag retires those old direct-DM rows and keeps their transcripts as deleted archives (OpenClaw, *Session management*, n.d.).
+</Callout>
+
+## Incognito sessions
+
+Incognito sessions are available only from the Control UI's **New thread** screen. Turn on **Incognito** before starting the thread to keep its session entry, transcript, and compaction state in process memory instead of on disk. The thread disappears when the Gateway restarts, does not run OpenClaw's automatic memory flush, and does not create a transcript archive when you reset or delete it. Codex-backed runs also start their harness thread in ephemeral mode, so Codex writes no rollout or local session-state files; other model providers use HTTP APIs and keep no local provider transcript in OpenClaw (OpenClaw, *Session management*, n.d.).
+
+The `incognito-` segment is reserved for dashboard, subagent, and hidden internal session keys; `openclaw doctor --fix` renames any colliding legacy durable keys.
+
+Incognito does not restrict the agent's normal tools. An explicit request to save information, or any tool-driven file write, can still persist data outside the incognito session store. Your configured model provider still processes the messages you send. On multi-user gateways, incognito threads are visible only to admin-scope connections and never appear through another session's agent session tools or transcript search.
+
+## Remember across conversations
+
+Separate transcripts control each conversation's local history. For a personal or fully trusted agent, `memory.search.rememberAcrossConversations: true` adds an optional retrieval step across that agent's other private conversations; it does not combine their transcripts.
+
+Under default `session.groupScope: "per-group"`, groups and channels stay separate in both directions: their transcripts are not private recall sources, and replies in those conversations do not receive private transcript context. This setting does not change session keys, DM scope, routing, delivery, or `tools.sessions.visibility`. Shared workspace memory in `MEMORY.md` and `memory/*.md` also keeps its existing behavior (OpenClaw, *Session management*, n.d.; *Active Memory*, n.d., https://docs.openclaw.ai/concepts/active-memory).
+
+## Lifecycle timestamps
+
+The session rows in the per-agent SQLite database keep separate lifecycle timestamps (OpenClaw, *Session management*, n.d.):
+
+- `sessionStartedAt`: when the current `sessionId` began; daily reset uses this.
+- `lastInteractionAt`: last user/channel interaction that extends idle lifetime.
+- `updatedAt`: last store-row mutation; useful for listing and pruning, but not authoritative for daily or idle reset freshness.
+
+Heartbeat, cron, exec, and other system-event turns may write session metadata, but those writes do not extend daily or idle reset freshness. Details continue in the reset lesson.
+
+During migration from older installs, gateway startup and `openclaw doctor --fix` import legacy `sessions.json` rows and hot transcript JSONL history into SQLite automatically. Use `openclaw doctor --session-sqlite inspect --session-sqlite-all-agents` when you want explicit inspection.
+
+## Session maintenance
+
+OpenClaw bounds session storage over time via `session.maintenance`. Defaults: `mode: "enforce"`, `pruneAfter: "30d"`, `archiveDashboardAfter: "7d"`, `maxEntries: 500`. `preserveRecent` is optional.
+
+`maxEntries` counts every live session row. Archived or pinned sessions, active or admitted work, model-locked sessions, and durable external conversation pointers are protected from automatic eviction, but still consume the cap. Cleanup removes the oldest unprotected rows until it reaches `maxEntries` or runs out of eligible victims.
+
+Gateway model-run probe sessions matching `agent:*:explicit:model-run-*` use fixed `24h` retention, pressure-gated. Normal direct, group, thread, cron, hook, heartbeat, ACP, and sub-agent sessions do not inherit this 24h retention.
+
+Archived and pinned sessions are user-protected and exempt from every automatic maintenance path until you unarchive, unpin, or explicitly delete them. Preview any maintenance run with `openclaw sessions cleanup --dry-run`.
+
+## Inspecting sessions
+
+| Command | Shows |
+| --- | --- |
+| `openclaw status` | Session store path and recent activity |
+| `openclaw sessions --json` | All sessions (filter with `--active`) |
+| `/status` in chat | Context usage, model, and toggles |
+| `/context list` | What is in the system prompt |
+
+`tools.sessions.visibility` defaults to `tree` (current session plus sessions spawned by it; the main session can reach every session of the same agent). Other values: `self`, `agent`, `all`. Sandbox clamp: when the current session is sandboxed and `agents.defaults.sandbox.sessionToolsVisibility` is `"spawned"` (the default), access stays limited to spawned sessions even if the caller is main or visibility is `"all"` (OpenClaw, *Tools and custom providers*, n.d., https://docs.openclaw.ai/gateway/config-tools).
+
+**Case.** Alice and Bob both DM the same Telegram bot. Default `dmScope` `main` shares one session. Bob sees Alice's private context. Set `session.dmScope` to `per-channel-peer` (OpenClaw, *Session management*, n.d.).
 
 <TryThis>
-Write the sqlite path for agent id main. Pick a dmScope for a family Telegram bot.
+Write the per-agent sqlite path. Name the four dmScope values and the default. Name the two groupScope values and the default. Write which three timestamps exist and which two daily/idle reset actually use. Name where incognito state lives.
 </TryThis>
 
-Source: https://docs.openclaw.ai/concepts/session
+## Compare, without mixing knobs
+
+Hermes persists sessions via `hermes_state.py` to SQLite plus `MEMORY.md` (Nous Research, *Agent Loop Internals*, n.d., https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop). OpenClaw owns session rows on the Gateway in per-agent `openclaw-agent.sqlite`. Same human need (a durable thread). Different owner process. Different scope knobs.
+
+Do not paste Hermes session ids into OpenClaw `session.dmScope`. Do not invent a `sessions.json` live store; that file is a legacy migration source. Cite *Session management* for routing, scopes, incognito, timestamps, and maintenance.
+
+**Case.** A group Slack room is bound with `session.groupScope` `main` so the team room joins the agent's main conversation. Other rooms stay `per-group`. The binding override wins over global `session.groupScope`. Replies still go to the source room (OpenClaw, *Session management*, n.d.).
+
+Cron jobs get a fresh session per run. Isolated automations use `cron:<jobId>` keys. That split continues in the cron lesson. Compaction changes what the model sees, not the sqlite row identity, unless a context engine returns a successor; that continues in the compaction lesson.
+
+
+## Session tools and visibility
+
+The agent-facing session tools (`sessions_list`, `sessions_history`, `sessions_send`, `sessions_spawn`) honor `tools.sessions.visibility`. Default `tree` means current session plus spawned subagents; when the caller is the canonical main session, it includes every same-agent session for list, history, search, send, and status. `self` is only the current session key. `agent` is any session belonging to the current agent id (can include other users if you run per-sender sessions under the same agent id). `all` is any session; cross-agent targeting still requires `tools.agentToAgent` (OpenClaw, *Tools and custom providers*, n.d.).
+
+`self` remains strict for main. Incognito denial remains absolute. When not `all`, `sessions_list` includes a compact `visibility` field describing the effective mode and a warning that some sessions may be omitted.
+
+Ambient group watches still queue activity notices and tell the main session where something happened. They do not grant access: main's same-agent access is built into `tree`. In a multi-user setup, `session.dmScope: "main"` shares that main session across users; use a per-peer DM scope for isolation, or set `tools.sessions.visibility: "self"` for strict current-session access.
+
+To continue the same Gateway-owned session in the Control UI, terminal, or a coding harness, see *Session synchronization and attachment* (OpenClaw, n.d., https://docs.openclaw.ai/concepts/session-attachment). ACP bridge mode maps ACP sessions onto Gateway session keys; that continues in the ACP lesson.
+
+Further reading on the same docs site: *Session search*, *Session pruning*, *Compaction*, *Session tools*, *Session management deep dive*, *Multi-agent*, *Background tasks*, *Channel routing* (OpenClaw, n.d.).
+
+**Case.** A sandboxed group session sets `tools.sessions.visibility` to `all` hoping to read the main DM. The sandbox clamp `sessionToolsVisibility` `"spawned"` still limits access to spawned sessions. Visibility config is not a sandbox escape (OpenClaw, *Tools and custom providers*, n.d.; *Sandbox vs tool policy vs elevated*, n.d., https://docs.openclaw.ai/gateway/sandbox-vs-tool-policy-vs-elevated).
+
+Gateway-backed clients query the gateway; they do not read the sqlite file themselves. Teaching a macOS app to open `openclaw-agent.sqlite` directly skips pairing, scopes, and maintenance. Cite *Session management* for the store path and *Gateway protocol* for the RPC surface (OpenClaw, *Session management*, n.d.; *Gateway protocol*, n.d., https://docs.openclaw.ai/gateway/protocol).
+
+Durable dashboard sessions auto-archive after 7 days of inactivity by default (`archiveDashboardAfter: "7d"`). Other session types still require an explicit archive action. Recent-session protection (`preserveRecent`) does not change managed-worktree garbage collection.
+
+Synthetic cron, hook, heartbeat, ACP, and sub-agent entries can age out. Maintenance preserves durable external conversation pointers, including group sessions and thread-scoped chat sessions. That is why a high-volume cron fleet does not evict the Slack room the humans still use (OpenClaw, *Session management*, n.d.).
+
+`openclaw sessions cleanup --enforce` applies the cap immediately. Session store reads do not prune or cap entries during Gateway startup, so startup and isolated cron sessions do not pay for a full store cleanup.
+
+
+Origin metadata on a session row records how the conversation started: channel, peer, account. Send policy and queue mode can be stored per session (`/queue` overrides). Origin is not `dmScope`; changing `dmScope` later does not rewrite old keys. Cleanup `--fix-dm-scope` is the explicit retirement path for leftover peer-keyed DM rows after you return to `main` (OpenClaw, *Session management*, n.d.).
+
+`openclaw sessions --json` is the operator dump. `/status` in chat is the in-thread view of context usage, model, and toggles. `/context list` shows what is in the system prompt, including injected workspace files from the workspace lesson. Use those three before assuming the sqlite file is corrupt.
+
+Session pruning trims old tool results in-memory per request; it is not compaction and it is not reset. Compaction summarizes older turns into the transcript. Reset mints a new `sessionId`. Three different verbs. Cite *Session pruning* (OpenClaw, n.d., https://docs.openclaw.ai/concepts/session-pruning) for tool-result trimming, *Compaction* for summaries, *Session management* for ids and scopes.
+
+ACP, subagent, cron, hook, and heartbeat keys are synthetic compared with human DMs. Maintenance is allowed to age those out while protecting group and thread pointers. Teaching "maxEntries 500 means only 500 human chats" is wrong: protected rows still consume the cap, so the total can remain above 500 (OpenClaw, *Session management*, n.d.).
+
+The Control UI New thread screen is the only documented incognito entry. There is no `session.incognito` config key on this page that makes every DM ephemeral. Do not invent one. Turn Incognito on before starting the thread.
+
+
+Identity links are the multi-channel person. Without `session.identityLinks`, `per-peer` still splits Alice-on-Telegram from Alice-on-WhatsApp. `per-channel-peer` is the recommended isolation when several people can DM you. `per-account-channel-peer` adds the account dimension for two WhatsApp numbers on one Gateway (OpenClaw, *Session management*, n.d.; *Multi-agent*, n.d., https://docs.openclaw.ai/concepts/multi-agent).
+
+Webhooks isolate per hook. Cron isolates per run. Those keys are not the main session. Putting a Gmail hook on `main` is a security decision documented on *Automations* (keep a dedicated reader agent). This lesson only records the default routing table.
+
+Doctor `--session-sqlite inspect --session-sqlite-all-agents` is the evidence command when a migration from `sessions.json` looks incomplete. Startup imports are automatic; inspect is for operators who need a receipt (OpenClaw, *Session management*, n.d.; *Doctor*, n.d., https://docs.openclaw.ai/cli/doctor).
+
+Pinning a session in the Control UI protects it from every automatic maintenance path, including age pruning, entry caps, model-run cleanup, and disk-budget eviction. Unpin or delete when you no longer need that protection. Protected rows still count toward `maxEntries`, so a fleet of pins can hold the store above the cap on purpose (OpenClaw, *Session management*, n.d.).
+
+Cite *Session management* as the parent of routing, scopes, incognito, timestamps, and maintenance.
+
+This lesson stops at routing, dmScope, groupScope, sqlite paths, incognito, and maintenance. Daily and idle reset continue next.
+
+## Sources
+
+OpenClaw. (n.d.). *Session management*. https://docs.openclaw.ai/concepts/session
+
+OpenClaw. (n.d.). *The main session*. https://docs.openclaw.ai/concepts/main-session
+
+OpenClaw. (n.d.). *Agent runtime*. https://docs.openclaw.ai/concepts/agent
+
+OpenClaw. (n.d.). *Active Memory*. https://docs.openclaw.ai/concepts/active-memory
+
+OpenClaw. (n.d.). *Tools and custom providers*. https://docs.openclaw.ai/gateway/config-tools
+
+OpenClaw. (n.d.). *Channel docking*. https://docs.openclaw.ai/concepts/channel-docking
+
+OpenClaw. (n.d.). *Gateway architecture*. https://docs.openclaw.ai/concepts/architecture
+
+Nous Research. (n.d.). *Agent loop internals*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop

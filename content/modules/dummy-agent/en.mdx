@@ -1,34 +1,264 @@
 ## Particularity — the loop in twenty lines of Python
 
-This is not a fifth track. It is the general ReAct cycle with the framework stripped off, the way the Hugging Face Agents Course teaches it before smolagents.
+*Named source: Hugging Face Agents Course, Unit 1, [Dummy Agent Library](https://huggingface.co/learn/agents-course/unit1/dummy-agent-library) (Burtenshaw, Thomas, Simonini, & Paniego, Apache-2.0).*
 
-You probably would not ship this. You should be able to write it, or you will not know what smolagents is hiding.
+This is not a fifth track. It is the general ReAct cycle with the framework stripped off, the way the Hugging Face Agents Course teaches it in Unit 1 before anyone is allowed to import smolagents.
+
+The course is explicit: Unit 1 is **framework-agnostic on purpose**. The authors do not want you to confuse a library with the idea. You probably would not ship the dummy loop. You should be able to write it, or you will not know what smolagents, LlamaIndex, or LangGraph is hiding.
+
+A serverless chat API is enough. Hugging Face Inference, or any OpenAI-shaped endpoint. The `chat` method applies the chat template so you can swap models without rewriting the prompt by hand. You still own the loop.
+
+The official notebook lives at [agents-course/notebooks](https://huggingface.co/agents-course/notebooks/blob/main/unit1/dummy_agent_library.ipynb). This lesson rewrites the idea, not the page.
+
+<VisualSlot caption="Left: the model’s Thought and Action JSON. Right: a fake Observation versus the real function. The stop sequence is the hinge." />
+
+## What an agent is, before a library exists
+
+*Named source: Hugging Face Agents Course, Unit 1, [Understanding AI Agents through the Thought-Action-Observation Cycle](https://huggingface.co/learn/agents-course/unit1/agent-steps-and-structure) and [What are Agents?](https://huggingface.co/learn/agents-course/unit1/what-are-agents).*
+
+Unit 1 defines an agent as a system that uses a language model to interact with an environment in order to reach a user-defined goal. The model reasons and plans. The **harness** executes. Tools, memory, and control flow sit around the weights — they are not the weights.
+
+That is the same split this course already made in [the harness](/course/the-harness). The Hugging Face unit just makes you write the inner `while` yourself.
+
+Three names, one cycle:
+
+1. **Thought** — the model decides the next step. Planning, analysis, a refusal, a self-correction. Text.
+2. **Action** — the model emits a structured request: which tool, with which arguments. Still text.
+3. **Observation** — the environment answers. An API body, an error, a number. The harness appends that string. It is **not** sampled.
+
+The cycle is a `while`. It continues until the objective is done, or until you hit a step budget. Frameworks bake the rules into a <Term id="system-prompt">system prompt</Term>. The dummy lesson does the same, in the open, so you can see every token.
+
+Alfred, the weather butler in that unit, is the worked example. A user asks for the weather in New York. Alfred thinks, emits a JSON action for `get_weather`, waits for a real observation, thinks again, and only then writes `Final Answer:`.
+
+## Tools are text first
+
+*Named source: Hugging Face Agents Course, Unit 1, [What are Tools?](https://huggingface.co/learn/agents-course/unit1/tools).*
+
+A <Term id="tool">tool</Term> is a function given to the model. The model cannot call it. The model can only emit text that *looks like* a call. The harness reads that text, runs the callable, and feeds the result back.
+
+A good tool complements the model. Arithmetic belongs in a calculator, not in logits. Today's weather belongs in an API, not in a training cutoff. Image generation, retrieval, a GitHub client — same shape.
+
+A tool description the model actually needs has four parts:
+
+- a **name**
+- a **textual description** of the objective
+- **arguments** with types
+- optionally **outputs** with types
+
+Unit 1's calculator example is a one-liner that multiplies two integers. The textual form they want the model to see is roughly: name `calculator`, description "Multiply two integers.", arguments `a: int, b: int`, outputs `int`. You can write that string by hand. You can also pull it from a Python function with type hints, a docstring, and a decorator — which is what smolagents will do for you in the next particularity.
+
+Until then, the dummy prompt **already contains** the tool list. Nothing is discovered at runtime. If the description is vague, the model will invent arguments. If two tools overlap, the model will pick the wrong one. Precision in the system prompt is the product.
+
+<Callout>
+The LLM only handles text. It describes the action it wants and the parameters. For the agent to work, generation must **stop** after a complete Action so a parser can read it. Extra tokens after the JSON are not creativity. They are a broken contract.
+</Callout>
+
+## Thought is not magic, and it is not always required
+
+*Named source: Hugging Face Agents Course, Unit 1, [Thought: Internal Reasoning and the ReAct Approach](https://huggingface.co/learn/agents-course/unit1/thoughts).*
+
+Thoughts are the agent's inner monologue: plan, analyse, decide, remember, reflect. Chain-of-thought is a prompting trick — "let's think step by step" — for work that stays **inside** the model (math, logic). ReAct is the other trick: interleave Thought, Action, and Observation so the model can leave the prompt and come back with evidence.
+
+Function-calling models, the ones fine-tuned to emit tool messages, can skip the visible thought. Their "thought" is optional. The dummy loop still asks for `Thought:` because the model in front of you is a chat model being *prompted* into a cycle, not a tool-specialist being *trained* into one. That distinction is the whole of [function-calling fine-tuning](/course/function-calling-ft).
+
+<Compare a="Chain-of-thought" b="ReAct">
+<Side>
+Step-by-step logic, no tools. The model talks to itself and then answers. Good for arithmetic and closed puzzles. If the fact is not in the weights, CoT will still invent it — fluently.
+</Side>
+<Side>
+Step-by-step logic **plus** Actions and Observations. The model is allowed to fetch. Good for weather, search, and anything whose ground truth is outside the context window. You still have to stop-and-parse, or ReAct collapses back into CoT with a fake observation.
+</Side>
+</Compare>
+
+Recent reasoning models train a think-then-answer split with special tokens. That is a **training** technique, not a prompting strategy. Do not confuse it with the dummy loop. The dummy loop is a prompt plus a stop sequence plus your Python.
+
+## The dummy system prompt is the entire product
+
+*Named source: Hugging Face Agents Course, Unit 1, [Dummy Agent Library](https://huggingface.co/learn/agents-course/unit1/dummy-agent-library).*
+
+The Unit 1 prompt is longer than a hello-world, and every extra line is load-bearing. It already contains:
+
+1. **Information about the tools** — here, `get_weather`: current weather in a given location.
+2. **How to emit an action** — a JSON blob with an `action` key (the tool name) and an `action_input` key (the arguments).
+3. **The only legal action names** — in the dummy, just `get_weather`, with `location` as a string.
+4. **The cycle format** — Question, Thought, Action, Observation, repeat.
+5. **The exit format** — `Thought: I now know the final answer` then `Final Answer:` with those exact characters.
+
+ALWAYS one action at a time. The JSON sits in a markdown cell. Observation is declared "unique, complete, and the source of truth." That last sentence is a lie unless **you** write the Observation. The model will try to write it anyway. That is the next section.
+
+You append the user instruction after the system prompt. The chat method wraps both in the model's template — Llama-style header tokens in the course's illustrated trace. You do not paste those tokens by hand if you use `chat`. Using `chat` is how you keep the door open to swap the engine.
+
+A first call without a stop sequence looks like a finished agent. Thought, Action JSON for London, then **Observation: partly cloudy, 12°C**, then Final Answer. It reads well. It is a fabrication. The model never left the GPU.
+
+<Myth>
+If the completion contains a weather sentence, the weather tool ran. No. Completing "Observation:" is next-token prediction. The dummy prompt *teaches* the shape of an observation, so the model is especially good at inventing one. London is sunny because sunny London is a common continuation, not because a station reported it.
+</Myth>
 
 ## Stop before Observation
 
-The dummy system prompt lists tools in English, shows a JSON blob (`action`, `action_input`), and demands the format:
+*Named source: Hugging Face Agents Course, Unit 1, [Dummy Agent Library](https://huggingface.co/learn/agents-course/unit1/dummy-agent-library) and [Actions](https://huggingface.co/learn/agents-course/unit1/actions) (stop-and-parse).*
 
+The fix is one argument on the inference call: `stop=["Observation:"]`. Generation halts at that string. What you get back is Thought plus Action JSON, and nothing after. Much better.
+
+Then you do the work the model cannot:
+
+1. **Parse** the Action. Read the tool name and the arguments. If the JSON is malformed, retry or abort — do not guess.
+2. **Refuse unknown names.** A tool that is not in your map does not run. The model will try.
+3. **Execute** `get_weather` yourself. In the dummy, it is a fake function that returns a canned sunny string. In production it is `curl`. Same slot.
+4. **Append** the real string as `Observation:` onto the assistant message (or as a new message — the dummy concatenates onto the assistant content).
+5. **Sample again.** Same stop sequence. Loop until you see `Final Answer:` or you hit a step cap.
+
+The course's dummy `get_weather` returns a one-liner: the weather in that location is sunny with low temperatures. They concatenate system + user + the truncated completion + `Observation:\n` + the function result, and call `chat` a second time. The second completion is `Final Answer: The weather in London is sunny with low temperatures.`
+
+That is the whole agent. Tedious on purpose. Libraries exist because this glue is boring and easy to get wrong. They do not replace the glue. They hide it.
+
+```python
+# shape of the dummy loop — not a library
+output = client.chat.completions.create(
+    messages=messages,
+    max_tokens=150,
+    stop=["Observation:"],
+)
+
+text = output.choices[0].message.content
+# parse the JSON after "Action:", run get_weather yourself
+observation = get_weather(location)
+
+messages.append({
+    "role": "assistant",
+    "content": text + "Observation:\n" + observation,
+})
+# sample again until "Final Answer:"
 ```
-Thought: ...
-Action:
-{ "action": "get_weather", "action_input": { "location": "London" } }
-Observation: ...
-```
 
-If you let the model keep generating, it will **hallucinate the Observation** — sunny London invented in logits. The fix: `stop=["Observation:"]`, parse the JSON, run `get_weather` *yourself*, append the real string, then sample again until `Final Answer:`.
+<Callout>
+`stop=["Observation:"]` is not optional decoration. Without it, the model writes the Observation and you have a chatbot that role-plays tools. With it, and without `runTool`, you have a hang: the loop stops and nobody appends. Both bugs look like "agents" in a demo. Neither is an agent.
+</Callout>
 
-<VisualSlot caption="Left: the model’s Thought and Action. Right: a fake Observation versus the real function. The stop sequence is the hinge." />
+## JSON, code, function-calling — three action encodings
 
-A serverless chat API (Hugging Face Inference, or any OpenAI-shaped endpoint) is enough. The chat method applies the template; you still own the loop.
+*Named source: Hugging Face Agents Course, Unit 1, [Actions: Enabling the Agent to Engage with Its Environment](https://huggingface.co/learn/agents-course/unit1/actions).*
 
-The first “real” agent in that course is the same loop inside smolagents — [next particularity](/course/smolagents). LlamaIndex and LangGraph come later as other encodings, not as promotions.
+Unit 1 already names three agent types by how they write the Action:
+
+- **JSON agent** — the dummy. An object with `action` and `action_input`. A parser maps name to function.
+- **Code agent** — a fenced Python block that an interpreter runs. Loops, several calls, variables. More expressive. More dangerous. smolagents' default.
+- **Function-calling agent** — a JSON agent whose **chat template** grew special roles: an assistant message that is a call, a `tool` message that is the observation. Learned, not only prompted.
+
+All three still stop-and-parse. Code agents delimit a block and treat `print` of a final answer as the end of a step. Function-calling agents stop because the API returns a `tool_calls` field instead of content. The dummy is the JSON case with the stop string visible.
+
+Actions themselves are not only "call weather." Unit 1 lists gathering information, using tools, touching an environment, talking to a user or another agent. The dummy only implements one. That is enough to learn the hinge.
+
+## Observations are logs you append
+
+*Named source: Hugging Face Agents Course, Unit 1, [Observe: Integrating Feedback to Reflect and Adapt](https://huggingface.co/learn/agents-course/unit1/observations).*
+
+An observation is how the agent perceives the consequence of an action. API body, error, status code, a file that changed, a sensor, a deadline. After you parse and execute, you append. The next Thought sees it.
+
+If the weather API returns "partly cloudy, 15°C, 60% humidity," that string goes at the end of the prompt. The model then decides whether it needs another tool or can emit `Final Answer:`. If the observation is an error, a well-prompted agent retries or explains. A dummy with no error path will happily quote the traceback as weather.
+
+Memory, in this lesson, is the growing message list. There is no vector store. There is no compaction. If you loop ten tools, you prefill ten observations. That cost is why later particularities invent workers and summaries. Here you should feel it.
+
+## Serverless is an engine, not a harness
+
+*Named source: Hugging Face Agents Course, Unit 1, [Dummy Agent Library](https://huggingface.co/learn/agents-course/unit1/dummy-agent-library); Inference API docs: [huggingface.co/docs/huggingface_hub](https://huggingface.co/docs/huggingface_hub/en/guides/inference).*
+
+The course uses Hugging Face's Serverless Inference so you can try models without deploying. A token with read scope. `InferenceClient`, then `chat.completions.create`. They currently illustrate with a Kimi instruct, and they pass `extra_body` to disable a thinking channel when the model has one. Those details move. The idea does not: **chat** so the template is applied; **stop** so you get the Action; **you** run the tool.
+
+`max_tokens` is a budget for one step, not for the whole task. A dummy that allows 1024 tokens without a stop sequence is inviting a hallucinated Observation plus a fake Final Answer in a single completion. Keep the cap tight. Keep the stop list honest.
+
+You can follow the same loop against any OpenAI-shaped server. The dummy is not a Hugging Face exclusive. Hugging Face is just where the notebook runs.
 
 <TryThis>
-Implement a tiny thought-action-observation loop in Python with **fake** tools (`get_weather`, `clock`). No API key. Hard-code two model “replies” as strings: one Action JSON, one Final Answer. Your code must: stop-parse, refuse unknown names, append Observation, then print the final line. If the fake model emits Observation itself, your loop should ignore it.
+Implement a tiny thought-action-observation loop in Python with **fake** tools (`get_weather`, `clock`). No API key. Hard-code two model "replies" as strings: one Action JSON, one Final Answer. Your code must: stop-parse, refuse unknown names, append Observation, then print the final line. If the fake model emits Observation itself, your loop should ignore it. Then add a third fake reply that names a tool you did not implement, and assert you never call it.
 </TryThis>
+
+## What the dummy refuses to be
+
+*Named source: Hugging Face Agents Course, Unit 1 [tutorial](https://huggingface.co/learn/agents-course/unit1/tutorial) pointing forward to smolagents, and [github.com/huggingface/agents-course](https://github.com/huggingface/agents-course).*
+
+It is not smolagents. The first "real" agent in that course is the same loop inside `CodeAgent` — [next particularity](/course/smolagents). LlamaIndex and LangGraph come later as other encodings, not as promotions.
+
+It is not production. No retries with jitter, no allowlist beyond a dict, no sandbox, no tracing. [Observability](/course/observability) is a later bonus for a reason: you cannot trace a loop you have not written.
+
+It is not a quiz. Unit 1 has quizzes. This lesson does not host them. The skill is: you can point at the stop sequence and say what breaks if you remove it.
 
 ## Case — MeteoLite’s sunny hallucination
 
-MeteoLite demoed “agents” by printing the raw completion. London was always sunny because the 8B had seen that pattern. A reviewer asked them to `curl` the weather API. They added `stop=["Observation:"]` and the demo broke — they had never written `runTool`. The dummy loop was the product they skipped.
+*Pedagogical case in iAguide voice; mechanism cited from Hugging Face Agents Course, Unit 1, [Dummy Agent Library](https://huggingface.co/learn/agents-course/unit1/dummy-agent-library).*
 
-This lesson rewrites ideas from the [Hugging Face Agents Course](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.
+MeteoLite demoed "agents" by printing the raw completion. London was always sunny because the 8B had seen that pattern. A reviewer asked them to `curl` the weather API. They added `stop=["Observation:"]` and the demo broke — they had never written `runTool`. The dummy loop was the product they skipped.
+
+They then parsed JSON with a regex that assumed a single line. A model wrapped the object in a markdown fence and the parser returned `None`. They treated `None` as "no tool needed" and emitted a Final Answer with the previous sunny string still in context. Two bugs stacked: a stop sequence without an executor, then an executor that failed closed into the hallucination they thought they had killed.
+
+The fix, which is also Unit 1's order of operations: stop, parse strictly, refuse unknown names, run the callable, append the **function's** string, sample again, require the exact characters `Final Answer:` before you show the user anything. If any step is missing, you do not have an agent. You have a completion.
+
+
+## Walk Alfred once, slowly
+
+*Named source: Hugging Face Agents Course, Unit 1, [agent-steps-and-structure](https://huggingface.co/learn/agents-course/unit1/agent-steps-and-structure) (Alfred, the weather Agent).*
+
+A user asks: "What's the current weather in New York?"
+
+**Thought.** Alfred's inner line, in the course's telling: the user needs current weather; a tool exists; call it first. That is planning, not meteorology. The model has not seen a station report yet.
+
+**Action.** A JSON command. Name `get_weather`. Argument `location` set to New York. One action. Not two. Not a paragraph of weather.
+
+**Stop.** You halt before Observation. If you did not, Alfred would now write "partly cloudy, 15°C" because that is what weather sentences look like.
+
+**Observation.** You run the function. The course's later Alfred example uses a real-looking string: partly cloudy, 15°C, 60% humidity. The dummy function is allowed to be faker than that. The point is the string came from **your** process.
+
+**Updated thought.** Now I can answer. This thought is cheaper than the first: the evidence is in the prompt.
+
+**Final action.** The exact header `Final Answer:` and a sentence that quotes the observation. You show that to the user. You do not show the JSON unless you are debugging.
+
+If the observation had been an error, Alfred would re-enter the cycle. The dummy has no hop counter. A production loop needs one. LangGraph will make that field explicit. Here, add `max_steps` in your own `while` or you will prefill until the bill notices.
+
+## Parsing is where demos die
+
+*Named source: Hugging Face Agents Course, Unit 1, [Actions](https://huggingface.co/learn/agents-course/unit1/actions) (stop and parse) and [Dummy Agent Library](https://huggingface.co/learn/agents-course/unit1/dummy-agent-library).*
+
+The course shows the Action as a fenced JSON object. Real completions drift:
+
+- A markdown fence with `json` on the info line.
+- `action_input` as a nested object, or as a string that itself needs a second parse.
+- Extra keys. Missing keys. `location` spelled `city`.
+- Two actions in one blob, against the prompt's "SINGLE action" rule.
+- `Final Answer:` on the first sample, skipping the tool you needed.
+
+Your parser should fail **loud**. Returning a silent empty dict is how MeteoLite served yesterday's sun. Log the raw completion. If you cannot find exactly one known tool name, do not execute. Either retry with a short "format reminder" user turn, or stop and tell the operator.
+
+Unknown names are a permission bug, not a parsing bug. The model will emit `run_shell` if the prompt ever mentioned shells. Your map is the allowlist. An empty map is a chatbot.
+
+## Messages are the memory
+
+*Named source: Hugging Face Agents Course, Unit 1, [Dummy Agent Library](https://huggingface.co/learn/agents-course/unit1/dummy-agent-library) and [Observations](https://huggingface.co/learn/agents-course/unit1/observations).*
+
+The dummy keeps three roles: `system`, `user`, `assistant`. The observation is concatenated onto the assistant content in the course notebook. Other stacks use a fourth role (`tool`). Both are legal as long as the **next** prompt contains the real result immediately after the Action. If you drop the observation, the model will invent one again. If you double it, the model will trust the first, which might be the hallucinated one you failed to strip.
+
+Do not put the Observation in the system prompt. The system prompt is the standing contract. Observations are per-step evidence. Mixing them teaches the model that weather is a policy.
+
+A second user question in the same list is a new task. Clear tool traces if the new question does not need them, or you will answer "Madrid" with London's sun still in context. That is not compaction yet. It is hygiene.
+
+## What to remember
+
+*Synthesis of Unit 1 pages listed under Sources, Hugging Face Agents Course (Burtenshaw, Thomas, Simonini, & Paniego, Apache-2.0).*
+
+The dummy agent is a `while` around a chat model. The system prompt lists tools and the Thought / Action / Observation ritual. You stop before `Observation:`, parse one JSON action, run the tool yourself, append the real result, and loop until `Final Answer:`. CoT never leaves the prompt. ReAct does, but only if the harness is honest. JSON, code, and function-calling are three spellings of the same Action slot. smolagents is this loop with manners.
+
+This lesson rewrites ideas from the [Hugging Face Agents Course](https://huggingface.co/learn/agents-course), Unit 1 — especially [Dummy Agent Library](https://huggingface.co/learn/agents-course/unit1/dummy-agent-library), [Thoughts](https://huggingface.co/learn/agents-course/unit1/thoughts), [Actions](https://huggingface.co/learn/agents-course/unit1/actions), [Observations](https://huggingface.co/learn/agents-course/unit1/observations), [the cycle](https://huggingface.co/learn/agents-course/unit1/agent-steps-and-structure), and [Tools](https://huggingface.co/learn/agents-course/unit1/tools) — by Burtenshaw, Thomas, Simonini, and Paniego, Apache-2.0. Notebook: [dummy_agent_library.ipynb](https://huggingface.co/agents-course/notebooks/blob/main/unit1/dummy_agent_library.ipynb). Course source: [huggingface/agents-course](https://github.com/huggingface/agents-course).
+
+## Sources
+
+Burtenshaw, B., Thomas, J., Simonini, T., & Paniego, S. (n.d.). *Hugging Face Agents Course* (Apache-2.0). https://huggingface.co/learn/agents-course · source repo https://github.com/huggingface/agents-course
+
+- Dummy Agent Library: https://huggingface.co/learn/agents-course/unit1/dummy-agent-library
+- Thoughts: https://huggingface.co/learn/agents-course/unit1/thoughts
+- Actions: https://huggingface.co/learn/agents-course/unit1/actions
+- Observations: https://huggingface.co/learn/agents-course/unit1/observations
+- Thought-Action-Observation cycle: https://huggingface.co/learn/agents-course/unit1/agent-steps-and-structure
+- Tools: https://huggingface.co/learn/agents-course/unit1/tools
+- What are Agents: https://huggingface.co/learn/agents-course/unit1/what-are-agents
+- Unit 1 tutorial (first smolagents agent): https://huggingface.co/learn/agents-course/unit1/tutorial
+- Course notebooks: https://huggingface.co/agents-course/notebooks/blob/main/unit1/dummy_agent_library.ipynb
+- Hugging Face Hub inference guide: https://huggingface.co/docs/huggingface_hub/en/guides/inference

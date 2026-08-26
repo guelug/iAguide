@@ -1,0 +1,220 @@
+## Why Full is expensive the moment you leave the laptop
+
+In vanilla training, Full AttnRes is almost free: the layer outputs it attends over are **already sitting in the activation cache** for the backward pass (Kimi Team, 2026). The moment you train a 48B-class model, that coincidence ends.
+
+Two standard scale tricks fight Full AttnRes:
+
+1. **Activation recomputation.** You checkpoint a layer input, free the rest, and rebuild on the backward. Full AttnRes needs every previous `v_i` *during the forward of later layers*, so those tensors cannot be freed. You now store `O(L d)` extra live activations per token (times batch and sequence).
+2. **Pipeline parallelism.** A normal residual sends one hidden state to the next stage. Full AttnRes must send **every layer output** the downstream stages will attend over. Communication becomes a function of depth, not a constant.
+
+Block AttnRes cuts the number of live representations from `L` to `N ≈ 8`. That is necessary but not sufficient. You still have to **move** those `N` block summaries across pipeline stages, and you still have to **read** them at every layer in the next block. This lesson is how the paper makes that cheap: **cross-stage caching** in training and a **two-phase online-softmax schedule** in inference. After this page you should be able to retell both, with the arithmetic.
+
+<Callout>
+The student who can only say "Block is cheaper than Full" has not finished. The student who can write naive comm versus cached comm, and walk Phase 1 then Phase 2, has finished.
+</Callout>
+
+<VisualSlot caption="Naive pipeline: every rank resends the growing history. Cached: each hop ships only the new block. Two-phase: batch all queries of a block against previous K/V, then merge the intra-block partial with online softmax." />
+
+## Naive pipeline communication
+
+Take an interleaved pipeline with `P` physical stages and `V` virtual stages per physical stage (Narayanan et al., 2021, Megatron-style 1F1B). Total chunks `C = P V`. Assume each physical stage produces on average `N_p` block representations of width `d` per token.
+
+The `j`-th chunk has accumulated `j N_p` blocks. If every stage transition **resends the full history**, per-token communication is
+
+$$
+\mathrm{Comm}_{\mathrm{naive}} = \sum_{j=1}^{C-1} j N_p d = \frac{C(C-1)}{2}\, N_p d
+$$
+
+That is a triangular number. Double the pipeline depth and you roughly quadruple the residual traffic. Peak per-transition cost is `O(C) = O(P V)`: the last hop ships almost the entire stack.
+
+Block boundaries need not line up with physical ranks. In the paper's Figure 3, each AttnRes block spans two physical stages, so only every other hop completes a new `b_n`. The formula above is the upper envelope; the topology is the same.
+
+## Cross-stage caching (paper Figure 3)
+
+Each **physical** rank runs several **virtual** stages in succession. Blocks received in virtual stage 1 are still in that rank's memory when virtual stage 2 starts. Do not send them again.
+
+- Virtual stage `v = 1`: no cache yet. Accumulate as usual (the triangular sum over `P` physical hops).
+- Virtual stage `v ≥ 2`: send only the **incremental** blocks produced since this receiver last saw its counterpart. That increment is about `P N_p` new blocks, not the whole history.
+
+Total communication becomes
+
+$$
+\mathrm{Comm}_{\mathrm{cached}} = \frac{P(P-1)}{2}\, N_p d + (V-1)\, P^{2} N_p d
+$$
+
+First term: the uncached first virtual stage. Second term: each later virtual stage ships a `P × P` increment. Caching drops **peak per-transition cost** from `O(C) = O(P V)` to `O(P)`, a factor-of-`V` improvement, which is what lets the extra traffic **overlap** with steady-state 1F1B compute. The backward pass uses the **same cache**. You do not build a second protocol.
+
+The paper's sketch is **4 physical ranks × 2 virtual stages**. Hatched boxes mark the end of an AttnRes block. Micro-batch indices 1 and 2 sit on the stages. For virtual stage 2, arrows are labelled `+[b1, b2]`: only the new pair moves. Caching eliminates six redundant block transmissions in that figure (Kimi Team, 2026).
+
+Walk Figure 3 left to right, rank by rank, because this is the picture you will be asked to redraw.
+
+**Virtual stage 0 (first pass).** Rank 0 holds `[b0]` and produces layers 1–2 of its chunk. Rank 1 already has `[b0]` plus `[b1]` (a completed block landed). Rank 2 holds `[b0, b1]`. Rank 3 holds `[b0, b1]` plus `[b2]`. Notice the pattern: odd ranks are the ones that *finish* a block in this drawing, because each block spans two physical stages. Hatched boxes are those finishes. Numbers 1 and 2 on the slabs are micro-batch indices, not layer ids. A 1F1B schedule has several micro-batches in flight; the cache is per rank, not per micro-batch of history you already sent.
+
+**Virtual stage 1 (second pass on the same four GPUs).** Rank 0 does not receive `b0` again. It already has it. The arrow is `+[b1, b2]`: the two blocks that were born downstream (or on later ranks) since this rank last ran this virtual slot. Rank 1 gets `+[b1, b2]` and locally already had `b3` in flight. Rank 2 and 3 likewise take an increment, not a prefix. If you draw four ranks without the plus signs, you are drawing the naive protocol.
+
+Why overlap works: in steady-state 1F1B, a rank is computing one micro-batch while it communicates the previous. Peak naive traffic is `O(C)` vectors of length `d`. Peak cached traffic is `O(P)`. For `V = 8` virtual stages the peak is eight times smaller. That is the difference between "the bubble grows" and "the extra bytes hide under the matmul."
+
+Block boundaries that straddle ranks (the paper's footnote) mean some hops send **zero** new blocks: the partial is still local. Cache logic has to allow a hop that communicates nothing new. That is not an error; it is the alignment.
+
+
+<Compare a="Naive PP" b="Cross-stage cache">
+<Side>
+Every hop resends `b_0 … b_k`. Cost `C(C-1)/2 N_p d`. Peak `O(PV)`. The residual history is a growing suitcase passed down the train.
+</Side>
+<Side>
+Rank keeps what it already received. Later virtual stages send only the new block. Cost `P(P-1)/2 N_p d + (V-1) P^2 N_p d`. Peak `O(P)`. Factor `V` on the peak, overlap with 1F1B.
+</Side>
+</Compare>
+
+**Case. Naive pipeline resends the full history every hop.** Four ranks, two virtual stages, one new block per physical stage. Rank 3 in virtual stage 2 already saw `b_0, b_1` in virtual stage 1. Naive still ships `b_0 … b_4`. Cached ships `+[b2, b3]` (and whatever just completed). Same model, same Block AttnRes, half the interconnect if you remember to keep the cache.
+
+## Memory: the activation footprint does not grow
+
+With caching, each block is stored **once** across all `V` virtual stages. Relative to the ordinary per-layer activation cache that is small. Activation checkpointing then deletes the inter-block attention intermediates. The checkpointed input has the same size as the hidden state it replaces, so **per-layer activation footprint is unchanged**.
+
+Wall-clock: Block AttnRes adds **negligible** training overhead when pipeline parallel is off. Under pipeline parallel, measured end-to-end overhead is **under 4%**. That 4% is the residual of the cached comm plus a cheap depth-softmax, not a new topology.
+
+Put the 4% in context. A pipeline that is already 1F1B-bound will show the extra comm as a slightly fatter all-to-next-stage copy, not as idle bubbles, *if* you cached. If you did not cache, the copy grows with virtual-stage index and the bubble grows with it. That is the whole training-systems claim: Block without cache is still `O(N)` per hop which is fine-ish; Block without cache **and** a deep virtual pipeline is the trap; cache makes the deep virtual pipeline cheap again.
+
+
+<Callout>
+Do not run Full AttnRes in a production pipeline-parallel job. Full still needs `O(L d)` live tensors and `O(L)` of them on the wire. Block plus cache is the shippable object. Full is the ablation that proves the mixer.
+</Callout>
+
+## Two-phase inference (Algorithm 1)
+
+Naive Block inference, at every layer, scores `w_l` against all previous block summaries. That is `O(L N)` memory accesses per token: every layer rereads the same cache. The trick is that `w_l` is a **parameter**, not a function of `h`. All `S = L/N` queries inside a block are known before the block runs. You can **batch** them.
+
+**Phase 1.** Stack the `S` queries of the current block. One batched attention against the previous block K/V. Return, for each query: the weighted output, the **max**, and the **log-sum-exp**. You read the previous blocks once, not `S` times.
+
+**Phase 2.** Walk the block in order. Layer 0 of the block has no intra-block partial yet, so its hidden state is just the Phase-1 output renormalised. Each later layer attends the current partial sum (one extra key/value), then **merges** with Phase 1 using online softmax (Milakov & Gimelshein, 2018) — the same numerically stable running-max / running-sum FlashAttention uses on the token axis, now on the depth axis. Update the partial: `b ← b + f(h)`.
+
+Because the merge is elementwise, Phase 2 fuses with RMSNorm and the surrounding residual add. Phase 1 can overlap with the first layer of the block. End-to-end inference overhead: **under 2%** on typical workloads.
+
+<Steps>
+1. Batch all `S` queries of the block against previous block K/V (Phase 1). Keep output, max, log-sum-exp.
+2. For the first layer in the block, that *is* the mix. Run `f`, start the partial sum.
+3. For each later layer, score `w_l` against the partial, merge with Phase 1 via online softmax, run `f`, add into the partial.
+4. At the block boundary, append the completed `b_n` to the cache. Next block's Phase 1 sees one more key.
+</Steps>
+
+Online merge, in one line you should be able to rewrite. Let `m` be the joint max of the two maxes, rescale both outputs and both normalisers by `exp(old_max - m)`, add, divide. You never build an `N`-by-`S` score matrix in HBM. You never go back to Phase 1.
+
+Write Phase 1 as a tiny GEMM in your head. `Q` has shape `[S, d]` — one `w_l` per layer in the block, all parameters, all already on device. `K` and `V` have shape `[n, d]` for the `n` completed previous blocks (plus embedding). RMSNorm hits `K`. Logits are `Q K^T`, softmax over the depth axis, output `O = softmax V`. Alongside `O` you keep the row-wise max `m` and the log-sum-exp `ell` (or the raw sum, same information). Those three tensors are `[S, d]`, `[S]`, `[S]`. That is the entire extra footprint of Phase 1, and it is tiny next to an MLA head.
+
+Phase 2 cannot be batched. The partial sum `b_n^i` depends on `f` of the previous layer in the block. So you loop. For layer `i = 0`, skip the intra-block term: `h = O[0] / ell[0]` (already normalised if you stored it that way). For `i ≥ 1`, run a one-key attention: score `w_l` against RMSNorm of the partial, get a second output `O2`, a second max `m2`, a second normaliser `ell2`. Online merge:
+
+$$
+m \leftarrow \max(m_1, m_2),\quad
+h \leftarrow \frac{e^{m_1-m} O_1 + e^{m_2-m} O_2}{e^{m_1-m}\ell_1 + e^{m_2-m}\ell_2}
+$$
+
+Then `partial ← partial + f(h)`. Numerically this is the same as concatenating the previous-block keys with the partial and doing one softmax. Algebraically exact, streaming, fusable.
+
+The reason this schedule exists at all is the **decoupled query**. If `q_l` were `W h_l`, Phase 1 would have to wait for `h_l`, which is the thing you are trying to compute. The ablation that made `q` input-dependent (foundations lesson, loss 1.731) is slightly better and **kills this batching**. That is why production keeps `w_l`.
+
+
+## Walk the I/O table until Block looks cheap
+
+Table 1 of the paper, **per token per layer**, residual mechanism only (the insides of `f` are excluded). Typical numbers: `L = 128`, `N = 8`, `S = 16`, mHC streams `m = 4`.
+
+**Standard residual.** Read the skip and the branch (`2d`), write the sum (`d`). Total **3d**. One add.
+
+**mHC, `m = 4`.** Several mixing matrices on `m` streams: compute gates, apply them, merge. The paper's sum is `(8m+2)d + 2m^2 + 4m = 34d`. Multi-stream is expressivity you pay for in bytes.
+
+**Full AttnRes, two-phase.** Phase 1 amortised reads `(N-1)d` and writes `d`. Phase 2 reads `(S-1)d` and writes `d`. Total `(S+N)d = 24d`. Appendix B derives this: naive Full is `O(L)` reads per layer; batching inter-block keys across the `S` queries of a *scheduling* block (not Block AttnRes compression) drops that to `O(S+N)`. Same two-phase idea, still `L` real sources.
+
+**Block AttnRes, two-phase.** Phase 1 amortised is `(N/S)d` reads plus `d` write — eight summaries shared across sixteen layers is half a vector of reads per layer. Phase 2 is `3d` reads (partial, and the usual residual pair) plus `d` write. Total `(N/S + 5)d = 5.5d`.
+
+Read that last line again. Block is **5.5d** versus residual **3d** versus Full **24d** versus mHC **34d**. That is why Block is the production mixer and Full is not, and why beating mHC on loss while beating it by 6× on residual I/O matters.
+
+Derive Block's 5.5d so you are not memorising a table. Phase 1 reads `N` previous summaries **once per block** of `S` layers, so per layer that is `(N/S) d` reads, plus a `d` write of the batched output. With `N = 8`, `S = 16`, that is `0.5d` reads and `d` write. Phase 2, for a typical interior layer, reads the partial (`d`), reads the skip path you would have read anyway, reads the branch, writes the merge: the paper counts **3d** reads and **d** write. Sum: `0.5d + d + 3d + d = 5.5d`. The residual baseline was `2d` read + `d` write = `3d`. You paid `2.5d` extra for a depth softmax over eight summaries. mHC paid `34d` for four streams. Full paid `24d` because Phase 1 still rereads `(N-1)d` of *uncompressed* history amortised, and Phase 2 rereads `(S-1)d` of intra-block layers.
+
+Full's Appendix B algebra, if you want it once. Inter-block reads over all blocks: `d L (N-1)`. Intra-block reads: `N · S(S-1) d`. Writes: `2 L d`. Divide by `L`, use `S N = L`: reads `(S+N-2)d`, writes `2d`, total `(S+N)d`. For the typical numbers that is 24d. Naive Full without batching would have been about `O(L) = 128d` reads. The schedule, not the architecture, is what knocks a zero off.
+
+
+<Myth>
+"Depth attention must cost like sequence attention." Sequence attention is `O(T)` cache. Depth attention, with `N ≈ 8` and a batched Phase 1, is a handful of extra `d`-vectors. The 2% serving tax is that handful, fused.
+</Myth>
+
+## Prefill at 128K, without a 15 GB surprise
+
+Storing block representations in prefill is `N · T · d` elements. The paper quotes **15 GB** for a 128K sequence with 8 blocks. That is a real allocation if you keep the whole sequence's block cache on one device.
+
+<Term id="tensor-parallel">Tensor parallel</Term> already shards the sequence for the big matmuls. Shard the block cache the same way: `N · (T/P) · d`. On 8 TP devices the 15 GB becomes about **1.9 GB per device**. Phase 1 then runs independently on local shards.
+
+Phase 2's online-softmax merge **fuses into the TP all-reduce** you were going to do anyway: reduce-scatter the output, merge locally, all-gather. Kernel-fuse with RMSNorm. Combined with **chunked prefill** at 16K, the extra footprint falls under **0.3 GB per device**.
+
+Decode is easier: `T = 1` new token, `N` tiny vectors. The 2% tax is a decode number, not a 128K prefill number. Prefill is the place you actually budget.
+
+## Appendix B: Full can steal the same schedule
+
+Even if you insist on Full AttnRes at inference (research, or a small model), do not scan all `L` previous outputs at every layer. Partition the stack into scheduling blocks of size `S` with `N = L/S` of them. Phase 1 batches the `S` queries against all *previous blocks'* real per-layer K/V (not summaries). Phase 2 walks intra-block. Per-layer I/O falls from `O(L)` to `O(S+N)`. For `L = 128`, `N = 8`, `S = 16` that is the **24d** row. The architecture is still Full; only the *schedule* is blocked. Do not confuse that with Block AttnRes, which compresses sources.
+
+
+## Bytes on the wire, not just big-O
+
+Pick `d = 4096`, BF16 (2 bytes), `N_p = 1`, one token. Naive `C = 8` ships `114688` elements: `114688 × 2 ≈ 224 KB` per token. Cached ships `90112 × 2 ≈ 176 KB`. Per token that looks small. Multiply by micro-batch 4 and sequence 8192: naive is `224 KB × 4 × 8192 ≈ 7.3 GB` of residual history traffic **per pipeline pass through those eight chunks**. Cached is about 5.8 GB. The factor is the `V` in the peak, which is what the 1F1B bubble feels. At `V = 8`, `P = 4` the naive triangular number is 496 against cached 118: roughly 4× less residual traffic, and the peak hop is 8× smaller. That is the regime a 48B PP job actually lives in.
+
+Backward: the same tensors flow the other way. Gradients with respect to block summaries need the same history the forward used. Reuse the cache; do not invert a different communication pattern. Checkpointing still rebuilds `f`, not the block list.
+
+## Why online softmax, not "just softmax the concatenation"
+
+Concatenating previous-block keys with the partial and calling a fused softmax is algebraically identical and is what you should picture. It is **not** what you should allocate. The previous-block half was already reduced in Phase 1. Re-reading it every layer is the `O(L N)` tax you killed. Online softmax lets you keep only `(O, m, ell)` from Phase 1 and fold in one new key. FlashAttention does this over **tokens** because `T` is huge. Here `N` is 8, so the win is not "we invented FlashAttention for depth." The win is **not revisiting** the Phase-1 cache. Milakov and Gimelshein (2018) is the numerically stable running normaliser; without the max-rescaling you overflow in exp.
+
+Phase 1 statistics must be in a wider accumulator than BF16 logits if you want bitwise agreement with a reference softmax. In practice the paper treats the merge as exact. For a serving kernel, match whatever vLLM fused.
+
+## Practical recipe
+
+Train with **Block**, `N` about **8**, `w_l = 0`, RMSNorm on keys. Do **not** run Full in a production pipeline-parallel job. Serving **inherits Block from the checkpoint**: there is no `--attnres` flag, and you do not reimplement depth-softmax in a client. If a Kimi Linear checkpoint was trained with AttnRes, it is already inside the graph. The vLLM path in the serve lesson just executes it.
+
+Three failure modes, named, so you recognise them in a profiler.
+
+1. **You trained Full, then pipelined.** Activations and comm explode as `O(L d)`. The trace shows every stage sending a stack of hidden states. Fix: train Block. Do not "add cache" to Full and hope; cache helps Block because `N` is small.
+2. **You implemented depth attention as a Python loop over layers, each scoring all blocks.** That is the `O(L N)` naive inference. Fix: Phase 1 batch. If your engine cannot batch `w_l`, you are not running the paper's Algorithm 1.
+3. **You allocated `N × T × d` on one GPU for 128K prefill.** 15 GB appears, allocator dies, you blame AttnRes. Fix: sequence-shard across TP, then chunked prefill. The merge already wants to live in the all-reduce.
+
+
+The systems stack is three sentences you should be able to say in order: cache incremental blocks across virtual stages so PP comm is `O(P)` not `O(PV)`; batch the block's queries in Phase 1 so you read previous summaries once; merge the partial with online softmax in Phase 2 so you never materialise a depth score matrix.
+
+<TryThis>
+Compute naive versus cached communication for `P = 4`, `V = 2`, `N_p = 1`, `d = 4096`, per token. Naive: `C = 8`, so `C(C-1)/2 × 4096 = 28 × 4096 = 114688` elements. Cached: `P(P-1)/2 × 4096 + (V-1) P^2 × 4096 = 6 × 4096 + 16 × 4096 = 22 × 4096 = 90112`. Total factor is modest at `V = 2`. Now the peak: naive last hop ships `7 × 4096`; cached subsequent hop ships `P × 4096 = 4 × 4096`. Peak factor `7/4`, and in the `O(·)` sense `C/P = V = 2`. Raise `V` to 8 (same `P`): naive `32×31/2 = 496` versus cached `6 + 7×16 = 118`. Write both peaks and both totals on paper. That is the overlap story.
+</TryThis>
+
+Paper: [Attention Residuals, arXiv:2603.15031](https://arxiv.org/abs/2603.15031) §4 and Appendix B. Code: [MoonshotAI/Attention-Residuals](https://github.com/MoonshotAI/Attention-Residuals). Online softmax: Milakov and Gimelshein (2018). Serving the 48B checkpoint is the previous metal lesson; this one is why Block does not show up as a 24d tax on the profiler.
+
+One last retell, out loud, without looking.
+
+Full AttnRes at scale is expensive because recompute plus pipeline must **keep** and **send** every layer output. Naive communication is `C(C-1)/2 N_p d`. Cross-stage caching, interleaved pipeline `P` physical times `V` virtual, keeps blocks locally so later virtual stages send only increments: `P(P-1)/2 N_p d + (V-1) P^2 N_p d`. Factor `V` on the peak, overlap with 1F1B, training overhead under 4% with PP, negligible without. Backward uses the same cache. Per-layer activation footprint unchanged thanks to checkpointing.
+
+Two-phase inference: Phase 1 batches all `S` queries of a block against previous block K/V, returns output plus max plus log-sum-exp. Phase 2 sequential intra-block partial sum, merge with online softmax. `w_l` is a parameter, so Phase 1 can be batched. Inference overhead under 2%. Prefill `N T d` is 15 GB at 128K with 8 blocks; shard sequence across TP to about 1.9 GB; chunked prefill 16K to under 0.3 GB; Phase 2 merge fuses into TP all-reduce. Appendix B applies the same schedule to Full, `O(L)` to `O(S+N)` I/O. Train Block, `N ≈ 8`, zero init, RMSNorm on keys. Do not run Full in production PP. Serving inherits Block from the checkpoint.
+
+If you can say that paragraph, the lesson worked.
+
+
+## What this is not
+
+This is not a new attention kernel on the **token** axis. KDA already did that. This is not a second model you load at serve time. This is not a vLLM flag. It is a residual replacement whose extra state is `N` vectors of width `d` plus one `w_l` per layer, and whose extra **algorithm** is cache-plus-two-phase. If a profiler shows a 24d residual stream, you are running Full's two-phase schedule or you failed to compress into blocks. If it shows 5.5d, you are on the paper's production path. If it shows 34d, you built mHC by accident.
+
+The foundations lesson is *why* softmax over depth. This lesson is *how* that softmax is scheduled so a 48B PP job and a 1M-context decode both barely notice.
+
+Keep the two axes straight when you debug. Sequence mixers (KDA, MLA) change **T**. Depth mixers (AttnRes) change **L**. A KV-cache OOM is almost never AttnRes; `N d` does not grow with `T` except during prefill of the block cache, which you sharded. A PP bubble that grows with virtual stage index is almost never KDA; look at whether block summaries are being resent.
+
+Code and diagrams live at [MoonshotAI/Attention-Residuals](https://github.com/MoonshotAI/Attention-Residuals). Algorithm 1 is the two-phase loop. Figure 3 is the cache. Table 1 is the I/O. Appendix B is Full stealing the schedule. If you can point to those four artefacts and say what each one *does*, you can retell the systems story.
+
+Read them in that order before you patch a serving kernel.
+
+
+## References
+
+Kimi Team. (2025). *Kimi Linear: An expressive, efficient attention architecture* (arXiv:2510.26692). https://arxiv.org/abs/2510.26692
+
+Kimi Team. (2026). *Attention residuals* (arXiv:2603.15031). https://arxiv.org/abs/2603.15031
+
+Milakov, M., & Gimelshein, N. (2018). *Online normalizer calculation for softmax* (arXiv:1805.02867).
+
+Narayanan, D., et al. (2021). *Efficient large-scale language model training on GPU clusters using Megatron-LM* (arXiv:2104.04473).
+
+Xie, Z., et al. (2026). *mHC: Manifold-constrained hyper-connections* (arXiv:2512.24880).
+
+Zhang, B., & Sennrich, R. (2019). Root mean square layer normalization. *Advances in Neural Information Processing Systems, 32*.

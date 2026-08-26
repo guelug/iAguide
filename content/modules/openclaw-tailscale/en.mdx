@@ -1,25 +1,180 @@
-## Loopback plus Tailscale, not 0.0.0.0
+## Keep bind loopback; let Tailscale carry HTTPS
 
-gateway.tailscale.mode: serve (tailnet HTTPS, Gateway stays 127.0.0.1), funnel (public HTTPS, requires password), off. Funnel refuses to start unless auth mode is password.
+OpenClaw's [*Tailscale*](https://docs.openclaw.ai/gateway/tailscale) (n.d.) is the primary source. OpenClaw can auto-configure Tailscale **Serve** (tailnet) or **Funnel** (public) for the Gateway dashboard and WebSocket port. This keeps the gateway bound to loopback while Tailscale provides HTTPS, routing, and (for Serve) identity headers.
 
-bind: tailnet listens on Tailnet IP (plain WS, still keep loopback for same-host). Serve identity headers can skip token when allowTailscale is true — not for /v1 HTTP APIs, not for node-role.
+The generic [gateway](/en/m/gateway) lesson stays harness-agnostic. This one is OpenClaw managed Tailscale.
 
-Do not use Funnel for browser control; treat node pairing like operator access.
+`gateway.tailscale.mode`:
 
-<VisualSlot caption="loopback bind, Serve, Funnel, tailnet bind, auth modes." />
+| Mode | Behavior |
+| --- | --- |
+| `serve` | Tailnet-only Serve via `tailscale serve`. The gateway stays on `127.0.0.1`. |
+| `funnel` | Public HTTPS via `tailscale funnel`. Requires a shared password. |
+| `off` (default) | No Tailscale automation. |
 
-## Compare vs Hermes
+Status output uses **Tailscale exposure** for this OpenClaw Serve/Funnel mode. `off` means OpenClaw is not managing Serve or Funnel; it does not mean the local Tailscale daemon is stopped (OpenClaw, *Tailscale*, n.d.).
 
-Hermes remote is whatever the platform adapter already uses (Telegram/Slack). OpenClaw Gateway is a WS server you must not expose raw; Tailscale is the documented path.
+Step-by-step setup lives on *Give your Gateway a stable HTTPS URL* (OpenClaw, n.d., https://docs.openclaw.ai/gateway/stable-https-url).
 
-## Case: Funnel with auth none
+<VisualSlot caption="loopback, serve, funnel, bind tailnet, auth." />
 
-**Case.** Public URL, gateway.auth.mode none. Refused.
+## Serve versus Funnel versus bind tailnet
 
-**Fix.** password (prefer OPENCLAW_GATEWAY_PASSWORD) or do not Funnel.
+Tailnet-only Serve:
+
+```json5
+{
+  gateway: {
+    bind: "loopback",
+    tailscale: { mode: "serve" },
+  },
+}
+```
+
+Open `https://<magicdns>/` (or your configured `gateway.controlUi.basePath`).
+
+Direct Tailnet bind, no Serve/Funnel:
+
+```json5
+{
+  gateway: {
+    bind: "tailnet",
+    auth: { mode: "token", token: "your-token" },
+  },
+}
+```
+
+Connect a native or CLI client from another Tailnet device on `ws://<tailscale-ip>:18789`. Do **not** use the direct plain-HTTP address for the browser Control UI. Remote plain HTTP cannot create browser device identity, and token/password auth does not replace it. Use Tailscale Serve for the Control UI (OpenClaw, *Tailscale*, n.d.).
+
+When a bindable Tailnet IPv4 is present, the Gateway also requires `http://127.0.0.1:18789` for authenticated same-host clients. If no Tailnet address is available at startup, it falls back to loopback only; restart after Tailscale becomes available.
+
+Public Funnel:
+
+```json5
+{
+  gateway: {
+    bind: "loopback",
+    tailscale: { mode: "funnel" },
+    auth: { mode: "password", password: "replace-me" },
+  },
+}
+```
+
+Prefer `OPENCLAW_GATEWAY_PASSWORD` over committing a password to disk. `tailscale.mode: "funnel"` refuses to start unless auth mode is `password`, to avoid public exposure.
+
+The Funnel URL remains usable from devices inside the tailnet. Tailscale marks public requests as Funnel traffic but sends tailnet peers through its Serve identity path instead.
+
+```bash
+openclaw gateway --tailscale serve
+openclaw gateway --tailscale funnel --auth password
+```
+
+<Callout>
+Serve/Funnel only expose the Gateway control UI plus WS. Nodes connect over the same Gateway WS endpoint, so Serve works for node access too. Avoid Funnel for browser control; treat node pairing like operator access (OpenClaw, *Tailscale*, n.d.; *Browser*, n.d., https://docs.openclaw.ai/tools/browser).
+</Callout>
+
+## Identity headers (Serve only)
+
+When `tailscale.mode: "serve"` and `gateway.auth.allowTailscale` is `true`, Control UI/WebSocket auth can use Tailscale identity headers (`tailscale-user-login`) instead of a token/password. OpenClaw verifies the header by resolving the request's `x-forwarded-for` address via the local Tailscale daemon (`tailscale whois`) and matching it to the header login. A request only qualifies when it reaches OpenClaw's **dedicated managed-Tailscale listener** with Tailscale's `x-forwarded-for`, `x-forwarded-proto`, and `x-forwarded-host` headers. Those headers never establish managed Serve provenance or tokenless auth on the ordinary Gateway listener (OpenClaw, *Tailscale*, n.d.).
+
+This tokenless flow assumes the gateway host is trusted. If untrusted local code may run on the same host, set `gateway.auth.allowTailscale: false` and require token/password.
+
+Scope of the bypass:
+
+- Applies to Control UI WebSocket auth and read-only `GET`/`HEAD` for Control UI profile avatars.
+- Other HTTP API endpoints (`/v1/*`, `/tools/invoke`, `/api/channels/*`) **never** use Tailscale identity-header auth.
+- For Control UI operator sessions that already carry browser device identity, a verified Tailscale identity skips the bootstrap-token/QR pairing round trip.
+- It does not bypass device identity itself: device-less clients are still rejected, and node-role connections still go through normal pairing and auth checks.
+
+The standalone loopback browser HTTP API also does **not** accept Tailscale identity headers. Cite *Browser* for that exception.
+
+## Auth modes
+
+`gateway.auth.mode` controls the handshake:
+
+| Mode | Use case |
+| --- | --- |
+| `none` | Private ingress only |
+| `token` | Shared token (default when `OPENCLAW_GATEWAY_TOKEN` is set) |
+| `password` | Shared secret via env or config |
+| `trusted-proxy` | Identity-aware reverse proxy; see *Trusted Proxy Auth* |
+
+Funnel plus `none` is refused. Gateway-protected routes reject **externally managed** Funnel ingress when auth mode is `none` as well.
+
+**Case.** An operator binds `tailnet`, opens Control UI over `http://100.x:18789`, and wonders why device identity never appears. Remote plain HTTP cannot create browser device identity. Serve is the Control UI path (OpenClaw, *Tailscale*, n.d.).
 
 <TryThis>
-Write two config snippets: serve+loopback, and funnel+password.
+Write the three tailscale.mode values and the default. Write which mode requires password auth. Write whether identity headers work on the ordinary Gateway listener. Name bind tailnet's Control UI restriction. Write whether Funnel is for browser control.
 </TryThis>
 
-Source: https://docs.openclaw.ai/gateway/tailscale
+## Compare, without mixing knobs
+
+Hermes remote access, when documented, is a different gateway (Nous Research, *Gateway internals*, n.d., https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals). OpenClaw managed Serve holds a **foreground Tailscale claim**. Gateway startup succeeds only after the claim is active, and stopping or losing the Gateway releases it automatically. Do not paste `tailscale serve` flags into `gateway.auth.token`. Cite *Tailscale* for modes. Cite *Authentication* for handshake modes (OpenClaw, n.d., https://docs.openclaw.ai/gateway/authentication).
+
+Tailscale Serve/Funnel requires the `tailscale` CLI installed and logged in. Serve requires HTTPS enabled for the tailnet. Funnel requires Tailscale v1.38.3+, MagicDNS, HTTPS, and a funnel node attribute. Funnel only supports ports `443`, `8443`, and `10000` over TLS. Funnel on macOS requires the open-source Tailscale app variant.
+
+OpenClaw-managed Serve/Funnel proxy to a dedicated `127.0.0.1:<port>` listener while ordinary local clients keep the configured Gateway port. Startup fails closed rather than sharing listener provenance.
+
+Named Tailscale Services are not supported by managed ingress because Tailscale requires them to run as persistent background routes. Existing `gateway.tailscale.serviceName` installs must run `openclaw doctor --fix`; Doctor disables managed ingress and removes the key.
+
+When upgrading, a persistent HTTPS root route may still own port 443. Because that route is indistinguishable from an operator-managed route, OpenClaw does not change it: startup explains the conflict and exits with status 78. Inspect `tailscale serve status`. If it is the stale route, remove only its root handler, then restart.
+
+Older releases could advertise an externally configured default HTTPS Serve route that targeted `gateway.bind: "lan"`. Prefer migrating to managed ingress: doctor preview to `bind: "loopback"` plus `mode: "serve"`. If another service must retain ownership, use explicit `trustedProxies`.
+
+Externally managed Serve/Funnel pointed at the ordinary listener is generic `trusted-proxy` ingress. `gateway.auth.allowTailscale` cannot provide tokenless auth on that path. OpenClaw does not call `tailscale whois`. Without an explicitly trusted source and a valid non-loopback forwarded client address, authenticated routes fail with `proxy_attribution_required`.
+
+`gateway.tailscale.preserveFunnel` is a deprecated migration guard. To migrate, configure a durable password, set mode `funnel`, then unset `preserveFunnel`.
+
+`gateway.bind: "auto"` prefers loopback. Use `tailnet` to limit network exposure to the Tailnet while retaining same-host loopback access.
+
+**Case.** Funnel is up, password is set, a tailnet peer hits the Funnel URL. Tailscale sends that peer through the Serve identity path. OpenClaw still requires the configured Funnel password on that dedicated listener (OpenClaw, *Tailscale*, n.d.).
+
+To run the Gateway on one machine and drive a browser on another, run a node host on the browser machine and keep both on the same tailnet. No separate Serve URL is needed for browser control.
+
+Official Tailscale reading: Serve overview, `tailscale serve` command, Funnel overview, `tailscale funnel` command — all linked from the OpenClaw Tailscale page. Related OpenClaw pages: *Remote access*, *Discovery*, *Authentication*.
+
+The particularity: bind stays loopback for managed Serve/Funnel; identity headers are Serve-only on the dedicated listener; Funnel demands a password; Control UI over raw Tailnet HTTP is the wrong door.
+
+Doctor is the migration tool for `serviceName` and for lan-bind plus external Serve. Do not hand-edit Tailscale Service routes and call them managed.
+
+This lesson stops at modes, bind tailnet, identity-header scope, and the Funnel password invariant. Pairing setup codes that advertise Tailscale URLs require OpenClaw to own the Serve route. Browser node proxy is the remote-browser path.
+
+Architecture still says one Gateway per host. Tailscale does not create a second Gateway. It publishes the one Gateway (OpenClaw, *Gateway architecture*, n.d., https://docs.openclaw.ai/concepts/architecture).
+
+If untrusted local code may run on the gateway host, disable `allowTailscale` and require token or password. Tokenless Serve identity is a convenience for a trusted host, not a multi-tenant control plane.
+
+Funnel traffic uses a Funnel marker instead of identity headers, while tailnet access to the same Funnel URL follows the Serve identity path. OpenClaw recognizes both paths on its dedicated listener.
+
+Health, readiness, and startup probes retain unauthenticated responses even on Funnel, without exposing detailed readiness or startup data. Cite *Health and readiness* (OpenClaw, n.d., https://docs.openclaw.ai/gateway/health).
+
+Plugin-authenticated webhook routes such as Google Chat and SMS keep using their own signature checks under the preserveFunnel compatibility path. Do not treat that as Tailscale identity auth.
+
+If the proxy connects over loopback, adding 127.0.0.1 to trustedProxies explicitly trusts same-host processes to supply proxy attribution; keep token or password auth enabled unless every process on the host belongs to the same trust boundary.
+
+Learn more from Tailscale KB 1312 Serve, 1242 tailscale serve, 1223 Funnel, and 1311 tailscale funnel — those URLs are printed on the OpenClaw Tailscale page.
+
+Pairing lesson covers which setup codes advertise Tailscale URLs.
+
+Sandbox lesson is unrelated to Chromium noSandbox.
+
+Keep one Gateway. Publish it with Serve. Password Funnel if you must go public.
+
+Cite Discovery when the question is how clients find the Gateway URL.
+
+## Sources
+
+OpenClaw. (n.d.). *Tailscale*. https://docs.openclaw.ai/gateway/tailscale
+
+OpenClaw. (n.d.). *Give your Gateway a stable HTTPS URL*. https://docs.openclaw.ai/gateway/stable-https-url
+
+OpenClaw. (n.d.). *Authentication*. https://docs.openclaw.ai/gateway/authentication
+
+OpenClaw. (n.d.). *Trusted Proxy Auth*. https://docs.openclaw.ai/gateway/trusted-proxy-auth
+
+OpenClaw. (n.d.). *Remote access*. https://docs.openclaw.ai/gateway/remote
+
+OpenClaw. (n.d.). *Gateway architecture*. https://docs.openclaw.ai/concepts/architecture
+
+OpenClaw. (n.d.). *Browser*. https://docs.openclaw.ai/tools/browser
+
+Nous Research. (n.d.). *Gateway internals*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals

@@ -1,27 +1,196 @@
-## Native plugin contract
+## `register(ctx)` is the waist of plugins
 
-plugin.yaml + register(ctx). ctx.register_tool, register_hook, register_cli_command, register_command, dispatch_tool, get_config, ctx.state.
+Hermes plugins extend the agent through a context API, not by forking `run_agent.py`. Nous Research's [*Build a Hermes Plugin*](https://hermes-agent.nousresearch.com/docs/developer-guide/plugins) (n.d.) is the source of truth. User-facing discovery also lives on the [*Plugins*](https://hermes-agent.nousresearch.com/docs/user-guide/features/plugins) feature page. This lesson is the particularity: `ctx.register_tool`, `ctx.register_hook`, `ctx.register_cli_command`, three discovery sources, and the consent gate on tool override.
 
-Discovery: ~/.hermes/plugins/, project .hermes/plugins/, pip. Opt-in via hermes plugins enable. Doctor checks manifests.
+`register(ctx)` is called exactly once at startup. If it crashes, the plugin is disabled and Hermes continues. That is the load-bearing fail-open.
 
-tools.override needs capabilities plus allow_tool_override. Handlers return JSON strings.
+<VisualSlot caption="plugin.yaml, register(ctx), 3 sources, capabilities, doctor." />
 
-Specialized kinds: model-provider, platform, memory, context_engine.
+## Discovery: user, project, pip
 
-<VisualSlot caption="plugin.yaml, register(ctx), discovery, capabilities." />
+Three discovery sources (Nous Research, *Architecture* and *Build a Hermes Plugin*, n.d.):
 
-## Compare vs OpenClaw
+| Source | Path or mechanism | Typical use |
+| --- | --- | --- |
+| User | `~/.hermes/plugins/` (under `HERMES_HOME`) | Personal plugins, profile-scoped |
+| Project | `.hermes/plugins/` in the working tree | Repo-local plugins |
+| Pip | entry points in the `hermes_agent.plugins` group | Distributed packages |
 
-OpenClaw installs plugins on the Gateway. Hermes loads them in-process.
+Nix extra plugins exist as a best-effort leftover, not an explicitly supported install path. Native packages need `plugin.yaml` plus `__init__.py` with `register(ctx)`. Wrong directory layout is ignored: native packages are flat or one category level; anything deeper is skipped. Plugins are **opt-in**: `hermes plugins enable <name>`. Set `HERMES_PLUGINS_DEBUG=1` to see skip reasons on stderr; failures also land in `~/.hermes/logs/agent.log`.
 
-## Case: shadowing web_search
+Portable Agent Plugins v1 packages (`plugin.json` plus `skills/` plus `mcp.json`) are a compatibility adapter. They do not replace native `plugin.yaml` plus `register(ctx)`. Hermes validates locally and does not fetch JSON schemas while loading. Enabling a portable package grants the same full-trust posture as other installed plugins.
 
-**Case.** Two plugins claim the same tool.
+<Callout>
+Tip: third-party-product plugins (vendor SaaS, paid-service tie-ins, observability backends) ship as **standalone repos**, not into `NousResearch/hermes-agent` (Nous Research, *Build a Hermes Plugin*, n.d.). That is a coupling decision. Promote them in Discord; do not send them as core PRs.
+</Callout>
 
-**Fix.** Reject without override; ask for operator consent; run doctor.
+## The context API, named methods
+
+| Method | What it registers |
+| --- | --- |
+| `ctx.register_tool(...)` | A tool the model can call (`name`, `toolset`, `schema`, `handler`) |
+| `ctx.register_hook(event, callback)` | Lifecycle observer (`pre_tool_call`, `post_tool_call`, `pre_llm_call`, …) |
+| `ctx.register_cli_command(...)` | A `hermes <name>` subcommand tree |
+| `ctx.register_command(...)` | An in-session slash command (`/name` in CLI and gateway) |
+| `ctx.dispatch_tool(name, args)` | Invoke any registered tool with parent-agent context wired |
+| `ctx.register_platform(...)` | A gateway adapter (see the platforms lesson) |
+| `ctx.get_config` / `ctx.set_config` | Plugin settings under `plugins.entries.<id>.settings` |
+| `ctx.state` | Plugin-owned runtime data, profile-scoped, 10 MiB cap |
+
+Handlers must return a JSON string, never raise, and accept `**kwargs`. The [tools particularity](/en/m/hermes-tools) already taught `json.dumps`. Plugin handlers obey the same contract. `ctx.dispatch_tool` goes through approval, redaction, and budget pipelines — it is a real invocation, not a shortcut around them.
+
+**Case.** A slash command calls `terminal` by importing `tools.terminal_tool`. That bypasses approval. `ctx.dispatch_tool("terminal", {"command": "..."})` is the public interface. `ctx._cli_ref` is `None` in the gateway and in `hermes chat -q`; do not reach through it.
 
 <TryThis>
-Write plugin.yaml for a calculator with provides_tools: [calculate].
+Sketch a plugin that logs every tool call. Name the hook (`post_tool_call`), whether it returns anything (no), and whether it needs `**kwargs` (yes, for forward compatibility). Check the hook table on the official plugin guide.
 </TryThis>
 
-Source: https://hermes-agent.nousresearch.com/docs/developer-guide/plugins
+## Capabilities and tool-override consent
+
+If a plugin needs a privileged host surface — overriding a built-in tool, picking the model for `ctx.llm` calls — it declares `capabilities:` in `plugin.yaml`. At install/enable time the user consents once; a later version that adds a capability asks again for just the addition. Undeclared or unconsented capabilities are off (fail closed).
+
+Known ids live in `hermes_cli/plugin_capabilities.py`: `tools.override`, `llm.provider_override`, `llm.model_override`, `llm.agent_id_override`, `llm.profile_override`, `llm.task_override`. Unknown ids are ignored. Older per-capability config keys such as `plugins.entries.<plugin_id>.allow_tool_override` still work but are deprecated.
+
+Without `override=True`, the registry rejects a registration that would shadow an existing tool from a different toolset. Overriding a built-in **additionally** requires the operator opt-in. Without that gate, `register_tool(override=True)` raises `PluginToolOverrideError`; the loader catches it, disables the plugin, and Hermes continues. Bundled plugins are exempt: an override there is a maintainer decision. If config cannot be loaded, the gate fails closed. The same grant gates `deregister()` so a plugin cannot remove a tool it does not own.
+
+```python
+def register(ctx):
+    if ctx.has_capability("tools.override"):
+        ctx.register_tool(..., override=True)
+    else:
+        ctx.register_tool(...)  # non-conflicting name
+```
+
+**Case.** A user plugin named `shell` tries to replace `write_file`. Without consent, the plugin disables itself. That is the point. An enabled plugin that silently replaced `write_file` could intercept everything the model routes through it.
+
+## Manifest, doctor, durable state
+
+`plugin.yaml` declares `name`, `version`, `description`, `provides_tools`, `provides_hooks`. Optional: `requires_env` (simple name or rich dict with description/url/secret), `capabilities`, and additive v2 fields (`manifest_version`, `api_version`, `requires_plugins`, `python_dependencies`, `config_schema`). Unknown fields never break loading. `python_dependencies` is declare-and-surface only — Hermes never auto-installs them.
+
+`hermes plugins doctor [path-or-id]` runs the same discovery, manifest parser, namespaced import, `register(ctx)`, hook registry, and tool registry Hermes itself uses. Pass `--ci` to exit non-zero on error. Doctor uses a temporary `HERMES_HOME` and is not a sandbox: only run it on code you trust enough to import.
+
+Never write runtime state into the plugin directory: `hermes plugins update` / `remove` can git-pull or delete it. Use `plugin_data_dir("my-plugin")` or `plugin_db("my-plugin")` under `<HERMES_HOME>/plugin-data/`. Secrets do not belong there.
+
+`pre_llm_call` is the hook whose return value matters: a dict with a `context` key (or a plain string) is appended to the **user** message, not the system prompt, so the cached prefix stays stable. Per-hook context caps at 10,000 characters by default; overflow spills to `$HERMES_HOME/hook_outputs/`. Multiple plugins concatenate in discovery order.
+
+<Callout>
+Native plugin compatibility is behaviour-based: documented `PluginContext` methods are not removed or renamed. There is no `PLUGIN_API_VERSION`. Hook payloads grow as keyword fields. Accept `**kwargs`. Deprecation requires a replacement, a once-per-process warning, two subsequent minor releases of support, and tests for both paths (Nous Research, *Build a Hermes Plugin*, n.d.).
+</Callout>
+
+Specialised types — model providers, platforms, memory providers, context engines, image-gen backends — have their own guides. Memory providers and context engines are single-select. This lesson is the general surface. The [platforms particularity](/en/m/hermes-platforms) is `ctx.register_platform`.
+
+## Classroom checklist
+
+1. Name the three discovery sources.
+2. Recite `register_tool`, `register_hook`, `register_cli_command`.
+3. Explain why `override=True` still needs consent.
+4. Put durable state in `plugin-data/`, not in the install tree.
+5. Inject extra model context via `pre_llm_call` into the user message.
+6. Run `hermes plugins doctor . --ci` before you ship.
+
+Official URL: [Build a Hermes Plugin](https://hermes-agent.nousresearch.com/docs/developer-guide/plugins).
+
+## Hook table (observers versus the two that steer)
+
+Most hooks are fire-and-forget. Two are not (Nous Research, *Build a Hermes Plugin*, n.d.):
+
+| Hook | Fires | Return |
+| --- | --- | --- |
+| `pre_tool_call` | Before any tool | optional `action: block` or `action: approve` |
+| `post_tool_call` | After any tool | ignored |
+| `pre_llm_call` | Once per turn, before the tool loop | context injection |
+| `post_llm_call` | Once per turn, after a successful loop | ignored |
+| `pre_api_request` / `post_api_request` / `api_request_error` | Each raw provider HTTP call | ignored; observability |
+| `on_session_start` / `on_session_end` / `on_session_finalize` / `on_session_reset` | Session lifecycle | ignored |
+| `kanban_task_claimed` / `completed` / `blocked` | After the board DB commits | ignored |
+
+A crashing hook is logged and skipped. Other hooks and the agent continue. `pre_llm_call` injection is appended to the user message to preserve the prompt cache. Middleware (`tool_request`, `llm_request`, `tool_execution`, `llm_execution`) **changes** the payload; hooks observe it. Request middleware that raises is skipped; `next_call` in execution middleware is single-use.
+
+Slash commands (`register_command`) run as `/name` in CLI and gateway. CLI commands (`register_cli_command`) run as `hermes name` in a terminal. Built-in slash names (`help`, `model`, `new`) silently reject plugin collisions. `ctx.profile_name` works everywhere; `ctx._cli_ref` does not.
+
+## Common mistakes, from the official list
+
+- Handler returns a dict instead of `json.dumps`.
+- Missing `**kwargs`.
+- Handler raises instead of returning error JSON.
+- Schema description too vague for the model to choose the tool.
+- Writing state into the plugin install tree.
+- Shadowing a built-in without `override=True` and consent.
+
+**Case.** A pip plugin declares `tools.override` in `hermes_agent.plugin_capabilities` but the user never consents. `has_capability` is false; the plugin must register under a non-conflicting name. Fail closed.
+
+`ctx.llm` is the first surface that lets a plugin run the same model the user is talking to, out of band, without registering a tool. If you need the agent to invoke you, use `register_tool`. If you need to react, use `register_hook`. If you need your own model call, `ctx.llm` (Nous Research, [*Plugin LLM Access*](https://hermes-agent.nousresearch.com/docs/developer-guide/plugin-llm-access), n.d.). That surface is fail-closed without `plugins.entries` config.
+
+Non-Python surfaces still exist: MCP servers in `config.yaml`, gateway `HOOK.yaml` drop-ins, shell hooks, skill taps, TTS/STT command templates. They are not `register(ctx)` plugins. Do not invent a Python class for a shell hook.
+
+<TryThis>
+For a calculator plugin, list the four files (`plugin.yaml`, `__init__.py`, `schemas.py`, `tools.py`) and mark which one the model reads. Then name the doctor command that would catch a hook callback without `**kwargs`.
+</TryThis>
+
+## Pip entry points and capabilities metadata
+
+```toml
+[project.entry-points."hermes_agent.plugins"]
+calculator = "my_pkg:register"
+
+[project.entry-points."hermes_agent.plugin_capabilities"]
+"calculator.tools.override" = "my_pkg:register"
+```
+
+Pip-distributed plugins have no `plugin.yaml` directory once installed, so capabilities are declared in distribution metadata. Hermes reads those from installed metadata **without importing your code**, so `hermes plugins capabilities` and the consent flow stay accurate (Nous Research, *Build a Hermes Plugin*, n.d.).
+
+Model-provider pip plugins are a special scan: `providers/__init__.py` discovers `hermes_agent.plugins` entry points itself because the general `PluginManager` targets `register(ctx)`-style plugins gated by `plugins.enabled`. Opt-in still required. Lowest precedence: a bundled or `$HERMES_HOME` profile of the same name always overrides a pip-installed one.
+
+`kind: platform` plugins are deferred: the adapter module only loads when a gateway, cron, or `send_message` path asks the registry. If the plugin also ships outbound client tools, declare `provides_tools` and put them in `tools.py` with `register_tools(ctx)` so CLI/TUI get the tools while the adapter stays deferred.
+
+**Case.** An IRC plugin imports its SDK at module top-level in `__init__.py`. Every `hermes` process now pays for that import, including a one-shot `hermes chat -q` with no gateway. Keep `__init__.py` import-light; pull the adapter from inside `register()`.
+
+Thread-safe lazy singletons: do not hand-roll `if _client is None`. Use `lazy_singleton` or `SingletonSlot` from `plugins/plugin_utils.py`. Hermes runs multiple threads in one process (delegated tool calls, background workers). A TOCTOU double-build leaks connections.
+
+Lazy-install optional Python deps go through `tools.lazy_deps.ensure(...)` and the in-tree `LAZY_DEPS` allowlist — not an arbitrary `pip install` from plugin code. When `security.allow_lazy_installs` is false, `ensure()` raises `FeatureUnavailable`; catch it and degrade.
+
+Official URL: [Build a Hermes Plugin](https://hermes-agent.nousresearch.com/docs/developer-guide/plugins).
+
+## Classroom checklist
+
+- `register(ctx)` is the only Python plugin contract.
+- User, project, pip; user wins. User plugins live under `HERMES_HOME` (default `~/.hermes/plugins/`).
+- `plugin-data/` for state; install tree is read-only after load.
+- `tools.override` is fail-closed until the user consents.
+- `pre_llm_call` injects into the user message, capped at 10 000 characters.
+- `hermes plugins doctor` is the first debug step.
+- `kind: platform` adapters load only when a gateway, cron, or send path asks.
+- `ctx.llm` is fail-closed without `plugins.entries` config; it is not a tool.
+
+## What `doctor` actually runs
+
+`hermes plugins doctor` is not a linter that guesses. It runs the same pipeline Hermes uses at startup, in a temporary `HERMES_HOME` (Nous Research, *Build a Hermes Plugin*, n.d.):
+
+1. Discovery (user, project, pip) against the path or id you passed.
+2. Manifest parse (`plugin.yaml` or pip metadata). Unknown fields are kept, never fatal.
+3. Namespaced import of `__init__.py` so your `register` is the one that runs.
+4. `register(ctx)` inside a real `PluginContext`.
+5. Hook registry: missing `**kwargs` is the classic catch.
+6. Tool registry: handler return type, schema presence, name collisions.
+
+`--ci` exits non-zero on the first error so a PR check can block. Doctor is **not** a sandbox: it imports your code. Only run it on plugins you would enable.
+
+Middleware versus hooks, one more time: hooks observe; request middleware may mutate and is skipped on raise; execution middleware's `next_call` is single-use. If you need to change a tool payload, that is middleware. If you need to log it, that is a hook.
+
+Portable Agent Plugins v1 remain a compatibility adapter. Enabling one grants full-trust. Hermes validates locally and does not fetch JSON schemas while loading. Do not treat `plugin.json` as a replacement for native `plugin.yaml`.
+
+## Sources
+
+Nous Research. (n.d.). *Build a Hermes plugin*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/plugins
+
+Nous Research. (n.d.). *Plugins*. Hermes Agent user guide. https://hermes-agent.nousresearch.com/docs/user-guide/features/plugins
+
+Nous Research. (n.d.). *Architecture*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/architecture
+
+Nous Research. (n.d.). *Plugin LLM access*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/plugin-llm-access
+
+Nous Research. (n.d.). *Tools runtime*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/tools-runtime
+
+Nous Research. (n.d.). *Adding a platform adapter*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/adding-platform-adapters
+
+Nous Research. (n.d.). *Prompt assembly*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/prompt-assembly

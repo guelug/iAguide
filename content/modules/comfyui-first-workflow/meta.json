@@ -1,0 +1,18 @@
+{
+  "id": "comfyui-first-workflow",
+  "order": 21.8,
+  "slug": "comfyui-first-workflow",
+  "track": "metal",
+  "title": {
+    "en": "ComfyUI first workflow",
+    "es": "Primer flujo de ComfyUI"
+  },
+  "summary": {
+    "en": "Build the first text-to-image graph: Load Checkpoint, two CLIP Text Encode nodes, KSampler, VAE, Save Image, Queue Prompt. Official Comfy-Org first generation plus the CivitAI article walk, desktop versus portable paths, and the black-image / CUDA / missing-model traps.",
+    "es": "Construir el primer grafo texto-a-imagen: Load Checkpoint, dos CLIP Text Encode, KSampler, VAE, Save Image, Queue Prompt. Primera generación oficial de Comfy-Org más el artículo de CivitAI, rutas desktop frente a portable, y las trampas de imagen negra, CUDA y modelo ausente."
+  },
+  "status": "complete",
+  "prereqs": ["image-models", "local-inference"],
+  "durationMin": 40,
+  "tags": ["comfyui", "civitai", "ksampler", "workflow"]
+}

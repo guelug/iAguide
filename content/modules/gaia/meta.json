@@ -15,7 +15,7 @@
   "prereqs": [
     "evaluation"
   ],
-  "durationMin": 16,
+  "durationMin": 28,
   "tags": [
     "gaia",
     "benchmarks",

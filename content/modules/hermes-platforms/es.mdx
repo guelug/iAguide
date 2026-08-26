@@ -1,19 +1,208 @@
-## Primero el plugin
+## Dos caminos hacia una plataforma de mensajería
 
-kind: platform. connect, disconnect, send. MessageEvent. env_enablement. Token lock. No toques 20 archivos core.
+Un adaptador de plataforma conecta Hermes a un servicio de mensajería externo para que los usuarios hablen con el agente por Telegram, Discord, WeCom, IRC y el resto. *Adding a Platform Adapter* de Nous Research (s. f.) es la fuente de verdad. Arquitectura:
 
-<VisualSlot caption="Metodos del adapter, evento, env, lock." />
+```text
+User ↔ Messaging Platform ↔ Platform Adapter ↔ Gateway Runner ↔ AIAgent
+```
 
-## Comparar vs OpenClaw
+Hay dos formas de añadir una plataforma (Nous Research, *Adding a Platform Adapter*, s. f.):
 
-Canales OpenClaw hablan WS del Gateway. Hermes normaliza a MessageEvent.
+| Camino | Cuándo | Coste |
+| --- | --- | --- |
+| Plugin (recomendado para comunidad / terceros) | Dejar un directorio bajo `~/.hermes/plugins/` | Cero cambios de código core |
+| Built-in | Plataformas soportadas oficialmente | Modificar 20+ archivos entre código, config y docs |
 
-## Caso: dos perfiles, un token
+Esta lección es la particularidad: `BasePlatformAdapter`, `env_enablement_fn`, token locks, el camino plugin frente a la checklist de veinte archivos, y el caso LINE de LLM lento. La [particularidad de plugins](/es/m/hermes-plugins) ya enseñó `register(ctx)`; aquí la llamada es `ctx.register_platform`.
 
-**Caso.** El segundo connect debe fallar el lock.
+<VisualSlot caption="core, path, guard, compare, case." />
+
+## Core: `BasePlatformAdapter`
+
+Todo adaptador extiende `BasePlatformAdapter` de `gateway/platforms/base.py` e implementa (Nous Research, *Adding a Platform Adapter*, s. f.):
+
+| Método | Obligatorio | Rol |
+| --- | --- | --- |
+| `connect()` | abstracto | Establecer conexión (WebSocket, long-poll, servidor HTTP, …) |
+| `disconnect()` | abstracto | Apagado limpio |
+| `send()` | abstracto | Enviar un mensaje de texto a un chat |
+| `send_typing()` | opcional | Mostrar indicador de escritura |
+| `get_chat_info()` | opcional | Devolver metadatos del chat |
+
+Los mensajes entrantes los recibe el adaptador y se reenvían vía `self.handle_message(event)`, que la clase base enruta al gateway runner. Construyan un `MessageEvent` con `build_source(...)` y llamen a `handle_message`. No inventen un segundo tubo de entrada.
+
+```python
+class MyPlatformAdapter(BasePlatformAdapter):
+    async def connect(self, *, is_reconnect: bool = False) -> bool:
+        self._mark_connected()
+        return True
+
+    async def disconnect(self) -> None:
+        self._mark_disconnected()
+
+    async def send(self, chat_id, content, reply_to=None, metadata=None):
+        return SendResult(success=True, message_id="...")
+```
+
+<Callout>
+Consejo: en plataformas con un deadline de callback estrecho (la ventana de cinco segundos de WeCom es el ejemplo clásico), acusen recibo al instante y entreguen la respuesta del agente más tarde vía API. Las sesiones del agente duran minutos, no segundos. Las respuestas inline dentro de la ventana del callback no son factibles (Nous Research, *Adding a Platform Adapter*, s. f.).
+</Callout>
+
+## Path: plugin primero
+
+Una plataforma plugin son dos archivos bajo `~/.hermes/plugins/my-platform/`:
+
+```text
+plugin.yaml
+adapter.py
+```
+
+`plugin.yaml` fija `kind: platform`, más `requires_env` / `optional_env` que auto-rellenan entradas de la UI de `hermes config`. `adapter.py` define la clase del adaptador y un `register(ctx)` que llama a `ctx.register_platform(...)`.
+
+Los plugins `kind: platform` se **aplazan**: el módulo del adaptador (y sus imports de SDK) solo carga cuando un camino de gateway, cron o `send_message` pregunta por primera vez al registro de plataformas. Si el plugin también envía tools de cliente de salida que el agente deba llamar desde cualquier sesión, pónganlas en `tools.py` con `register_tools(ctx)` y declárenlas bajo `provides_tools` en el manifiesto. Hermes entonces importa solo `tools.py` durante el descubrimiento — CLI y TUI incluidos — mientras el adaptador se queda aplazado. Mantengan `__init__.py` ligero de imports.
+
+Cuando llaman a `ctx.register_platform()`, el sistema de plugins cablea estos puntos de integración por ustedes — sin editar el core (Nous Research, *Adding a Platform Adapter*, s. f.):
+
+| Punto de integración | Cómo funciona |
+| --- | --- |
+| Creación del adaptador en el gateway | El registro se consulta antes de la cadena if/elif builtin |
+| Parseo de config | `Platform._missing_()` acepta cualquier nombre de plataforma |
+| Validación de plataforma conectada | `validate_config()` del registro |
+| Autorización de usuarios | `allowed_users_env` / `allow_all_env` |
+| Auto-enable solo por env | `env_enablement_fn` siembra `PlatformConfig.extra` más `home_channel` |
+| Puente YAML→env | `apply_yaml_config_fn` |
+| Entrega de cron | `cron_deliver_env_var` hace que `deliver=<name>` funcione |
+| UI de `hermes config` | `requires_env` / `optional_env` en `plugin.yaml` |
+| Motor de send | Enruta por el adaptador vivo del gateway |
+| Hints del system prompt | `platform_hint` inyectado en el contexto del LLM |
+| Token lock (multi-perfil) | Usen `acquire_scoped_lock()` en su `connect()` |
+
+**Caso.** Un plugin IRC se registra vía `ctx.register_platform` con `cron_deliver_env_var` y un `standalone_sender_fn`. Los jobs de cron que corren como `hermes cron run` fuera del proceso del gateway aún pueden entregar. Sin `standalone_sender_fn`, el send del lado cron falla con "No live adapter for platform …" porque `_gateway_runner_ref()` es `None` fuera del gateway.
+
+## Guard: enablement por env, auth, locks
+
+La mayoría de usuarios dejan env vars en `~/.hermes/.env` en vez de editar `config.yaml`. El hook `env_enablement_fn` deja que su plugin recoja esas vars **antes** de construir el adaptador, de modo que `hermes gateway status`, `get_connected_platforms()` y la entrega de cron vean el estado correcto sin instanciar el SDK de la plataforma.
+
+```python
+def _env_enablement() -> dict | None:
+    token = os.getenv("MY_PLATFORM_TOKEN", "").strip()
+    channel = os.getenv("MY_PLATFORM_CHANNEL", "").strip()
+    if not (token and channel):
+        return None
+    seed = {"token": token, "channel": channel}
+    home = os.getenv("MY_PLATFORM_HOME_CHANNEL")
+    if home:
+        seed["home_channel"] = {"chat_id": home, "name": "Home"}
+    return seed
+```
+
+Devuelvan `None` cuando la plataforma no esté configurada al mínimo — quien llama entonces salta el auto-enable. La clave especial `home_channel` se convierte en un dataclass `HomeChannel` propio; el resto se fusiona en `PlatformConfig.extra`.
+
+La autorización por plataforma usa `allowed_users_env` y `allow_all_env`. Los token locks impiden que dos perfiles sostengan la misma credencial persistente:
+
+```python
+from gateway.status import acquire_scoped_lock, release_scoped_lock
+
+async def connect(self, *, is_reconnect: bool = False):
+    acquired, _existing = acquire_scoped_lock("newplat", self._token)
+    if not acquired:
+        logger.error("Token already in use by another profile")
+        return False
+    # ... connect
+```
+
+`check_fn` es una sonda **pasiva**: "¿están deps/config presentes ahora mismo?". Se llama desde displays de status y carga de config, así que **nunca** debe hacer pip-install. `ensure_deps_fn` es el instalador activo opcional; `create_adapter()` lo llama cuando `check_fn` devuelve False, justo antes de que el gateway conecte. Si lo omiten, un `check_fn` falso es un bloqueo duro.
 
 <TryThis>
-Lista cinco metodos (3 abstractos, 2 opcionales).
+Esbocen `_env_enablement` para una plataforma que necesita TOKEN más CHANNEL, con un canal HOME opcional. Luego nombren los dos kwargs de env de auth en `register_platform`. Contrástenlo con el snippet oficial del adaptador, no con folklore.
 </TryThis>
 
-Fuente: https://hermes-agent.nousresearch.com/docs/developer-guide/adding-platform-adapters
+## Compare: plugin frente a la checklist builtin
+
+El camino builtin es para contribuidores core que publican plataformas soportadas oficialmente. Comunidad y terceros deberían usar el camino plugin. La checklist oficial toca (Nous Research, *Adding a Platform Adapter*, s. f.):
+
+1. Enum `Platform` en `gateway/config.py`
+2. Archivo del adaptador bajo `plugins/platforms/<name>/adapter.py`
+3. Tres puntos de contacto en `gateway/config.py` (`get_connected_platforms`, mapa de token env, `_apply_env_overrides`)
+4. Seis puntos de contacto en `gateway/run.py` (crear adaptador, allowlists, `_UPDATE_ALLOWED_PLATFORMS`)
+5. Entrega cross-platform en `webhook.py` y `cron/scheduler.py`
+6. CLI: `config.py`, `gateway.py`, `platforms.py`, `setup.py`, `status.py`, `dump.py`
+7. Tools: `send_message_tool.py`, `cronjob_tools.py`
+8. Toolsets en `toolsets.py`
+9. `PLATFORM_HINTS` opcional en `prompt_builder.py`
+10. Tests bajo `tests/gateway/`
+11. Documentación en website docs y `sidebars.ts`
+
+Antes de marcar un PR builtin como completo, hagan una auditoría de paridad: busquen cada archivo `.py` / `.md` / `.ts` que mencione una plataforma de referencia, luego el nombre nuevo, e investiguen cada hueco.
+
+Las extensiones standalone del camino de send dejan que un plugin participe en la entrega de salida impulsada por el host a través de `hermes send --to ...` y cron `deliver=platform:...`. `send_message` **no es intencionadamente** una tool de modelo invocable por el agente; los plugins no deben registrar una superficie de modelo equivalente que deje al agente iniciar mensajes de salida por sí solo (Nous Research, *Adding a Platform Adapter*, s. f.).
+
+## Caso: LINE y UX de LLM lento
+
+Algunas plataformas cambian cómo se debe presentar una respuesta lenta del LLM:
+
+| Plataforma | Restricción |
+| --- | --- |
+| LINE | El reply token de un solo uso caduca unos 60 segundos tras el evento entrante. Respuesta gratis con ese token; Push API tarifada en caso contrario. |
+| WhatsApp | La sesión queda inactiva a las 24h; después solo se aceptan mensajes de plantilla. |
+| SMS | Sin indicadores de escritura ni actualizaciones progresivas — las respuestas largas parecen un bot offline. |
+
+Estas son restricciones reales que `BasePlatformAdapter` no puede anticipar. La superficie de plugin deja espacio para apilar UX específica de la plataforma encima del bucle de typing base sin ampliar la lista de kwargs.
+
+**Patrón.** Sobreescriban `_keep_typing` para programar una tarea lateral en `slow_response_threshold`, siempre `await super()._keep_typing(...)`, y derriben la tarea lateral en `finally`. Empárenlo con `interrupt_session_activity` para que `/stop` resuelva estado UX huérfano. En LINE, eso significa pasar una entrada de caché de postback de `PENDING` a `ERROR`.
+
+**Patrón.** Sobreescriban `send` para reconocer tres modos: postback pendiente activo (cachear, no enviar nada visible); prefijos de busy-ack del sistema (`⚡`, `⏳`, `⏩`, `💾`) eluden la caché y se envían visibles; respuesta normal usa reply-token-or-push.
+
+**Caso.** LINE fija el umbral por defecto en 45 segundos para el fetch gratis vía postback. Poner `LINE_SLOW_RESPONSE_THRESHOLD=0` vuelve a always-Push. La referencia vive en `plugins/platforms/line/adapter.py` — una máquina de estados `RequestCache` (`PENDING → READY → DELIVERED`, más `ERROR` para `/stop`). Otras referencias de plugin: `plugins/platforms/irc/` (IRC async completo, cero deps externas, scoped token lock), `teams/` (Bot Framework / Adaptive Cards), `google_chat/` (REST OAuth).
+
+<Callout>
+Consejo: usen el override del bucle de typing cuando la plataforma tenga una restricción dura de ventana temporal **y** una burbuja visible a mitad de vuelo sea UX aceptable. Usen `slow_response_threshold = 0` cuando no haya distinción gratis-frente-a-pago, o cuando la comunidad prefiera silencio-luego-DONE frente a una burbuja intermedia interactiva.
+</Callout>
+
+## Patrones comunes
+
+**Long-poll.** Creen una tarea de bucle de polling en `connect()`, traigan updates mientras `self._running`, construyan eventos, llamen a `handle_message`. Estilo Telegram y Weixin.
+
+**Callback / webhook.** Corran un servidor HTTP, acusen recibo al instante, encolen el evento. Estilo WeCom Callback. No esperen al agente dentro del handler HTTP.
+
+**Puente YAML→env.** `apply_yaml_config_fn` traduce claves de `config.yaml` a env vars / extras. Se invoca durante `load_gateway_config()` tras el bucle de claves compartidas y antes de `_apply_env_overrides()`. Las excepciones se tragan y se registran a nivel debug — un plugin mal comportado nunca aborta la carga de config del gateway. Preserven la precedencia env-sobre-YAML con guards `not os.getenv(...)`.
+
+## Lista de aula
+
+1. Nombren los tres métodos abstractos de `BasePlatformAdapter`.
+2. Prefieran el camino plugin para plataformas de comunidad; reserven la checklist de 20 archivos para el core.
+3. Mantengan aplazados los adaptadores `kind: platform`; pongan las tools de salida en `tools.py` con `provides_tools`.
+4. Implementen `env_enablement_fn` para que status y cron vean setups solo por env.
+5. Tomen un scoped token lock en `connect()` cuando la credencial sea única por conexión.
+6. Nunca registren una tool invocable por el modelo que inicie envíos de plataforma de salida.
+7. Para reply tokens con tiempo limitado, apilen sobre `_keep_typing` — no lo sustituyan.
+
+URL oficial: [Adding a Platform Adapter](https://hermes-agent.nousresearch.com/docs/developer-guide/adding-platform-adapters).
+
+## Implementaciones de referencia para leer, no folklore copy-paste
+
+| Adaptador | Patrón | Buena referencia para |
+| --- | --- | --- |
+| `plugins/platforms/irc/adapter.py` | Long-poll + protocolo IRC | Adaptador plugin completo, scoped token lock, cero deps extra |
+| `plugins/platforms/teams/` | Bot Framework / Adaptive Cards | Tarjetas ricas |
+| `plugins/platforms/google_chat/` | REST OAuth | Refresh de token sin socket persistente |
+| `plugins/platforms/line/adapter.py` | Webhook + UX de LLM lento | Caducidad del reply token, overlay de `_keep_typing` |
+| `bluebubbles.py` | REST + webhook | REST builtin más simple |
+| `weixin.py` | Long-poll + CDN | Media y cifrado |
+| `plugins/platforms/wecom/callback_adapter.py` | Callback HTTP | AES, ack de 5 segundos, multi-app |
+
+Auditoría de paridad antes de un PR builtin: busquen cada archivo `.py` / `.md` / `.ts` que mencione una plataforma madura (el ejemplo oficial usa `bluebubbles`), luego el nombre nuevo, y traten cada archivo que falte como un hueco potencial — enumeración frente a referencia específica de plataforma (Nous Research, *Adding a Platform Adapter*, s. f.).
+
+## Fuentes
+
+Nous Research. (s. f.). *Adding a platform adapter*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/adding-platform-adapters
+
+Nous Research. (s. f.). *Build a Hermes plugin*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/plugins
+
+Nous Research. (s. f.). *Gateway internals*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals
+
+Nous Research. (s. f.). *Architecture*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/architecture
+
+Nous Research. (s. f.). *Prompt assembly*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/prompt-assembly
+
+Nous Research. (s. f.). *Agent loop internals*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop

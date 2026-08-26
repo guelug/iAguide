@@ -1,19 +1,180 @@
-## Scheduler en el Gateway
+## El scheduler vive en el Gateway
 
-automations. isolated vs main. announce/webhook. SQLite. operator.admin.
+La fuente primaria es [*Automations*](https://docs.openclaw.ai/automation/cron-jobs) de OpenClaw (s. f.). Las automations son el scheduler builtin de OpenClaw. El scheduler persiste jobs, despierta al agente a tiempo, y puede entregar output a un canal de chat, un webhook, o a ningun lado.
+
+Gestionen automations con el CLI `openclaw automations`; `openclaw cron` permanece un alias de los mismos commands.
+
+Las automations corren **dentro del proceso Gateway**, no dentro del modelo. El Gateway debe estar corriendo para que los schedules disparen. Las definiciones de job, el estado de runtime y el historial de runs persisten en la base SQLite compartida, asi que los restarts no pierden schedules. Cada run de automation crea un record de background task (OpenClaw, *Automations*, s. f.).
+
+La leccion generica [cron](/es/m/cron), si existe, permanece agnostica del harness. Esta es automations del Gateway OpenClaw.
+
+```bash
+openclaw automations create "2027-02-01T16:00:00Z" --name "Reminder" --session main --system-event "Reminder: check the automations docs draft" --wake now --delete-after-run
+openclaw automations list
+openclaw automations runs --id <job-id>
+```
 
 <VisualSlot caption="create, isolated, announce, webhook, admin." />
 
-## Comparar vs Hermes
+## Kinds de schedule y timezone
 
-Hermes jobs.json. OpenClaw automations SQLite.
+| Kind | Flag CLI | Descripcion |
+| --- | --- | --- |
+| `at` | `--at` | Timestamp one-shot (ISO 8601 o relativo como `20m`) |
+| `every` | `--every` | Intervalo fijo (`10m`, `1h`, `1d`) |
+| `cron` | `--cron` | Expresion cron de 5 o 6 campos con `--tz` opcional |
+| `on-exit` | `--on-exit` | Disparar una vez cuando un command vigilado sale |
+| `stream` | `--stream-command` | Disparar desde lineas batcheadas de un command supervisado |
 
-## Caso: brief sin alma
+Los timestamps sin timezone se tratan como **UTC**. Anadan `--tz America/New_York` para interpretar un datetime `--at` sin offset, o para evaluar una expresion cron, en ese timezone IANA. Las expresiones cron sin `--tz` usan el **timezone del host Gateway**. `--tz` no es valido con `--every` ni `--on-exit` (OpenClaw, *Automations*, s. f.; *Timezone*, s. f., https://docs.openclaw.ai/concepts/timezone).
 
-**Fix.** Quitar --light-context.
+Day-of-month y day-of-week usan logica **OR** (Vixie/croner). `0 9 15 * 1` dispara cada dia 15 y cada lunes. Para exigir ambos, usen el modificador `+` de day-of-week de croner o un guard en el prompt.
+
+Las expresiones recurrentes de tope de hora se staggered automaticamente hasta 5 minutos. Usen `--exact` para forzar timing preciso.
+
+El scratch heartbeat `tasks:` esta retirado. Corran `openclaw doctor --fix` para convertir cada entrada en un job ordinario de automation de sesion main. El scratch heartbeat ahora es solo prosa de monitor (OpenClaw, *Automations*, s. f.; *Heartbeat*, s. f., https://docs.openclaw.ai/gateway/heartbeat).
+
+## Estilos de sesion
+
+| Estilo | `--session` | Mejor para |
+| --- | --- | --- |
+| Main | `main` | Recordatorios, system events |
+| Isolated | `isolated` | Reportes, chores de fondo (claves `cron:<jobId>`) |
+| Current | `current` | Trabajo recurrente context-aware bindeado a la conversacion de creacion |
+| Custom | `session:custom-id` | Workflows que construyen sobre historial |
+
+Los jobs agent-turn defaultan a la conversacion de creacion cuando el create lleva contexto de sesion. Callers CLI/API sin session key caen a `isolated`. System events y heartbeats siguen defaultando a `main`; payloads command y script siguen defaultando a `isolated`.
+
+Los turnos internos de automation **no** alargan la frescura daily o idle; solo la actividad visible del usuario actualiza la frescura de sesion. Los jobs isolated obtienen un transcript/session id nuevo por run y no heredan contexto ambiental de conversacion de una fila de automation vieja (OpenClaw, *Automations*, s. f.).
+
+Los turnos isolated de automation y hook son explicitamente unattended. El reply final debe ser el entregable. Devuelvan `NO_REPLY` cuando no hay nada que hacer.
+
+<Callout>
+Los payloads command son una superficie de automation del Gateway de operator-admin, no una llamada `tools.exec` del agente. Crear, actualizar, quitar o correr a mano jobs de automation exige `operator.admin`. La politica exec del agente no gobierna payloads command (OpenClaw, *Automations*, s. f.).
+</Callout>
+
+## Payloads y delivery
+
+Cada job lleva exactamente un kind de payload: system event (`--system-event`), agent message (`--message`), command (`--command` / `--command-argv`), o script (`--script`). Un kind adicional, `heartbeat`, es system-owned y no se puede crear por CLI.
+
+Modos de delivery: `announce` (fallback-entregar texto final si el agente no envio), `webhook` (POST del payload de evento terminado), `none` (sin fallback del runner). Webhook delivery no puede combinarse con flags de delivery de chat.
+
+Cada webhook de automation outbound usa el guard SSRF estricto. Permitan solo el receiver de confianza con `cron.webhookSsrfPolicy.allowedHostnames`. Dejen la politica unset para conservar comportamiento estricto (OpenClaw, *Automations*, s. f.).
+
+En hosts con varios canales configurados, los jobs isolated announce deben poner `--channel` salvo que un `--to` con prefijo de proveedor o una ruta de sesion preservada seleccione el canal. Las aprobaciones del store de pairing DM no son recipients fallback de automation.
+
+`webhookToken` se envia como `Authorization: Bearer` en POSTs de webhook de automation. Las URLs webhook no deben incluir credenciales username/password embebidas.
+
+Archivar una sesion desactiva cada job de automation habilitado bindeado a esa sesion. Restaurar la sesion no re-habilita esos jobs; usen `openclaw automations enable <id>`.
+
+**Caso.** Un morning brief usa `--session isolated --announce --channel slack --to "channel:C123"` con `--tz America/Los_Angeles`. Cron sin `--tz` habria usado el timezone del host Gateway (OpenClaw, *Automations*, s. f.).
+
+**Caso.** Un agente crea un job de payload command. Falla. Los payloads command exigen `operator.admin`. Usen `--message` para chores escritos por el agente (OpenClaw, *Automations*, s. f.).
 
 <TryThis>
-Comando create 0 7 * * *.
+Escribe el nombre CLI y su alias. Escribe donde corren las automations. Nombra isolated frente a main. Escribe que kind de payload necesita operator.admin. Escribe las reglas de timezone para at frente a cron sin --tz.
 </TryThis>
 
-Fuente: https://docs.openclaw.ai/cli/cron
+## Comparar, sin mezclar knobs
+
+El cron de Hermes, cuando existe, es un scheduler Hermes (Nous Research, *Agent Loop Internals*, s. f., https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop). Las automations de OpenClaw son jobs sqlite poseidos por el Gateway. No peguen una linea crontab en `session.reset`. Citen *Automations* para jobs. Citen *Heartbeat* para el monitor. Citen *Session management* para relojes idle que las automations no alargan.
+
+Deshabiliten automations con `cron.enabled: false` o `OPENCLAW_SKIP_CRON=1`. `cron.store` esta retirado; usen CLI o API del Gateway.
+
+Los jobs one-shot auto-borran solo cuando `completionStatus` es `succeeded`. Un fallo de delivery required mantiene el job deshabilitado para inspeccion. Los errores de ejecucion recurrentes hacen backoff 30s, 60s, 5m, 15m, 60m. Un job recurrente basado en tiempo se auto-deshabilita tras 10 fallos de ejecucion consecutivos.
+
+Los scripts de condition-trigger y los payloads script corren unattended con la tool policy completa del agente dueno, incluido `exec`. Tratenlos como ejecucion de codigo unattended. Pongan `cron.triggers.enabled: false` para un hard stop.
+
+Los hooks HTTP del Gateway (`/hooks/wake`, `/hooks/agent`) necesitan `hooks.enabled` y un hook token dedicado. Los tokens de query-string se rechazan. Conserven los endpoints hook detras de loopback, tailnet o un reverse proxy de confianza. No reusen tokens de auth del gateway como hook tokens. Poner un hook de Gmail en `main` es una decision de seguridad; conserven un agente reader dedicado con sandbox `all`, `workspaceAccess: "none"`, y un allowlist apretado (OpenClaw, *Automations*, s. f.).
+
+`/loop` en chat es un atajo owner-only que crea un job recurrente agent-turn bindeado a esa conversacion.
+
+El override de modelo `--model` es el primario del job. Si no esta permitido, el run falla con error de validacion en vez de caer en silencio. Las cadenas de fallback configuradas siguen aplicando salvo que `--fallbacks ""` haga el run estricto.
+
+Esta leccion se detiene en jobs poseidos por el Gateway, isolated frente a main, announce frente a webhook, persistencia sqlite, y operator.admin para payloads command. Pairing no es un recipient de cron. Compaction no es como los jobs isolated se quedan pequenos; ya arrancan frescos.
+
+Presupuesto wall-clock por run: `--timeout-seconds` cuando esta puesto. Si no, los jobs isolated agent-turn se acotan por el watchdog de 60 minutos del scheduler antes del timeout subyacente de agent-turn (`agents.defaults.timeoutSeconds`, default 48 horas). Los jobs command defaultan a 10 minutos. Los payloads script defaultan a 5 minutos.
+
+En el startup del Gateway, los jobs isolated agent-turn overdue se reprograman en vez de replay inmediato, manteniendo el bootstrap de modelo fuera de la ventana de channel-connect.
+
+Los runs isolated cierran best-effort tabs de browser trackeados para su sesion cron al completar. Los fallos de cleanup se ignoran para que el resultado del run gane.
+
+Los runs isolated con el grant estrecho de self-cleanup de automation pueden leer status del scheduler y quitar solo su propio job.
+
+Cuando un job pega timeoutSeconds, el scheduler aborta y da una ventana corta de cleanup. Si no drena, el cleanup poseido por el Gateway force-clears la ownership de sesion de ese run para que el chat en cola no se quede atascado.
+
+Pacing: los jobs recurrentes pueden poner pacing.min y pacing.max. Durante un run agent-turn, un job paced puede llamar automations con action next_check. Los runs fallidos y skipped descartan la proposal.
+
+Los schedules stream mantienen un command argv escrito por el operador corriendo. mode line acepta cada linea. mode match acepta solo lineas matching. Los payloads command se rechazan para schedules stream porque la ownership de proceso seria ambigua.
+
+Los fallos rapidos restart con backoff de error. Cinco runs consecutivos mas cortos de 60 segundos dejan el job en estado de error.
+
+Los jobs nuevos que pueden correr tools siempre guardan una tool policy explicita. Los jobs creados por un agente se capan a las tools disponibles de ese turno creador. Los jobs creados por un operador autenticado sin `--tools` guardan una politica unrestricted star.
+
+Antes de que un run isolated arranque, OpenClaw chequea endpoints locales alcanzables para proveedores ollama y openai-completions configurados en loopback o red privada. Un endpoint caido registra skipped en vez de empezar una llamada de modelo. El resultado se cachea 5 minutos por endpoint.
+
+Las notificaciones de fallo usan un umbral y cooldown poseidos por el scheduler. Cobertura default tras 2 fallos consecutivos con cooldown de 1 hora cuando existe una ruta. Un job recurrente basado en tiempo se auto-deshabilita tras 10 fallos de ejecucion consecutivos; enable limpia la razon.
+
+Los jobs de automation no infieren un idioma de reply desde canal o locale. Pongan la regla de idioma en el mensaje scheduled.
+
+`openclaw automations create` es un alias de add. `cron.sessionRetention` default 24h poda entradas de run-session isolated.
+
+Doctor `--fix` importa `~/.openclaw/cron/jobs.json` historico y archivos relacionados a SQLite y archiva originales con sufijo `.migrated`.
+
+**Caso.** Gmail PubSub en main con tools full. La pagina recomienda un agente dedicado mail_reader, sandbox all, workspaceAccess none, allow session_status, deliver false. Cualquier otra cosa es una decision de seguridad que deben documentar (OpenClaw, *Automations*, s. f.).
+
+El token de hooks via Authorization Bearer o x-openclaw-token. Conserven hooks.path en un subpath dedicado; slash root se rechaza. Los hooks mapped persistentes exigen un sessionKey estable o hooks.defaultSessionKey.
+
+La particularidad: el Gateway es el daemon cron. Las claves isolated son frescas por run. Los payloads command son admin. Announce y webhook son delivery, no schedule. Heartbeat es un monitor, no un parser de tasks:.
+
+Ladder de troubleshoot: openclaw status, gateway status, automations status, automations list, automations runs, system heartbeat last, logs follow, doctor.
+
+reason not-due significa que el run manual se chequeo con --due y el job no estaba due todavia.
+
+Delivery mode none significa que no hay send fallback del runner. El agente aun puede enviar con la tool message cuando hay una ruta de chat.
+
+Si el run isolated devuelve solo NO_REPLY, OpenClaw suprime delivery outbound.
+
+Los room IDs de Matrix son case-sensitive. Un delivery.to lowercased de un job copiado puede fallar.
+
+Las expresiones cron sin --tz usan el timezone del host gateway. Los schedules at sin timezone se tratan como UTC. Heartbeat activeHours usa la resolucion de timezone configurada.
+
+Los eventos de automation de sesion main son recordatorios de system-event autocontenidos. No incluyen automaticamente el prompt default de heartbeat ni el scratch del monitor heartbeat.
+
+Los jobs current-session ejecutan en una sesion de run detached, leen una cola acotada capturada al crear, y commitean el resultado visible final del assistant de vuelta a esa conversacion exacta.
+
+Webhook mode hace POST del payload de run terminado. Usen --webhook en add o edit. No se combina con --announce.
+
+Conserven payloads de hook envueltos con safety boundaries por defecto. El contenido de inbox no confiable es data, no instrucciones.
+
+Citen Architecture: un Gateway por host es tambien un scheduler por host. Dos Gateways son dos calendarios en conflicto.
+
+Citen Queue cuando isolated announce no debe colisionar con un steer vivo. Heartbeat usa un lane nested; las automations siguen encolando.
+
+Esta version de aula conserva jobs sqlite poseidos por el Gateway, isolated frente a main, announce frente a webhook, operator.admin para commands, y el split de timezone. Los detalles del wizard Gmail se quedan en la pagina Automations.
+
+openclaw automations enable limpia streaks de auto-disable tras arreglar la causa.
+
+Usen automations list --all para ver jobs deshabilitados.
+
+Force run con automations run. Wait con --wait para shutdown hooks que deben bloquear hasta success.
+
+Citen Background Tasks para el ledger que cada run de automation crea.
+
+## Fuentes
+
+OpenClaw. (s. f.). *Automations*. https://docs.openclaw.ai/automation/cron-jobs
+
+OpenClaw. (s. f.). *Automation overview*. https://docs.openclaw.ai/automation
+
+OpenClaw. (s. f.). *Heartbeat*. https://docs.openclaw.ai/gateway/heartbeat
+
+OpenClaw. (s. f.). *Timezone*. https://docs.openclaw.ai/concepts/timezone
+
+OpenClaw. (s. f.). *Background Tasks*. https://docs.openclaw.ai/automation/tasks
+
+OpenClaw. (s. f.). *Session management*. https://docs.openclaw.ai/concepts/session
+
+OpenClaw. (s. f.). *Gateway architecture*. https://docs.openclaw.ai/concepts/architecture
+
+Nous Research. (s. f.). *Agent loop internals*. Guia de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop

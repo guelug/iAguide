@@ -1,0 +1,200 @@
+## The same adapter idea, a different forward pass
+
+<Term id="lora">LoRA</Term> (Low-Rank Adaptation) injects small trainable matrices into a **frozen** base so you specialise a huge model without rewriting it (Hu, Shen, Wallis, Allen-Zhu, Li, Wang, Wang, & Chen, 2022, arXiv:2106.09685). Unsloth's wording for LLMs is the one you already met: freeze the base in 16-bit (or 4-bit for QLoRA), train thin A and B on linear layers, on the order of **1% of the weights** ([Unsloth fine-tuning guide](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide)).
+
+Comfy-Org's LoRA page says the same algebra for generative image models: introduce trainable low-rank matrices, adjust only a portion of parameters, lower cost than retraining the whole checkpoint. Compared to a base such as SD1.5, LoRA files are **smaller and easier to train**. All LoRA variants they list — Lycoris, loha, lokr, locon, etc. — **are used the same way** in ComfyUI ([Comfy-Org, ComfyUI LoRA example](https://docs.comfy.org/tutorials/basic/lora)).
+
+The file lives in `ComfyUI/models/loras`. The node is **Load LoRA**, and it sits **between** Load Checkpoint and KSampler. That is the whole topology of this lesson.
+
+<VisualSlot caption="Five slides: a small adapter on a frozen base, Load LoRA between Checkpoint and KSampler, strength_model versus strength_clip, the CivitAI card (trigger, base, license), and an SD1.5 LoRA on an SDXL checkpoint looking like noise." />
+
+<Callout>
+Practical tip, Comfy-Org: download the example graph as an **image with workflow JSON in metadata** and drag it into ComfyUI, or Workflows → Open (`Ctrl+O`). Their example pairs checkpoint `dreamshaper_8.safetensors` in `models/checkpoints` with LoRA `blindbox_V1Mix.safetensors` in `models/loras`, both fetched from CivitAI version ids 128713 and 32988 ([LoRA example](https://docs.comfy.org/tutorials/basic/lora)).
+</Callout>
+
+## Official Load LoRA sockets
+
+Comfy-Org's table, copied not paraphrased into fiction ([LoRA example](https://docs.comfy.org/tutorials/basic/lora)):
+
+**Inputs**
+
+| Parameter | Function |
+| --- | --- |
+| `model` | Connect to the base model |
+| `clip` | Connect to the CLIP model |
+| `lora_name` | Select the LoRA file ComfyUI detected under `models/loras` |
+| `strength_model` | How strongly the LoRA influences **model weights**; higher = stronger style |
+| `strength_clip` | How strongly the LoRA influences **CLIP text embeddings** |
+
+**Outputs**
+
+| Parameter | Function |
+| --- | --- |
+| `model` | Base with LoRA adjustments applied |
+| `clip` | CLIP with LoRA adjustments applied |
+
+Those two strengths are **not** one knob. A LoRA can move the UNet/DiT more than the text encoder, or the other way around. If the trigger word is in the prompt but the look does not land, try raising `strength_model` first; if the prompt itself starts to drift into the LoRA's dialect, you are looking at `strength_clip`. That heuristic is an operator reading of Comfy-Org's two-row table, not a paper result — tune on a locked seed from the previous lesson (CivitAI article 22492 seed FAQ).
+
+The node **chains**. Multiple Load LoRA nodes in series apply multiple adapters. Comfy-Org points at [Multiple LoRAs](https://docs.comfy.org/tutorials/basic/multiple-loras) for the layout. Order is a creative choice they do not reduce to a formula on the basic page.
+
+## CivitAI card: version, base, trigger, license
+
+The catalog is [civitai.com/models](https://civitai.com/models). Comfy-Org's own example downloads **from CivitAI** (dreamshaper 8, blindbox_V1Mix). A card is not a vibe. Read, in this order:
+
+1. **File format.** Prefer **safetensors**. Pickle `.ckpt` is a program (Python Software Foundation, pickle; [Hugging Face safetensors](https://huggingface.co/docs/safetensors/index); previous lesson).
+2. **Version** (`modelVersionId`). Comfy-Org's download URLs pin 128713 and 32988. A "same model" on CivitAI can ship a 1.5 version and an XL version as **siblings**. Download the version whose **base model** field matches the checkpoint already in Load Checkpoint.
+3. **Base model compatibility.** An **SD1.5 LoRA on an SDXL checkpoint is the wrong family**. Different latent size, different CLIP stack (Podell et al., 2023, arXiv:2307.01952 versus Rombach et al., 2022, arXiv:2112.10752). The graph will still **run**. The image often looks like **noise**, texture soup, or a smeared checkpoint. That is this lesson's case.
+4. **Trigger words.** Many concept/character LoRAs only fire when a rare token from the card is in the **positive** CLIP encode. If the card says the trigger is `ohwx person` and you never type it, `strength_model = 1` will not invent the concept. The card is the source; this course will not invent a trigger for a LoRA you did not open.
+5. **License / creator terms.** CivitAI cards and Hugging Face cards both carry terms. Unsloth does not waive them when the algebra is the same. Read the version you downloaded ([CivitAI models](https://civitai.com/models); [Comfy-Org Models](https://docs.comfy.org/basic-concepts/models) on community fine-tunes).
+
+<Compare a="Unsloth LoRA (LLM)" b="ComfyUI Load LoRA (diffusion)">
+<Side>
+Frozen base, train A and B, ~1% of weights. Export adapters or merge. Chat template must match at serve time ([Unsloth](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide)). File is an adapter directory or a merged safetensors, **not** dropped into `models/loras` unless you converted it for this graph.
+</Side>
+<Side>
+Frozen checkpoint, Load LoRA between Checkpoint and KSampler, two strengths, trigger in the prompt. File is `*.safetensors` in `models/loras`. Chain several. Same Hu et al. (2022) idea, different tensors ([Comfy-Org LoRA](https://docs.comfy.org/tutorials/basic/lora)).
+</Side>
+</Compare>
+
+## Walk the official example (without pasting their PNG)
+
+Comfy-Org's steps ([LoRA example](https://docs.comfy.org/tutorials/basic/lora)):
+
+1. Ensure Load Checkpoint loads `dreamshaper_8.safetensors` (CivitAI version 128713, SafeTensor, pruned fp16).
+2. Ensure Load LoRA loads `blindbox_V1Mix.safetensors` (CivitAI version 32988).
+3. Queue, or `Ctrl(cmd)+Enter`.
+
+They show a side-by-side: same parameters, dreamshaper_8 alone versus dreamshaper_8 plus the blindbox LoRA — different style without swapping the base. That is the point of an adapter.
+
+After a file copy, press **`R`** so `lora_name` sees it ([Comfy-Org Models](https://docs.comfy.org/basic-concepts/models); first-generation refresh rule). Desktop versus portable paths are the previous lesson: `ComfyUI/models/loras` or the Desktop "Open models folder" equivalent.
+
+<Callout>
+Practical tip, Comfy-Org: try modifying the prompt **or** `strength_model` on a locked seed so you can see the LoRA's delta, then visit [CivitAI](https://civitai.com/models) for other LoRAs. That "try it yourself" block is theirs. Keep the base family matched when you do.
+</Callout>
+
+## When it looks like noise: the mismatch case
+
+**Case.** You download a LoRA whose thumbnail is gorgeous, drop it on your working SDXL (or Flux) checkpoint, Queue, and get **coloured noise** or a melted face. The card's **base model** field said SD 1.5 (or "SD 1.5 merged"). Load LoRA does not type-check families. It adds low-rank deltas into whatever `model` / `clip` you wired. Wrong shape / wrong CLIP ⇒ the denoise trajectory leaves the manifold the VAE knows how to decode (Rombach et al., 2022; Podell et al., 2023). Fix: match families, or run the LoRA on the base the card names (often an SD1.5 such as dreamshaper_8, as in Comfy-Org's example). Do not raise `steps` to 80 as a first debug — that is the previous lesson's blurry-image knob, the wrong axis.
+
+A second failure mode: right family, **forgotten trigger**. The LoRA was trained so that a token occupies a direction in CLIP space (Radford et al., 2021, arXiv:2103.00020). Without the token, you are applying a small random-looking delta. Read the card.
+
+A third: `strength_model` at 2.0 on a LoRA whose card says 0.6–0.8. Comfy-Org tells you higher is stronger; it does not tell you to double it. Over-strength is fried texture, not "more style."
+
+<Myth>
+"A LoRA is a full checkpoint, so it replaces Load Checkpoint." No. Hu et al. (2022) and Comfy-Org both describe an **adapter on a frozen base**. You still need Load Checkpoint. Load LoRA **in between**. A "LoRA" file dropped into `models/checkpoints` will not appear in Load Checkpoint (wrong subfolder — [Models](https://docs.comfy.org/basic-concepts/models)). A checkpoint dropped into `models/loras` will not appear in Load LoRA.
+</Myth>
+
+## ControlNet is the next helper, not this class
+
+Comfy-Org's models page lists **ControlNet** next to LoRA: extra guidance from edges, depth, pose; files under `ComfyUI/models/controlnet/` ([Models](https://docs.comfy.org/basic-concepts/models)). CivitAI article 22492 names ControlNet as a next step after the first workflow ([article 22492](https://civitai.com/articles/22492/comfyui-tutorial-2-building-your-first-workflow)). This lesson stops at **mention**: ControlNet is a second network that conditions the denoise on an auxiliary image (pose stick figure, depth map). It is not a LoRA. It does not go in `models/loras`. It does not use `strength_clip`. Learn it on a graph that already produces a clean image with a matched LoRA.
+
+## Licenses, again, because adapters inherit them
+
+A LoRA is derived work on a base. The base's license (OpenRAIL, Apache, FLUX-dev non-commercial, …) **and** the creator's CivitAI terms both apply. This course will not summarise a license you have not opened. Practical rule you can source: read the **version card** you downloaded, not the family name ([CivitAI](https://civitai.com/models); Hugging Face cards such as [FLUX.1-dev](https://huggingface.co/black-forest-labs/FLUX.1-dev) when the base is Flux).
+
+Hugging Face Inference Providers can also run some **hosted** image models, including LoRA-style customisation on supported providers ([HF Inference Providers](https://huggingface.co/docs/inference-providers/index)). That is a cloud call with `HF_TOKEN`, not a file in `models/loras`. Do not confuse the two meters (quotas lesson).
+
+<TryThis>
+Open one CivitAI LoRA card. Write four lines: (1) `modelVersionId`, (2) base model field, (3) trigger word or "none stated", (4) license/creator constraint in six words. Then write whether that file belongs next to your current Load Checkpoint family. If you cannot fill (2), you are not allowed to hit Queue yet. Optional: drag Comfy-Org's LoRA workflow image, confirm `dreamshaper_8` + `blindbox_V1Mix`, `Ctrl+Enter` ([LoRA example](https://docs.comfy.org/tutorials/basic/lora)).
+</TryThis>
+
+## Recap
+
+LoRA is Hu et al. (2022) on a frozen checkpoint, the same idea Unsloth uses on LLMs. File → `models/loras`. Load LoRA between Checkpoint and KSampler. `strength_model` versus `strength_clip`. Chain if you need several ([Comfy-Org LoRA](https://docs.comfy.org/tutorials/basic/lora); [Multiple LoRAs](https://docs.comfy.org/tutorials/basic/multiple-loras)). CivitAI card: version, base family, trigger, terms ([civitai.com/models](https://civitai.com/models)). Safetensors from a source you trust. Mismatch looks like noise. ControlNet is pose/depth next, different folder ([Models](https://docs.comfy.org/basic-concepts/models)).
+
+If you can say that paragraph with the URLs, the lesson worked.
+
+
+## Extra paths: LoRAs next to A1111
+
+Comfy-Org's `extra_model_paths.yaml.example` maps Automatic1111's `models/Lora` **and** `models/LyCORIS` into Comfy's `loras:` key ([Models](https://docs.comfy.org/basic-concepts/models)). If you already keep adapters in a WebUI tree, point `base_path` at that install and restart. Desktop users **append** to the generated extra-models config; they do not overwrite it. A LoRA that lives only in WebUI's folder will not appear in Load LoRA until that YAML exists and Comfy has restarted. `R` refreshes the list **inside** indexed folders; it does not invent a new root.
+
+Lycoris / loha / lokr / locon: Comfy-Org's LoRA page is explicit that they **load the same way**. You still pick `lora_name`. You still set two strengths. The filename is not a second node type on the basic example ([LoRA example](https://docs.comfy.org/tutorials/basic/lora)).
+
+## Chaining, without a new myth
+
+Comfy-Org: Load LoRA **supports chain connections**; see the multiple-LoRAs tutorial ([LoRA example](https://docs.comfy.org/tutorials/basic/lora); [Multiple LoRAs](https://docs.comfy.org/tutorials/basic/multiple-loras)). Operator rules you can defend from that topology:
+
+- Every extra Load LoRA must still see a `model` and `clip` that already match the **same** base family.
+- Two LoRAs trained on SD1.5 can stack on dreamshaper_8. An SD1.5 LoRA stacked on an SDXL-adapted clip is the mismatch case with extra steps.
+- Strengths are per node. A character LoRA at 0.8 and a style LoRA at 0.4 is a pair of knobs, not a blend slider Comfy-Org forgot to ship.
+
+Unsloth's multi-adapter serve story is a cousin, not a file format. Do not copy a Hugging Face PEFT adapter directory into `models/loras` and expect Load LoRA to parse it. Convert or export a diffusion LoRA for this graph. The Unsloth docs are about LLM adapters ([Unsloth](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide)).
+
+## First workflow, then one adapter
+
+CivitAI article 22492's next-step sentence is the syllabus: *now that you have the basics, try adding LoRAs* ([article 22492](https://civitai.com/articles/22492/comfyui-tutorial-2-building-your-first-workflow)). The previous lesson's graph already has Load Checkpoint, two CLIP encodes, KSampler, VAE, Save Image. Insert Load LoRA on the `MODEL` and `CLIP` noodles **before** they reach KSampler / CLIP encode. If you wire LoRA after the CLIP encodes, you have changed CLIP **too late** for this prompt — the encodes already ran. Comfy-Org's node exists to output an adjusted `clip` **into** CLIP Text Encode. Read the sockets: Load LoRA consumes clip, emits clip. The encodes should hang off the **emitted** clip when the LoRA ships `strength_clip` you care about.
+
+That last sentence is socket-reading of Comfy-Org's input/output table, not a hidden flag.
+
+## What we did not measure
+
+No CLIP-score delta for blindbox_V1Mix. Comfy-Org shows a qualitative pair of images on their LoRA page; we do not invent a percentage. No ranking of CivitAI downloads. No claim that Flux LoRAs use the same tensor names as SD1.5 — if a family needs a different loader, Comfy-Org says you will usually see a **template** ([Models](https://docs.comfy.org/basic-concepts/models)). Believe the template.
+
+
+## A short operator checklist (August 2026)
+
+1. First workflow already produces a PNG you can drag back ([First generation](https://docs.comfy.org/get_started/first_generation); [article 22492](https://civitai.com/articles/22492/comfyui-tutorial-2-building-your-first-workflow)).
+2. Card open: version id, base family, trigger, license ([CivitAI](https://civitai.com/models)).
+3. File is safetensors, in `models/loras` for **this** install (Desktop folder versus portable) ([Models](https://docs.comfy.org/basic-concepts/models)).
+4. `R` if the dropdown is empty.
+5. Load LoRA between Checkpoint and KSampler; CLIP encodes see the adjusted clip if `strength_clip` matters ([LoRA example](https://docs.comfy.org/tutorials/basic/lora)).
+6. Lock the seed. Change one knob (`strength_model` or the trigger) per run.
+7. Noise / melt → family mismatch until proven otherwise.
+8. ControlNet is a different folder, later.
+
+## Training a LoRA is a different door
+
+This lesson **loads** adapters. Training one is the Unsloth / fine-tuning track for LLMs ([Unsloth](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide); Hu et al., 2022) or a diffusion trainer that is **not** Comfy-Org's basic LoRA page. Comfy-Org's page is an **inference** example: install a file, wire the node, Queue. Do not look for an SFTTrainer in Load LoRA. If you train, you still export safetensors into `models/loras` and you still owe the base license.
+
+Hugging Face can host the adapter you just trained; CivitAI can host a community one. Same socket on the graph. Different cards to read.
+
+If you can run the official dreamshaper_8 + blindbox_V1Mix pair and then swap in one CivitAI LoRA whose base field you copied by hand, the lesson worked.
+
+
+## Why two strengths exist (CLIP versus UNet)
+
+CLIP is a **text** encoder (Radford et al., 2021). The denoiser is a **UNet or DiT** (Rombach et al., 2022; later families). Hu et al. (2022) attach LoRA to linear layers wherever you choose. A diffusion LoRA often ships deltas for **both** the denoiser and CLIP. Comfy-Org therefore exposes `strength_model` and `strength_clip` as separate inputs ([LoRA example](https://docs.comfy.org/tutorials/basic/lora)). Turning only `strength_model` changes how the artist paints; turning `strength_clip` changes how the artist **hears** the prompt. If a trigger is a CLIP-space token, `strength_clip = 0` can mute it even when the word is in the box.
+
+That is the academic reason the node is not a single slider.
+
+
+## Folder recap next to the first workflow
+
+From Comfy-Org Models, the four folders you now owe yourself ([Models](https://docs.comfy.org/basic-concepts/models)):
+
+- `models/checkpoints` — artist brain (previous two lessons)
+- `models/vae` — optional glasses
+- `models/loras` — this lesson
+- `models/controlnet` — named, not taught
+
+Wrong folder ⇒ empty dropdown. Right folder, wrong family ⇒ noise. Both failures are sourced; neither is "ComfyUI is random."
+
+## Sources
+
+
+Primary documentation and papers (URLs retrieved 26 August 2026):
+
+Comfy-Org LoRA example + CivitAI catalog + Unsloth LoRA wording + Hu et al. (2022).
+
+Do not invent trigger words or FID deltas; copy them from the card you opened.
+
+
+
+
+- Hu, E. J., Shen, Y., Wallis, P., Allen-Zhu, Z., Li, Y., Wang, S., Wang, L., & Chen, W. (2022). LoRA: Low-rank adaptation of large language models. *ICLR*. arXiv:2106.09685. https://arxiv.org/abs/2106.09685
+- Unsloth. (n.d.). Fine-tuning LLMs guide (LoRA / QLoRA / full FT). https://unsloth.ai/docs/get-started/fine-tuning-llms-guide
+- Comfy-Org. (n.d.). *ComfyUI LoRA example*. https://docs.comfy.org/tutorials/basic/lora
+- Comfy-Org. (n.d.). *ComfyUI multiple LoRAs*. https://docs.comfy.org/tutorials/basic/multiple-loras
+- Comfy-Org. (n.d.). *Models*. https://docs.comfy.org/basic-concepts/models
+- Comfy-Org. (n.d.). *Getting started with AI image generation*. https://docs.comfy.org/get_started/first_generation
+- CivitAI. (n.d.). Models catalog. https://civitai.com/models
+- CivitAI. (2025, 15 November; updated 2026). *ComfyUI Tutorial #2 — Building your first workflow* (article 22492). https://civitai.com/articles/22492/comfyui-tutorial-2-building-your-first-workflow
+- Hugging Face. (n.d.). *safetensors*. https://huggingface.co/docs/safetensors/index
+- Hugging Face. (n.d.). *Inference Providers*. https://huggingface.co/docs/inference-providers/index
+- Python Software Foundation. (n.d.). *pickle — Python object serialization*. https://docs.python.org/3/library/pickle.html
+- Radford, A. et al. (2021). Learning transferable visual models from natural language supervision (arXiv:2103.00020). https://arxiv.org/abs/2103.00020
+- Rombach, R. et al. (2022). High-resolution image synthesis with latent diffusion models (arXiv:2112.10752). https://arxiv.org/abs/2112.10752
+- Podell, D. et al. (2023). *SDXL* (arXiv:2307.01952). https://arxiv.org/abs/2307.01952
+- Black Forest Labs. (2024). FLUX.1-dev model card. https://huggingface.co/black-forest-labs/FLUX.1-dev
+

@@ -1,0 +1,224 @@
+## The Hub is a Git host, not a library
+
+Hugging Face, the organization, runs the **Hugging Face Hub**: Git repositories for models, datasets, and Spaces, plus Xet storage for large files. That sentence is the whole product. Transformers is one client library that talks to those repos. The Hub also talks to `datasets`, Diffusers, the `hf` CLI, Unsloth, TGI, vLLM, Hermes, and a browser. Confusing the website with the Python package is how people say "I installed Hugging Face" and mean three different things.
+
+The official Hub index, fetched 2026-08-26, is explicit: the Hub hosts **over 2 million models, 1.5 million datasets, and 1.5 million Spaces**, all open and publicly listed, with private repos for teams. Those counts live on [the Hub documentation index](https://huggingface.co/docs/hub/en/index). They will move. Cite the page and the fetch date, not a screenshot from last spring.
+
+Under the hood a Hub repo is a Git repository. Versioning, commit history, diffs, branches, pull requests, and discussions are the same nouns as GitHub. What GitHub never had to store at this scale is a 50 GB safetensors shard. The Hub's answer is **Xet**: it splits large files into unique chunks so uploads and downloads skip bytes you already have. The [storage backend (Xet) page](https://huggingface.co/docs/hub/en/storage-backends) and the Hub index both describe that split. You still `git clone`. The large blobs just do not live as naive Git LFS forever.
+
+<VisualSlot caption="Four slides: Models, Datasets, and Spaces as Git plus Xet repos; token roles from fine-grained to write; the hf CLI from auth to dry-run download; the local cache under HF_HOME and prune." />
+
+## Three repo types, one Git contract
+
+A **model** repo holds weights, a model card, configs, and optional TensorBoard traces. The Hub wants a [Model Card](https://huggingface.co/docs/hub/en/model-cards) so users see limits and bias before they `from_pretrained`. Tasks, languages, and eval results are metadata, not decoration. An inference widget on the model page is a demo, not production serving.
+
+A **dataset** repo holds rows, a [Dataset Card](https://huggingface.co/docs/hub/en/datasets-cards), and often a Data Studio view in the browser. The Hub index still quotes "over 500k public datasets in more than 8k languages" in the Datasets section — a narrower public-count than the 1.5 million figure on the same page's hero line. When two official numbers sit on one page, quote both and say which heading they came from. The `datasets` library can stream a set that does not fit in RAM. That is a client feature. The repo is still Git plus Xet.
+
+A **Space** is a Git repo that **runs**. Gradio and Streamlit are the two Python SDKs the Hub index names. The [Spaces overview](https://huggingface.co/docs/hub/en/spaces-overview) currently walks Gradio, Docker, and static HTML as create-time SDK choices, plus [ZeroGPU](https://huggingface.co/docs/hub/en/spaces-zerogpu) for on-demand NVIDIA GPUs. Static Spaces stay free. Gradio and Docker Spaces run on compute; as of the overview page, creating those requires a paid plan, with a documented exception that free personal accounts in good standing can still host up to two Gradio Spaces on ZeroGPU. Do not invent a third exception.
+
+Storage **Buckets** are not repos. The Hub index and the CLI both describe them as S3-like object storage on Xet: mutable, content-addressed, for checkpoints and logs that should not carry Git history. If you need a commit SHA, use a repo. If you need to overwrite a 20 GB checkpoint every epoch, read the buckets guide before you force-push a model repo.
+
+<Callout>
+Consejo: treat `owner/name` as a Git remote, not as a pip package. `unsloth/Qwen3.8-27B-unsloth-bnb-4bit` is a Hub repo. `unsloth` the Python import is a different artefact. The Hub page is https://huggingface.co/unsloth — that is the org catalog for the Unsloth track of this course.
+</Callout>
+
+## Tokens are roles, not passwords you reuse
+
+The preferred way to authenticate an app or notebook is a **User Access Token**. Manage them at [Settings → Access Tokens](https://huggingface.co/settings/tokens). The [security-tokens documentation](https://huggingface.co/docs/hub/en/security-tokens) names three roles:
+
+- **fine-grained** — scoped to specific resources (a model, an org's models). Hugging Face recommends this shape for production: leak blast radius is a list, not the whole account.
+- **read** — read public and private repos you can already read. Enough for download and for Inference Providers. Not enough to push.
+- **write** — create and push to repos you can write. Training jobs that `push_to_hub` need this. A public notebook does not.
+
+If you belong to an organization, the token's role **and** your org membership both apply. A write token cannot write an org repo where you are a read-only member. The token is not a skeleton key.
+
+The official best practice is **one token per app**. A laptop, a CI job, a Colab, an inference server: four tokens. Invalidate one without rotating the others. Put the value in `HF_TOKEN` (or pass `token=...` into `AutoModel.from_pretrained`). Do not paste it into argv where shell history keeps it.
+
+```python
+from transformers import AutoModel
+
+model = AutoModel.from_pretrained("private/model", token=access_token)
+```
+
+That `token=` argument is the Hub docs' own example. Libraries (`transformers`, `datasets`, Diffusers) all accept it. `hf auth login` writes a token under `HF_HOME` so later calls do not need the argument. Same credential, two injection paths.
+
+For CI, **do not store a long-lived Hub token as a GitHub secret if you can avoid it**. [Trusted Publishers](https://huggingface.co/docs/hub/en/security-tokens) exchanges the CI provider's OIDC identity for a short-lived Hub token at the start of each run — repo-scoped to publish, or user-scoped to read gated repos. That is the documented path for GitHub Actions, GitLab CI, and CircleCI.
+
+<Callout>
+Consejo: never commit `HF_TOKEN`. If a token leaks, rotate it from the Access Tokens tab **and** call the public revoke endpoint. Anyone who finds somebody else's token can invalidate it with `POST https://huggingface.co/api/credentials/revoke`. You do not need rights on the victim account. The endpoint always returns 202, so it cannot be used to probe whether a token is valid. Pass the raw value via an environment variable, not on the curl command line.
+</Callout>
+
+```bash
+# LEAKED_HF_TOKEN holds the raw value. Do not paste tokens into history.
+curl -X POST "https://huggingface.co/api/credentials/revoke" \
+  -H "Content-Type: application/json" \
+  -d "{\"credentials\": [\"${LEAKED_HF_TOKEN}\"]}"
+```
+
+Team and Enterprise orgs can require administrator approval on fine-grained tokens, deny them, revoke them, or refuse classic read/write tokens entirely. A 403 against org resources with a token that still works on your personal repos is a **policy**, not a broken CLI.
+
+## The CLI is `hf`, not `huggingface-cli`
+
+The `huggingface_hub` package ships a CLI named **`hf`**. Hugging Face announced the rename in [Say hello to hf](https://huggingface.co/blog/hf-cli). The old binary name still appears in internet folklore. This course uses the documented primary name.
+
+Official installer, from the [CLI guide](https://huggingface.co/docs/huggingface_hub/en/guides/cli):
+
+```bash
+# macOS / Linux
+curl -LsSf https://hf.co/cli/install.sh | bash
+```
+
+```powershell
+# Windows
+powershell -ExecutionPolicy ByPass -c "irm https://hf.co/cli/install.ps1 | iex"
+```
+
+`uvx hf` is also documented: no install, always the latest PyPI `hf` package. `pip install -U huggingface_hub` ships the same CLI. Homebrew: `brew install hf`. Update with `hf update`. If the shell says `command not found: hf`, you installed the library and not the PATH shim — read the installer output, do not invent an alias back to `huggingface-cli`.
+
+Login is a **browser device-code** flow by default. `hf auth login` prints https://huggingface.co/oauth/device and a short code. Approve it. The CLI stores the token under `HF_HOME`. `--token $HF_TOKEN` is the non-interactive path. `--force` re-logins. `hf auth whoami` prints the username and orgs. If `HF_TOKEN` is set in the environment, `hf auth logout` will **not** clear it — unset the variable.
+
+The commands you actually need this week:
+
+| Command | Job |
+| --- | --- |
+| `hf auth login` / `whoami` | prove you are you |
+| `hf download` / `hf upload` | pull and push files |
+| `hf models ls` | search the model catalog |
+| `hf datasets ls` | search datasets |
+| `hf spaces ls` | search Spaces |
+| `hf cache ls` / `hf cache prune` | see and reclaim disk |
+
+`hf download openai-community/gpt2 --dry-run` lists files and sizes **without** writing weights. That is the command you run before you fill a laptop SSD. `--repo-type dataset` and `--repo-type space` select the other two Git families. `--revision` pins a commit, branch, or tag. `--include` / `--exclude` are globs. `--local-dir` copies out of the cache layout into a folder you own.
+
+<Callout>
+Consejo: run `hf download --dry-run` on every new repo before the real fetch. The CLI guide's gpt2 example reports on the order of several gigabytes across PyTorch, TensorFlow, Flax, ONNX, and TFLite copies of the same net. You almost never want all of them. `--include "*.safetensors"` is the grown-up default.
+</Callout>
+
+## Search is a filter, not a vibe
+
+The [search guide](https://huggingface.co/docs/huggingface_hub/en/guides/search) is the Python twin of `hf models ls`. `HfApi.list_models()`, `list_datasets()`, `list_spaces()` return iterators. Filters include `search`, `author`, `filter` (task tags, library tags), `num_parameters` with the same `min:6B,max:128B` range the Hub UI uses, and `sort` plus `limit`.
+
+```python
+from huggingface_hub import HfApi
+api = HfApi()
+top = list(api.list_models(search="qwen", sort="downloads", limit=5))
+```
+
+```bash
+hf models ls --search qwen --sort downloads --limit 5
+hf datasets ls --author Qwen
+hf spaces ls --search 3d --sort likes --limit 10
+```
+
+Sorting by downloads answers "what does the world actually pull," not "what is best." A gated 70B with a famous card can outrank a tiny public model that would have been the right first download. Read the model card. Then dry-run.
+
+## Gated models: the browser click is the ACL
+
+A **gated** model requires the user to accept terms on the model page. Authors can auto-approve or review by hand. Access is granted to **individual users**, not to entire organizations. That is the [gated models](https://huggingface.co/docs/hub/en/models-gated) contract.
+
+Requesting access is a **browser** action. Scripts cannot click Agree for you. After you are approved, a token that can read the repo inherits that access. `hf auth login` then `hf download` works. `from_pretrained(..., token=...)` works. A token minted **before** you accepted the gate, on an account that never opened the page, does not.
+
+Authors can revoke you later without notice. Manual approval can sit in `pending` for days. A 403 on a famous Llama or Gemma repo is usually "you did not accept the gate on this account," not "the Hub is down." Organization members can themselves be gated if the author enabled "also gate access for members of this org," with admins and the repo creator as documented exceptions.
+
+<Compare a="Public repo" b="Gated repo">
+<Side>
+Anyone can clone. A read token is optional for public files and required for rate-limit headroom. Model cards still matter. Licenses still apply. "Public" is not "no copyright."
+</Side>
+<Side>
+You must be logged in, open the model page, and Agree. The token then inherits. Automatic approval is instant; manual approval is a queue. The authors can reject or later revoke. There is no org-wide skip unless they built a gating-group collection on Team or Enterprise.
+</Side>
+</Compare>
+
+## The cache is a disk budget with a prune command
+
+Downloads land under **`~/.cache/huggingface/hub`** unless you change `HF_HOME` or pass `--cache-dir`. `hf env` prints `HF_HUB_CACHE` so you can see the resolved path. Revisions are snapshots. When `main` moves, the old snapshot can become **detached**. It still occupies bytes.
+
+`hf cache ls` aggregates by repo. `hf cache ls --revisions` lists snapshots. `hf cache rm model/gpt2` deletes a repo from disk. **`hf cache prune`** reclaims detached revisions and leftover `.incomplete` files from interrupted downloads. `--dry-run` first. `--yes` for scripts.
+
+This is the same cache `transformers` and Unsloth read. Training the Unsloth Qwen3.8 4-bit checkpoint means the Hub client already put it here. Pruning "to clean up" in the middle of a train job is how you corrupt a run. Prune on a quiet machine, after `hf cache ls` has shown you the detached line.
+
+## Spaces, ZeroGPU, and what this lesson is not
+
+Spaces host demos. Gradio and Streamlit for Python apps, Docker for anything else, static HTML for a page, ZeroGPU for a slice of NVIDIA RTX Pro 6000 Blackwell when the Space actually needs a GPU (Hub index wording, 2026-08-26). Hardware upgrades and hourly prices live on the [Spaces overview](https://huggingface.co/docs/hub/en/spaces-overview) table — CPU Basic is listed FREE; GPUs are not. Paused time is not billed. Secrets belong in Space Settings, not in the Gradio file.
+
+This lesson does not teach you to design a Gradio app. It teaches you that a Space is another Git repo on the same Hub, listed with `hf spaces ls`, cloned with `hf download --repo-type space`.
+
+## Unsloth lives here; CivitAI does not
+
+Unsloth publishes checkpoints **on this Hub**, under the [`unsloth` org](https://huggingface.co/unsloth). The 4-bit train checkpoint this course uses is [`unsloth/Qwen3.8-27B-unsloth-bnb-4bit`](https://huggingface.co/unsloth/Qwen3.8-27B-unsloth-bnb-4bit). The installers and train flags live at [unsloth.ai/docs](https://unsloth.ai/docs). This Hub lesson is the **catalog** for that track: login, token, gated accept, `hf download --dry-run`, cache path. The Unsloth lessons assume you can already do those four things.
+
+**CivitAI is a different catalog.** Image LoRAs, checkpoints, and workflows for Stable Diffusion / Flux-class models live at [civitai.com](https://civitai.com). Do not search CivitAI for Qwen3.8. Do not search the Hub for a CivitAI image LoRA and expect Unsloth's `FastModel` to load it. ComfyUI's own docs ([first generation](https://docs.comfy.org/get_started/first_generation), [LoRA](https://docs.comfy.org/tutorials/basic/lora)) are the client for that catalog. Mixing the two is how a training night becomes a forum thread.
+
+Hermes and OpenClaw also consume Hub artefacts — Hermes stores `HF_TOKEN` in `~/.hermes/.env` and talks to Inference Providers (next metal lesson). The token you mint in this lesson is the same secret. Scope it fine-grained. One token per harness.
+
+<Myth>
+Hugging Face is only Transformers. No. The Hub is Git plus Xet hosting for models, datasets, Spaces, papers, and jobs. Transformers is one library that downloads those Git files and runs them. `hf`, `datasets`, Diffusers, TGI, Unsloth, and a Space's Docker image all speak Hub. Installing `transformers` does not install the Hub. Logging into the Hub does not import `AutoModel`.
+</Myth>
+
+## Case — the write token in a public notebook
+
+A student, call them Nuria, copies a **write** token into a public Colab so `trainer.push_to_hub()` works during a lab. The notebook is "anyone with the link." By evening the token is in a gist scrape. A stranger pushes a poisoned `config.json` to her model repo. `from_pretrained` on her laptop pulls it. Loss looks fine. The card now lies.
+
+The Hub docs already told her what to do, in this order:
+
+1. **Revoke immediately.** Settings → Access Tokens → delete or refresh, **and** `POST /api/credentials/revoke` with the leaked value so copies die everywhere.
+2. **Inspect the repo.** Commits, files, the model card. If `config.json` or weights moved, treat the repo as hostile until you restore a known SHA.
+3. **Mint a new token with the smallest role.** Fine-grained, read, only the one gated model the notebook needed. Write stays on the laptop, never in a cell.
+4. **One token per app.** The Colab gets a Colab token. The laptop keeps a laptop token. Rotating one does not log her out of `hf` at home.
+5. **Trusted Publishers for CI**, not a write token in `GITHUB_TOKEN`'s neighbor secret, if the push belongs in GitHub Actions.
+
+The bug was not "Hugging Face is insecure." The bug was a write-scoped secret in a world-readable file. Fine-grained read tokens exist so this case is boring.
+
+## Agents Course is a neighbor, not this lesson
+
+If you want the agent units this course already rewrites — dummy loop, smolagents, LlamaIndex, LangGraph, GAIA — they start at the [Hugging Face Agents Course](https://huggingface.co/learn/agents-course), Apache-2.0, authors Burtenshaw, Thomas, Simonini, and Paniego, source [huggingface/agents-course](https://github.com/huggingface/agents-course). This lesson is the catalog those notebooks assume you can log into. Do not paste their Unit 0 onboarding over Pedro's map.
+
+<TryThis>
+Install with the official script (`curl -LsSf https://hf.co/cli/install.sh | bash` on macOS/Linux, or the documented PowerShell installer on Windows). Then, in order: (1) `hf auth whoami` — you should see a username, or a clear error if you are not logged in. (2) `hf auth login` via the device-code URL https://huggingface.co/oauth/device if whoami failed. (3) `hf models ls --search qwen --sort downloads --limit 5` and write down the five ids. (4) Pick a **small public** model from that list or `openai-community/gpt2` and run `hf download openai-community/gpt2 --dry-run`. Confirm you see a file table and a total, and that no weights were written. (5) `hf cache ls` to see whether anything else is already on disk. Do not `prune` until you have read the detached-revision lines. If whoami shows an org you do not recognize, you logged into the wrong account — `--force` and start over.
+</TryThis>
+
+
+## Upload is a write-token operation
+
+`hf upload` is the documented push. Default usage is `hf upload repo_id local_path path_in_repo`. If the repo does not exist, the CLI creates it. `--repo-type dataset` or `--repo-type space` targets the other Git families. `--create-pr` opens a pull request when you cannot push to `main`. `--every 10` is the training-loop helper: push a logs folder every ten minutes. `--commit-message` is how you stop committing "Upload files using huggingface_hub".
+
+A write token is required. A read token will 403. That is the same role table as the tokens page, not a new ACL. Prefer uploading adapters and cards from a machine you control, not from a shared notebook. Unsloth's Core export (`save_pretrained`, `push_to_hub`) is this same Hub API with a Python coat. The Hub lesson still owns the token.
+
+Organizations group models, datasets, and Spaces under a company, lab, or classroom. Admins set roles. Educators can use Hugging Face for Classrooms. Your personal write token only writes org repos if your membership allows it. Resource Groups on Enterprise further slice that. When `hf auth whoami` lists orgs, those are the namespaces you might accidentally upload into — pass `MyOrg/my-model` on purpose, never because tab-complete offered it.
+
+```bash
+hf upload MyOrg/my-cool-model ./models . --commit-message "epoch 34"
+hf models info unsloth/Qwen3.8-27B-unsloth-bnb-4bit
+```
+
+`hf models info` and `hf models card` are how you read a card from the terminal before you spend the download. `--metadata` prints the YAML frontmatter. If the card says gated, go to the browser. If the card says GGUF is inference-only, believe it — that sentence is why the Unsloth track refuses to train from GGUF.
+
+## What to remember
+
+The Hub is Git plus Xet: models, datasets, Spaces, optional buckets. Tokens have roles; one per app; `HF_TOKEN`; revoke leaks with the public POST. The CLI is `hf`. Search, then dry-run, then download. Gated repos need a browser Agree before the token works. The cache lives under `HF_HOME` / `~/.cache/huggingface/hub`; `hf cache prune` reclaims detached revisions. Unsloth checkpoints are Hub repos. CivitAI is a different catalog. Transformers is a client, not the Hub.
+
+## Sources
+
+Hugging Face. (n.d.). *Hugging Face Hub documentation*. https://huggingface.co/docs/hub/en/index — counts of 2M+ models / 1.5M datasets / 1.5M Spaces quoted from this page as of fetch 2026-08-26.
+
+- User access tokens: https://huggingface.co/docs/hub/en/security-tokens
+- Settings → Access Tokens: https://huggingface.co/settings/tokens
+- Revoke endpoint (same tokens page): `POST https://huggingface.co/api/credentials/revoke`
+- Gated models: https://huggingface.co/docs/hub/en/models-gated
+- Spaces overview: https://huggingface.co/docs/hub/en/spaces-overview
+- Storage backend (Xet): https://huggingface.co/docs/hub/en/storage-backends
+- Model cards: https://huggingface.co/docs/hub/en/model-cards
+- CLI guide (`hf`): https://huggingface.co/docs/huggingface_hub/en/guides/cli
+- Search the Hub: https://huggingface.co/docs/huggingface_hub/en/guides/search
+- Say hello to `hf` (rename from `huggingface-cli`): https://huggingface.co/blog/hf-cli
+- Installer (macOS/Linux): https://hf.co/cli/install.sh
+- Installer (Windows): https://hf.co/cli/install.ps1
+- Unsloth docs: https://unsloth.ai/docs
+- Unsloth org on the Hub: https://huggingface.co/unsloth
+- Unsloth Qwen3.8 4-bit checkpoint: https://huggingface.co/unsloth/Qwen3.8-27B-unsloth-bnb-4bit
+- CivitAI catalog: https://civitai.com
+- ComfyUI first generation: https://docs.comfy.org/get_started/first_generation
+- ComfyUI LoRA: https://docs.comfy.org/tutorials/basic/lora
+- Hermes providers (HF_TOKEN): https://hermes-agent.nousresearch.com/docs/integrations/providers
+- OpenClaw architecture: https://docs.openclaw.ai/concepts/architecture
+- Burtenshaw, B., Thomas, J., Simonini, T., & Paniego, S. (n.d.). *Hugging Face Agents Course* (Apache-2.0). https://huggingface.co/learn/agents-course · https://github.com/huggingface/agents-course

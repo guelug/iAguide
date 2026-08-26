@@ -1,0 +1,18 @@
+{
+  "id": "image-models",
+  "order": 19.4,
+  "slug": "image-models",
+  "track": "training",
+  "title": {
+    "en": "Image models (checkpoints, VAE, CLIP)",
+    "es": "Modelos de imagen (checkpoints, VAE, CLIP)"
+  },
+  "summary": {
+    "en": "Latent diffusion versus LLMs: the checkpoint as the artist brain, CLIP as the text translator, VAE as latent-to-pixels. Families as concepts, ComfyUI and CivitAI as catalogs, safetensors versus pickle risk. ComfyUI does not ship SDXL.",
+    "es": "Difusión latente frente a LLMs: el checkpoint como cerebro del artista, CLIP como traductor de texto, VAE como latente-a-píxeles. Familias como conceptos, ComfyUI y CivitAI como catálogos, safetensors frente al riesgo pickle. ComfyUI no incluye SDXL."
+  },
+  "status": "complete",
+  "prereqs": ["multimodal"],
+  "durationMin": 35,
+  "tags": ["diffusion", "vae", "clip", "comfyui", "safetensors"]
+}

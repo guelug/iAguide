@@ -1,0 +1,18 @@
+{
+  "id": "huggingface-hub",
+  "order": 18.2,
+  "slug": "huggingface-hub",
+  "track": "training",
+  "title": {
+    "en": "How to use the Hugging Face Hub",
+    "es": "Cómo usar Hugging Face Hub"
+  },
+  "summary": {
+    "en": "The Hub is Git plus Xet hosting for models, datasets, and Spaces: tokens, the hf CLI, gated repos, the local cache, and why Unsloth checkpoints live here while CivitAI is a different catalog.",
+    "es": "El Hub es Git más almacenamiento Xet para modelos, datasets y Spaces: tokens, la CLI hf, repos con puerta, la caché local, y por qué los checkpoints de Unsloth viven aquí mientras CivitAI es otro catálogo."
+  },
+  "status": "complete",
+  "prereqs": ["model-zoo"],
+  "durationMin": 45,
+  "tags": ["huggingface", "hub", "tokens", "cli", "xet"]
+}

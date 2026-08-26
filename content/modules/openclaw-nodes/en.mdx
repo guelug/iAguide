@@ -1,25 +1,206 @@
-## Peripherals, not gateways
+## Peripherals, not a second Gateway
 
-A node (macOS/iOS/Android/headless) connects with role: node and exposes commands (camera.*, screen.record, location.get, system.run) via node.invoke. Channel messages still land on the Gateway.
+OpenClaw's [*Nodes*](https://docs.openclaw.ai/nodes) (n.d.) is the primary source. A **node** is a companion device (macOS, iOS, watchOS, Android, headless) that connects to the Gateway with `role` equal to `node` and exposes a command surface through `node.invoke`. Most nodes use the Gateway WebSocket on the operator port. The optional direct Apple Watch node uses signed HTTPS polling on that same port because watchOS blocks generic low-level networking for ordinary apps (OpenClaw, *Nodes*, n.d.). Protocol frames live on [*Gateway protocol*](https://docs.openclaw.ai/gateway/protocol).
 
-Commands pass two gates: declared in connect.commands, then Gateway allowlist. Dangerous ops (camera.snap, screen.record) need gateway.nodes.commands.allow. Exec host=node forwards to a node host; approvals live on the node SQLite.
+The generic [gateway](/en/m/gateway) lesson stays harness-agnostic. This one is the OpenClaw peripheral.
 
-macOS menubar app IS a node — do not start a second CLI node on that Mac.
+Nodes do **not** run the Gateway service. Channel messages (Telegram, WhatsApp, Slack, Discord) land on the Gateway, not on nodes. Two Gateways is a conflict. A Gateway plus nodes is the intended topology (OpenClaw, *Nodes*, n.d.; *Gateway architecture*, n.d., https://docs.openclaw.ai/concepts/architecture).
 
-<VisualSlot caption="role:node, camera, screen, location, exec on node host." />
+macOS can also run in **node mode**: the menu bar app connects to the Gateway WS server as one node, so `openclaw nodes` works against that Mac. Do not start a second CLI node on that Mac; the app runs the matching CLI node-host runtime as an internal worker and remains the sole Gateway connection and node identity.
 
-## Compare vs Hermes
+<VisualSlot caption="role:node, camera, screen, location, exec host." />
 
-Hermes has no node role; platforms are chat adapters. Device peripherals are an OpenClaw particularity of the Gateway.
+## Pairing plus status
 
-## Case: two nodes on one Mac
+Nodes use **device pairing**. A node presents a signed device identity during connect; the Gateway creates a device pairing request for `role: node`. Approve via the devices CLI or Control UI (OpenClaw, *Nodes*, n.d.; *Node pairing*, n.d., https://docs.openclaw.ai/gateway/pairing).
 
-**Case.** Menubar app plus openclaw node run both connect; pairing fights itself.
+```bash
+openclaw devices list
+openclaw devices approve <requestId>
+openclaw devices reject <requestId>
+openclaw nodes status
+openclaw nodes describe --node <idOrNameOrIp>
+```
 
-**Fix.** App is the sole node identity on that Mac.
+Pending pairing requests expire 5 minutes after the device's last retry. A device that keeps reconnecting keeps its one pending request (and `requestId`) alive instead of minting a new prompt every few minutes. If a node retries with changed auth details (role, scopes, public key), the prior pending request is superseded and a new `requestId` is created. Clients get a `device.pair.resolved` event for the superseded request; re-run `openclaw devices list` before approving (OpenClaw, *Nodes*, n.d.).
+
+`nodes status` marks a node as **paired** when its device pairing role includes `node`. The device pairing record is the durable approved-role contract. Token rotation stays inside that contract; it cannot upgrade a paired node into a role that pairing approval never granted.
+
+`node.pair.*` (CLI: `openclaw nodes pending/approve/reject/remove/rename`) manages the node's approved command/capability surface on its canonical paired-device record. There is no separate node pairing store (OpenClaw, *Node pairing*, n.d.).
+
+<Callout>
+Starting with 2026.3.31, node commands are disabled until node pairing is approved. Device pairing alone is no longer enough to expose declared node commands. Commands queued before pairing approval are dropped, not deferred (OpenClaw, *Node pairing*, n.d.).
+</Callout>
+
+## Version skew
+
+The Gateway WebSocket accepts authenticated node clients across an N-1 protocol window. The current v4 Gateway therefore accepts v3 nodes when the connection declares both `role` `node` and `client.mode` `node`. Operator and UI sessions must still use the current protocol (OpenClaw, *Nodes*, n.d.).
+
+For staged fleet upgrades, upgrade the Gateway first, then upgrade each node. An N-1 node remains visible and manageable. Plugin-owned capabilities and commands stay hidden until the node upgrades to the current protocol. Nodes older than N-1 require an out-of-band upgrade before reconnecting. The direct watchOS HTTPS transport requires the current protocol version.
+
+## Remote node host
+
+Use a **node host** when the Gateway runs on one machine and you want commands to execute on another. The model still talks to the Gateway; the Gateway forwards `exec` calls to the node host when `host=node` is selected (OpenClaw, *Nodes*, n.d.).
+
+| Role | Responsibility |
+| --- | --- |
+| Gateway host | Receives messages, runs the model, routes tool calls |
+| Node host | Executes `system.run` / `system.which` on the node machine |
+| Approvals | Enforced on the node host via `~/.openclaw/state/openclaw.sqlite#exec_approvals_config` |
+
+Approval-backed node runs bind exact request context. The exec path prepares a canonical `systemRunPlan` before approval; once granted, the Gateway forwards that stored plan, not any later caller-edited command, cwd, or session fields.
+
+On the node machine, start a host:
+
+```bash
+openclaw node run --host <gateway-host> --port 18789 --display-name "Build Node"
+```
+
+For one-paste setup, create a Node host setup link from the Control UI Devices page:
+
+```bash
+openclaw node run --pair "oc-pair://<setup-code>"
+```
+
+The link is single-use and expires after 10 minutes. Pairing does **not** pre-approve command execution; the first `system.run` still follows pending approval or SSH-verification (OpenClaw, *Nodes*, n.d.).
+
+If the Gateway binds to loopback (default in local mode), remote node hosts cannot connect directly. Tunnel and point the node at the local end:
+
+```bash
+ssh -N -L 18790:127.0.0.1:18789 user@gateway-host
+export OPENCLAW_GATEWAY_TOKEN="<gateway-token>"
+openclaw node run --host 127.0.0.1 --port 18790 --display-name "Build Node"
+```
+
+Prefer env vars `OPENCLAW_GATEWAY_TOKEN` / `OPENCLAW_GATEWAY_PASSWORD`. In local mode, node host ignores `gateway.remote.token`.
+
+## Command policy: two gates
+
+Node commands must pass two gates before they can be invoked (OpenClaw, *Nodes*, n.d.):
+
+1. The node must declare the command in its authenticated connect metadata (`connect.commands`).
+2. The Gateway's platform-and-approval-derived allowlist must include the declared command.
+
+Default allowlists by platform (before plugin defaults and `commands.allow` / `commands.deny`):
+
+| Platform | Commands allowed by default |
+| --- | --- |
+| iOS | `camera.list`, `location.get`, `device.info`, `device.status`, `contacts.search`, `calendar.events`, `reminders.list`, `photos.latest`, `motion.activity`, `motion.pedometer`, `system.notify` |
+| watchOS | `device.info`, `device.status`, `system.notify` |
+| Android | camera/location/notifications/device/contacts/calendar/callLog/reminders/photos/motion plus `mobile.ui.observe` / `mobile.ui.act` |
+| macOS | camera/location/device/contacts/calendar/reminders/photos/motion, `system.notify`, `computer.act` |
+| Windows | `camera.list`, `location.get`, `device.info`, `device.status`, `system.notify`, `computer.act` |
+| Linux | `system.notify`, `computer.act` |
+
+These rows describe the Gateway policy **ceiling**, not the commands implemented by every node app. A command is usable only when the connected node also declares it. Android advertises mobile UI commands only while Accessibility Control is enabled. Desktop nodes advertise `computer.act` only while their local Computer Control fulfiller is enabled. The current macOS app does not declare the device and personal-data families listed in the macOS policy row.
+
+Canvas plugin defaults on macOS: `canvas.present`, `canvas.hide`, `canvas.navigate`. iOS, Android, Windows, Linux, and unknown platforms do not receive Canvas plugin defaults.
+
+Desktop host commands (`system.run`, `system.run.prepare`, `system.which`, `browser.proxy`, `browser.proxy.upload.v1`, `mcp.tools.call.v1`, and `screen.snapshot` on macOS/Windows/Linux) are not part of the static platform-default table. They become available once the operator approves a pairing request that declares them.
+
+Dangerous or privacy-heavy commands require a one-time persistent opt-in with `gateway.nodes.commands.allow`, even if a node declares them: `camera.snap`, `camera.clip`, `camera.ptz.control`, `desktop.stream`, `screen.record`, `contacts.add`, `calendar.add`, `reminders.add`, `health.summary`, `sms.send`, `sms.search`. `gateway.nodes.commands.deny` always wins over defaults and extra allowlist entries.
+
+**Case.** An Android node declares `sms.send`. The phone permission is granted. The agent still cannot send until the Gateway operator adds `sms.send` to `gateway.nodes.commands.allow`. Phone permission and Gateway command authorization are independent (OpenClaw, *Nodes*, n.d.).
+
+## Camera, screen, location
+
+The node must be **foregrounded** for `camera.*`. Background calls return `NODE_BACKGROUND_UNAVAILABLE`. The `nodes` agent tool caps requested `durationMs` at 300000 (5 minutes) before forwarding; the node itself enforces a tighter payload limit (OpenClaw, *Nodes*, n.d.).
+
+```bash
+openclaw nodes camera list --node <id>
+openclaw nodes camera snap --node <id> --facing front
+openclaw nodes screen record --node <id> --duration 10s --fps 10
+openclaw nodes location get --node <id>
+```
+
+Location is **off by default**. The response includes lat/lon, accuracy in meters, and timestamp. Full parameter and error shapes live on *Location command* (OpenClaw, n.d., https://docs.openclaw.ai/nodes/location-command).
+
+`nodes invoke` blocks `system.run` and `system.run.prepare`; those commands only run through the `exec` tool with `host=node`.
+
+## Point exec at the node
+
+```bash
+openclaw config set tools.exec.host node
+openclaw config set tools.exec.mode allowlist
+openclaw config set tools.exec.node "<id-or-name>"
+```
+
+Or per session: `/exec host=node security=allowlist node=<id-or-name>`.
+
+`host=auto` will not implicitly choose the node. An explicit per-call `host=node` is allowed from `auto` only when no sandbox runtime is active. To run on a node from a sandboxed session, set `tools.exec.host=node` explicitly (OpenClaw, *Nodes*, n.d.).
+
+Tailscale identity headers do **not** authenticate node-role connections. In `gateway.auth.mode` `trusted-proxy`, a new node also cannot supply the proxy's user identity headers. Switch to token mode and configure `gateway.auth.token` (OpenClaw, *Nodes*, n.d.).
 
 <TryThis>
-Name three node commands that need explicit allow, and one that is default on iOS.
+Write the two command gates. Name the 2026.3.31 breaking change. Write the SSH local-forward one-liner for a loopback Gateway plus the node-run command on 18790. Name three commands that need explicit gateway.nodes.commands.allow even when the node declares them.
 </TryThis>
 
-Source: https://docs.openclaw.ai/nodes
+## Compare, without mixing knobs
+
+Hermes has no `role` `node` peripheral mesh. Hermes ACP is an editor driving `AIAgent` over stdio (Nous Research, *ACP Internals*, n.d., https://hermes-agent.nousresearch.com/docs/developer-guide/acp-internals). OpenClaw nodes are devices on the Gateway WebSocket. Do not paste Hermes ACP session ids into `openclaw nodes invoke`. Cite *Nodes* for camera, screen, location, and exec host.
+
+**Case.** Laptop and phone both want to snap a photo for the agent. The Gateway owns WhatsApp. The phone is a node. Snap goes through `node.invoke` on the phone, not through a second Baileys session on the phone (OpenClaw, *Nodes*, n.d.; *Gateway architecture*, n.d.).
+
+Headless identity state lives in three SQLite records under `~/.openclaw/state/openclaw.sqlite`: `node_host_config` (client instance ID, display name, Gateway connection metadata), `device_identities` key `primary` (signed device keypair), and `device_auth_tokens` (paired tokens keyed by cryptographic device ID and role). Changing `--node-id` does not reset pairing (OpenClaw, *Nodes*, n.d.).
+
+Paired nodes may publish agent-visible plugin tool descriptors by default, but each descriptor's command must still be in the node's approved command surface. Set `gateway.nodes.pluginTools.enabled` to false to ignore all such descriptors.
+
+Approval scope for `node.pair.approve`: commandless request needs `operator.pairing`; ordinary command request needs `operator.pairing` plus `operator.write`; admin-sensitive request containing `system.run`, `system.run.prepare`, `system.which`, `browser.proxy`, `browser.proxy.upload.v1`, `fs.listDir`, or `system.execApprovals.get/set` needs `operator.pairing` plus `operator.admin` (OpenClaw, *Node pairing*, n.d.).
+
+With `gateway.bind` `loopback`, configure Tailscale Serve, `gateway.remote.url`, or `plugins.entries.device-pair.config.publicUrl` before minting a join code. Otherwise `openclaw devices join-code` reports that the Gateway is only bound to loopback.
+
+ACPX routes cannot dispatch to a paired device. Codex paired-device execution requires `codex.exec-server.stdio.v1` in `gateway.nodes.commands.allow` plus its normal pairing and invocation approvals (OpenClaw, *Nodes*, n.d.).
+
+
+## Node-hosted MCP and skills
+
+Configure MCP servers in `openclaw.json` **on the node machine**, not on the Gateway. The headless node host starts those servers, lists their tools, and publishes the descriptors after connecting. Tool calls return to that node through `mcp.tools.call.v1`. OAuth MCP servers are not supported by this node-hosted v1 path (OpenClaw, *Nodes*, n.d.).
+
+Current node hosts declare the built-in `mcp.tools.call.v1` command family during their initial pairing even when no MCP server is configured. Adding, removing, or filtering servers after that does not require re-pairing. Restart `openclaw node run` or `openclaw node restart` to apply node MCP config changes; the node host does not watch this config.
+
+Install skills under the node machine's active OpenClaw skills directory, `~/.openclaw/skills` by default. The headless node host publishes valid `SKILL.md` files after it connects, and the Gateway adds them to agent skill snapshots only while that node remains connected. Each skill directory name must match the `name` frontmatter field. The agent reads the advertised `node://.../SKILL.md` location with the normal `read` tool. The publishing node must have approved `system.run`, and the agent's exec policy must allow `host=node`; otherwise the skill stays out of that agent's snapshot (OpenClaw, *Nodes*, n.d.).
+
+Set `nodeHost.skills.enabled` to false on the node to stop publication. Gateway operators can ignore skills from every paired node with `gateway.nodes.allowSkills` false.
+
+Long-running streaming node commands use additive `node.invoke.progress` events. Each event carries the invoke ID, a zero-based sequence number, and a bounded UTF-8 text chunk. The existing `node.invoke.result` remains the single terminal response. Caller cancellation emits `node.invoke.cancel`; the node host then terminates the matching process tree.
+
+SSH-verified device auto-approval is on by default for first-time `role: node` pairing from a private or CGNAT address: the Gateway connects back over SSH (`BatchMode`, `StrictHostKeyChecking=yes`), runs `openclaw node identity --json`, and approves only when the remote device id and public key match the pending request exactly. Reachability alone never approves. Disable with `gateway.nodes.pairing.sshVerify` false (OpenClaw, *Node pairing*, n.d.).
+
+
+## Permissions map and canvas
+
+Nodes may include a `permissions` map in `node.list` / `node.describe`, keyed by permission name (for example `screenRecording`, `accessibility`, `location`) with boolean values (`true` means granted).
+
+The macOS widget panel uses Canvas commands (OpenClaw, *Nodes*, n.d.):
+
+```bash
+openclaw nodes canvas present --node <idOrNameOrIp>
+openclaw nodes canvas hide --node <idOrNameOrIp>
+openclaw nodes canvas navigate "/__openclaw__/canvas/documents/<document-id>/index.html" --node <idOrNameOrIp>
+```
+
+The agent-facing path is `show_widget` with `presentation.target` equal to `node_panel`. A2UI renders on session dashboards, not through node Canvas commands.
+
+Unrecognized node `platform` / `deviceFamily` metadata uses a conservative default allowlist that excludes `system.run` and `system.which`. If you intentionally need those commands for an unknown platform, add them via `gateway.nodes.commands.allow`.
+
+On macOS node mode, `system.run` is gated by exec approvals in the macOS app (Settings, Exec approvals). Ask, allowlist, and full behave the same as the headless node host; denied prompts return `SYSTEM_RUN_DENIED`.
+
+Node hosts ignore `PATH` overrides in the `env` object and strip a large set of interpreter/shell startup variables (for example `NODE_OPTIONS`, `PYTHONPATH`, `BASH_ENV`, `DYLD_*`, `LD_*`) before running a command. If you need extra PATH entries, configure the node host service environment instead of passing `PATH` via `env` (OpenClaw, *Nodes*, n.d.).
+
+This lesson stops at the peripheral contract: role, pairing, two command gates, camera/screen/location, exec host. Browser proxy details live in the browser lesson. Tailscale Serve for node access lives in the Tailscale lesson. Pairing codes for DMs live in the pairing lesson.
+
+## Sources
+
+OpenClaw. (n.d.). *Nodes*. https://docs.openclaw.ai/nodes
+
+OpenClaw. (n.d.). *Node pairing*. https://docs.openclaw.ai/gateway/pairing
+
+OpenClaw. (n.d.). *Gateway architecture*. https://docs.openclaw.ai/concepts/architecture
+
+OpenClaw. (n.d.). *Gateway protocol*. https://docs.openclaw.ai/gateway/protocol
+
+OpenClaw. (n.d.). *Node host CLI*. https://docs.openclaw.ai/cli/node
+
+OpenClaw. (n.d.). *Location command*. https://docs.openclaw.ai/nodes/location-command
+
+Nous Research. (n.d.). *ACP internals*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/acp-internals

@@ -1,27 +1,180 @@
-## Dual system
+## Two compressors, one cache key
 
-Gateway session hygiene at 85% of context (rough tokens, history >= 4) is a safety net for overnight chats. Agent ContextCompressor at 50% uses real API tokens. Same 50% on both caused premature compress every gateway turn.
+Hermes Agent uses a dual compression system and Anthropic prompt caching to manage context across long conversations. Nous Research's [*Context Compression and Caching*](https://hermes-agent.nousresearch.com/docs/developer-guide/context-compression-and-caching) (n.d.) is the source of truth. Source files: `agent/context_engine.py` (ABC), `agent/context_compressor.py` (default engine), `agent/prompt_caching.py`, `gateway/run.py` (session hygiene), `run_agent.py` (search `_compress_context`).
 
-Four phases: (1) prune old tool results >200 chars, (2) boundaries -- protect_first_n, summarised middle, tail by token budget or protect_last_n=20, (3) structured summary via auxiliary LLM, (4) reassemble + sanitize tool pairs.
+The [loop particularity](/en/m/hermes-loop) mentioned the two triggers in passing. This lesson is the algorithm, the in-place session id, and why `system_and_3` plus model identity are load-bearing.
 
-Default compression.in_place: true -- same session id, old turns soft-archived (active=0, compacted=1), still searchable. in_place: false restores parent_session_id lineage.
+<VisualSlot caption="gateway 85%, in-loop 50%, 4 phases, in-place, system_and_3." />
 
-Anthropic **system_and_3**: breakpoint 1 = system prompt; 2-4 = last three non-system messages. TTL 5m or 1h. Model identity is part of the cache key -- /model, fallback, credential pool rotation = zero hits.
+## Pluggable engine, default compressor
 
-<VisualSlot caption="85% gateway net, 50% in-loop, four phases, in-place id, system_and_3." />
+Context management sits on the `ContextEngine` ABC. The built-in `ContextCompressor` is the default. Plugins can replace it (the docs mention Lossless Context Management as an example). Selection is `context.engine` in `config.yaml`. Resolution order: `plugins/context_engine/<name>/`, then the general plugin system `register_context_engine()`, then the built-in. Plugin engines are **never auto-activated** — the user must set `context.engine` to the plugin's name (Nous Research, *Context Compression and Caching*, n.d.).
 
-## Compare vs OpenClaw
+The `compression` config block (`threshold`, `protect_last_n`, and friends) is specific to the built-in compressor, with one exception: `compression.model_thresholds` is part of the context-engine **contract**. The host assigns the resolved map to `engine.model_thresholds` before the initial `update_model()` call.
 
-OpenClaw safeguard compaction can refuse to write a bad summary. Hermes 4-phase pipeline plus in-place was built to kill rotation bugs (lost /goal, orphaned sessions).
+## Dual compression system
 
-## Case: cache bust after /model
+The two layers operate independently:
 
-**Case.** Operator /model mid-thread; bill triples.
+| Layer | Where | Threshold | Token source | Role |
+| --- | --- | --- | --- | --- |
+| Gateway session hygiene | `gateway/run.py`, before the agent | Fixed **85%** | Prefers last-turn API-reported tokens; falls back to a rough character estimate | Safety net for sessions that grew between turns (overnight Telegram/Discord) |
+| Agent `ContextCompressor` | Inside the tool loop | Default **50%**, configurable | Accurate API-reported tokens | Normal context management |
 
-**Why.** Provider caches are scoped to model + account.
+Gateway hygiene fires only when `len(history) >= 4` and compression is enabled. Its threshold is intentionally higher. Setting it at 50% caused premature compression on every turn in long gateway sessions (Nous Research, *Context Compression and Caching*, n.d.).
+
+**Case.** A Discord channel idles overnight. The next message would otherwise 400 because the session crossed the model window between turns. Hygiene at 85% compresses before `AIAgent` runs. The in-loop 50% compressor still owns ordinary turns. Do not "unify" the two numbers.
+
+<Callout>
+Tip: `threshold_tokens` is always `threshold × context_length` of the **main** agent model, never the auxiliary summary model. A 262,144-token main model at 0.50 triggers at 131,072. That number looking like "128K" is a coincidence of the percentage (Nous Research, *Context Compression and Caching*, n.d.).
+</Callout>
+
+## Configuration that actually matters
+
+```yaml
+compression:
+  enabled: true
+  threshold: 0.50
+  target_ratio: 0.20
+  tail_mode: legacy
+  protect_last_n: 20
+  min_tail_user_messages: 1
+  in_place: true
+```
+
+| Parameter | Default | Meaning |
+| --- | --- | --- |
+| `threshold` | 0.50 | Fire when prompt tokens ≥ this fraction of context length |
+| `model_thresholds` | empty map | Per-model overrides; substring match, longest key wins |
+| `target_ratio` | 0.20 | Tail token budget as a fraction of threshold tokens (`legacy` mode) |
+| `tail_mode` | `legacy` | `legacy` keeps a large verbatim tail; `lean` keeps a clamped tail plus recovery pointers |
+| `protect_last_n` | 20 | Minimum recent messages always preserved |
+| `min_tail_user_messages` | 1 | Real user messages guaranteed in the tail |
+| `protect_first_n` | 3 (hardcoded) | System prompt plus first exchange |
+| `in_place` | true | Compact on the same session id; no rotation |
+
+Summarisation model and provider live under `auxiliary.compression`, not under `compression.` itself. The summary model must have a context window **at least as large** as the main model. The entire middle section is sent in a single `call_llm(task="compression")`. If the summary model is smaller, `_generate_summary()` catches the error, logs a warning, and returns `None` — then the compressor drops the middle **without a summary**. That is the most common cause of degraded compaction quality.
+
+For a 200K-token main model at defaults: threshold 100,000; tail budget 20,000; max summary tokens `min(200,000 × 0.05, 12,000)` = 10,000.
+
+`model_thresholds` keys substring-match the model name; longest wins. The small-context floor still applies on top (raise-only): models with windows below 512K are floored at 0.75. Switching `/model` re-resolves the override.
+
+## In-place compaction (default)
+
+With `compression.in_place: true`, a compaction rewrites the live message list on the **same** session id: the system prompt is rebuilt, the summarised middle is swapped in, and pre-compaction turns are soft-archived under the same id (`active=0`, `compacted=1`) — still searchable via `session_search`, never deleted. There is no `parent_session_id` chain and no `name #N` renumbering. This eliminated the session-rotation bug cluster: lost `/goal` state, orphaned sessions, search gaps across boundaries (Nous Research, *Context Compression and Caching*, n.d.).
+
+The `session:compress` event carries `in_place: true/false` and `old_session_id` (empty string in in-place mode). Set `in_place: false` to restore the legacy rotating path, where each compaction commits a new session id linked via `parent_session_id`. The [sessions particularity](/en/m/hermes-sessions) owns the SQLite shape of that lineage.
+
+**Case.** An operator searches `session_search` for an error string that lived in a compacted middle. In-place mode still finds it because the old turns are soft-archived, not deleted. Legacy rotation put those turns in a parent id the live session no longer is. That is why in-place is the default.
 
 <TryThis>
-On paper, place four cache_control markers on a 10-message Anthropic request. Which one is the system prompt?
+Write the consumer test: "do I diff session ids, or do I read `in_place` on the compress event?" If you diff ids, you will mis-handle the default. The gateway re-baselines from `_last_compaction_in_place`, not from an id-change diff.
 </TryThis>
 
-Source: [Compression and caching](https://hermes-agent.nousresearch.com/docs/developer-guide/context-compression-and-caching).
+## Four-phase algorithm
+
+`ContextCompressor.compress()` follows four phases (Nous Research, *Context Compression and Caching*, n.d.).
+
+### Phase 1: prune old tool results (no LLM call)
+
+Old tool results over 200 characters outside the protected tail become:
+
+```text
+[Old tool output cleared to save context space]
+```
+
+Cheap pre-pass. File contents, terminal output, and search results are the usual savings.
+
+### Phase 2: determine boundaries
+
+Head: `protect_first_n` (system plus first exchange). Middle: summarised. Tail: token-budget walk from the end, falling back to `protect_last_n` if the budget would protect fewer messages. Boundaries align so tool_call/tool_result groups never split (`_align_boundary_backward()` walks past consecutive tool results to the parent assistant).
+
+### Phase 3: structured summary
+
+The middle is summarised with a template: Goal; Constraints and Preferences; Progress (Done / In Progress / Blocked); Key Decisions; Relevant Files; Next Steps; Critical Context. Summary budget: `content_tokens × 0.20`, minimum 2,000, maximum `min(context_length × 0.05, 12,000)`.
+
+### Phase 4: assemble
+
+Head (with a note appended to the system prompt on **first** compression), summary message (role chosen to avoid consecutive same-role violations), tail unmodified. `_sanitize_tool_pairs()` removes orphaned tool results and injects stub results for tool calls whose results vanished.
+
+On subsequent compressions, the previous summary is passed to the LLM with instructions to **update** it rather than summarise from scratch. `_previous_summary` on the compressor instance stores that text.
+
+Lean tail mode is the alternative: a clamped tail of 2.5% of the context window (10K floor, 25K cap), plus chunked identifier-preserving digests, a mechanically extracted anchor index (PR numbers, SHAs, paths, error strings — regex, never paraphrased), every real user message quoted verbatim, and a `session_search` recovery pointer. Official eval notes on 500K-token real sessions: about 49K retained versus about 162K in legacy, with higher recall when paired with recovery.
+
+## `system_and_3` caching
+
+Source: `agent/prompt_caching.py`. Anthropic allows at most four `cache_control` breakpoints per request. Hermes uses the `system_and_3` strategy (Nous Research, *Context Compression and Caching*, n.d.):
+
+| Breakpoint | Target |
+| --- | --- |
+| 1 | System prompt (stable across all turns) |
+| 2 | 3rd-to-last non-system message |
+| 3 | 2nd-to-last non-system message |
+| 4 | Last non-system message |
+
+Breakpoints 2–4 are a rolling window. Markers are cache_control type ephemeral, optionally with a 1h TTL. Default TTL is `5m`. Caching enables automatically when the model is an Anthropic Claude model and the provider supports `cache_control` (native Anthropic or OpenRouter).
+
+Cache-aware patterns: keep the system prompt stable (compression appends a note only on the first compaction); do not add or remove messages in the middle (prefix match breaks); after compression the compressed region misses cache but the system prompt cache survives, and the rolling window re-establishes within one or two turns.
+
+**Model identity is part of the cache key.** Provider-side caches are scoped to the model and the account/API key. Any mid-conversation model change — `/model`, primary-model fallback, or credential-pool rotation onto a different account — means the next request gets zero cache hits and re-reads the full conversation at undiscounted input price. This is inherent to provider caches, not something Hermes can dodge. Do not add features that silently swap the model or credentials mid-session.
+
+<Callout>
+Intermediate context-pressure warnings were removed. They caused models to give up prematurely on complex tasks. Compression fires at the configured threshold with no prior warning step; gateway hygiene remains the 85% safety net (Nous Research, *Context Compression and Caching*, n.d.).
+</Callout>
+
+## Codex-shaped exceptions, not general knobs
+
+ChatGPT Codex OAuth hard-caps gpt-5.5 at a 272K window (the same slug exposes larger windows on other routes). At the default 50% trigger, compaction would fire at about 136K. When the active route is `openai-codex` and the model is gpt-5.5, Hermes raises the trigger to 85% and shows a one-time notice. Opt out with `compression.codex_gpt55_autoraise false`. Other models and other providers keep the global threshold.
+
+Codex app-server sessions (`api_mode: codex_app_server`) are different again: the Codex agent owns the backing thread, so Hermes' summariser cannot shrink it. Compaction goes through the app-server's `thread/compact/start`. Hermes' local transcript is never rewritten on that runtime.
+
+Native Responses compaction (`compression.codex_responses_native`) is opt-in, gpt-5.6 family only, and only on `api.openai.com` or the ChatGPT Codex backend. xAI, Copilot, OpenRouter, relays, and local servers never see the field. The local compressor stays armed as fallback.
+
+**Case.** An operator copies `codex_gpt55_autoraise` into a Claude config "for longer context." It is a no-op on Claude. The 85% raise is a Codex OAuth gpt-5.5 patch, not a general quality setting. Use `threshold` or `model_thresholds` for everything else.
+
+<TryThis>
+For a 200K Claude session, compute threshold tokens, tail budget, and which `system_and_3` breakpoint still hits after the first compaction. Then name the three events that would zero the cache even if the prompt bytes did not change.
+</TryThis>
+
+Flush memory first, then summarise, then keep tool pairs together, then decide in-place versus lineage. The next lesson, [state.db and FTS5](/en/m/hermes-sessions), is where those archived turns actually live.
+
+## Before and after, from the official page
+
+Before (45 messages, about 95K tokens): system prompt, a FastAPI setup request, many tool turns of editing and testing, then "Fix the failing tests" plus a `read_file` of `tests/test_api.py`, then "Great, also add error handling."
+
+After (25 messages, about 45K tokens): the same system prompt with a compaction note, the original user request, a single `[CONTEXT COMPACTION]` assistant row holding Goal / Progress / Relevant Files / Next Steps, then the **tail** starting at "Fix the failing tests" with the `read_file` pair intact. The last real user line is still verbatim.
+
+That picture is why phase 2 walks the tail by token budget **and** why tool pairs stay glued. A split `read_file` call without its result is a poisoned prefix, the same class of bug the interrupt path avoids in the loop.
+
+`idle_compact_after_seconds` (default 0, disabled) is an opt-in: compact up front when a session resumes after this many seconds idle. It skips when context is already at or below `threshold × target_ratio`, and it honours cooldown, anti-thrash, and lock guards. Do not turn it on to "feel safer"; hygiene at 85% already covers the overnight gateway case.
+
+The CLI prints caching status at startup when Claude caching is on, for example `Prompt caching: ENABLED (Claude via OpenRouter, 5m TTL)`. If that line is absent on a Claude session, you are paying full input on every turn and you should check provider plus model name detection before you tune `threshold`.
+
+## Classroom checklist
+
+1. Name the two thresholds (gateway 85, in-loop 50) and why they differ.
+2. Recite the four phases in order. Phase 1 does not call an LLM.
+3. Say whether the live session id changes (`in_place: true` means no).
+4. Draw `system_and_3` and mark which breakpoint survives the first compaction.
+5. List the three cache-zeroing events: `/model`, fallback, pool rotation.
+6. Confirm the summary model window is ≥ the main model window.
+
+If you cannot do those six without opening `context_compressor.py`, read the official page again before the sessions lesson.
+
+Official URL: [Context Compression and Caching](https://hermes-agent.nousresearch.com/docs/developer-guide/context-compression-and-caching).
+
+## Sources
+
+Nous Research. (n.d.). *Context compression and caching*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/context-compression-and-caching
+
+Nous Research. (n.d.). *Prompt assembly*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/prompt-assembly
+
+Nous Research. (n.d.). *Agent loop internals*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop
+
+Nous Research. (n.d.). *Session storage*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/session-storage
+
+Nous Research. (n.d.). *Context engine plugins*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/context-engine-plugin
+
+Nous Research. (n.d.). *Credential pools*. Hermes Agent user guide. https://hermes-agent.nousresearch.com/docs/user-guide/features/credential-pools
+
+Nous Research. (n.d.). *Architecture*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/architecture

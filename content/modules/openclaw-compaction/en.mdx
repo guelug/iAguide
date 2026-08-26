@@ -1,23 +1,181 @@
-## Summary in the transcript
+## Summaries are not a new session id
 
-Older turns become a compact entry; recent tail stays. Tool calls stay paired with toolResult. Full history remains on disk. Default mode safeguard: quality audit, identifierPolicy strict; invalid summary is not written.
+OpenClaw's [*Compaction*](https://docs.openclaw.ai/concepts/compaction) (n.d.) is the primary source. Every model has a context window. When a conversation approaches that limit, OpenClaw **compacts** older messages into a summary so the chat can continue.
 
-Before compacting, a silent memory flush can persist notes. /compact Focus on X guides the summary. keepRecentTokens default 20_000. Compaction vs pruning: pruning trims tool results in-memory only.
+1. Older conversation turns are summarized into a compact entry.
+2. The summary is saved in the session transcript.
+3. Recent messages are kept intact.
 
-<VisualSlot caption="summarise middle, keep tool pairs, safeguard audit, memory flush, /compact." />
+OpenClaw keeps assistant tool calls paired with their matching `toolResult` entries when it picks a compaction split point. If the point lands inside a tool block, OpenClaw moves the boundary so the pair stays together and the current unsummarized tail is preserved (OpenClaw, *Compaction*, n.d.).
 
-## Compare vs Hermes
+The full conversation history stays on disk. Compaction only changes what the model sees on the next turn.
 
-Hermes: dual 85/50 thresholds, 4-phase, in-place, system_and_3 cache. OpenClaw: safeguard-audited summary in the same session identity (built-in sqlite compactor does not fork a successor).
+New configs default `agents.defaults.compaction.mode` to `"safeguard"` (stricter guardrails, summary quality audits). Set `mode: "default"` explicitly to opt out.
 
-## Case: compact ate the issue id
+The generic [sessions](/en/m/sessions) lesson stays harness-agnostic. This one is OpenClaw safeguard compaction.
 
-**Case.** Summary dropped JIRA-1842; next turn invented a number.
+<VisualSlot caption="summarise, tool pairs, safeguard, flush, /compact." />
 
-**Fix.** identifierPolicy strict is default; if a custom provider is used, keep identifiers in exact stored text. Guide with /compact Focus on ticket ids.
+## Auto, manual, flush
+
+Auto-compaction is on by default. It runs when the session nears the context limit, or when the model returns a context-overflow error (OpenClaw compacts and retries). Set `agents.defaults.compaction.enabled: false` to disable the embedded runtime's proactive threshold compaction. Preflight and overflow-recovery paths remain available, as does manual `/compact`.
+
+You will see `embedded run auto-compaction start` / `complete` in Gateway logs, `Auto-compaction complete` in verbose mode, and `/status` showing a compaction count.
+
+Before compacting, OpenClaw automatically reminds the agent to save important notes to memory files. This prevents context loss. A silent **memory flush** turn can store durable notes to disk. Set `agents.defaults.compaction.memoryFlush.model` when that housekeeping turn should use a local model. The memory-flush model override is exact and does not inherit the session fallback chain (OpenClaw, *Compaction*, n.d.; *Memory*, n.d., https://docs.openclaw.ai/concepts/memory).
+
+```text
+/compact Focus on the API design decisions
+```
+
+Manual compaction uses `agents.defaults.compaction.keepRecentTokens` (default: 20,000) as its cut-point budget and keeps that recent tail in rebuilt context.
+
+<Callout>
+Need a clean slate? `/new` starts a fresh session without compacting. Reset mints a new `sessionId`. Compaction keeps the current session identity for the built-in SQLite compactor. Three verbs, three pages (OpenClaw, *Compaction*, n.d.; *Session management*, n.d., https://docs.openclaw.ai/concepts/session).
+</Callout>
+
+## Safeguard quality
+
+With the built-in safeguard quality guard enabled, OpenClaw applies the final summary budget before validation. Required headings must remain in the retained generated body, while pending asks and exact identifiers must remain in the exact text that would be stored. Invalid output gets only the configured number of corrective attempts. If no finalized summary passes, compaction stops before writing a transcript entry, keeps the original history, and surfaces the existing recovery outcome (OpenClaw, *Compaction*, n.d.).
+
+Identifier preservation defaults to `identifierPolicy: "strict"`. Override with `"off"` to disable.
+
+Setting a custom `provider` automatically forces `mode: "safeguard"`. If the provider fails or returns empty, OpenClaw falls back to built-in LLM summarization. The built-in quality audit and its corrective retries apply only to built-in summarization.
+
+## Model, bytes, successors
+
+By default, compaction uses the agent's primary model. Set `agents.defaults.compaction.model` to delegate summarization (`provider/model-id` or a configured alias). When unset, compaction starts with the active session model. If summarization fails with a fallback-eligible provider error, OpenClaw retries through the session's existing model fallback chain. The fallback choice is temporary and is not written back to session state. An explicit compaction.model override remains exact and does not inherit that chain (OpenClaw, *Compaction*, n.d.).
+
+When `agents.defaults.compaction.maxActiveTranscriptBytes` is set, OpenClaw triggers normal local compaction before a run if transcript history reaches that size. Set a positive byte count or size string such as `"20mb"`; `0` or unset disables the guard. It does not split raw bytes; it asks the normal compaction pipeline for a semantic summary. For Codex app-server sessions, the same threshold caps native rollout transcripts and oversized native threads restart fresh. The byte guard applies to the active SQLite transcript history. Legacy JSONL checkpoint artifacts are not the active compaction target.
+
+A context engine may return an explicit compacted successor session identity. OpenClaw adopts that successor and records checkpoint metadata against it. The **built-in SQLite compactor keeps the current session identity** and does not create a second runtime transcript. OpenClaw no longer writes separate `.checkpoint.*.jsonl` copies for new compactions.
+
+By default, compaction runs silently. Set `notifyUser` true to show brief status messages when compaction starts and completes, and to surface a degraded notice when a pre-compaction memory flush is exhausted but the reply still continues.
+
+## Compaction versus pruning versus reset
+
+| | Compaction | Pruning | Reset |
+| --- | --- | --- | --- |
+| What it does | Summarizes older conversation | Trims old tool results | Mints a new sessionId |
+| Saved? | Yes, in session transcript | No, in-memory per request | New id; archives may remain |
+| Scope | Entire conversation | Tool results only | Session identity |
+
+Cite *Session pruning* (OpenClaw, n.d., https://docs.openclaw.ai/concepts/session-pruning) for tool-result trimming. Cite *Session management* for daily/idle reset.
+
+**Case.** Context feels stale after auto-compact. Use `/compact Focus on <topic>` or enable memory flush so notes survive. Do not turn on daily reset because "the summary is lossy" unless you actually want a new id (OpenClaw, *Compaction*, n.d.).
+
+**Case.** Compacting too often. The model window may be small, or tool outputs may be large. Try session pruning first (OpenClaw, *Compaction*, n.d.).
 
 <TryThis>
-Contrast compaction vs pruning in one sentence each.
+Write the default compaction mode for new configs. Write whether the built-in SQLite compactor changes sessionId. Name what happens to tool-call pairs at the split. Write the default keepRecentTokens. Write the command that starts a fresh session without compacting.
 </TryThis>
 
-Source: https://docs.openclaw.ai/concepts/compaction
+## Compare, without mixing knobs
+
+Hermes compression creates a child session lineage; `/resume` picks a session up (Nous Research, *Agent Loop Internals*, n.d., https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop). OpenClaw built-in compaction keeps the current sqlite session identity. Do not paste Hermes `compression.protect_last_n` into `keepRecentTokens`. Cite *Compaction* for summaries. Cite *Session management* for reset.
+
+OpenClaw matches dozens of provider overflow strings (`request_too_large`, `context length exceeded`, Bedrock token-count errors, Ollama context length exceeded, and more listed on the page). Do not invent a custom matcher; the runtime already maps those errors into compact-and-retry.
+
+Plugins register a custom compaction provider via `registerCompactionProvider()`. Configure its id under `agents.defaults.compaction.provider`. Providers receive the same instructions and identifier-preservation policy. OpenClaw still preserves recent-turn and split-turn suffix context after provider output.
+
+Hooks: `before_compaction` and `after_compaction` live on *Hooks* (OpenClaw, n.d., https://docs.openclaw.ai/automation/hooks).
+
+Incognito threads skip automatic memory flush and do not create a transcript archive. Compacting an incognito thread is still in-memory. Cite *Session management*.
+
+Advanced knobs (reserve tokens, custom context engines, OpenAI server-side compaction) live on *Session management deep dive* (OpenClaw, n.d., https://docs.openclaw.ai/reference/session-management-compaction). This lesson stays on safeguard, tool pairs, flush, and `/compact`.
+
+The particularity: compaction changes what the model sees, not the sqlite row identity, unless a context engine returns a successor. Default mode is safeguard. Flush memory before you fold the tail.
+
+This lesson stops at summarise, tool pairs, safeguard audits, memory flush, and the compaction/pruning/reset split. Cron isolated sessions start empty and do not inherit this as a way to keep a chore thread small; they are already fresh per run.
+
+Overflow recovery is not optional entertainment. When the model returns a context-overflow error, OpenClaw compacts and retries. Disabling proactive threshold compaction does not disable that recovery path or manual compact.
+
+Verbose logs print a broom emoji in the official docs; classroom text can say Auto-compaction complete. /status shows the compaction count for the live session.
+
+Delegation to a cheaper summarizer is the usual production move: keep the conversation model expensive, set compaction.model to a capable but smaller id. Local example on the page: ollama/llama3.1:8b. Unmatched bare values remain a model id on the active provider. If a bare value matches both an alias and a configured literal model ID, the literal model ID wins.
+
+Custom guidance for identifier handling belongs in a compaction provider summarize implementation, not in random prompt text. Strict policy is the default for opaque ids.
+
+Codex app-server sessions share the byte-guard threshold. Oversized native threads restart fresh. That is a Codex-native behavior documented on the compaction page; it is not ACP spawn.
+
+OpenClaw no longer writes separate checkpoint jsonl copies for new compactions. Existing legacy checkpoint files can still be used while referenced and are pruned by normal session cleanup. Do not teach students to ls checkpoint files as the live store.
+
+notifyUser also surfaces a degraded notice when the pre-compaction memory flush is exhausted but the reply still continues. Silent-by-default is how a personal main session avoids a broom message every afternoon.
+
+Queue mode stored on the session is not cleared by compaction. A later reset mints a new id and drops that override. Cite the reset lesson for that operational detail; this page only promises the same sessionId for the built-in compactor.
+
+Heartbeat and cron turns may grow the transcript. They still do not extend idle freshness. Compaction can still run on a session that looks idle. Those are independent clocks.
+
+If no finalized safeguard summary passes, compaction stops before writing a transcript entry. The original history remains. That fail-closed audit is why new configs default to safeguard instead of default.
+
+Tokenjuice is a plugin for compacting noisy exec and bash tool output. It is not this compaction pipeline. Cite Tools overview if the noise is tool output rather than conversation turns.
+
+Context lesson explains how the next turn is built after a compact. Read it when the summary exists but the model still misses a file that should have been in AGENTS.md. Bootstrap files inject on new sessions, not on compact, unless the workspace files are still in the unsummarized tail.
+
+**Case.** An operator sets compaction.enabled false because summaries felt lossy, then hits overflow every long thread. Preflight and overflow-recovery still exist, but the session now slams the window. Re-enable auto, add a flush model, and use /compact with instructions (OpenClaw, *Compaction*, n.d.).
+
+**Case.** A context engine returns a successor identity. OpenClaw adopts it. The built-in SQLite path never does that. Teaching every compact as a child session is the Hermes story leaking in.
+
+Related: Session, Session pruning, Context, Hooks. Architecture still says the Gateway owns the store that compaction writes into.
+
+This classroom version keeps safeguard, tool-pair integrity, flush-before-fold, keepRecentTokens 20000, and the three-verb split. Deep-dive knobs stay on the reference page.
+
+Cite Doctor only if a migration leftover still points at JSONL checkpoints as if they were live.
+
+The particularity one more time: summarise in place, keep tool pairs, audit the summary, flush memory first, /new if you actually want a new id.
+
+Provider overflow strings include request_too_large, context length exceeded, input exceeds the maximum number of tokens, Bedrock input token count exceeds the maximum, input is too long for the model, and ollama error: context length exceeded. The page lists more. Copy from Compaction, not from memory.
+
+Manual compact instructions are ordinary chat text after the slash. They guide the summary. They are not a second session.reset policy.
+
+keepRecentTokens is a token budget for the unsummarized tail on manual compact, not a message count. Do not set it to 5 thinking it means five turns.
+
+When compaction.model is unset and summarization fails with a fallback-eligible error, the retry uses the session fallback chain without writing that choice back. An explicit model override does not get that courtesy.
+
+Plugins that register a provider should still expect OpenClaw to preserve recent-turn suffix context after their output. Empty provider output falls back to built-in LLM summarization.
+
+before_compaction is the hook to persist extra state. after_compaction is the hook to observe the result. Neither replaces memory flush.
+
+Incognito plus compact: there is no archive to /resume. The thread still dies on Gateway restart.
+
+Daily reset at 04:00 plus compaction during the day is two different knives on the same sqlite row family. Leave mode none if the personal DM should roll for months.
+
+See Architecture for the Gateway process that runs this pipeline.
+
+Cite Active Memory when the flush target is MEMORY.md rather than the transcript summary.
+
+Cite Agent runtime when bootstrap files should re-inject, which is reset, not compact.
+
+Cite Session pruning when the problem is fat tool results, not a fat conversation.
+
+Cite Hermes Agent Loop Internals only in the compare paragraph.
+
+Safeguard is the default because summaries can lie. Tool pairs stay together because splitting a call from its result lies harder.
+
+maxActiveTranscriptBytes is opt-in. Unset or zero disables the byte guard.
+
+notifyUser is opt-in. Default compaction is silent.
+
+identifierPolicy strict is the default. off disables identifier preservation.
+
+This lesson is the summary knife. Reset is the identity knife. Pruning is the tool-result knife.
+
+Read the Compaction page before changing agents.defaults.compaction in production.
+
+## Sources
+
+OpenClaw. (n.d.). *Compaction*. https://docs.openclaw.ai/concepts/compaction
+
+OpenClaw. (n.d.). *Session management*. https://docs.openclaw.ai/concepts/session
+
+OpenClaw. (n.d.). *Session pruning*. https://docs.openclaw.ai/concepts/session-pruning
+
+OpenClaw. (n.d.). *Memory*. https://docs.openclaw.ai/concepts/memory
+
+OpenClaw. (n.d.). *Context*. https://docs.openclaw.ai/concepts/context
+
+OpenClaw. (n.d.). *Hooks*. https://docs.openclaw.ai/automation/hooks
+
+OpenClaw. (n.d.). *Session management deep dive*. https://docs.openclaw.ai/reference/session-management-compaction
+
+Nous Research. (n.d.). *Agent loop internals*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop

@@ -1,31 +1,181 @@
-## Registry as a rack
+## The registry is a rack, not a plugin afterthought
 
-Each tools/*.py calls registry.register(...) at import. discover_builtin_tools AST-scans for top-level register() then imports (skips registry.py, mcp_tool.py). Then MCP discover + plugin tools.
+Hermes tools are self-registering functions grouped into toolsets and executed through a central registry. Nous Research's [*Tools Runtime*](https://hermes-agent.nousresearch.com/docs/developer-guide/tools-runtime) (n.d.) and [*Adding Tools*](https://hermes-agent.nousresearch.com/docs/developer-guide/adding-tools) (n.d.) are the two primary pages. The generic [tools runtime](/en/m/tools-runtime) lesson stays harness-agnostic; this one is the Hermes particularity.
 
-Shadowing across toolsets is rejected unless override=True; plugins also need plugins.entries.<id>.allow_tool_override.
+Primary files: `tools/registry.py`, `model_tools.py`, `toolsets.py`, `tools/terminal_tool.py`, `tools/environments/*`. Each module in `tools/` calls `registry.register(...)` at import time. A registration that would shadow an existing tool from a different toolset is rejected unless the caller passes `override=True`; plugin overrides of built-ins additionally require `plugins.entries.<plugin_id>.allow_tool_override: true` in `config.yaml` (Nous Research, *Tools Runtime*, n.d.).
 
-get_tool_definitions filters by enabled/disabled toolsets (platform presets hermes-cli, hermes-telegram, hermes-acp). check_fn False hides the tool from the model.
-
-Dispatch: model -> run_agent loop -> handle_function_call -> intercepts -> pre_tool_call hook -> registry.dispatch -> JSON error wrap -> post hook.
-
-Errors always JSON {error: ...}. Terminal backends: local, docker, ssh, singularity, modal, daytona, vercel_sandbox. DANGEROUS_PATTERNS approval in tools/approval.py.
-
-Adding a builtin: tools/your_tool.py + name in _HERMES_CORE_TOOLS. Prefer plugins for personal tools.
+The documented `registry.register` signature carries: `name` (unique, used in API schemas), `toolset`, `schema` (model-facing description and parameters), `handler`, optional `check_fn`, optional `requires_env`, `is_async`, optional registry `description`, and `emoji` for spinner display. `schema["description"]` is the authoritative model-facing text. The separate `description=` argument populates `ToolEntry.description` only. `get_definitions()` builds the OpenAI function definition from `entry.schema` and does **not** copy `entry.description` into a schema that lacks `description`. Prefer defining the description once in the schema.
 
 <VisualSlot caption="register rack, AST discover, toolsets, dispatch pulse, terminal backends." />
 
-## Compare vs OpenClaw
+## Discovery: AST first, then import
 
-OpenClaw uses tool groups (group:runtime, group:fs) and sandbox tool policy. Hermes uses named toolsets plus check_fn.
+When `model_tools.py` is imported, it calls `discover_builtin_tools()` from `tools/registry.py`. That function scans every `tools/*.py` file with AST parsing to find modules that contain **top-level** `registry.register()` calls, then imports them. It skips `__init__.py`, `registry.py`, and `mcp_tool.py`. Helper modules without a top-level register are not imported. Errors in optional tools (the documented example is missing `fal_client` for image generation) are caught and logged; they do not prevent other tools from loading.
 
-## Case: handler returns a dict
+After core discovery:
 
-**Case.** Tool returns a Python dict; the model sees repr garbage.
+1. MCP tools — `tools.mcp_tool.discover_mcp_tools()` reads MCP server config and registers tools from external servers.
+2. Plugin tools — `hermes_cli.plugins.discover_plugins()` loads user, project, and pip plugins that may register more tools.
 
-**Rule.** json.dumps always; never raise.
+Adding a **built-in** tool therefore touches two files: `tools/your_tool.py` (handler, schema, check function, `registry.register()` call) and `toolsets.py` (add the name to `_HERMES_CORE_TOOLS` or a specific toolset). Nous Research is explicit: default to **plugins** for personal or project-local tools. Follow *Adding Tools* only when you want to ship a new built-in in `tools/` (*Adding Tools*, n.d.).
+
+Make it a **skill** when the capability is instructions plus shell plus existing tools (arXiv search, git workflows, Docker, PDF). Make it a **tool** when you need API keys, custom processing, binary data, or streaming (browser, TTS, vision). That fork is restated in *Creating Skills* (Nous Research, n.d.).
+
+<Callout>
+Handlers must return a JSON string via `json.dumps()`. Errors must be returned as an object with an `error` field, never raised. The handler receives `args` as a dict plus `**kwargs`. A Python dict returned raw becomes `repr` garbage for the model.
+</Callout>
+
+## `check_fn` hides the tool from the model
+
+Each tool may provide `check_fn`: True when available, False otherwise. Typical checks: API key present (`SERP_API_KEY` for web search), service configured (Honcho), binary installed (`playwright` for browser). `registry.get_definitions()` runs each `check_fn`. Exceptions are treated as unavailable (fail-safe). Check results are cached per call, so a shared `check_fn` runs once. `is_toolset_available()` uses the same idea for UI display and toolset resolution.
+
+If `check_fn` returns False, the tool is **silently excluded** from the schema list. The model cannot call what it cannot see. That is why a missing `WEATHER_API_KEY` is not a runtime 500; it is an absent tool.
+
+## Toolset resolution
+
+Toolsets are named bundles. Hermes resolves them through explicit enabled/disabled lists, platform presets (`hermes-cli`, `hermes-telegram`, and friends), dynamic MCP toolsets, and curated special-purpose sets such as `hermes-acp` (Nous Research, *Tools Runtime*, n.d.).
+
+`model_tools.get_tool_definitions(enabled_toolsets, disabled_toolsets, quiet_mode)`:
+
+- If `enabled_toolsets` is provided, only those toolsets are included. `resolve_toolset()` expands composites into individual names.
+- If `disabled_toolsets` is provided, start with all toolsets, then subtract.
+- If neither, include all known toolsets.
+
+The resolved name set is passed to `registry.get_definitions()`, which applies `check_fn` and returns OpenAI-format schemas. After filtering, `execute_code` and `browser_navigate` schemas are **dynamically patched** so they only reference tools that actually passed filtering. That prevents the model from hallucinating unavailable tools. Old toolset names with `_tools` suffixes (`web_tools`, `terminal_tools`) map through `_LEGACY_TOOLSET_MAP`.
+
+OpenClaw's analogous surface is **groups** (`group:runtime`, `group:fs`, `group:web`, `group:ui`) plus allow/deny plus sandbox (OpenClaw, *Tools overview*, n.d.). Do not paste OpenClaw `tools.alsoAllow` into Hermes `config.yaml`. Hermes uses named toolsets and `check_fn`.
+
+## Dispatch path
+
+When the model returns a `tool_call` (Nous Research, *Tools Runtime*, n.d.):
+
+```text
+Model tool_call
+  -> run_agent.py loop
+  -> model_tools.handle_function_call(name, args, task_id, user_task)
+  -> agent-loop intercepts? (todo, memory, session_search, delegate_task)
+  -> plugin hook pre_tool_call
+  -> registry.dispatch(name, args, **kwargs)
+  -> async? _run_async()  sync? call directly
+  -> JSON string or JSON error
+  -> plugin hook post_tool_call
+```
+
+`registry.dispatch()` catches handler exceptions and returns a JSON error object. `handle_function_call()` wraps dispatch in a second try/except. The model always receives a well-formed JSON string.
+
+Four tools are intercepted **before** registry dispatch because they need agent-level state (`TodoStore`, `MemoryStore`, and so on): `todo`, `memory`, `session_search`, `delegate_task`. Their schemas still live in the registry so `get_tool_definitions` can advertise them; if dispatch reaches them, the handler is a stub error (Nous Research, *Agent Loop Internals*, n.d.; *Tools Runtime*, n.d.).
+
+Async bridging (`_run_async()`):
+
+- CLI path, no running loop: a persistent event loop keeps cached async clients alive.
+- Gateway path, running loop: a disposable thread with `asyncio.run()`.
+- Worker threads (parallel tools): per-thread persistent loops in thread-local storage.
+
+You never call `asyncio.run()` yourself inside a tool. Mark `is_async=True` and let the registry bridge.
+
+Tools that manage per-session state receive `task_id` via `**kwargs`. The weather example in *Adding Tools* shows the pattern.
+
+**Case.** A handler returns a Python dict. The model sees a Python `repr`, not JSON fields, and invents a second call. The rule is `json.dumps` always; never raise.
+
+## Dangerous commands and terminal backends
+
+The terminal tool integrates `tools/approval.py`. `DANGEROUS_PATTERNS` is a list of regex/description tuples covering recursive deletes (`rm -rf`), filesystem formatting (`mkfs`, `dd`), SQL destructive operations (`DROP TABLE`, `DELETE FROM` without `WHERE`), writes into `/etc/`, `systemctl stop`, `curl | sh`, fork bombs, process kills, and similar (Nous Research, *Tools Runtime*, n.d.). Before executing, `detect_dangerous_command(command)` checks all patterns.
+
+If matched:
+
+- CLI mode: interactive prompt to approve, deny, or allow permanently.
+- Gateway mode: an async approval callback sends the request to the messaging platform (this is why `/approve` must be an inline bypass in [*Gateway Internals*](https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals)).
+- Smart approval: optionally an auxiliary LLM auto-approves low-risk commands that still match a pattern (the documented example: `rm -rf node_modules/` is safer than a recursive home delete, but still matches "recursive delete").
+
+Approvals are tracked per session. "Allow permanently" writes the pattern to `config.yaml`'s `command_allowlist`. Terminal backends: local, docker, ssh, singularity, modal, daytona, vercel_sandbox. Also: per-task cwd overrides, background process management, PTY mode, approval callbacks.
+
+Concurrency is a loop concern: one tool on the main thread, many via `ThreadPoolExecutor`, interactive tools (`clarify`) sequential (Nous Research, *Agent Loop Internals*, n.d.).
+
+## Optional setup and the checklist
+
+If the tool needs an API key, add it to `OPTIONAL_ENV_VARS` in `hermes_cli/config.py` with description, prompt, url, tools list, and `password: True`. Optional: add it to `toolset_distributions.py` for batch processing. Test with `hermes chat -q "Use the weather tool for London"`.
+
+*Adding Tools* checklist: tool file with handler, schema, check, registration; added to a toolset; confirmed it should be built-in rather than a plugin; JSON strings and error objects; optional env wizard; optional distributions; a real chat test.
 
 <TryThis>
-On paper: weather schema + handler signature (args, **kwargs) -> JSON string. Add it to _HERMES_CORE_TOOLS in one line.
+On paper: a `weather` schema with `location` required and `units` enum metric/imperial. Write the handler signature `(args, **kwargs) -> JSON string`. Add the name to `_HERMES_CORE_TOOLS` in one line. Then write why a missing `WEATHER_API_KEY` should make `check_fn` return False rather than raising inside the handler.
 </TryThis>
 
-Sources: [Tools runtime](https://hermes-agent.nousresearch.com/docs/developer-guide/tools-runtime), [Adding tools](https://hermes-agent.nousresearch.com/docs/developer-guide/adding-tools).
+ACP uses the curated toolset `hermes-acp` and binds cwd so file/terminal tools follow the editor workspace (Nous Research, *ACP Internals*, n.d.). OpenClaw coding profile includes `web_search` and `web_fetch` but not `browser` unless `alsoAllow` lists it (OpenClaw, *Browser*, n.d.). Different products, different filters.
+
+
+## A built-in weather tool, as specified
+
+*Adding Tools* (Nous Research, n.d.) walks a complete `tools/weather_tool.py`. Availability check:
+
+```python
+def check_weather_requirements() -> bool:
+    return bool(os.getenv("WEATHER_API_KEY"))
+```
+
+The handler fetches weather and **always** returns `json.dumps(...)`. Missing key returns an error object. Exceptions are caught and returned the same way. The schema names the tool `weather`, requires `location`, and offers `units` as an enum of `metric` and `imperial` with default `metric`. Registration wires a lambda that unpacks `args.get("location")` and `args.get("units", "metric")`, plus `check_fn=check_weather_requirements` and `requires_env=["WEATHER_API_KEY"]`.
+
+Then add `"weather"` to `_HERMES_CORE_TOOLS` if it should appear on all platforms (CLI plus messaging), or create a standalone toolset entry with `description`, `tools: ["weather"]`, and `includes: []`. Discovery import is **no longer needed**: top-level `registry.register()` is enough.
+
+Async handlers set `is_async=True`. The registry calls `_run_async()` automatically. If you need `task_id`, pull it from `kw.get("task_id")` in a named `_handle_weather` rather than a lambda that drops kwargs.
+
+Optional setup-wizard integration: `OPTIONAL_ENV_VARS["WEATHER_API_KEY"]` with description, prompt, url, `tools: ["weather"]`, and `password: True`. That is how `hermes` config migrate learns to ask for the key without you teaching the model the secret.
+
+**Case.** You ship a GIF skill that inlines Tenor parsing in SKILL.md every turn. *Creating Skills* says: include a helper script under `scripts/` and declare `required_environment_variables`. If you instead add a built-in tool for a personal Tenor key, you forked Hermes core for a one-user API. Default to a plugin.
+
+## What the model must not see
+
+Dynamic schema patching of `execute_code` and `browser_navigate` is a teaching detail, not trivia. Those tools' schemas mention other tools. If `web_search` failed `check_fn` (no SERP key) but `execute_code`'s description still said "call web_search", the model would emit a call the registry cannot serve. Hermes rewrites the description to match the filtered set (Nous Research, *Tools Runtime*, n.d.).
+
+The same honesty applies to `hermes-acp`: it is a curated special-purpose set, not "all tools with a different name." ACP sessions enable `["hermes-acp"]` (Nous Research, *ACP Internals*, n.d.). A tool you added only to `_HERMES_CORE_TOOLS` still has to survive that filter to appear in an editor.
+
+Do not invent OpenClaw `group:fs` names in a Hermes toolset. Do not invent a Hermes `tools.deny` list copied from OpenClaw config. The academic objects are toolsets, `check_fn`, AST discovery, and JSON-string handlers.
+
+
+## Plugin override is an operator opt-in
+
+Shadowing across toolsets is rejected with an error log unless `override=True`. Plugin overrides of built-in tools additionally require the operator opt-in `plugins.entries.<plugin_id>.allow_tool_override: true` (Nous Research, *Tools Runtime*, n.d.). That two-key gate is the academic answer to "can my plugin replace `terminal`?" Not by dropping a file in `tools/`. Not by matching the name. Only with both the register flag and the config opt-in.
+
+MCP tools arrive after builtins. They can collide with names. Treat MCP as a third source, not as a way to silently replace `read_file`. If a collision is rejected, read the error log rather than renaming the MCP server until something "works."
+
+Terminal environments are a backend list, not a sandbox product. local, docker, ssh, singularity, modal, daytona, vercel_sandbox are the documented backends. OpenClaw sandbox policy (`agents.defaults.sandbox`) is a different object (OpenClaw, *Tools overview*, n.d.). A Hermes docker terminal is still a Hermes tool running under approval.py.
+
+**Case.** The model emits two `terminal` calls in one step. The loop runs them on `ThreadPoolExecutor` unless an interactive tool is in the batch. Results reinsert in original order. ACP's event bridge then needs FIFO tool-id queues **per name**, not one id per name, or completion events attach to the wrong invocation (Nous Research, *ACP Internals*, n.d.). The registry does not solve that; the adapter does. Know which layer owns the id.
+
+Read *Tools Runtime* before adding a file to `tools/`. Read *Adding Tools* before deciding it should be a builtin. Read *Creating Skills* before writing Python at all.
+
+
+## Errors are data
+
+Two wrapping layers exist so an unhandled exception never reaches the provider as a transport failure. `registry.dispatch` returns `{"error": "Tool execution failed: ExceptionType: message"}`. `handle_function_call` returns `{"error": "Error executing tool_name: message"}` (Nous Research, *Tools Runtime*, n.d.). Both are JSON strings. The model can recover. A raised exception cannot.
+
+When you write tests, assert the JSON error shape, not a Python traceback. When you teach the model a new tool, show a failed `check_fn` (tool absent) and a failed handler (tool present, error object). Those are different lessons for the weights.
+
+
+The weather walk-through in *Adding Tools* is the grading rubric for this lesson. If your handler can raise, if your schema description lives only in `description=` and not in `schema`, or if you skipped `_HERMES_CORE_TOOLS`, you did not follow Nous Research's page. Re-read the checklist at the bottom of *Adding Tools* (n.d.) before opening a pull request against `tools/`.
+
+
+Related pages on the same developer guide, for the next lessons: [*Creating Skills*](https://hermes-agent.nousresearch.com/docs/developer-guide/creating-skills) when the capability is instructions; [*Browser CDP Supervisor*](https://hermes-agent.nousresearch.com/docs/developer-guide/browser-supervisor) when the tool is `browser_dialog`; [*ACP Internals*](https://hermes-agent.nousresearch.com/docs/developer-guide/acp-internals) when the consumer is an editor. This lesson stops at the registry, the dispatch path, and the JSON contract.
+
+
+Cite the page you mean. *Tools Runtime* owns dispatch and `check_fn`. *Adding Tools* owns the builtin file layout. Mixing those two pages in a pull request comment is how a personal plugin gets merged into `tools/` by accident.
+
+That accident is expensive: builtins ship with every install, plugins do not.
+
+## Sources
+
+Nous Research. (n.d.). *Tools runtime*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/tools-runtime
+
+Nous Research. (n.d.). *Adding tools*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/adding-tools
+
+Nous Research. (n.d.). *Agent loop internals*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop
+
+Nous Research. (n.d.). *Creating skills*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/creating-skills
+
+Nous Research. (n.d.). *Gateway internals*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals
+
+Nous Research. (n.d.). *ACP internals*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/acp-internals
+
+OpenClaw. (n.d.). *Tools overview*. https://docs.openclaw.ai/tools
+
+OpenClaw. (n.d.). *Browser (OpenClaw-managed)*. https://docs.openclaw.ai/tools/browser

@@ -1,0 +1,18 @@
+{
+  "id": "unsloth",
+  "order": 17.4,
+  "slug": "unsloth",
+  "track": "training",
+  "title": {
+    "en": "What Unsloth is and how you train with it",
+    "es": "Qué es Unsloth y cómo se entrena con él"
+  },
+  "summary": {
+    "en": "Unsloth as a local run-and-train stack: Desktop versus Core, LoRA versus QLoRA versus full FT, official VRAM minima, notebooks, chat templates, and export to adapters, GGUF, or vLLM.",
+    "es": "Unsloth como pila local para ejecutar y entrenar: Desktop frente a Core, LoRA frente a QLoRA y ajuste completo, mínimos oficiales de VRAM, notebooks, plantillas de chat y exportación a adapters, GGUF o vLLM."
+  },
+  "status": "complete",
+  "prereqs": ["fine-tuning"],
+  "durationMin": 40,
+  "tags": ["unsloth", "qlora", "gguf", "sft"]
+}

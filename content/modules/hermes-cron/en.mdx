@@ -1,27 +1,180 @@
 ## Agent jobs, not shell cron
 
-Schedules: 30m, every 2h, 0 9 * * *, ISO timestamp. Stored in ~/.hermes/cron/jobs.json (atomic write).
+Nous Research's [*Cron Internals*](https://hermes-agent.nousresearch.com/docs/developer-guide/cron-internals) (n.d.) is the primary source. Hermes cron is scheduled **agent** execution: a fresh `AIAgent`, optional skills, a self-contained prompt, then delivery. It is not `/usr/bin/cron` wrapping a shell line. The generic [scheduled jobs](/en/m/scheduled-jobs) lesson stays harness-agnostic.
 
-Tick (~60s): lock, due jobs, fresh AIAgent (no chat history; MEMORY.md still loads), inject skills, run prompt, deliver, update next_run.
+Key files: `cron/jobs.py` (job model, atomic read/write to `jobs.json`), `cron/scheduler.py` (due-job detection, execution, repeat tracking), `tools/cronjob_tools.py` (model-facing `cronjob` tool), `gateway/run.py` (ticking in the long-running loop), `hermes_cli/cron.py` (`hermes cron` subcommands).
 
-cronjob toolset disabled inside cron runs (recursion guard). Deliveries are NOT mirrored into gateway history.
+Four schedule formats (Nous Research, *Cron Internals*, n.d.):
 
-cron.provider empty = in-process ticker; chronos = managed one-shots for scale-to-zero.
+| Format | Example | Behavior |
+| --- | --- | --- |
+| Relative delay | `30m`, `2h`, `1d` | One-shot after the duration |
+| Interval | `every 2h`, `every 30m` | Recurring at regular intervals |
+| Cron expression | `0 9 * * *` | Standard 5-field cron (minute, hour, day, month, weekday) |
+| ISO timestamp | `2025-01-15T09:00:00` | One-shot at the exact time |
+
+The model-facing surface is one `cronjob` tool with actions `create`, `list`, `update`, `pause`, `resume`, `run`, `remove`.
 
 <VisualSlot caption="jobs.json, tick, fresh AIAgent, delivery, recursion guard." />
 
-## Compare vs OpenClaw
+## Storage and lifecycle
 
-OpenClaw automations live in Gateway SQLite with announce/webhook modes and session isolated/main. Hermes uses jobs.json + fresh AIAgent.
+Jobs live in `~/.hermes/cron/jobs.json` with atomic write (temp file, then rename). Documented fields include `id`, `name`, `prompt`, `schedule` (kind, expr, display), `skills` array, `deliver`, `repeat` (times, completed), `state`, `enabled`, `next_run_at`, `last_run_at`, `last_status`, `created_at`, optional `model`, `provider`, `script`.
 
-## Case: cron that schedules more cron
+| State | Meaning |
+| --- | --- |
+| `scheduled` | Active, will fire at next scheduled time |
+| `paused` | Suspended until resumed |
+| `completed` | Repeat count exhausted or one-shot that has fired |
+| `running` | Currently executing (transient) |
 
-**Case.** Job creates jobs forever.
+Older jobs may have a single `skill` field; the scheduler promotes it to `skills: [skill]` at load (Nous Research, *Cron Internals*, n.d.).
 
-**Fix.** cronjob toolset off in cron sessions.
+<Callout>
+Each cron job runs in a completely fresh agent session: no conversation history from previous runs, no memory of previous cron executions. Persistent memory (`MEMORY.md` / `USER.md`) still loads, like any other agent run. The prompt must be self-contained. Cron jobs cannot ask clarifying questions. The `cronjob` toolset is disabled (recursion guard).
+</Callout>
+
+## Tick cycle
+
+Default tick is every 60 seconds (Nous Research, *Cron Internals*, n.d.):
+
+1. Acquire scheduler lock (prevents overlapping ticks).
+2. Load all jobs from `jobs.json`.
+3. Filter to due jobs (`next_run <= now` AND `state == scheduled`).
+4. For each due job: set `running`; create a fresh `AIAgent`; load attached skills in order as user messages; run the prompt; deliver; update run_count; compute next_run; if repeat exhausted then `completed`, else `scheduled`.
+5. Write `jobs.json`.
+6. Release the lock.
+
+If the lock cannot be acquired, `tick()` returns 0 immediately. Locking is cross-process (`fcntl.flock` on Unix, `msvcrt.locking` on Windows) so the gateway ticker and a standalone `hermes cron` cannot double-fire the same due batch.
+
+In gateway mode the trigger (Axis B: *when* a due job fires) is a pluggable `CronScheduler`. `resolve_cron_scheduler()` in `cron/scheduler_provider.py` runs the provider `start()` in a dedicated background thread, beside a housekeeping thread. `cron.provider` empty means built-in `InProcessCronScheduler` (60-second loop, byte-identical to pre-provider behavior). A named provider such as `chronos` is discovered from `plugins/cron_providers/` or `$HERMES_HOME/plugins/`. If a named provider is missing, fails to load, or `is_available() == False`, the resolver **falls back to the built-in with a warning** — cron is never left without a trigger. The built-in lives in core, not in `plugins/`. Execution and delivery stay in `scheduler.run_job()` / `_deliver_result()`; a provider only controls the trigger.
+
+In CLI mode, jobs fire only when `hermes cron` commands run or during active CLI sessions.
+
+## Chronos, skills, scripts, fallback
+
+Hosted gateways can set `cron.provider: chronos` for scale-to-zero. Chronos asks Nous infrastructure to arm exactly one managed one-shot per job at `next_run_at`. At fire time Nous calls `POST {callback_url}/api/cron/fire` with a short-lived purpose-scoped JWT. The gateway verifies, claims the job (compare-and-set, at-most-once across replicas), runs the same `run_one_job` path, then re-arms. Between fires the process can be fully stopped. Config keys (non-secret): `cron.chronos.portal_url`, `callback_url`, `expected_audience`, `nas_jwks_url`. Misconfigured Chronos falls back to the built-in ticker. The wire contract lives in `docs/chronos-managed-cron-contract.md` (Nous Research, *Cron Internals*, n.d.).
+
+Skill-backed jobs load SKILL.md in listed order, then append the job prompt. Script-backed jobs run a Python script via the `script` field first; stdout is injected as context. Script timeout default 3600 seconds, resolved by `_SCRIPT_TIMEOUT` (tests), `HERMES_CRON_SCRIPT_TIMEOUT`, `cron.script_timeout_seconds`, then 3600. That timeout bounds the **pre-run script**, not the agent. Skill/LLM jobs use inactivity budget `HERMES_CRON_TIMEOUT` (default 600s idle, `0` = unlimited). Scripts run on a persistent thread pool, not under the tick lock.
+
+`run_job()` passes fallback providers and credential pool into `AIAgent`, matching the gateway: `fallback_providers` list or legacy `fallback_model` dict, plus `load_pool(provider)` when the pool has credentials. Without that, cron agents would fail on 429 with no recovery (Nous Research, *Cron Internals*, n.d.; *Provider Runtime Resolution*, n.d.). Subagents do **not** inherit fallback; auxiliary tasks have their own chain.
+
+**Case.** A job creates more jobs forever. The recursion guard disables the `cronjob` toolset inside cron sessions. That is the documented fix, not a prompt that says "please do not schedule more cron."
+
+## Delivery and wrapping
+
+A bare platform name (`telegram`, `slack`) delivers to that platform's home channel. `platform:target` is resolved at **fire time**, so a job can name a destination not yet connected. Most platforms accept `platform:chat_id:thread_id`. `origin` delivers to the creating chat. `local` saves to `~/.hermes/cron/output/`. Named channels (`slack:#engineering`) resolve against the gateway channel directory; raw IDs always work.
+
+Bot Chat (`bot-chat` or `bot-chat:profile`) is a machine-local pseudo-platform: the scheduler runs `hermes chat` into the profile's canonical Bot Chat. It is excluded from the `all` routing token and from delivery preflight. Timeout default `cron.bot_chat_delivery_timeout_seconds` 600.
+
+By default (`cron.wrap_response: true`) deliveries get a header (job name and task) and a footer noting the agent cannot see the delivered message. A `[SILENT]` prefix suppresses delivery entirely for jobs that only write files.
+
+**Cron deliveries are NOT mirrored into gateway session history.** They exist only in the cron job's own session, to prevent message-alternation violations (Nous Research, *Cron Internals*, n.d.; *Gateway Internals*, n.d.).
+
+OpenClaw automations live in Gateway SQLite with announce/webhook modes and session isolated/main (OpenClaw, *Gateway protocol*, n.d., `cron.*` methods). Hermes uses `jobs.json` plus a fresh `AIAgent`. Do not invent OpenClaw `cron.runs` filters on Hermes.
+
+CLI: `hermes cron list|create|edit|pause|resume|run|remove`.
 
 <TryThis>
-Write a job JSON stub: daily 9am, skill ai-funding-daily-report, deliver telegram:chat_id.
+Write a job JSON stub: daily 09:00, skill `ai-funding-daily-report`, deliver `telegram:chat_id`. Name the four lifecycle states and the toolset that is disabled inside the run.
 </TryThis>
 
-Source: https://hermes-agent.nousresearch.com/docs/developer-guide/cron-internals
+**Case.** Chronos is misconfigured on a hosted agent. Cron does not go dark. `resolve_cron_scheduler()` falls back to the in-process ticker with a warning. That fallback is why the built-in provider is not a plugin you can delete.
+
+## Delivery target table (selected)
+
+Nous Research lists explicit, validated target syntax for the first group of platforms (Cron Internals, n.d.). Telegram accepts a bare name, chat_id, chat_id plus thread_id, or at-username. Discord accepts bare name, hash-channel, channel_id, or channel_id plus thread_id. Slack accepts bare name, hash-channel, channel_id, or channel_id plus thread_ts. Matrix, Feishu, WhatsApp, Signal, SMS, email, Weixin, Mattermost, Home Assistant, DingTalk, WeCom, BlueBubbles, and QQ Bot have documented forms on the same page. A bare platform name always delivers to the home channel. The remaining platforms accept a generic platform colon chat_id form used verbatim.
+
+Named channels resolve against the channel directory the gateway builds from connected adapters, so the gateway must have discovered the channel for name resolution to succeed. Raw IDs always work. For Telegram topics use chat_id plus thread_id. For Slack threads the third segment is the parent message thread_ts, so it only applies when replying under an existing message.
+
+## Recursion, lock, and CLI
+
+Cron-run sessions have the cronjob toolset disabled. That prevents a scheduled job from creating new cron jobs, recursive scheduling that could explode token usage, and accidental mutation of the job schedule from within a job (Nous Research, Cron Internals, n.d.).
+
+hermes cron list shows all jobs. create is interactive (alias add). edit, pause, resume, run, and remove take a job_id. run triggers immediate execution without waiting for next_run_at.
+
+OpenClaw cron RPCs include cron.get, cron.list, cron.status, cron.add, cron.update, cron.remove, cron.run, and cron.runs, with cron.run remaining enqueue-style and cron.runs accepting an optional runId filter (OpenClaw, Gateway protocol, n.d.). Do not paste those method names into a Hermes jobs.json.
+
+**Case.** Two processes tick at once: the gateway in-process ticker and a manual hermes cron. The file lock makes the second tick return zero. Without the lock the same due job would run twice and double-deliver.
+
+## What Chronos does not own
+
+A provider only controls the trigger, never execution. Firing still means run_job plus deliver. Recurring jobs re-arm after each fire. Repeat-N jobs stop cleanly when the count is exhausted, with no orphaned one-shot. The agent holds no scheduler credentials; Nous arms the one-shot with the agent existing Nous token (Nous Research, Cron Internals, n.d.).
+
+If you need scale-to-zero, Chronos is the named provider. If you need a laptop gateway, leave cron.provider empty. Mixing those without reading the fallback paragraph is how operators think cron died when Chronos was merely misconfigured.
+
+Read Gateway Internals for why deliveries are not mirrored. Read Creating Skills for why a blueprint is a suggestion, not a job, until accept. Read Provider Runtime Resolution for the fallback chain cron now shares with the gateway.
+
+## Provider recovery details
+
+run_job passes the user configured fallback providers and credential pool into the AIAgent instance. Fallback providers read fallback_providers as a list or fallback_model as a legacy dict from config.yaml, matching the gateway _load_fallback_model pattern. Passed as fallback_model to AIAgent init, which normalizes both formats into a fallback chain. Credential pool loads via load_pool using the resolved runtime provider name and is only passed when the pool has credentials. That enables same-provider key rotation on 429 rate-limit errors (Nous Research, Cron Internals, n.d.).
+
+This mirrors the gateway. Without it, cron agents would fail on rate limits without attempting recovery. Subagent delegation still does not inherit fallback. Auxiliary tasks keep their own auto-detection chain. Cron is the path that was historically easy to leave without recovery; the page now documents that it is wired.
+
+## Script timeout chain
+
+_get_script_timeout resolves the limit through a three-layer chain after the test override: environment variable HERMES_CRON_SCRIPT_TIMEOUT, config cron.script_timeout_seconds, default 3600 seconds. The module-level _SCRIPT_TIMEOUT is for tests and monkeypatching and is used only when it differs from the default. Long-running scripts do not block other due jobs because they are dispatched to a persistent thread pool, not held under the tick lock (Nous Research, Cron Internals, n.d.).
+
+Skill-based jobs can run for hours as long as they keep calling tools or streaming tokens. They are killed only after the configured idle period with no activity. Do not confuse the script cap with the agent idle cap.
+
+**Case.** A competitor-diff script runs 20 minutes. Other jobs due in that window still fire. If the script ran under the tick lock, the whole scheduler would stall. The thread pool is the documented reason it does not.
+
+## SILENT and wrap_response
+
+wrap_response true is the default. The header identifies the cron job name and task. The footer notes the agent cannot see the delivered message in conversation. SILENT prefix in a cron response suppresses delivery entirely, useful for jobs that only need to write to files or perform side effects (Nous Research, Cron Internals, n.d.).
+
+Session isolation remains: deliveries are not mirrored into gateway history. That is an alternation invariant, restated from Gateway Internals, not a preference of the delivery module.
+
+Cite Cron Internals by URL in every change to cron/jobs.py or cron/scheduler.py. Cite Gateway Internals when touching delivery. Cite Creating Skills when the job attaches a blueprint skill.
+
+## Repeat and completed
+
+repeat.times null means unbounded. repeat.completed counts successful fires. When times is a number and completed reaches it, state becomes completed and Chronos does not leave an orphaned one-shot. One-shot relative delays and ISO timestamps complete after a single successful fire (Nous Research, Cron Internals, n.d.).
+
+last_status documents the most recent outcome. last_run_at and next_run_at are timezone-aware strings in the example record on the same page. Do not invent extra state names. The four states are the closed set.
+
+enabled false is not the same as paused. The documented pause action sets paused. Keep those distinct when teaching the CLI: pause and resume are the pair; enabled is a field on the record.
+
+## Compare, without mixing knobs
+
+Hermes: jobs.json, fresh AIAgent, skills array, deliver string, in-process ticker or Chronos, recursion guard on the cronjob toolset. OpenClaw: Gateway SQLite, cron.* RPCs, announce or webhook, session isolated or main (OpenClaw, Gateway protocol, n.d.). Same human need (run later). Different stores. Different isolation. Different fallback wiring.
+
+If a briefing must land in Telegram without poisoning a live chat transcript, Hermes already chose isolation. If a briefing must be a Gateway RPC a Control UI can poll by runId, that is OpenClaw cron.runs. Choose the product, then cite its page.
+
+Read the jobs.json example on Cron Internals once more. If your stub cannot name skills as an array, schedule.kind, and deliver, you are not yet teaching the record, only the idea of cron.
+
+The documented CLI aliases matter for teaching: create is also add. Operators who search only for add will find it. Operators who invent schedule as a subcommand will not. Stick to list, create, edit, pause, resume, run, remove (Nous Research, Cron Internals, n.d.).
+
+Related files on the same guide: Gateway Internals for home-channel delivery and the no-mirror rule; Creating Skills for blueprint plus suggestions accept; Agent Loop Internals for why a cron assistant row must not land between a live user and assistant; Provider Runtime Resolution for fallback_providers on the fresh AIAgent.
+
+This lesson stops at jobs.json, the tick, isolation, Chronos fallback, and the recursion guard. Delivery target trivia lives on Cron Internals; quote that page rather than memorizing every platform colon form.
+
+Atomic write means write to a temp file then rename. Two readers can see the previous complete file; they never see a torn JSON. That is why jobs.json is a file store that still survives a crash during tick (Nous Research, Cron Internals, n.d.).
+
+Do not replace jobs.json with a database because OpenClaw uses SQLite. Cite the page you are implementing. Hermes cron is jobs.json plus a lock file plus a fresh AIAgent. That sentence is the particularity.
+
+If a job prompt asks a clarifying question, the run cannot wait on a human in the cron session. Put the answer in the prompt or attach a skill that already knows the procedure. The isolation paragraph is not optional.
+
+The example job on Cron Internals uses skills as an array with ai-funding-daily-report, deliver as telegram colon chat id, and schedule.kind cron with expr 0 9 star star star. Copy that shape in the TryThis answer. Inventing a crontab string as a top-level field is not the record.
+
+Cite Nous Research, Cron Internals, n.d., as the parent of every number in this lesson: 60 second tick, 3600 second script default, 600 second idle default, states scheduled paused completed running.
+
+Gateway mode ticks in a background thread. CLI mode does not tick a daemon by itself. That split is why a laptop with only hermes chat open will not fire daily jobs until hermes cron or an active CLI session runs (Nous Research, Cron Internals, n.d.).
+
+The CLI alias list from Cron Internals is not a second scheduler. It is a human-facing view of the same jobs.json. If list disagrees with the file, the file is the source of truth (Nous Research, Cron Internals, n.d.).
+
+Pause, resume, and trigger are mutations of that file plus lock, not of an in-memory queue (Nous Research, Cron Internals, n.d.).
+
+## Sources
+
+Nous Research. (n.d.). *Cron internals*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/cron-internals
+
+Nous Research. (n.d.). *Gateway internals*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals
+
+Nous Research. (n.d.). *Creating skills*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/creating-skills
+
+Nous Research. (n.d.). *Provider runtime resolution*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/provider-runtime
+
+Nous Research. (n.d.). *Agent loop internals*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop
+
+OpenClaw. (n.d.). *Gateway protocol*. https://docs.openclaw.ai/gateway/protocol

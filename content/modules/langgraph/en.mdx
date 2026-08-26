@@ -1,25 +1,200 @@
 ## Particularity — when the loop is a graph
 
-LangGraph encodes the general cycle as a **compiled state machine**. Use it when control flow is the product: branch on class, join parallel work, wait for a human, persist state. Do not use it because a blog post said “graphs.”
+*Named source: Hugging Face Agents Course, Unit 2.3, [Introduction to LangGraph](https://huggingface.co/learn/agents-course/unit2/langgraph/introduction) (Burtenshaw, Thomas, Simonini, & Paniego, Apache-2.0; unit author Joffrey Thomas).*
 
-Building blocks:
+LangGraph encodes the general cycle as a **compiled state machine**. The course's own pitch: production-ready applications by giving you **control** over the flow of your agent. Framework repo: [github.com/langchain-ai/langgraph](https://github.com/langchain-ai/langgraph). Docs: [langchain-ai.github.io/langgraph](https://langchain-ai.github.io/langgraph/). This lesson rewrites Unit 2.3, not those sites verbatim. For a longer academy track they point at [LangChain Academy: Introduction to LangGraph](https://academy.langchain.com/courses/intro-to-langgraph).
 
-- **State** — a typed dict (or reducer-backed fields) that every node reads and patches.
-- **Nodes** — Python functions: LLM call, tool, condition, human.
-- **Edges** — always-next, or conditional on state.
-- **Reducers** — how two writes to the same field merge (append messages, overwrite a flag).
-- **START / END** — the only honest exits.
+Use it when control flow is the product: branch on class, join parallel work, wait for a human, persist state. Do not use it because a blog post said "graphs." The Unit 2 intro already allowed plain Python when the workflow is a chain (Hugging Face Agents Course, [unit2/introduction](https://huggingface.co/learn/agents-course/unit2/introduction)).
+
+The examples in this unit, the authors warn, were run with a GPT-4o-class API for compatibility. That is a hardware/API note, not a law that LangGraph requires that vendor.
 
 <VisualSlot caption="A four-node graph versus a plain loop. The last switch is a cycle with no END — the failure mode." />
 
-A first graph in the course: ingest email → classify → draft if genuine → END. A document-analysis graph adds retrieve and summarise nodes. If your only condition is “tool failed, retry,” you wanted a loop.
+## Control versus freedom
+
+*Named source: Hugging Face Agents Course, Unit 2.3, [What is LangGraph?](https://huggingface.co/learn/agents-course/unit2/langgraph/when_to_use_langgraph).*
+
+Designing AI apps is a trade-off. **Freedom** lets the LLM be creative and handle the unexpected. **Control** keeps behaviour predictable and inside guardrails. Code agents in smolagents sit toward freedom: several tools in one action, even inventing helpers. That makes them less predictable. LangGraph sits toward control: you draw the junctions.
+
+LangChain (the other package) is an interface to models, retrieval, and tool calls. LangGraph does **not** require it, but almost every tutorial uses both. Keep the packages distinct in your head. Mixing import paths is a support ticket, not architecture.
+
+When they say LangGraph shines: multi-step reasoning that needs explicit flow control; **persistence of state** between steps; systems that mix deterministic logic with LLM calls; **human-in-the-loop**; complex agent architectures with several components. Their document assistant example: convert charts and tables to text before answering, and the conversion **depends on document type** — a branch you chose, drawn as a graph. The left path may not even be an agent (no tool call). The right path may need pandas on an xls. Branching can be deterministic, or conditioned on an LLM output (undeterministic).
+
+Practical tip: if your only condition is "tool failed, retry," you wanted a `while` with a counter. Draw the graph anyway; if it is a straight line plus a retry, delete LangGraph from the PR.
+
+<Callout>
+You could write the same if/else in vanilla Python. The course admits it. LangGraph's offer is state, visualisation, traces, built-in human-in-the-loop, and persistence — not a new kind of intelligence. If you use none of those, you paid the abstraction tax for a sticker.
+</Callout>
+
+## Building blocks: state, nodes, edges, graph
+
+*Named source: Hugging Face Agents Course, Unit 2.3, [Building Blocks of LangGraph](https://huggingface.co/learn/agents-course/unit2/langgraph/building_blocks).*
+
+**State** is user-defined, typically a `TypedDict`. Every node reads it and returns a patch. Craft fields to hold everything the next decision needs. Their toy: `graph_state: str`. Your email sorter will need more.
+
+**Nodes** are Python functions: take state, do work, return updates. They may contain LLM calls, tool calls, conditional logic, or a human pause. `START` and `END` exist in the library. They are the only honest exits.
+
+**Edges** are the possible next hops. Direct: always A to B. Conditional: a function of state that returns the next node name. Their coin-flip `decide_mood` returns `node_2` or `node_3`.
+
+**StateGraph** is the container. `StateGraph(State)`, `add_node`, `add_edge(START, "node_1")`, `add_conditional_edges`, `compile()`. `graph.invoke(...)` runs it. `draw_mermaid_png()` visualises it. Look at the drawing before you look at the bill.
+
+Reducers (how two writes to the same field merge — append messages, overwrite a flag) are the production detail. If two nodes write `attempts` without an add-reducer, last write wins and your hop counter lies. The building-blocks page concatenates strings onto `graph_state`; that is a reducer in slow motion.
+
+Practical tip: name every field in State before you write the first node. Missing `attempts` is how Reviewly looped. Missing `is_spam` is how Alfred drafts a reply to a phish.
+
+## Alfred's first graph: mail
+
+*Named source: Hugging Face Agents Course, Unit 2.3, [Building Your First LangGraph](https://huggingface.co/learn/agents-course/unit2/langgraph/first_graph); notebook https://huggingface.co/agents-course/notebooks/blob/main/unit2/langgraph/mail_sorting.ipynb.*
+
+Alfred reads incoming mail, classifies spam versus legitimate, drafts a preliminary reply if genuine, prints a note for Mr. Wayne, END. The course is careful: this first graph **is not an agent** in the Unit 1 sense because no tool is involved. It is a workflow with an LLM at a junction. Learn the framework here; do not call it agency yet.
+
+`EmailState` fields they actually put on the page: `email` (subject, sender, body), `email_category`, `spam_reason`, `is_spam`, `email_draft`, `messages` (LLM conversation for analysis). Nodes: `read_email`, then a classify node that sets `is_spam`, then either a spam sink to END or a draft node then END. Install they name: `langgraph` and `langchain_openai`. Model: `ChatOpenAI(temperature=0)` in the notebook. Temperature zero is a choice for classification, not a secret.
+
+Practical tip: print the sender in `read_email` as they do. Side effects in a node are allowed; putting the only copy of the email in stdout is not. State is the log.
+
+## Document analysis: when a tool appears
+
+*Named source: Hugging Face Agents Course, Unit 2.3, [document analysis agent](https://huggingface.co/learn/agents-course/unit2/langgraph/document_analysis_agent).*
+
+A later graph adds retrieve and summarise nodes — closer to an agent because tools (or at least retrieval) show up. The control-flow drawing in [when_to_use_langgraph](https://huggingface.co/learn/agents-course/unit2/langgraph/when_to_use_langgraph) is the same idea: modality of the document decides the path. If you always retrieve, you wanted LlamaIndex's query engine. If you retrieve only on some classes, you wanted this branch.
+
+Practical tip: keep deterministic branches (file extension, MIME type) in Python nodes, not in a prompt. Use the LLM node for the uncertain label. Mixing them in one prompt is how spam and invoices share a draft.
+
+<Compare a="Plain ReAct loop (smolagents)" b="Compiled graph (LangGraph)">
+<Side>
+Freedom. The model picks tools each step. Good when the path is unknown. Bad when you must guarantee "never email the guest list without a human." Hop cap is `max_steps`.
+</Side>
+<Side>
+Control. You drew the junctions. Good when "spam goes to END without a draft" is a legal requirement. Bad when you pretend the graph is optional decoration around an unconstrained CodeAgent. Hop cap is an `attempts` field plus an edge to END.
+</Side>
+</Compare>
+
+<Myth>
+Compiling a graph makes the LLM deterministic. No. A conditional edge that asks the model "is this spam?" is still a sample. The graph constrains where the output can go, not what token comes next. Temperature zero plus a tight label schema is how you reduce variance. The compile step does not.
+</Myth>
 
 <TryThis>
-Draw a graph for a three-step review: (1) retrieve the doc, (2) draft a summary, (3) a human ticks yes/no. Label state fields, the conditional edge after the human, and the END. Then write one sentence for a cycle that would never exit (missing END, or a retry with no counter).
+Draw a graph for a three-step review: (1) retrieve the doc, (2) draft a summary, (3) a human ticks yes/no. Label state fields, the conditional edge after the human, and the END. Then write one sentence for a cycle that would never exit (missing END, or a retry with no counter). Add a reducer for `messages` (append) and for `attempts` (increment). If you cannot name the reducer, you do not have persistence. You have last-write-wins.
 </TryThis>
+
+## Persistence and human-in-the-loop, as advertised
+
+*Named source: Hugging Face Agents Course, Unit 2.3, [when_to_use_langgraph](https://huggingface.co/learn/agents-course/unit2/langgraph/when_to_use_langgraph); LangGraph docs https://langchain-ai.github.io/langgraph/.*
+
+The course lists persistence and human-in-the-loop as reasons to pick LangGraph. Unit 2.3's first notebook does not implement a checkpointer in the excerpt we teach from; treat HITL as a documented LangGraph capability you add when a node must wait, not as a function we invent here. A human node that is actually `input()` in a Colab cell is a demo. A human node that stores state and resumes is the product.
+
+Practical tip: if you cannot say where the graph pauses and what field the human writes, you do not have HITL. You have a print.
+
+## How this differs from the dummy loop
+
+*Named source: Hugging Face Agents Course, Unit 1 [agent-steps-and-structure](https://huggingface.co/learn/agents-course/unit1/agent-steps-and-structure) versus Unit 2.3 [building_blocks](https://huggingface.co/learn/agents-course/unit2/langgraph/building_blocks).*
+
+The dummy `while` is implicit control flow in Python. LangGraph makes the same cycle **data**: state in, node names as edges. Thought becomes an LLM node. Action becomes a tool node. Observation becomes a field you append. `END` is `Final Answer:` with a street address. You still parse. You still refuse unknown tools. The graph will not save you from a hallucinated observation if you put generation and tool execution in the same node without a stop.
+
+Practical tip: one concern per node. Classify XOR draft XOR retrieve. A node named `do_everything` is a CodeAgent wearing mermaid.
 
 ## Case — Reviewly’s cycle with no exit
 
-Reviewly’s document graph sent “needs more evidence” back to retrieve with no hop counter. One PDF with empty embeddings looped until the bill hurt. They added an `attempts` field and an edge to END when `attempts > 2`. The graph was fine. The missing reducer on `attempts` was the incident.
+*Pedagogical case in iAguide voice; END and state fields cited from Hugging Face Agents Course, Unit 2.3, [building_blocks](https://huggingface.co/learn/agents-course/unit2/langgraph/building_blocks) and [first_graph](https://huggingface.co/learn/agents-course/unit2/langgraph/first_graph).*
 
-This lesson rewrites ideas from the [Hugging Face Agents Course](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.
+Reviewly’s document graph sent “needs more evidence” back to retrieve with no hop counter. One PDF with empty embeddings looped until the bill hurt. They added an `attempts` field and an edge to END when attempts exceeded two. The graph was fine. The missing reducer on `attempts` was the incident: two retrieve nodes both wrote attempts as 1 and the count never moved.
+
+A sibling bug: spam classification lived in the draft node "to save an LLM call." Phish got a polite reply. The first-graph split (classify then maybe draft) existed for a reason. They had optimised it away.
+
+## Practical checklist
+
+*Named source: Unit 2.3 pages listed under Sources; LangGraph docs https://langchain-ai.github.io/langgraph/.*
+
+1. You can say in one sentence why control, not freedom, is the product.
+2. State fields are listed, including a hop counter and an END condition.
+3. Each node returns a patch, not a prayer. Reducers are named for list fields.
+4. The mermaid drawing matches the code. START and END are on it.
+5. LLM junctions are isolated from deterministic branches.
+6. You have a cycle you could not exit, and you have closed it.
+
+## What to remember
+
+*Synthesis of Unit 2.3, Hugging Face Agents Course (Burtenshaw, Thomas, Simonini, & Paniego, Apache-2.0; LangGraph unit by Joffrey Thomas).*
+
+LangGraph is the general loop compiled as state, nodes, edges, reducers, START, END. Pick it for control. Pick a loop for freedom. The first mail graph is a workflow, not yet an agent. Tools show up when a node calls them. Missing END or a reducer-less counter is the incident. Unit 3 will put retrieval in the agent's hands without forcing a graph.
+
+## Invoke, compile, and what you log
+
+*Named source: Hugging Face Agents Course, Unit 2.3, [building_blocks](https://huggingface.co/learn/agents-course/unit2/langgraph/building_blocks) (compile and invoke); Bonus Unit 2 [observability](https://huggingface.co/learn/agents-course/bonus-unit2/what-is-agent-observability-and-evaluation).*
+
+`compile()` is not training. It is wiring the graph so `invoke` can walk nodes. Their toy invoke returns `graph_state` concatenated with "I am" plus "happy!" or "sad!" depending on the coin. Log the path of node names, the state patch per node, and the token cost of each LLM node. Latency that looks fine while the classify node is 40 percent wrong is the observability lesson wearing mermaid.
+
+Practical tip: dump `state.keys()` after every node in development. If a key you need later is missing, the patch never returned it. Do not read it from a global.
+
+## Temperature, labels, and the classify node
+
+*Named source: Hugging Face Agents Course, Unit 2.3, [first_graph](https://huggingface.co/learn/agents-course/unit2/langgraph/first_graph) (`ChatOpenAI(temperature=0)`).*
+
+Temperature zero on a classifier is a documented notebook choice. It does not make the label a fact. Constrain the output to `is_spam` boolean plus a short `spam_reason`. If the model writes a paragraph, your parser — still stop-and-parse, still Unit 1 — failed. Put the schema in the node prompt. Put the boolean in state. The draft node must not run unless `is_spam` is false. That edge is the product.
+
+Practical tip: keep a ten-mail offline set: five spam, five genuine. Run the graph. Count disagreements. That is Unit 2's evaluation stage, borrowed from LlamaIndex, applied to edges.
+
+## What "done" looks like for Unit 2.3
+
+*Named source: Hugging Face Agents Course, Unit 2.3 [conclusion](https://huggingface.co/learn/agents-course/unit2/langgraph/conclusion).*
+
+You can draw START, two nodes, a conditional edge, END, and name the state fields. You know why this is not smolagents and not LlamaIndex. You have closed a cycle that would otherwise bill you. Then Unit 3 is allowed to hand the agent a retrieve tool without making you compile.
+
+## Why not always LangGraph
+
+*Named source: Hugging Face Agents Course, Unit 2.3, [when_to_use_langgraph](https://huggingface.co/learn/agents-course/unit2/langgraph/when_to_use_langgraph); Unit 2 [introduction](https://huggingface.co/learn/agents-course/unit2/introduction).*
+
+The author calls LangGraph, in his opinion, the most production-ready agent framework on the market. iAguide does not have to agree to teach the unit honestly. Production-ready here means **control and persistence**, not a leaderboard. A support bot that must never skip the human node belongs here. A 20-line weather dummy does not. Collecting all three Unit 2 frameworks in one service is how you debug three log formats.
+
+Practical tip: pick one encoding per product surface. Graph for the mail pipeline. Loop for the party-planner agent in Unit 3. Index for the guest-story corpus. Three folders beat one mega-graph.
+
+## Edges that lie
+
+*Named source: Hugging Face Agents Course, Unit 2.3, [building_blocks](https://huggingface.co/learn/agents-course/unit2/langgraph/building_blocks) (conditional edges).*
+
+A conditional edge that returns a node name not in the graph is a crash. A conditional edge that always returns the same name is a direct edge in costume. Test the routing function with **fixture state**, no LLM: `is_spam True` must hit END, `is_spam False` must hit draft. If you can only test by sampling the model, you have not tested the graph. You have tested the prompt.
+
+Practical tip: pure routing functions are unit-testable. LLM nodes are not. Keep them apart so the test suite has somewhere to live.
+
+
+## Packages you actually install
+
+*Named source: Hugging Face Agents Course, Unit 2.3, [first_graph](https://huggingface.co/learn/agents-course/unit2/langgraph/first_graph) (install cell).*
+
+The mail notebook installs `langgraph` and `langchain_openai`. Further document-analysis notebooks in the unit add whatever retrieval extras **that** page names. Do not union smolagents extras into this environment "so Alfred is consistent." Different encodings, different extras, different allowlists.
+
+Practical tip: freeze versions in a requirements file the day the notebook runs. LangGraph's graph API has moved before. The course page you cited is the API you implement, until you read a newer page.
+
+- Document analysis notebook (if present in the course notebooks repo): https://huggingface.co/agents-course/notebooks
+- LangGraph persistence concept pages: https://langchain-ai.github.io/langgraph/
+- Hugging Face Agents Course GitHub tree for this unit: https://github.com/huggingface/agents-course/tree/main/units/en/unit2/langgraph
+- Quiz (course): https://huggingface.co/learn/agents-course/unit2/langgraph/quiz1
+- Hugging Face docs home (library index, not LangGraph-specific): https://huggingface.co/docs
+- smolagents contrast (Unit 2.1 why-use): https://huggingface.co/learn/agents-course/unit2/smolagents/why_use_smolagents
+- LlamaIndex contrast (Unit 2.2 intro): https://huggingface.co/learn/agents-course/unit2/llama-index/introduction
+- Dummy stop-and-parse (still required inside an LLM node): https://huggingface.co/learn/agents-course/unit1/dummy-agent-library
+- Actions / stop-and-parse: https://huggingface.co/learn/agents-course/unit1/actions
+- Observability bonus (traces of a turn): https://huggingface.co/learn/agents-course/bonus-unit2/what-is-agent-observability-and-evaluation
+- Course notebooks root: https://huggingface.co/agents-course/notebooks
+- Course home: https://huggingface.co/learn/agents-course
+- Unit 0 onboarding (tooling they expect): https://huggingface.co/learn/agents-course/en/unit0/introduction
+- TypedDict state pattern as printed in building_blocks: https://huggingface.co/learn/agents-course/unit2/langgraph/building_blocks
+- END as the honest exit (same page).
+- Apache-2.0 license text in the course repo: https://github.com/huggingface/agents-course
+
+## Sources
+
+Burtenshaw, B., Thomas, J., Simonini, T., & Paniego, S. (n.d.). *Hugging Face Agents Course* (Apache-2.0). https://huggingface.co/learn/agents-course · https://github.com/huggingface/agents-course
+
+- Unit 2 introduction: https://huggingface.co/learn/agents-course/unit2/introduction
+- LangGraph introduction: https://huggingface.co/learn/agents-course/unit2/langgraph/introduction
+- When to use LangGraph: https://huggingface.co/learn/agents-course/unit2/langgraph/when_to_use_langgraph
+- Building blocks: https://huggingface.co/learn/agents-course/unit2/langgraph/building_blocks
+- First graph (mail sorting): https://huggingface.co/learn/agents-course/unit2/langgraph/first_graph
+- Document analysis agent: https://huggingface.co/learn/agents-course/unit2/langgraph/document_analysis_agent
+- Conclusion: https://huggingface.co/learn/agents-course/unit2/langgraph/conclusion
+- Mail-sorting notebook: https://huggingface.co/agents-course/notebooks/blob/main/unit2/langgraph/mail_sorting.ipynb
+- LangGraph docs: https://langchain-ai.github.io/langgraph/
+- LangGraph GitHub: https://github.com/langchain-ai/langgraph
+- LangChain Academy intro: https://academy.langchain.com/courses/intro-to-langgraph
+- Unit 1 cycle (contrast): https://huggingface.co/learn/agents-course/unit1/agent-steps-and-structure

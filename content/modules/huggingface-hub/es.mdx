@@ -1,0 +1,223 @@
+## El Hub es un host Git, no una librería
+
+Hugging Face, la organización, opera el **Hugging Face Hub**: repositorios Git para modelos, datasets y Spaces, más almacenamiento Xet para ficheros grandes. Esa frase es el producto. Transformers es una librería cliente que habla con esos repos. El Hub también habla con `datasets`, Diffusers, la CLI `hf`, Unsloth, TGI, vLLM, Hermes y un navegador. Confundir la web con el paquete de Python es cómo la gente dice "instalé Hugging Face" y significa tres cosas distintas.
+
+El índice oficial del Hub, consultado el 2026-08-26, es explícito: el Hub aloja **más de 2 millones de modelos, 1,5 millones de datasets y 1,5 millones de Spaces**, abiertos y listados en público, con repos privados para equipos. Esas cifras viven en [el índice de documentación del Hub](https://huggingface.co/docs/hub/en/index). Se moverán. Cita la página y la fecha de consulta, no una captura de la primavera pasada.
+
+Por debajo, un repo del Hub es un repositorio Git. Versionado, historial de commits, diffs, ramas, pull requests y discusiones son los mismos nombres que en GitHub. Lo que GitHub no tuvo que guardar a esta escala es un shard safetensors de 50 GB. La respuesta del Hub es **Xet**: parte los ficheros grandes en chunks únicos para que subidas y bajadas se salten los bytes que ya tienes. La [página del backend de almacenamiento (Xet)](https://huggingface.co/docs/hub/en/storage-backends) y el índice del Hub describen ese corte. Sigues haciendo `git clone`. Los blobs grandes ya no viven para siempre como Git LFS ingenuo.
+
+<VisualSlot caption="Cuatro diapositivas: Models, Datasets y Spaces como repos Git más Xet; roles de token de fine-grained a write; la CLI hf desde auth hasta la descarga en dry-run; la caché local bajo HF_HOME y prune." />
+
+## Tres tipos de repo, un contrato Git
+
+Un repo de **modelo** guarda pesos, una model card, configs y a veces trazas de TensorBoard. El Hub quiere una [Model Card](https://huggingface.co/docs/hub/en/model-cards) para que el usuario vea límites y sesgos antes de `from_pretrained`. Tareas, idiomas y resultados de eval son metadatos, no adorno. El widget de inferencia en la página del modelo es una demo, no un servicio de producción.
+
+Un repo de **dataset** guarda filas, una [Dataset Card](https://huggingface.co/docs/hub/en/datasets-cards) y a menudo una vista Data Studio en el navegador. El índice del Hub sigue citando "más de 500k datasets públicos en más de 8k idiomas" en la sección Datasets — un recuento público más estrecho que la cifra de 1,5 millones en la línea heroica de la misma página. Cuando dos números oficiales conviven, cita ambos y di de qué encabezado salen. La librería `datasets` puede hacer streaming de un conjunto que no cabe en RAM. Eso es una feature del cliente. El repo sigue siendo Git más Xet.
+
+Un **Space** es un repo Git que **se ejecuta**. Gradio y Streamlit son los dos SDK de Python que nombra el índice del Hub. La [visión general de Spaces](https://huggingface.co/docs/hub/en/spaces-overview) recorre hoy Gradio, Docker y HTML estático como opciones de SDK al crear, más [ZeroGPU](https://huggingface.co/docs/hub/en/spaces-zerogpu) para GPUs NVIDIA bajo demanda. Los Spaces estáticos siguen siendo gratis. Gradio y Docker corren en compute; según esa página, crearlos exige un plan de pago, con la excepción documentada de que las cuentas personales gratuitas en regla pueden alojar hasta dos Spaces Gradio en ZeroGPU. No inventes una tercera excepción.
+
+Los **Buckets** de almacenamiento no son repos. El índice del Hub y la CLI los describen como object storage al estilo S3 sobre Xet: mutables, con direccionamiento por contenido, para checkpoints y logs que no deberían llevar historial Git. Si necesitas un SHA de commit, usa un repo. Si necesitas sobrescribir un checkpoint de 20 GB cada época, lee la guía de buckets antes de hacer force-push a un repo de modelo.
+
+<Callout>
+Consejo: trata `owner/name` como un remoto Git, no como un paquete pip. `unsloth/Qwen3.8-27B-unsloth-bnb-4bit` es un repo del Hub. `unsloth` el import de Python es otro artefacto. La página del Hub es https://huggingface.co/unsloth — ese es el catálogo de la org para la pista Unsloth de este curso.
+</Callout>
+
+## Los tokens son roles, no una contraseña que reutilizas
+
+La forma preferida de autenticar una app o un notebook es un **User Access Token**. Se gestionan en [Settings → Access Tokens](https://huggingface.co/settings/tokens). La [documentación de security-tokens](https://huggingface.co/docs/hub/en/security-tokens) nombra tres roles:
+
+- **fine-grained** — acotado a recursos concretos (un modelo, los modelos de una org). Hugging Face recomienda esta forma en producción: el radio de un leak es una lista, no la cuenta entera.
+- **read** — lectura de repos públicos y privados que ya puedes leer. Bastante para descargar y para Inference Providers. No basta para hacer push.
+- **write** — crear y subir a los repos donde ya puedes escribir. Los jobs de entrenamiento que hacen `push_to_hub` lo necesitan. Un notebook público no.
+
+Si perteneces a una organización, aplican el rol del token **y** tu membresía. Un token write no escribe un repo de org donde eres miembro de solo lectura. El token no es una llave maestra.
+
+La práctica oficial es **un token por app**. Un portátil, un job de CI, un Colab, un servidor de inferencia: cuatro tokens. Invalidas uno sin rotar los demás. Pon el valor en `HF_TOKEN` (o pasa `token=...` a `AutoModel.from_pretrained`). No lo pegues en argv donde el historial del shell lo guarda.
+
+```python
+from transformers import AutoModel
+
+model = AutoModel.from_pretrained("private/model", token=access_token)
+```
+
+Ese argumento `token=` es el ejemplo de la propia documentación del Hub. Las librerías (`transformers`, `datasets`, Diffusers) lo aceptan. `hf auth login` escribe un token bajo `HF_HOME` para que las llamadas posteriores no necesiten el argumento. La misma credencial, dos vías de inyección.
+
+Para CI, **no guardes un token de Hub de larga vida como secreto de GitHub si puedes evitarlo**. [Trusted Publishers](https://huggingface.co/docs/hub/en/security-tokens) intercambia la identidad OIDC del proveedor de CI por un token de Hub de corta vida al empezar cada run — con alcance de repo para publicar, o de usuario para leer repos con puerta. Ese es el camino documentado para GitHub Actions, GitLab CI y CircleCI.
+
+<Callout>
+Consejo: nunca hagas commit de `HF_TOKEN`. Si un token se filtra, rótalo desde la pestaña Access Tokens **y** llama al endpoint público de revocación. Quien encuentre el token de otra persona puede invalidarlo con `POST https://huggingface.co/api/credentials/revoke`. No hace falta tener derechos sobre la cuenta víctima. El endpoint siempre responde 202, así que no sirve para sondear si un token es válido. Pasa el valor crudo por variable de entorno, no en la línea de curl.
+</Callout>
+
+```bash
+# LEAKED_HF_TOKEN guarda el valor crudo. No pegues tokens en el historial.
+curl -X POST "https://huggingface.co/api/credentials/revoke" \
+  -H "Content-Type: application/json" \
+  -d "{\"credentials\": [\"${LEAKED_HF_TOKEN}\"]}"
+```
+
+Las orgs Team y Enterprise pueden exigir aprobación de administrador en tokens fine-grained, denegarlos, revocarlos, o rechazar por completo los tokens clásicos read/write. Un 403 contra recursos de la org con un token que sigue funcionando en tus repos personales es una **política**, no una CLI rota.
+
+## La CLI es `hf`, no `huggingface-cli`
+
+El paquete `huggingface_hub` trae una CLI llamada **`hf`**. Hugging Face anunció el cambio de nombre en [Say hello to hf](https://huggingface.co/blog/hf-cli). El binario viejo sigue saliendo en el folklore de Internet. Este curso usa el nombre primario documentado.
+
+Instalador oficial, de la [guía de CLI](https://huggingface.co/docs/huggingface_hub/en/guides/cli):
+
+```bash
+# macOS / Linux
+curl -LsSf https://hf.co/cli/install.sh | bash
+```
+
+```powershell
+# Windows
+powershell -ExecutionPolicy ByPass -c "irm https://hf.co/cli/install.ps1 | iex"
+```
+
+`uvx hf` también está documentado: sin instalar, siempre el último paquete `hf` de PyPI. `pip install -U huggingface_hub` trae la misma CLI. Homebrew: `brew install hf`. Actualiza con `hf update`. Si el shell dice `command not found: hf`, instalaste la librería y no el shim del PATH — lee la salida del instalador, no inventes un alias hacia `huggingface-cli`.
+
+El login es, por defecto, un flujo **device-code en el navegador**. `hf auth login` imprime https://huggingface.co/oauth/device y un código corto. Lo apruebas. La CLI guarda el token bajo `HF_HOME`. `--token $HF_TOKEN` es el camino no interactivo. `--force` vuelve a entrar. `hf auth whoami` imprime el usuario y las orgs. Si `HF_TOKEN` está en el entorno, `hf auth logout` **no** lo limpia — quita la variable.
+
+Los comandos que de verdad necesitas esta semana:
+
+| Comando | Trabajo |
+| --- | --- |
+| `hf auth login` / `whoami` | demostrar que eres tú |
+| `hf download` / `hf upload` | bajar y subir ficheros |
+| `hf models ls` | buscar en el catálogo de modelos |
+| `hf datasets ls` | buscar datasets |
+| `hf spaces ls` | buscar Spaces |
+| `hf cache ls` / `hf cache prune` | ver y recuperar disco |
+
+`hf download openai-community/gpt2 --dry-run` lista ficheros y tamaños **sin** escribir pesos. Ese es el comando que lanzas antes de llenar el SSD del portátil. `--repo-type dataset` y `--repo-type space` eligen las otras dos familias Git. `--revision` fija un commit, rama o tag. `--include` / `--exclude` son globs. `--local-dir` copia fuera del layout de caché a una carpeta tuya.
+
+<Callout>
+Consejo: ejecuta `hf download --dry-run` en cada repo nuevo antes del fetch de verdad. El ejemplo de gpt2 en la guía de CLI habla de varios gigabytes entre copias PyTorch, TensorFlow, Flax, ONNX y TFLite de la misma red. Casi nunca las quieres todas. `--include "*.safetensors"` es el default adulto.
+</Callout>
+
+## Buscar es un filtro, no una vibra
+
+La [guía de search](https://huggingface.co/docs/huggingface_hub/en/guides/search) es la hermana Python de `hf models ls`. `HfApi.list_models()`, `list_datasets()`, `list_spaces()` devuelven iteradores. Los filtros incluyen `search`, `author`, `filter` (tags de tarea, tags de librería), `num_parameters` con el mismo rango `min:6B,max:128B` que usa la UI del Hub, y `sort` más `limit`.
+
+```python
+from huggingface_hub import HfApi
+api = HfApi()
+top = list(api.list_models(search="qwen", sort="downloads", limit=5))
+```
+
+```bash
+hf models ls --search qwen --sort downloads --limit 5
+hf datasets ls --author Qwen
+hf spaces ls --search 3d --sort likes --limit 10
+```
+
+Ordenar por descargas responde "qué se baja el mundo de verdad", no "qué es lo mejor". Un 70B con puerta y una card famosa puede ganar a un modelo público minúsculo que era la primera descarga correcta. Lee la model card. Luego dry-run.
+
+## Modelos con puerta: el clic del navegador es la ACL
+
+Un modelo **gated** exige que el usuario acepte términos en la página del modelo. Los autores pueden autoaprobar o revisar a mano. El acceso se concede a **usuarios individuales**, no a organizaciones enteras. Ese es el contrato de [gated models](https://huggingface.co/docs/hub/en/models-gated).
+
+Pedir acceso es una acción de **navegador**. Los scripts no pueden pulsar Agree por ti. Cuando te aprueban, un token que puede leer el repo hereda ese acceso. `hf auth login` y luego `hf download` funciona. `from_pretrained(..., token=...)` funciona. Un token acuñado **antes** de que aceptaras la puerta, en una cuenta que nunca abrió la página, no.
+
+Los autores pueden revocarte después sin aviso. La aprobación manual puede quedarse en `pending` días. Un 403 en un Llama o Gemma famoso suele ser "no aceptaste la puerta con esta cuenta", no "el Hub está caído". Los miembros de una org pueden estar ellos mismos con puerta si el autor activó "también pedir acceso a los miembros de esta org", con admins y el creador del repo como excepciones documentadas.
+
+<Compare a="Repo público" b="Repo con puerta">
+<Side>
+Cualquiera puede clonar. Un token de lectura es opcional para ficheros públicos y necesario para holgura de rate-limit. Las model cards siguen importando. Las licencias también. "Público" no es "sin copyright".
+</Side>
+<Side>
+Tienes que estar logueado, abrir la página del modelo y pulsar Agree. El token hereda después. La aprobación automática es instantánea; la manual es una cola. Los autores pueden rechazar o revocar más tarde. No hay un atajo de org salvo que hayan montado una gating-group collection en Team o Enterprise.
+</Side>
+</Compare>
+
+## La caché es un presupuesto de disco con un comando prune
+
+Las descargas caen en **`~/.cache/huggingface/hub`** salvo que cambies `HF_HOME` o pases `--cache-dir`. `hf env` imprime `HF_HUB_CACHE` para que veas la ruta resuelta. Las revisiones son snapshots. Cuando `main` se mueve, el snapshot viejo puede quedar **detached**. Sigue ocupando bytes.
+
+`hf cache ls` agrega por repo. `hf cache ls --revisions` lista snapshots. `hf cache rm model/gpt2` borra un repo del disco. **`hf cache prune`** recupera revisiones detached y ficheros `.incomplete` de descargas interrumpidas. Primero `--dry-run`. `--yes` para scripts.
+
+Esta es la misma caché que leen `transformers` y Unsloth. Entrenar el checkpoint 4-bit de Unsloth Qwen3.8 significa que el cliente del Hub ya lo dejó aquí. Hacer prune "para limpiar" a mitad de un train es cómo corrompes un run. Haz prune en una máquina quieta, después de que `hf cache ls` te haya mostrado la línea detached.
+
+## Spaces, ZeroGPU, y lo que esta lección no es
+
+Los Spaces alojan demos. Gradio y Streamlit para apps Python, Docker para cualquier otra cosa, HTML estático para una página, ZeroGPU para un trozo de NVIDIA RTX Pro 6000 Blackwell cuando el Space de verdad necesita GPU (redacción del índice del Hub, 2026-08-26). Las subidas de hardware y los precios por hora viven en la tabla de la [visión general de Spaces](https://huggingface.co/docs/hub/en/spaces-overview) — CPU Basic aparece como FREE; las GPUs no. El tiempo en pausa no se factura. Los secretos van en Settings del Space, no en el fichero de Gradio.
+
+Esta lección no te enseña a diseñar una app Gradio. Te enseña que un Space es otro repo Git en el mismo Hub, listable con `hf spaces ls`, clonable con `hf download --repo-type space`.
+
+## Unsloth vive aquí; CivitAI no
+
+Unsloth publica checkpoints **en este Hub**, bajo la [org `unsloth`](https://huggingface.co/unsloth). El checkpoint 4-bit de train que usa este curso es [`unsloth/Qwen3.8-27B-unsloth-bnb-4bit`](https://huggingface.co/unsloth/Qwen3.8-27B-unsloth-bnb-4bit). Los instaladores y los flags de train viven en [unsloth.ai/docs](https://unsloth.ai/docs). Esta lección del Hub es el **catálogo** de esa pista: login, token, aceptar la puerta, `hf download --dry-run`, ruta de caché. Las lecciones de Unsloth asumen que ya sabes hacer esas cuatro cosas.
+
+**CivitAI es otro catálogo.** LoRAs de imagen, checkpoints y workflows para modelos tipo Stable Diffusion / Flux viven en [civitai.com](https://civitai.com). No busques Qwen3.8 en CivitAI. No busques en el Hub un LoRA de imagen de CivitAI y esperes que el `FastModel` de Unsloth lo cargue. La documentación de ComfyUI ([primera generación](https://docs.comfy.org/get_started/first_generation), [LoRA](https://docs.comfy.org/tutorials/basic/lora)) es el cliente de ese catálogo. Mezclarlos es cómo una noche de train se convierte en un hilo de foro.
+
+Hermes y OpenClaw también consumen artefactos del Hub — Hermes guarda `HF_TOKEN` en `~/.hermes/.env` y habla con Inference Providers (siguiente lección de metal). El token que acunas en esta lección es el mismo secreto. Ámbito fine-grained. Un token por arnés.
+
+<Myth>
+Hugging Face es solo Transformers. No. El Hub es hosting Git más Xet para modelos, datasets, Spaces, papers y jobs. Transformers es una librería que descarga esos ficheros Git y los ejecuta. `hf`, `datasets`, Diffusers, TGI, Unsloth y la imagen Docker de un Space hablan Hub. Instalar `transformers` no instala el Hub. Entrar en el Hub no importa `AutoModel`.
+</Myth>
+
+## Caso — el token write en un notebook público
+
+Una estudiante, llamémosla Nuria, copia un token **write** en un Colab público para que `trainer.push_to_hub()` funcione en una práctica. El notebook es "cualquiera con el enlace". Por la tarde el token está en un scrape de gists. Un desconocido sube un `config.json` envenenado a su repo de modelo. `from_pretrained` en su portátil lo baja. El loss se ve bien. La card ahora miente.
+
+La documentación del Hub ya le dijo qué hacer, en este orden:
+
+1. **Revocar al momento.** Settings → Access Tokens → borrar o refrescar, **y** `POST /api/credentials/revoke` con el valor filtrado para que las copias mueran en todas partes.
+2. **Inspeccionar el repo.** Commits, ficheros, la model card. Si `config.json` o los pesos se movieron, trata el repo como hostil hasta restaurar un SHA conocido.
+3. **Acuñar un token nuevo con el rol más pequeño.** Fine-grained, read, solo el modelo con puerta que el notebook necesitaba. El write se queda en el portátil, nunca en una celda.
+4. **Un token por app.** El Colab recibe un token de Colab. El portátil guarda un token de portátil. Rotar uno no la saca de `hf` en casa.
+5. **Trusted Publishers para CI**, no un token write de vecino de `GITHUB_TOKEN`, si el push pertenece a GitHub Actions.
+
+El bug no era "Hugging Face es inseguro". El bug era un secreto con alcance write en un fichero legible por el mundo. Los tokens fine-grained de lectura existen para que este caso sea aburrido.
+
+## El Agents Course es un vecino, no esta lección
+
+Si quieres las unidades de agentes que este curso ya reescribe — bucle dummy, smolagents, LlamaIndex, LangGraph, GAIA — empiezan en el [Hugging Face Agents Course](https://huggingface.co/learn/agents-course), Apache-2.0, autores Burtenshaw, Thomas, Simonini y Paniego, fuente [huggingface/agents-course](https://github.com/huggingface/agents-course). Esta lección es el catálogo que esos notebooks asumen que ya sabes usar. No pegues su onboarding de la Unidad 0 encima del mapa de Pedro.
+
+## Subir es una operación de token write
+
+`hf upload` es el push documentado. El uso por defecto es `hf upload repo_id local_path path_in_repo`. Si el repo no existe, la CLI lo crea. `--repo-type dataset` o `--repo-type space` apuntan a las otras familias Git. `--create-pr` abre un pull request cuando no puedes hacer push a `main`. `--every 10` es el ayudante del bucle de train: sube una carpeta de logs cada diez minutos. `--commit-message` es cómo dejas de commitear "Upload files using huggingface_hub".
+
+Hace falta un token write. Un token read dará 403. Es la misma tabla de roles de la página de tokens, no una ACL nueva. Prefiere subir adapters y cards desde una máquina que controlas, no desde un notebook compartido. El export de Unsloth Core (`save_pretrained`, `push_to_hub`) es esta misma API del Hub con una capa Python. La lección del Hub sigue siendo dueña del token.
+
+Las organizaciones agrupan modelos, datasets y Spaces bajo una empresa, un lab o un aula. Los admins fijan roles. El profesorado puede usar Hugging Face for Classrooms. Tu token write personal solo escribe repos de org si tu membresía lo permite. Los Resource Groups en Enterprise lo parten aún más. Cuando `hf auth whoami` lista orgs, esos son los namespaces en los que podrías subir por accidente — pasa `MyOrg/my-model` a propósito, nunca porque el tab-complete lo ofreció.
+
+```bash
+hf upload MyOrg/my-cool-model ./models . --commit-message "epoch 34"
+hf models info unsloth/Qwen3.8-27B-unsloth-bnb-4bit
+```
+
+`hf models info` y `hf models card` son cómo lees una card desde el terminal antes de gastar la descarga. `--metadata` imprime el frontmatter YAML. Si la card dice gated, ve al navegador. Si la card dice que GGUF es solo inferencia, créelo — esa frase es por qué la pista Unsloth se niega a entrenar desde GGUF.
+
+<TryThis>
+Instala con el script oficial (`curl -LsSf https://hf.co/cli/install.sh | bash` en macOS/Linux, o el instalador PowerShell documentado en Windows). Luego, en este orden: (1) `hf auth whoami` — deberías ver un usuario, o un error claro si no estás logueado. (2) `hf auth login` por la URL device-code https://huggingface.co/oauth/device si whoami falló. (3) `hf models ls --search qwen --sort downloads --limit 5` y anota los cinco ids. (4) Elige un modelo **público pequeño** de esa lista o `openai-community/gpt2` y ejecuta `hf download openai-community/gpt2 --dry-run`. Confirma que ves una tabla de ficheros y un total, y que no se escribieron pesos. (5) `hf cache ls` para ver si ya hay otra cosa en disco. No hagas `prune` hasta haber leído las líneas de revisiones detached. Si whoami muestra una org que no reconoces, entraste en la cuenta equivocada — `--force` y otra vez.
+</TryThis>
+
+## Qué recordar
+
+El Hub es Git más Xet: modelos, datasets, Spaces, buckets opcionales. Los tokens tienen roles; uno por app; `HF_TOKEN`; revoca filtraciones con el POST público. La CLI es `hf`. Busca, luego dry-run, luego descarga. Los repos con puerta necesitan un Agree en el navegador antes de que el token funcione. La caché vive bajo `HF_HOME` / `~/.cache/huggingface/hub`; `hf cache prune` recupera revisiones detached. Los checkpoints de Unsloth son repos del Hub. CivitAI es otro catálogo. Transformers es un cliente, no el Hub.
+
+## Fuentes
+
+Hugging Face. (s. f.). *Hugging Face Hub documentation*. https://huggingface.co/docs/hub/en/index — cifras de más de 2M de modelos / 1,5M de datasets / 1,5M de Spaces citadas de esta página a fecha de consulta 2026-08-26.
+
+- User access tokens: https://huggingface.co/docs/hub/en/security-tokens
+- Settings → Access Tokens: https://huggingface.co/settings/tokens
+- Endpoint de revocación (misma página de tokens): `POST https://huggingface.co/api/credentials/revoke`
+- Gated models: https://huggingface.co/docs/hub/en/models-gated
+- Spaces overview: https://huggingface.co/docs/hub/en/spaces-overview
+- Storage backend (Xet): https://huggingface.co/docs/hub/en/storage-backends
+- Model cards: https://huggingface.co/docs/hub/en/model-cards
+- Guía CLI (`hf`): https://huggingface.co/docs/huggingface_hub/en/guides/cli
+- Search the Hub: https://huggingface.co/docs/huggingface_hub/en/guides/search
+- Say hello to `hf` (cambio de nombre desde `huggingface-cli`): https://huggingface.co/blog/hf-cli
+- Instalador (macOS/Linux): https://hf.co/cli/install.sh
+- Instalador (Windows): https://hf.co/cli/install.ps1
+- Documentación Unsloth: https://unsloth.ai/docs
+- Org Unsloth en el Hub: https://huggingface.co/unsloth
+- Checkpoint 4-bit Unsloth Qwen3.8: https://huggingface.co/unsloth/Qwen3.8-27B-unsloth-bnb-4bit
+- Catálogo CivitAI: https://civitai.com
+- ComfyUI primera generación: https://docs.comfy.org/get_started/first_generation
+- ComfyUI LoRA: https://docs.comfy.org/tutorials/basic/lora
+- Proveedores Hermes (HF_TOKEN): https://hermes-agent.nousresearch.com/docs/integrations/providers
+- Arquitectura OpenClaw: https://docs.openclaw.ai/concepts/architecture
+- Burtenshaw, B., Thomas, J., Simonini, T. y Paniego, S. (s. f.). *Hugging Face Agents Course* (Apache-2.0). https://huggingface.co/learn/agents-course · https://github.com/huggingface/agents-course

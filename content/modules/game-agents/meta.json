@@ -15,7 +15,7 @@
   "prereqs": [
     "agent-patterns"
   ],
-  "durationMin": 18,
+  "durationMin": 30,
   "tags": [
     "games",
     "pokemon",

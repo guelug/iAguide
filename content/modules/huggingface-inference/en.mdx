@@ -1,0 +1,223 @@
+## Four ways to get a next token, only one of them is "the Hub weights"
+
+Inference is using a trained model to predict on new inputs. Hugging Face sells **four** products that word covers, and mixing them is how a free-tier key dies on a Tuesday:
+
+1. **Local Transformers** — `pipeline`, `AutoModel.from_pretrained`, `AutoTokenizer`. Weights land in the Hub cache from the previous lesson. Your GPU (or CPU) runs them. Official: [Transformers documentation](https://huggingface.co/docs/transformers) and the [quicktour](https://huggingface.co/docs/transformers/en/quicktour).
+2. **Inference Providers** — a serverless API. You send chat messages to `https://router.huggingface.co/v1`. A partner GPU somewhere else runs a model that *also* has a Hub id. You do **not** download shards. Official: [Inference Providers](https://huggingface.co/docs/inference-providers/en/index) and the [huggingface_hub inference guide](https://huggingface.co/docs/huggingface_hub/en/guides/inference).
+3. **Inference Endpoints** — dedicated hardware Hugging Face manages for you. Same Python client, a private URL. Official CLI: `hf endpoints`. Docs: [Inference Endpoints](https://huggingface.co/docs/inference-endpoints).
+4. **Jobs** — `hf jobs run`, Docker-shaped compute on Hub GPUs and TPUs for a script, not for a chat round-trip. Cited from the [CLI jobs section](https://huggingface.co/docs/huggingface_hub/en/guides/cli).
+
+Self-hosted **TGI** and **vLLM** sit beside (1) as local or cluster servers. This course already taught Kimi Linear serve. One paragraph below, then a link. Do not paste that command here.
+
+<VisualSlot caption="Four slides: local pipeline reading safetensors from the Hub cache; HF_TOKEN hitting the router with a :fastest suffix; Providers versus dedicated Endpoints; Jobs, TGI/vLLM, and a GPU you actually own." />
+
+## Inference Providers is a router, not a disk
+
+The Providers index, as of August 2026, describes a unified OpenAI-shaped API in front of partner backends: Groq, Together, Fireworks, Cerebras, Novita, Replicate, fal, and others, plus the legacy **hf-inference** pool. Chat completions, vision-language, embeddings, text-to-image, speech — which partner supports which task is a table on that page, not a rumor.
+
+Authentication is a Hugging Face User Access Token with the **Make calls to Inference Providers** permission on a fine-grained token. Create it at [Settings → Access Tokens](https://huggingface.co/settings/tokens). Put it in `HF_TOKEN`. The Hub tokens lesson still applies: one token per app, revoke leaks, never a write token in a notebook.
+
+The HTTP shape the docs print:
+
+```bash
+curl https://router.huggingface.co/v1/chat/completions \
+    -H "Authorization: Bearer $HF_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"messages":[{"role":"user","content":"How many G in huggingface?"}],"model":"openai/gpt-oss-120b:fastest","stream":false}'
+```
+
+That JSON is the official cURL from [Inference Providers](https://huggingface.co/docs/inference-providers/en/index). The model id is a **Hub repo id plus a routing suffix**. Suffixes the same page documents:
+
+- `:fastest` — default; highest throughput in tokens per second among providers that serve that model.
+- `:cheapest` — lowest price per output token.
+- `:preferred` — your order in Inference Provider settings.
+- `:provider_name` — force a backend, for example `:groq`.
+
+Hermes documents the same suffixes as `:fastest`, `:cheapest`, or `:provider_name`. Hugging Face's page also names `:preferred`. Use the HF page when you are writing curl. Use the Hermes page when you are writing `~/.hermes/config.yaml`.
+
+Python, still official:
+
+```python
+import os
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://router.huggingface.co/v1",
+    api_key=os.environ["HF_TOKEN"],
+)
+completion = client.chat.completions.create(
+    model="openai/gpt-oss-120b:fastest",
+    messages=[{"role": "user", "content": "How many G in huggingface?"}],
+)
+```
+
+`huggingface_hub.InferenceClient` is the native client and covers image and speech tasks the OpenAI chat endpoint does not. `provider="auto"` picks the fastest backend. Passing a URL as `model=` switches the same client onto an Inference Endpoint. Passing `http://localhost:8080` points it at local TGI, vLLM, llama.cpp, or Ollama. One class, three destinations. That is the [inference guide](https://huggingface.co/docs/huggingface_hub/en/guides/inference).
+
+<Callout>
+Consejo: a 403 from the router with a token that can `hf download` is usually a missing **Make calls to Inference Providers** permission, not a bad model id. Mint a fine-grained token with that box ticked. A 404 on the model is "no partner serves this id as chat," not "the Hub deleted Qwen."
+</Callout>
+
+## Pricing: Hermes number, Hugging Face page, no invented rates
+
+Hermes Agent's [providers page](https://hermes-agent.nousresearch.com/docs/integrations/providers) documents Hugging Face as provider `huggingface` (alias `hf`), `HF_TOKEN` in `~/.hermes/.env`, base `router.huggingface.co/v1`, and a **free tier of 0.10 US dollars per month credit, no markup on provider rates**. That sentence is **Hermes-documented**.
+
+The official Hugging Face [Pricing and Billing](https://huggingface.co/docs/inference-providers/en/pricing) page, fetched for this lesson in August 2026, agrees on the free-tier credit and on the markup claim:
+
+- Free users: **0.10 US dollars** monthly credits, **subject to change**, spendable on Inference Providers. Extra usage is pay-as-you-go after you purchase credits.
+- PRO: 2.00 US dollars, usable on all Hugging Face compute services.
+- Team or Enterprise: 2.00 US dollars per seat, pooled.
+- Routed requests: Hugging Face **charges the same rates as the provider, with no additional fees**. Custom provider keys in Hub settings bill the provider directly and **do not** spend the monthly credits.
+
+This lesson does **not** quote OpenAI or Anthropic dollars per million tokens. Those numbers are not on the HF Providers pricing page as a table this course can paste, and inventing them would violate the standing rule. For current partner rates, open the pricing page and the model card's Inference Providers widget on the day you spend. Track spend on the Hub billing page.
+
+Team and Enterprise can bill an org with the `X-HF-Bill-To` header or `InferenceClient(bill_to="my-org-name")`. Personal tokens still go in `Authorization`. Credits for orgs are pooled per seat, not per user surprise.
+
+<Compare a="Routed by Hugging Face" b="Custom provider key">
+<Side>
+One `HF_TOKEN`. Hugging Face routes to Groq or Together for you. Monthly credits apply. No partner account. Best for classwork and for Hermes `provider: huggingface`. Pay-as-you-go on the Hub bill after credits.
+</Side>
+<Side>
+You paste a Groq or Together key into Hub settings or into `InferenceClient`. Hugging Face still routes. The partner bills you. Monthly HF credits do not apply. Useful when you already have a partner account and want that invoice.
+</Side>
+</Compare>
+
+## Hermes (and any OpenAI-shaped harness)
+
+Hermes: set `HF_TOKEN` in `~/.hermes/.env`, then `hermes chat --provider huggingface --model Qwen/Qwen3.5-397B-A17B` — that model id is Hermes' own example on the providers page, not a claim that you must use a 397B. Alias `--provider hf`. Config:
+
+```yaml
+model:
+  provider: "huggingface"
+  default: "Qwen/Qwen3.5-397B-A17B"
+```
+
+Append routing suffixes on the model name. Override the base with `HF_BASE_URL` only if you know why. OpenClaw and any other harness that speaks OpenAI chat completions can point `base_url` at `https://router.huggingface.co/v1` and `api_key` at `HF_TOKEN`. This lesson does not invent OpenClaw YAML keys; read [docs.openclaw.ai](https://docs.openclaw.ai/concepts/architecture) for that harness. The HTTP contract is the Providers page above.
+
+Hermes may issue **several model calls per user turn** (main loop, auxiliary compression, title, vision). The providers page already warns that free-tier keys elsewhere die after a handful of agent turns. The same arithmetic hits a 0.10 dollar HF credit. That is the Case below.
+
+## Transformers on this machine
+
+[Transformers](https://huggingface.co/docs/transformers) is the Hugging Face library for loading Hub weights and running them locally. Credit: Hugging Face, the organization; original paper Wolf et al. (2020); code [github.com/huggingface/transformers](https://github.com/huggingface/transformers). The public surface the quicktour wants you to touch is small:
+
+- `AutoTokenizer.from_pretrained(id)` — preprocessor.
+- `AutoModelForCausalLM.from_pretrained(id, dtype="auto", device_map="auto")` — weights plus a causal-LM head. `PreTrainedModel` without a head returns hidden states, which is not a chatbot.
+- `pipeline("text-generation", model=id)` — the convenience API. It downloads a default model for the task if you omit `model=`. **Always pass an id.**
+
+```python
+from transformers import pipeline
+
+pipe = pipeline("text-generation", model="openai-community/gpt2")
+print(pipe("The secret to baking a good cake is ", max_length=40))
+```
+
+`openai-community/gpt2` is a small **public** checkpoint the Hub CLI already used as a dry-run example. The Transformers quicktour illustrates with `meta-llama/Llama-2-7b-hf`, which is **gated** — you must complete the Hub gated flow from the previous lesson before that line runs. For a classroom TryThis, gpt2 is the honest tiny model. For a real assistant, pick an instruct checkpoint you have accepted and that fits RAM.
+
+`from_pretrained` reads the Hub cache. First call downloads. Second call is local. `token=` or a prior `hf auth login` is required for private and gated repos. `device_map="auto"` puts layers on the fastest device. This is **not** Inference Providers. No router. No partner GPU. If the laptop is off, nothing answers.
+
+<Callout>
+Consejo: `pipeline` without `model=` will quietly pull a default that may be gated, huge, or both. Pass the id. Pass `device` or `device_map`. Cap `max_length`. Then, and only then, compare latency with a Providers curl. You are measuring two computers.
+</Callout>
+
+## Local versus Providers versus Endpoints versus Jobs
+
+**Local** is for privacy, for Unsloth eval, for models no partner serves, and for when 0.10 dollars is already gone. Cost is electricity and VRAM. You already met this in [local inference](/course/local-inference).
+
+**Providers** is for "I need a chat completion and I do not want to download 20 GB." Cost is partner rates through the Hub bill. Failover is documented when `provider="auto"`. Chat-only OpenAI compatibility is the router URL. Images and embeddings want `InferenceClient`.
+
+**Inference Endpoints** (`hf endpoints ls`, `hf endpoints catalog deploy`, `hf endpoints pause`) is dedicated hardware. Same `InferenceClient`, `model=` set to the endpoint URL. You pay while it runs, including idle unless you pause. Use it when a class demo must not share a queue with the free tier.
+
+**Jobs** (`hf jobs run python:3.12 python -c 'print("ok")'`, `--flavor a10g-small`, `--timeout 2h`) is batch compute. Fine-tunes, synthetic data, offline eval. Hugging Face Jobs need pre-paid credits (CLI jobs section). Do not use a Job for a single user message.
+
+<Myth>
+Calling Inference Providers is the same as downloading the weights. No. `from_pretrained` copies shards into `~/.cache/huggingface/hub` and your process loads them. A router call sends messages and gets tokens back. You never see the safetensors. You cannot LoRA a Providers model. You cannot inspect a layer. You also cannot run it offline. If the partner pauses that id, your curl 404s even though the Hub repo still exists — because the repo and the served replica are different products that share a name.
+</Myth>
+
+## TGI and vLLM, one paragraph
+
+When you outgrow both the laptop and the router, you self-host. [Text Generation Inference](https://huggingface.co/docs/text-generation-inference) is Hugging Face's production server. [vLLM](https://docs.vllm.ai) is the community high-throughput server. Both speak OpenAI chat completions. `InferenceClient(model="http://localhost:8000")` or Hermes `provider: custom` with that base URL is the client. Exact serve flags for Kimi Linear already live in [kimi-linear-serve](/course/kimi-linear-serve). Do not duplicate them. Do not invent GGUF flags for architectures this course already forbade.
+
+## Case — the free-tier key and the agent that talked too much
+
+Oriol wired Hermes to `provider: huggingface` with a free-account `HF_TOKEN`. The first "hello" worked. The third user question returned an error. He had not changed the model. He had not leaked the key.
+
+Hermes, like OpenClaw-class harnesses, does **many** completions per user message: the visible answer, a tool-call follow-up, perhaps a compression summary, perhaps a title. Each completion is a billed Providers request. The Hugging Face free credit is **0.10 dollars per month, subject to change** (pricing page, August 2026). Partner rates pass through with no HF markup, but they are not zero. A handful of 397B-class turns can spend the month.
+
+What Oriol should have done, in the order the docs already imply:
+
+1. Read [Hermes providers](https://hermes-agent.nousresearch.com/docs/integrations/providers) and [HF pricing](https://huggingface.co/docs/inference-providers/en/pricing) **before** the first agent session. The 0.10 dollar line is a classroom budget, not a product SLA.
+2. Pick a **small** served model, or append `:cheapest`, for auxiliary tasks. Keep the big id for the main loop if you must.
+3. Watch the [Inference Providers settings](https://huggingface.co/settings/inference-providers) usage breakdown by model and provider.
+4. When credits hit zero, either buy Hub credits, switch to a custom partner key, or fall back to **local** `pipeline` / vLLM. Do not hammer the router hoping the 403 is a blip.
+5. Never put that same free token in a public notebook. The tokens lesson still owns leaks.
+
+The bug was treating a serverless chat API like a flat-rate subscription. It is metered, even when the meter starts at ten cents.
+
+<TryThis>
+Two computers, one public tiny model, official shapes only. (1) Local: `pip install -U transformers` and run a `pipeline("text-generation", model="openai-community/gpt2")` on a short prompt. Confirm the first run downloads into the Hub cache (`hf cache ls` should show `openai-community/gpt2` or `gpt2`). (2) Serverless: export a fine-grained `HF_TOKEN` with Inference Providers permission. Replay the official curl against `https://router.huggingface.co/v1/chat/completions` from the Providers index — keep their JSON shape, including a `messages` list and a `model` id **with** a `:fastest` or `:cheapest` suffix. Do not invent a gpt2 chat route if the router does not list one; the local pipeline and the router are allowed to use different ids because they are different products. (3) Write one sentence: which call copied weights to disk, and which call only copied tokens over HTTPS. If the curl 403s, fix the token permission before you touch the model id.
+</TryThis>
+
+
+## Function calling is the same JSON as OpenAI, on whoever serves the model
+
+The huggingface_hub inference guide implements **tool calling** with the OpenAI Chat Completions shape: a `tools` list of function names, descriptions, and JSON Schema parameters; `tool_choice="auto"`; the model returns `tool_calls` on the assistant message. The snippet they print uses Novita as `provider=` and `Qwen/Qwen2.5-72B-Instruct` as the model. Not every partner supports tools on every id — the guide says to check the provider's own docs before you assume Hermes-style function calling will arrive as a structured field rather than as prose.
+
+Structured outputs and JSON mode follow the same OpenAI `response_format` object (`json_schema` with `strict: True` in their Cerebras example). Again: partner-specific. A local `pipeline` does **not** grow a `tools=` argument because you asked the router for one. If you need tools on this laptop, you are back in the dummy-agent loop or in a TGI/vLLM server started with a tool-call parser.
+
+`AsyncInferenceClient` is the asyncio twin. Timeout is off by default ("wait indefinitely"); set `timeout=30` if a hung partner should fail your test, not your CI hour.
+
+## hf-inference is a provider name, not the old product slogan
+
+The pricing page notes that selecting provider `"hf-inference"` is the former **Inference API (serverless)**. Past the free-tier credits you pay compute-time times hardware price. As of July 2025, that pool "focuses mostly on CPU inference" (embeddings, ranking, classification, smaller historical nets such as BERT or GPT-2). A FLUX image on a GPU machine is billed as seconds times the GPU's listed rate; their example is 10 seconds at 0.00012 dollars per second → 0.0012 dollars. That example is Hugging Face's, dated on that page. Chat LLMs you actually want for Hermes will usually land on Groq, Together, Fireworks, Cerebras, or another partner in the Providers table — still routed, still no HF markup, still metered.
+
+`GET https://router.huggingface.co/v1/models` lists what the router can serve, with per-provider pricing, context length, latency, and throughput when the Hub has them. `hf models ls --warm` (Providers index) lists Hub models that at least one partner currently serves. A Hub search hit without a warm replica is a download, not a curl.
+
+
+## Tokenizer, model, generate — the three objects under the pipeline
+
+`pipeline` is a wrapper. Under it the quicktour still wants you to see the three classes: `PreTrainedConfig` (how many heads, vocab size), `PreTrainedModel` (the math), and a preprocessor (`PreTrainedTokenizer` for text). `Auto*` infers which subclass to build from the Hub id. Skipping `Auto` and importing `LlamaForCausalLM` by hand is how a Qwen checkpoint loads with the wrong code.
+
+The long form, still from the quicktour:
+
+```python
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+tok = AutoTokenizer.from_pretrained("openai-community/gpt2")
+model = AutoModelForCausalLM.from_pretrained(
+    "openai-community/gpt2", dtype="auto", device_map="auto"
+)
+inputs = tok(["The secret to baking a good cake is "], return_tensors="pt")
+inputs = inputs.to(model.device)
+ids = model.generate(**inputs, max_length=30)
+print(tok.batch_decode(ids)[0])
+```
+
+Move tensors to `model.device` before `generate`. Decode with the **same** tokenizer. A Providers curl never asks you for this, because the partner owns the tokenizer. That convenience is exactly why you cannot debug a chat template against the router: there is no `apply_chat_template` you can print. For Unsloth export checks, stay on local Transformers or on a self-hosted server whose template you control.
+
+`Trainer` in the same quicktour is how Transformers fine-tunes. This metal lesson does not retell that loop — the training track and Unsloth already own it. Remember only that `push_to_hub=True` needs a **write** token from the Hub lesson, and that a Providers key cannot substitute.
+
+## What to remember
+
+Transformers `pipeline` / `from_pretrained` download Hub weights and run them here. Inference Providers POST to `router.huggingface.co/v1` with `HF_TOKEN` and a suffix; no shards change hands. Hermes stores that token in `~/.hermes/.env` as provider `huggingface`. Free-tier credit is 0.10 dollars per month on both the Hermes providers page and the HF pricing page (subject to change); no markup; do not invent competitor $/MTok. Endpoints are dedicated. Jobs are batch. TGI/vLLM are self-host. Providers is not a download.
+
+## Sources
+
+Hugging Face. (n.d.). *Inference Providers*. https://huggingface.co/docs/inference-providers/en/index · pricing https://huggingface.co/docs/inference-providers/en/pricing (free-tier 0.10 USD / month for Free users, subject to change; no markup; fetched August 2026).
+
+Wolf, T., Debut, L., Sanh, V., Chaumond, J., Delangue, C., Moi, A., Cistac, P., Rault, T., Louf, R., Funtowicz, M., Davison, J., Shleifer, S., von Platen, P., Ma, C., Jernite, Y., Plu, J., Xu, C., Le Scao, T., Gugger, S., … Rush, A. M. (2020). Transformers: State-of-the-art natural language processing. In *Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing: System Demonstrations* (pp. 38–45). Association for Computational Linguistics. https://aclanthology.org/2020.emnlp-demos.6
+
+- Transformers docs: https://huggingface.co/docs/transformers
+- Transformers quicktour (pipeline, AutoModel, AutoTokenizer, Trainer): https://huggingface.co/docs/transformers/en/quicktour
+- Transformers GitHub: https://github.com/huggingface/transformers
+- huggingface_hub inference guide (InferenceClient, Endpoints, local servers): https://huggingface.co/docs/huggingface_hub/en/guides/inference
+- Hugging Face CLI (jobs, endpoints, download): https://huggingface.co/docs/huggingface_hub/en/guides/cli
+- Inference Endpoints: https://huggingface.co/docs/inference-endpoints
+- Text Generation Inference: https://huggingface.co/docs/text-generation-inference
+- vLLM documentation: https://docs.vllm.ai
+- User access tokens: https://huggingface.co/docs/hub/en/security-tokens
+- Settings → Access Tokens: https://huggingface.co/settings/tokens
+- Hermes Agent providers (HF_TOKEN, `huggingface`, router, suffixes, 0.10 USD free tier): https://hermes-agent.nousresearch.com/docs/integrations/providers
+- OpenClaw architecture: https://docs.openclaw.ai/concepts/architecture
+- Hub lesson (tokens, cache, `hf`): this course, `huggingface-hub`
+- Unsloth docs (local train/run, Hub checkpoints): https://unsloth.ai/docs
+- CivitAI (different catalog, image LoRAs; do not mix with Providers): https://civitai.com
+- ComfyUI (client for that catalog, not Transformers): https://docs.comfy.org/get_started/first_generation

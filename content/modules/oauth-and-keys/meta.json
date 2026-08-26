@@ -1,0 +1,18 @@
+{
+  "id": "oauth-and-keys",
+  "order": 6.141,
+  "slug": "oauth-and-keys",
+  "track": "harness",
+  "title": {
+    "en": "OAuth, subscriptions, and API keys in the harness",
+    "es": "OAuth, suscripciones y claves API en el harness"
+  },
+  "summary": {
+    "en": "Two documented ways a harness talks to a model: consumer OAuth (ChatGPT, Claude Max extra credits, Copilot, Nous Portal, SuperGrok) versus a pay-per-token API key on the gateway host. PKCE, token sinks, credential pools, and the Claude Pro surprise.",
+    "es": "Dos caminos documentados: OAuth de consumo (ChatGPT, créditos extra de Claude Max, Copilot, Nous Portal, SuperGrok) frente a una clave API de pago por token en el host del gateway. PKCE, sumideros de tokens, pools de credenciales y la sorpresa de Claude Pro."
+  },
+  "status": "complete",
+  "prereqs": ["gateway"],
+  "durationMin": 40,
+  "tags": ["oauth", "api-keys", "hermes", "openclaw", "pkce"]
+}

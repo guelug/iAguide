@@ -1,0 +1,18 @@
+{
+  "id": "attnres-optimize",
+  "order": 24.6,
+  "slug": "attnres-optimize",
+  "track": "metal",
+  "title": {
+    "en": "How Attention Residuals is optimized",
+    "es": "Cómo se optimiza Attention Residuals"
+  },
+  "summary": {
+    "en": "Why Full AttnRes is expensive under pipeline plus recompute, cross-stage caching, two-phase online softmax, the I/O table, and the Block serving recipe.",
+    "es": "Por qué Full AttnRes es caro con pipeline más recompute, caché entre etapas, softmax online en dos fases, la tabla de I/O y la receta de servir Block."
+  },
+  "status": "complete",
+  "prereqs": ["attention-residuals", "serving-and-throughput"],
+  "durationMin": 40,
+  "tags": ["attnres", "pipeline", "inference", "kimi"]
+}

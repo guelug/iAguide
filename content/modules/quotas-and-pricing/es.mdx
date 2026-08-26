@@ -1,0 +1,201 @@
+## Tres facturas, no una
+
+Un harness gasta en **tres** monedas que la gente aplasta en una sola frase. Sepáralas. A agosto de 2026 este es el corte documentado, no una tarifa que hayamos inventado.
+
+1. **Cuota de suscripción** — un plan de consumo (ChatGPT, créditos extra de Claude Max, Copilot, SuperGrok, Nous Portal) con una ventana de uso. La tabla de Hermes es el ejemplo trabajado: lo que el plan **puede** pagar es por proveedor y a menudo sorprende ([Nous Research, LLM and Model Providers, "Subscription plans: what your plan pays for"](https://hermes-agent.nousresearch.com/docs/integrations/providers)).
+2. **API de pago por token** — una clave de organización (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`, `HF_TOKEN`, …) facturada a la tarifa API del proveedor. Esta lección **no inventa** dólares por millón de tokens de las APIs de OpenAI o Anthropic. Esas tablas se mueven; bájala el día que compres.
+3. **Electricidad local** — Ollama, vLLM, llama.cpp, ComfyUI en una GPU que ya tienes. El contador son julios y VRAM, no un 429.
+
+<VisualSlot caption="Cinco diapositivas: tres facturas (cuota, token de API, electricidad), un turno de usuario que explota en N llamadas de herramienta, el crédito mensual de 0,10 USD de Hugging Face, rotación 429 frente a 402 con la caché de prompt muerta, y el mito de que Plus deja el harness gratis." />
+
+<Callout>
+El consejo de producción de OpenClaw es el mismo corte en lenguaje de operador: **clave API en el host del gateway** es el camino predecible; OAuth es auth de suscripción para un escritorio ([OpenClaw, Authentication](https://docs.openclaw.ai/gateway/authentication.md); [OpenClaw, OAuth](https://docs.openclaw.ai/concepts/oauth)). No montes un gateway 24/7 sobre una cookie de ChatGPT y luego abras un bug cuando el refresh rote debajo del demonio.
+</Callout>
+
+## La tabla de suscripción de Hermes, copiada, no inventada
+
+Hermes publica una tabla de semántica de planes. Las celdas marcadas **not currently documented** significan exactamente eso. Este curso copia las sorpresas; no rellena los huecos con el $/MTok de un blog.
+
+| Plan / camino | ¿Puede usarlo Hermes? | Qué se consume | Qué **no** se consume | Sorpresa habitual |
+| --- | --- | --- | --- | --- |
+| Anthropic — Claude Max + OAuth | Sí — `hermes model` → Anthropic OAuth. Hace falta Max **y** créditos extra de uso comprados | Los créditos extra/overage encima de Max | El **cupo base del plan Max** | Todo el uso de Hermes factura como "extra usage" mientras el Max incluido queda intacto |
+| Anthropic — Claude Pro | **No** — Pro no puede usar el camino OAuth | Nada (camino no disponible) | Tu suscripción Pro | Pro parece que debería valer; no vale. Usa `ANTHROPIC_API_KEY` (pago por token, independiente de cualquier sub de Claude) |
+| OpenAI Codex — OAuth de plan ChatGPT | Sí — OAuth ChatGPT por código de dispositivo, modelos Codex | **No documentado ahora** | **No documentado ahora** | Los docs cubren auth y refresh; la semántica de cuota del plan aún no está documentada |
+| xAI — SuperGrok / X Premium+ OAuth | Sí — OAuth de navegador, sin clave API | Cuota de suscripción (documentada de forma explícita para **X Search**) | Gasto de `XAI_API_KEY` cuando se prefiere OAuth | HTTP 403 tras un login correcto es una **restricción de nivel**, no un token caduco |
+| Google — plan de consumo Gemini | **Sin camino documentado** — `gemini` es solo clave API; Vertex es facturación GCP | La cuota de la clave API (nivel gratis o proyecto con billing) | El consumo del plan de consumo **no documentado ahora** | Las claves de nivel gratis mueren tras un puñado de **turnos de agente**, porque Hermes puede hacer varias llamadas al modelo por turno de usuario |
+
+Fuente de cada celda: [Nous Research, providers](https://hermes-agent.nousresearch.com/docs/integrations/providers). Páginas de plan de Claude Code en Anthropic: [Pro or Max](https://support.claude.com/en/articles/11145838-using-claude-code-with-your-pro-or-max-plan).
+
+<Myth>
+"Pago ChatGPT Plus / Claude Pro / Google AI Pro, así que el harness es gratis." Una cuota mensual de **consumo** no es un contrato para que el harness acuñe tokens ilimitados. Hermes es explícito: Pro **no** tiene camino OAuth de Anthropic; la semántica de cuota de ChatGPT **no está documentada**; los planes de consumo de Gemini **no** tienen OAuth; las claves Gemini gratis son **demasiado pequeñas para turnos de agente**. Plus es una factura de app de chat. El harness es otro contador: créditos extra, una org de API, o una sub de Nous Portal ([Nous Research, providers](https://hermes-agent.nousresearch.com/docs/integrations/providers)).
+</Myth>
+
+## Hugging Face Inference Providers: un número que *sí* bajamos
+
+Hermes documenta Hugging Face como proveedor `huggingface` / `hf` con `HF_TOKEN` en `~/.hermes/.env`, enrutado en `router.huggingface.co/v1`, **nivel gratis incluido (crédito de 0,10 USD/mes, sin recargo sobre las tarifas del proveedor)** ([Nous Research, providers](https://hermes-agent.nousresearch.com/docs/integrations/providers)).
+
+Las propias páginas de Hugging Face, bajadas para esta lección el 26 de agosto de 2026, coinciden y añaden la política alrededor ([Hugging Face, Pricing and Billing](https://huggingface.co/docs/inference-providers/pricing); [Inference Providers](https://huggingface.co/docs/inference-providers/index)):
+
+- Usuarios Free: **0,10 USD** de créditos mensuales, **sujeto a cambio**, gastables en Inference Providers. Uso extra: sí, **hace falta comprar créditos**.
+- Usuarios PRO: **2,00 USD** al mes, todos los servicios de cómputo de Hugging Face, pago por uso después.
+- Team / Enterprise: **2,00 USD por asiento**, en pool.
+- Hugging Face **cobra las mismas tarifas que el proveedor, sin tasas adicionales** (pass-through). Esa es la línea de "no markup" que Hermes reproduce.
+- Dos modos de facturación: **Routed by Hugging Face** (los créditos aplican) frente a **Custom Provider Key** (te factura el proveedor; los créditos de HF **no** aplican).
+
+Alta del token, según HF: crea un token de **grano fino** en [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) con **Make calls to Inference Providers**. Hermes repite ese permiso.
+
+<Callout>
+Consejo práctico de ambas páginas: 0,10 USD es un crédito de experimento, no un presupuesto de producción. Los turnos de agente multiplican llamadas. Si apuntas un gateway OpenClaw 24/7 a un token HF gratis, tocarás el tope mensual en unas horas ocupadas, y entonces compras créditos o esperas. Sigue el gasto en los ajustes de Inference Providers ([HF pricing](https://huggingface.co/docs/inference-providers/pricing)).
+</Callout>
+
+Esta lección sigue sin inventar dólares de Groq / Together / Fireworks. Están en el proveedor y en la lista viva de modelos de HF (`GET /v1/models` incluye precios por proveedor cuando están — [HF Inference Providers](https://huggingface.co/docs/inference-providers/index)). Bájala el día.
+
+## Aritmética trabajada: un turno de usuario no es una llamada
+
+La advertencia de Gemini en Hermes es el denominador: **Hermes puede hacer varias llamadas al modelo por turno de usuario**, así que una clave de nivel gratis muere tras un puñado de turnos de agente ([Nous Research, providers](https://hermes-agent.nousresearch.com/docs/integrations/providers)). OpenClaw tiene la misma forma de bucle: mensaje de usuario → modelo → herramientas → modelo → herramientas → …
+
+Escribe la identidad, **sin tarifa inventada**:
+
+```text
+calls_per_turn    = 1 + N_tool_rounds          # cada ronda es al menos una completion
+tokens_per_turn   = sum_i (input_i + output_i)
+input_i           incluye system + esquema de tools + historia + JSON de tools de esta ronda
+```
+
+Elige números que puedas defender con **tus** logs, no con un tuit.
+
+**Ejemplo trabajado (solo estructura, agosto 2026).** Un usuario dice "resume este repo y abre un PR." Supón que el harness hace **seis** llamadas al modelo: plan, `grep`, plan, `read_file`, plan, `write` + commit. Supón que cada llamada reenvía un prefijo de system+tools de 4k tokens y 2k de historia creciente, más 500 tokens de JSON nuevo de tools, y el modelo emite 400 tokens. Entonces, como **orden de magnitud**:
+
+- Prefijo pagado seis veces: 6 × 4k = 24k tokens de entrada de texto **fijo**, antes de la historia.
+- Historia aproximadamente 2k + 2,5k + 3k + … creciente.
+- Salidas 6 × 400 = 2,4k.
+
+Si una **caché de prompt** está viva en **esta** clave, el prefijo fijo puede facturarse a tarifa de input cacheado (Anthropic, OpenAI, OpenRouter y xAI vía `x-grok-conv-id` documentan alguna forma de esto — nota xAI de Hermes en [providers](https://hermes-agent.nousresearch.com/docs/integrations/providers); caché **acotada a la clave** en [credential pools](https://hermes-agent.nousresearch.com/docs/user-guide/features/credential-pools)). Si el pool **rota** ante 429, esa caché está **fría**. La siguiente llamada relee toda la historia a precio de entrada sin descuento. Rotar mantiene la sesión viva **y** cuesta un pase a precio completo. Esa es la redacción de Nous Research, no una metáfora.
+
+Ahora aplica las tres facturas al mismo turno:
+
+- **`GOOGLE_API_KEY` Gemini gratis.** Hermes: las cuotas de nivel gratis son demasiado pequeñas para sesiones largas de agente. Seis llamadas con tools pueden agotar una clave gratis en una tarde. La clave muere. La org no se factura porque no hay proyecto con billing.
+- **`ANTHROPIC_API_KEY` / `OPENAI_API_KEY` de org.** La **organización** se factura pago por token a la **tabla API vigente de ese vendedor** (bájala; esta página no citará un $/MTok caduco). Independiente de las cuotas mensuales de Claude Pro / ChatGPT Plus ([Nous Research, providers](https://hermes-agent.nousresearch.com/docs/integrations/providers)).
+- **Claude Max + créditos extra, OAuth de Hermes.** Se facturan los **créditos extra/overage**. El cupo base de Max **no**. Por separado, si también pagas ChatGPT Plus, esa cuota Plus sigue sin cubrir este camino Anthropic. Dos vendedores, dos contadores.
+- **Nous Portal.** Una suscripción, más de 300 modelos, Tool Gateway incluido para subs de pago. Sigue siendo una cuota, sigue sin ser "gratis porque pago Plus."
+- **vLLM local.** Los tokens son gratis en la API. La GPU consume vatios. Esa es la tercera factura.
+
+<Compare a="Sesión OAuth de escritorio" b="Gateway siempre encendido">
+<Side>
+Hermes en el portátil: el OAuth de `hermes model` es ergonómico. Nous Portal o Max+créditos extra o device code de Copilot. Estás presente para reautenticar cuando muere un refresh. Las tareas auxiliares siguen contando contra el mismo plan salvo que las anules ([Nous Research, providers](https://hermes-agent.nousresearch.com/docs/integrations/providers)).
+</Side>
+<Side>
+Gateway OpenClaw: pon `<PROVIDER>_API_KEY` en `~/.openclaw/.env` **en el host del gateway**, reinicia, `openclaw models status`. Facturación de org predecible. OAuth funciona cuando encaja con el modelo de cuenta, pero la invalidación del refresh por doble login con Claude Code es un modo de caída documentado ([OpenClaw, OAuth](https://docs.openclaw.ai/concepts/oauth); [Authentication](https://docs.openclaw.ai/gateway/authentication.md)).
+</Side>
+</Compare>
+
+## 429 frente a 402, caché, subagentes
+
+Pools de credenciales de Hermes ([Credential Pools](https://hermes-agent.nousresearch.com/docs/user-guide/features/credential-pools)):
+
+- **429** genérico/transitorio: reintenta la **misma** clave una vez; el segundo 429 consecutivo rota; enfriamiento 1 h. Un 429 de ChatGPT/Codex **"usage limit reached"** rota **al momento** (el tope no se limpia reintentando).
+- **402** billing: rota al momento, enfriamiento 1 h.
+- **401**: intenta refresh OAuth; rota solo si el refresh falla; 5 min.
+- Los subagentes heredan el **pool del padre**. La caché de prompt es **por clave**; rotar ⇒ fallo de caché.
+
+El primo de OpenClaw es rotación de lista de env más failover ([Authentication](https://docs.openclaw.ai/gateway/authentication.md); [Model failover](https://docs.openclaw.ai/concepts/model-failover)):
+
+- Rota claves solo ante rate-limit / 429 / quota-exceeded / resource-exhausted / too-many-requests.
+- Fallos de billing/crédito ("insufficient credits", "credit balance too low") suelen ser un **disable** con backoff más largo, no un 429 corto. No todo HTTP 402 es billing; algunos 402 de ventana de uso se clasifican como `rate_limit` cuando parecen reintentables (límites semanales/diarios).
+- **Fijación** de sesión: OpenClaw fija el perfil de auth por sesión para mantener calientes las cachés. **No** rota en cada petición.
+
+<Callout>
+Consejo práctico: si añades una segunda clave OpenRouter "para los 429," presupuesta un **prefijo a precio completo** en el primer turno tras cada rotación. Los pools son disponibilidad, no un descuento. Los usuarios de Nous Portal a menudo se saltan el pool porque un OAuth ya cubre más de 300 modelos ([Credential Pools](https://hermes-agent.nousresearch.com/docs/user-guide/features/credential-pools)).
+</Callout>
+
+**Caso.** Un equipo paga ChatGPT Plus en cinco portátiles y apunta un gateway OpenClaw de producción al OAuth de ChatGPT copiado del `auth.json` de un portátil. A las 03:00 el refresh se invalida porque alguien también ejecutó Codex CLI. El gateway se cae. Plus no les compró una credencial de demonio. La reparación documentada es una clave API (o una clave Portal/OpenRouter) **en el host del gateway**, más `openclaw doctor` si había ficheros legado por medio ([OpenClaw, OAuth](https://docs.openclaw.ai/concepts/oauth); [Authentication](https://docs.openclaw.ai/gateway/authentication.md)). La semántica de cuota de ChatGPT en Hermes sigue **sin documentarse por completo** — no prometas "Plus cubre Codex en Hermes" hasta que Nous lo escriba.
+
+## Electricidad local como tercera columna
+
+El capítulo de endpoints custom de Hermes es la lista de materiales local: Ollama, vLLM, SGLang, llama.cpp, LM Studio ([Nous Research, providers](https://hermes-agent.nousresearch.com/docs/integrations/providers)). El uso agentic quiere **al menos 64.000 tokens** de contexto; el contexto por defecto de Ollama según banda de VRAM puede ser 4.096 / 32.768 / 256.000 y se configura **en el servidor**, no vía la API compatible OpenAI. Eso es un problema de calidad que también quema **reintentos** (tools incoherentes → otro turno → más tokens **si** estabas en una API). En local quema **tiempo y vatios**.
+
+ComfyUI es la misma tercera columna para imágenes: la instalación de la app es pequeña; **los pesos no vienen incluidos**; un checkpoint son muchos gigabytes ([Comfy-Org, Models](https://docs.comfy.org/basic-concepts/models)). Ya pagaste la GPU. Sigues pagando disco y luz.
+
+## Los pools no son fallbacks (dos facturas distintas)
+
+Hermes traza una línea nítida ([Credential Pools](https://hermes-agent.nousresearch.com/docs/user-guide/features/credential-pools); [providers, Fallback Providers](https://hermes-agent.nousresearch.com/docs/integrations/providers)):
+
+- **Credential pool** = mismo proveedor, siguiente clave. Te quedas en Anthropic. Puedes pagar un **prefijo a precio completo** tras rotar.
+- **Fallback provider** = otro proveedor del todo (`fallback_providers` en `config.yaml`, o `hermes fallback`). Puedes saltar de Anthropic a OpenRouter a mitad de sesión sin perder la conversación. La activación es de un disparo por sesión.
+
+El fallo en dos etapas de OpenClaw es análogo con otros nombres ([Model failover](https://docs.openclaw.ai/concepts/model-failover)): (1) rotación de perfil de auth dentro del proveedor actual, (2) fallback de modelo por `agents.defaults.model.fallbacks`. Las selecciones explícitas de usuario `/model` son **estrictas**: si ese proveedor falla, OpenClaw reporta el fallo en lugar de responder en silencio desde un fallback no relacionado. Los cron y los defaults configurados sí pueden usar fallbacks.
+
+Números de enfriamiento que OpenClaw publica de verdad para fallos regulares (no billing): 1.er fallo 30 segundos, 2.º 1 minuto, 3.º+ tope de 5 minutos. Los disable de billing usan `disabledUntil` con backoff más largo. Sobrecarga/rate-limit: un reintento de auth del mismo proveedor, luego cambio al siguiente fallback de modelo configurado sin esperar. Esos números salen de la página de failover, no se inventan.
+
+<Callout>
+Consejo práctico, OpenClaw: `openclaw models status --probe` es la sonda viva de auth. Si `auth.order` omite un perfil guardado, la sonda reporta `excluded_by_auth_order` en lugar de probarlo. Los enfriamientos de rate-limit pueden estar **acotados al modelo**: un perfil enfriándose para un modelo puede seguir sirviendo un modelo hermano del mismo proveedor ([Authentication](https://docs.openclaw.ai/gateway/authentication.md); [Model failover](https://docs.openclaw.ai/concepts/model-failover)).
+</Callout>
+
+## Los modelos auxiliares son un multiplicador oculto
+
+Hermes, incluso cuando el camino principal es Nous Portal o Codex: visión, resumen web y mezcla de agentes usan un **modelo auxiliar aparte**. El valor por defecto `auxiliary.*.provider: "auto"` enruta esas tareas al **modelo principal de chat** ([Nous Research, providers](https://hermes-agent.nousresearch.com/docs/integrations/providers)). Así una sesión "barata" sigue quemando tokens de frontera en una captura. El movimiento documentado es anular cada tarea auxiliar hacia un modelo más barato/rápido (ejemplo de Hermes: Gemini Flash en OpenRouter). Esta lección sigue sin citar el precio API de Flash.
+
+Cuenta auxiliares en la aritmética:
+
+```text
+calls_per_turn = 1 + N_tool_rounds + N_aux   # compresión, título, visión, extracto web
+```
+
+Los suscriptores de pago de Nous Portal obtienen Tool Gateway (búsqueda, imagen, TTS, navegador) facturado contra la suscripción **Portal** en lugar de cinco claves extra. Eso consolida **contadores**, no afirma que las tools sean gratis.
+
+## Hugging Face enrutado frente a traer tu propia clave
+
+La segunda tabla de la página de precios de HF es la que se pierden los operadores ([Hugging Face, Pricing and Billing](https://huggingface.co/docs/inference-providers/pricing)):
+
+| Modo | Quién factura | ¿Aplican créditos mensuales? | ¿Hace falta cuenta de proveedor? |
+| --- | --- | --- | --- |
+| Routed by Hugging Face | Hugging Face pago por uso | Sí | No |
+| Custom Provider Key | El proveedor en directo | **No** | Sí |
+
+Si pegas una clave Groq en los ajustes de HF, **pierdes** el crédito de 0,10 USD y te factura Groq. El camino `HF_TOKEN` de Hermes es el enrutado salvo que hayas configurado otra cosa. El uso extra del nivel gratis exige **comprar créditos**; la celda no es "ilimitado después de 0,10 USD." Los créditos PRO/Team son de cómputo de propósito general (Inference Providers, Endpoints, hardware de Spaces, Jobs) y se reinician cada mes.
+
+Hermes también documenta sufijos de enrutado en ids de modelo HF: `:fastest` (por defecto), `:cheapest`, o `:provider_name` ([providers](https://hermes-agent.nousresearch.com/docs/integrations/providers)). `:cheapest` es una **política**, no la promesa de un número que esta página vaya a imprimir.
+
+## Mandos de OpenRouter que cambian la factura sin una clave nueva
+
+Cuando el proveedor es OpenRouter, Hermes lee `provider_routing` en `~/.hermes/config.yaml`: `sort` de `price` (por defecto), `throughput` o `latency`; `only` / `ignore` / `order` opcionales; `data_collection: "deny"` ([Nous Research, providers](https://hermes-agent.nousresearch.com/docs/integrations/providers)). Atajos: `:nitro` en el nombre de modelo para throughput, `:floor` para precio. El router experimental `openrouter/pareto-code` toma `min_coding_score` en 0.0–1.0 (por defecto 0.65). Ninguno de esos mandos inventa una cifra en dólares; eligen **cuál** upstream paga OpenRouter.
+
+## Electricidad, sin inventar un precio del kWh
+
+Una tarjeta de 24 GB corriendo un 32B local a 64k de contexto es una factura de **potencia**. Este curso no citará el EUR/kWh de tu comercializadora. Lo que Hermes *sí* documenta es el modo de desperdicio: contexto por defecto de Ollama demasiado pequeño → tools incoherentes → el **humano** reintenta en una clave de nube → acabas pagando API ([providers, sección Ollama](https://hermes-agent.nousresearch.com/docs/integrations/providers)). La columna local solo se queda local si contexto, parsers de tools (`--jinja` en llama-server, `--enable-auto-tool-choice` en vLLM, `--tool-call-parser` en SGLang) y `context_length` en la config de Hermes están puestos.
+
+Comfy-Org: espera descargas de **muchos gigabytes**; la app desktop/portable no incluye SD1.5 ni SDXL ([Models](https://docs.comfy.org/basic-concepts/models); [First generation](https://docs.comfy.org/get_started/first_generation)). El disco es parte de la tercera factura.
+
+## Lo que esta página se niega a citar
+
+A 26 de agosto de 2026 bajamos Hermes, OpenClaw y los precios de Hugging Face Inference Providers. **No** bajamos las tablas vivas de precio API de OpenAI y Anthropic. Por tanto esta lección no imprimirá un número de dólares por millón de tokens para claves `gpt-*` o `claude-*`. Si una diapositiva de una charla junto a este curso muestra uno, es la bajada **de esa charla**, fechada. Copia la **semántica** (quién se factura, qué cuota se mueve, lo que Plus no cubre) de las URLs nombradas arriba.
+
+<TryThis>
+De tu último transcript real de agente, cuenta las llamadas al modelo en un turno de usuario (completions, no ejecuciones de tools). Multiplica la longitud del prefijo fijo de system+tools por ese recuento. Escribe tres filas: (1) qué haría con ese producto un Gemini gratis o el crédito HF de 0,10 USD, (2) qué factura de org de API se movería, (3) si un camino OAuth de créditos extra de Max movería un **contador distinto** que ChatGPT Plus. Cita la tabla de Hermes o la página de precios de HF junto a cada fila. Si no puedes citar, deja la celda en blanco — no inventes un $/MTok.
+</TryThis>
+
+## Notas que puedes reutilizar en un post mortem
+
+Cuando un gateway "de pronto cuesta dinero" o "de pronto se muere," haz las preguntas que las fuentes responden de verdad:
+
+1. Qué **camino** estaba vivo — sub OAuth, clave API, Portal o local. (Lección [oauth-and-keys](https://hermes-agent.nousresearch.com/docs/integrations/providers) más las páginas de arriba.)
+2. ¿El fallo fue **429** (rate / ventana de uso) o **402** (billing)? Hermes y OpenClaw no los tratan igual ([Credential Pools](https://hermes-agent.nousresearch.com/docs/user-guide/features/credential-pools); [Model failover](https://docs.openclaw.ai/concepts/model-failover)).
+3. ¿Una rotación **tiró la caché de prompt**? Si sí, los tokens de entrada del siguiente turno son la pila completa a precio de lista.
+4. ¿Cuántas **llamadas al modelo** cabían dentro del turno visible para el usuario, incluidos auxiliares?
+5. ¿Estaba Plus / Pro / Ultra siquiera en el contrato de ese camino? La tabla de Hermes es la lista.
+
+Si no puedes responder (1)–(5) con logs, el post mortem de gasto es teatro.
+
+Si puedes decir ese párrafo con URLs, la lección funcionó.
+
+## Fuentes
+
+- Nous Research. (s. f.). *LLM and model providers* (tabla de suscripción, aviso de Gemini gratis, crédito HF de 0,10 USD, cabecera de caché xAI). https://hermes-agent.nousresearch.com/docs/integrations/providers
+- Nous Research. (s. f.). *Credential pools* (429 / 402 / caché al rotar / herencia de subagentes). https://hermes-agent.nousresearch.com/docs/user-guide/features/credential-pools
+- OpenClaw. (s. f.). *OAuth*. https://docs.openclaw.ai/concepts/oauth
+- OpenClaw. (s. f.). *Authentication*. https://docs.openclaw.ai/gateway/authentication.md
+- OpenClaw. (s. f.). *Model failover* (disable de billing frente a enfriamiento de rate-limit, pin de sesión). https://docs.openclaw.ai/concepts/model-failover
+- Hugging Face. (s. f.). *Pricing and Billing* (Inference Providers; Free 0,10 USD, PRO 2,00 USD, sin recargo, enrutado frente a clave custom). https://huggingface.co/docs/inference-providers/pricing
+- Hugging Face. (s. f.). *Inference Providers*. https://huggingface.co/docs/inference-providers/index
+- Anthropic. (s. f.). *Using Claude Code with your Pro or Max plan*. https://support.claude.com/en/articles/11145838-using-claude-code-with-your-pro-or-max-plan
+- Comfy-Org. (s. f.). *Models*. https://docs.comfy.org/basic-concepts/models

@@ -1,30 +1,204 @@
 ## Particularidad — smolagents de Hugging Face
 
-smolagents es una **codificación ligera** del bucle que ya conoces. No es otra especie de agente. Los autores sesgan hacia **el código como acción**: el modelo escribe un snippet Python que llama tools, en vez de un JSON que un parser reconstruye.
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.1, [Introduction to smolagents](https://huggingface.co/learn/agents-course/unit2/smolagents/introduction) (Burtenshaw, Thomas, Simonini y Paniego, Apache-2.0).*
 
-Úsalo cuando quieres poca superficie, modelos del Hub o APIs estilo OpenAI, y lógica que cabe en un `while`. Usa otra cosa cuando el producto *es* un grafo o un pipeline de retrieval (LangGraph, LlamaIndex).
+smolagents es una **codificación ligera** del bucle que ya escribiste a mano. No es un tipo nuevo de agente. La biblioteca de Hugging Face, documentada en [huggingface.co/docs/smolagents](https://huggingface.co/docs/smolagents), se sesga hacia **el código como acción**: el modelo escribe un fragmento Python que llama herramientas, en vez de un blob JSON que un parser debe reconstruir.
 
-<VisualSlot caption="JSON a la izquierda, Python a la derecha, un sandbox en el medio. El mismo ciclo ReAct; distinto payload." />
+La Unidad 2 del Curso de Agentes es la unidad de frameworks. Sergio Paniego firma la vía smolagents. David Berenstein, LlamaIndex. Joffrey Thomas, LangGraph. La introducción padre es explícita: un framework agéntico **no siempre hace falta**; una cadena de prompts en Python plano basta cuando el flujo está fijo (Hugging Face Agents Course, [introducción Unidad 2](https://huggingface.co/learn/agents-course/unit2/introduction)). Usa smolagents cuando quieres una superficie pequeña, modelos del Hub o APIs con forma OpenAI, y una lógica que aún cabe en un `while`. Usa otra cosa cuando el producto *es* un grafo o un pipeline de recuperación.
+
+Alfred el mayordomo vuelve. En la Unidad 1 era JSON de meteorología. Aquí planifica una fiesta en Wayne Manor: playlist, menú, datetime. Pedagogía. Tu allowlist es el producto.
+
+<VisualSlot caption="Blob JSON a la izquierda, Python a la derecha, un sandbox en medio. El mismo ciclo ReAct; distinto payload." />
+
+## Por qué esta biblioteca, y cuándo rechazarla
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.1, [Why use smolagents](https://huggingface.co/learn/agents-course/unit2/smolagents/why_use_smolagents); docs [smolagents index](https://huggingface.co/docs/smolagents/en/index).*
+
+El curso lista cuatro ventajas: **simplicidad** (pocas abstracciones), **LLMs intercambiables**, default **code-first**, e **integración con el Hub** (incluso Spaces de Gradio como herramientas). Ideal cuando necesitas un experimento ligero y la lógica es directa.
+
+Recházala cuando el flujo de control *es* el producto (ramificar, juntar, esperar a un humano, persistir estado): eso es [LangGraph](/course/langgraph). Recházala cuando el producto es "pregunta a mis datos" como pipeline: eso es [LlamaIndex](/course/llamaindex). La intro de la Unidad 2 nombra el esqueleto compartido: motor LLM, lista de herramientas, parser, system prompt sincronizado con ese parser, memoria, y logging de errores / reintentos (Hugging Face Agents Course, [unit2/introduction](https://huggingface.co/learn/agents-course/unit2/introduction)).
+
+Consejo práctico: si no puedes dibujar el bucle dummy de [la particularidad anterior](/course/dummy-agent) en una pizarra, no importes smolagents todavía. La biblioteca esconderá el stop-and-parse que sigue siendo tuyo.
+
+## MultiStepAgent es el bucle dummy con un log
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.1, [Building Agents That Use Code](https://huggingface.co/learn/agents-course/unit2/smolagents/code_agents); guía [ReAct en docs de smolagents](https://huggingface.co/docs/smolagents/conceptual_guides/react).*
+
+Los dos tipos de agente se sientan sobre `MultiStepAgent`. El curso detalla el ciclo interior:
+
+1. El system prompt se guarda como `SystemPromptStep`; la consulta del usuario como `TaskStep`.
+2. Un `while` corre: `write_memory_to_messages()` convierte el log en mensajes de chat; un `Model` muestrea; se parsea la completion; se ejecuta la acción; los resultados caen en un `ActionStep`.
+3. Callbacks opcionales `step_callback` corren al final del paso.
+
+Eso es Thought / Action / Observation de la Unidad 1, con nombres. Sigue haciendo falta un stop. Siguen haciendo falta permisos. El parser de la biblioteca busca un bloque Python cercado (CodeAgent) o una llamada JSON (ToolCallingAgent). El paper *Executable Code Actions Elicit Better LLM Agents* (Wang et al., 2024, https://huggingface.co/papers/2402.01030) es por qué el default se inclina al código: composición, objetos, generalidad, y el hecho de que los modelos ya vieron mucho Python.
+
+<Callout>
+Un CodeAgent que imprime `results = web_search(...)` sigue siendo stop-and-parse. La cerca es el stop. El intérprete es el ejecutor. Si desactivas el sandbox y autorizas `os` más `subprocess`, no obtuviste un agente más listo. Obtviste un shell con logits de más.
+</Callout>
 
 ## CodeAgent frente a ToolCallingAgent
 
-Ambos cuelgan de `MultiStepAgent`: memoria a mensajes → muestrear → parsear → ejecutar → `ActionStep`.
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.1, [CodeAgents](https://huggingface.co/learn/agents-course/unit2/smolagents/code_agents) y [ToolCallingAgents](https://huggingface.co/learn/agents-course/unit2/smolagents/tool_calling_agents).*
 
-- **CodeAgent** (por defecto) — la acción es un bloque Python. Componible, natural para modelos que ya escriben código, y peligroso si el intérprete no está en un sandbox (`additional_authorized_imports` es una allowlist).
-- **ToolCallingAgent** — JSON `{name, arguments}`, el estilo que OpenAI y Anthropic afinaron. Sistemas simples; peor con variables.
+**CodeAgent** (default) — la acción es un fragmento Python cercado. El ejemplo de playlist del curso imprime una traza titulada `Executing parsed code:` y una llamada del estilo `results = web_search(query="best music for a Batman party")`. Bucles, varias herramientas, variables que persisten en el intérprete. Natural para modelos que ya escriben código.
 
-El paper *Executable Code Actions Elicit Better LLM Agents* explica el sesgo. Sigues necesitando parar-y-parsear. Sigues necesitando permisos.
+**ToolCallingAgent** — JSON con `name` y `arguments`, el estilo que OpenAI y Anthropic afinaron. La misma tarea de playlist muestra `Calling tool: 'web_search' with arguments: ...` en vez de código ejecutado. Sistemas más simples. Peor con variables. El curso es claro: smolagents se centra en CodeAgents porque rinden mejor en conjunto (citando a Wang et al., 2024); ToolCallingAgents siguen siendo útiles cuando no hace falta anidar llamadas.
 
-Las tools son funciones `@tool` o una clase `Tool`. Los modelos se intercambian: `InferenceClientModel`, `TransformersModel`, `LiteLLMModel`, `OpenAIServerModel`. Cambias el motor; el bucle queda — el punto del [arnés](/course/the-harness).
+<Compare a="CodeAgent" b="ToolCallingAgent">
+<Side>
+Python en una cerca. Un paso puede iterar dos búsquedas, guardar una lista y llamar a una tercera herramienta. Exige intérprete en sandbox y una allowlist de imports. Línea de traza: Executing parsed code.
+</Side>
+<Side>
+Una lista JSON de nombre más argumentos. El arnés parsea y despacha. Encaja con las APIs nativas de herramientas del proveedor. Línea de traza: Calling tool. Prefiérelo solo cuando la tarea es una lista corta y plana de llamadas.
+</Side>
+</Compare>
 
-Alfred el mayordomo, en los notebooks del curso, busca una playlist, usa `suggest_menu` y tiene `datetime`. Eso es pedagogía. Tu allowlist es el producto.
+Consejo práctico: reescribe en papel una petición de usuario como (1) una secuencia JSON y (2) un solo snippet Python. Rodea con un círculo cuál necesita que el arnés conserve variables entre pasos. Ese ejercicio es el contraste del curso, sin las bromas de Wayne Manor.
+
+## Herramientas: decorador, clase, caja por defecto
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.1, [Tools](https://huggingface.co/learn/agents-course/unit2/smolagents/tools); docs [build a tool](https://huggingface.co/docs/smolagents/guided_tour).*
+
+El LLM sigue necesitando una interfaz: **nombre**, **descripción**, **tipos e descripciones de entrada**, **tipo de salida**. Dos caminos:
+
+- `@tool` sobre una función Python — recomendado para herramientas simples. Nombre claro, type hints, docstring con sección `Args:`. El `suggest_menu(occasion)` y el `catering_service_tool(query)` del curso tienen esta forma. Precisar valores permitidos en el docstring es cómo desvían `occasion` de las alucinaciones.
+- Una subclase de `Tool` — `name`, `description`, `inputs` (cada uno con `type` y `description`), `output_type`, y `forward(...)` para la lógica. Úsala cuando la herramienta tiene estado (un retriever, una sesión de navegador).
+
+Caja por defecto, del curso y de los docs: `PythonInterpreterTool`, `FinalAnswerTool`, `UserInputTool`, `DuckDuckGoSearchTool` / `WebSearchTool`, más herramientas cargadas del Hub con `load_tool` cuando aceptas `trust_remote_code`. No cargues del Hub lo que no hayas leído.
+
+Consejo práctico: un docstring que dice "usa esto siempre" es RAG ingenuo con pasos de más. Un docstring que lista valores enum es un esquema barato. Empieza ahí antes de hacer fine-tune (véase [function-calling fine-tuning](/course/function-calling-ft)).
+
+## Los modelos se intercambian; el bucle no
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.1, [Why use smolagents](https://huggingface.co/learn/agents-course/unit2/smolagents/why_use_smolagents); referencia [Models](https://huggingface.co/docs/smolagents/main/en/reference/models).*
+
+El curso nombra los wrappers, no un protocolo secreto:
+
+- `TransformersModel` — un pipeline local de `transformers`.
+- `InferenceClientModel` — inferencia serverless del Hub, o un proveedor listado. Los notebooks suelen inclinarse a un instruct coder de Qwen.
+- `LiteLLMModel` — LiteLLM como centralita.
+- `OpenAIServerModel` — cualquier API HTTP con forma OpenAI.
+- `AzureOpenAIServerModel` — despliegues Azure OpenAI.
+
+Cambia el motor; el bucle permanece. Ese es el punto de [el arnés](/course/the-harness). No inventes un quinto wrapper. Si aparece una clase nueva en los docs, lee los docs esa semana.
+
+Consejo práctico: registra `model_id` y proveedor junto a cada traza. "En Colab funcionaba" no es una reproducción. El dummy de la Unidad 1 ya enseñó que las plantillas de chat importan; smolagents sigue aplicando una.
+
+## Los imports son una allowlist, no un flag de comodidad
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.1, [CodeAgents](https://huggingface.co/learn/agents-course/unit2/smolagents/code_agents) (additional_authorized_imports); tutorial [Secure code execution](https://huggingface.co/docs/smolagents/tutorials/secure_code_execution).*
+
+La ejecución de código va en sandbox. Los imports fuera de una lista segura predefinida se bloquean. Autorizas extras pasándolos como cadenas en `additional_authorized_imports`. El ejemplo de tiempos de la fiesta permite `datetime` para que Alfred sume minutos. Ese es el uso previsto.
+
+`os` y `subprocess` no son datetime. Una página inyectada que pida variables de entorno las obtendrá si abriste esa puerta. El agente JSON de al lado no puede. La expresividad es la virtud; el sandbox es el precio.
+
+Consejo práctico: imprime la allowlist en el PR. Si la lista contiene `os`, `sys`, `subprocess` o `socket`, no estás depurando. Estás enviando un shell. Prefiere las opciones E2B / Docker del tutorial de ejecución segura cuando el agente vea internet público.
+
+## Una primera ejecución, sin fingir que es producción
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.1, [CodeAgents](https://huggingface.co/learn/agents-course/unit2/smolagents/code_agents); notebook https://huggingface.co/agents-course/notebooks/blob/main/unit2/smolagents/code_agents.ipynb.*
+
+La instalación es la línea de los docs `pip install smolagents -U`. Login al Hub si usas serverless. Luego el CodeAgent más pequeño del curso: `DuckDuckGoSearchTool` más `InferenceClientModel`, `agent.run("Search for the best music recommendations for a party at the Wayne's mansion.")`. Mira la traza. Confirma que ves **parsed code**, no un blob JSON, si instanciaste `CodeAgent`.
+
+Las herramientas propias van en la lista `tools=`. `FinalAnswerTool` se queda salvo que sepas por qué la quitaste. `max_steps` es el contador de saltos que el dummy no tenía. Fíjalo. Seis es la cifra del tutorial smolagents de la Unidad 1; veinte aparece en notebooks posteriores. Elige un número que puedas defender.
+
+Publicar un agente en el Hub es una demo del curso (`push_to_hub`). Trátalo como publicar **código más un system prompt**, no como un certificado. Quien lo baje hereda tu allowlist.
 
 <TryThis>
-En papel, reescribe una petición (“fiesta a las 19:00, menú formal, playlist”) como (1) una secuencia de tool calls JSON y (2) un snippet Python que llama dos tools y usa `datetime`. Rodea qué versión obliga al arnés a guardar variables entre pasos.
+En papel, reescribe una petición (“fiesta a las 19:00, menú formal, playlist”) como (1) una secuencia de tool-calls JSON y (2) un solo snippet Python que llama dos herramientas y usa `datetime`. Rodea cuál necesita que el arnés conserve variables entre pasos. Luego escribe la lista `additional_authorized_imports` que sí enviarías — y la que rechazarías.
 </TryThis>
+
+<Myth>
+Importar smolagents significa que ya no haces stop-and-parse. Falso. La biblioteca parsea una cerca o un objeto JSON y luego ejecuta. Si el parseo falla, hay un reintento o un crash, no un milagro. Lee una traza antes de añadir una segunda herramienta.
+</Myth>
+
+## Los tres demos de Alfred, leídos como ingeniería
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.1, [CodeAgents](https://huggingface.co/learn/agents-course/unit2/smolagents/code_agents).*
+
+El agente de playlist solo necesita búsqueda. Una herramienta, una preocupación, una buena primera traza. Si DuckDuckGo limita el ritmo, el curso indica que puedes pasar a un `GoogleSearchTool` con Serper y `SERPER_API_KEY` o `SERPAPI_API_KEY` — esos nombres salen del notebook multi-agente posterior, no son inventos. No cambies herramientas en una captura y llames a eso la misma ejecución.
+
+El agente de menú añade `@tool def suggest_menu(occasion: str)`. Valores permitidos en el docstring: casual, formal, superhero, custom. El modelo igual tiene que elegir una cadena. Si elige "gala", caes en el menú custom del else. Eso es una virtud si lo registraste; un bug si no.
+
+El agente de tiempos **no tiene herramientas**, solo `additional_authorized_imports=['datetime']`. El modelo escribe Python que suma treinta, sesenta, cuarenta y cinco, cuarenta y cinco minutos e imprime un reloj. Es la lección de la calculadora del dummy, vestida de biblioteca: no gastes logits en aritmética que puedes importar.
+
+Consejo práctico: una herramienta nueva por ejecución hasta que la traza sea aburrida. Luego la segunda. Juntar playlist + menú + datetime el primer día esconde qué paso alucinó.
+
+## Verbosity, planning y los flags del tutorial de la Unidad 1
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 1, [Let's Create Our First Agent Using smolagents](https://huggingface.co/learn/agents-course/unit1/tutorial); referencia CodeAgent https://huggingface.co/docs/smolagents/main/en/reference/agents#smolagents.CodeAgent.*
+
+El tutorial de la Unidad 1 construye un `CodeAgent` con `max_steps=6`, `verbosity_level=1`, `grammar=None`, `planning_interval=None` y un argumento explícito `prompt_templates`. Esos flags son del constructor público, no folklore:
+
+- `max_steps` — presupuesto de saltos. Sin él, una búsqueda confusa es una factura.
+- `verbosity_level` — cuánta traza ves. Súbelo mientras aprendes; bájalo en un log silencioso.
+- `planning_interval` — pasos extra de pensar adelante. El notebook multi-agente lo pone en un manager. Déjalo en `None` hasta que un agente solo falle al descomponer, no antes.
+- `grammar` — decodificación restringida, cuando se usa. El tutorial pasa `None`. No inventes un archivo de gramática.
+- `name` y `description` — obligatorios después, cuando este agente es un worker *managed*. Vacíos valen para un agente solo.
+
+Consejo práctico: copia el constructor del tutorial una vez, luego borra flags que no sepas explicar. Un constructor con doce defaults nunca leídos es cómo PartyKit autorizó `os`.
+
+## Qué publica de verdad el share del Hub
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.1, [CodeAgents](https://huggingface.co/learn/agents-course/unit2/smolagents/code_agents); docs del Hub https://huggingface.co/docs/hub.*
+
+`push_to_hub` envía un agente que otros pueden recargar. Eso es código, un system prompt, una lista de herramientas y los secretos que hayas cerrado encima por accidente. El curso se entusiasma compartiendo a Alfred. iAguide no: trata un Space público como **fuente**, igual que un repo Git. Quita tokens. Deja `trust_remote_code` apagado hasta haber leído el archivo.
+
+Consejo práctico: bajar no es evaluar. Un agente del Hub que "funciona" con el prompt del autor puede fallar con el tuyo. Fija una revisión. Lee `max_steps` y la allowlist antes de ejecutar.
+
+## Errores, reintentos y qué registrar
+
+*Fuente nombrada: Hugging Face Agents Course, [introducción Unidad 2](https://huggingface.co/learn/agents-course/unit2/introduction); Bonus Unidad 2 [observabilidad](https://huggingface.co/learn/agents-course/bonus-unit2/what-is-agent-observability-and-evaluation); instrumentación OpenTelemetry en https://huggingface.co/docs/smolagents.*
+
+El esqueleto compartido de la Unidad 2 ya listaba logging de errores y reintentos como razón para usar un framework. smolagents reintentará un parseo fallido. No te dirá, por sí solo, que DuckDuckGo volvió vacío, o que gastaste cuatro pasos repitiendo el menú. Registra al menos: índice de paso, nombre de herramienta, resumen de argumentos, longitud de la observación, si disparó `FinalAnswerTool`, y recuentos de tokens si el wrapper los expone.
+
+Cuando una herramienta lanza, la observación debe ser la **cadena de error**, no un `None` tragado. La lección dummy ya lo dijo. La biblioteca no lo anula. Devuelve la excepción para que el siguiente Thought cambie de herramienta o pare.
+
+Consejo práctico: guarda un prompt dorado offline ("formal menu for the party") y afirma que `suggest_menu` se llama con `occasion="formal"` antes de añadir búsqueda web. Eval offline primero es el orden del Bonus 2, y aplica a un agente de 40 líneas.
+
+## Lista práctica antes de añadir un segundo worker
+
+*Fuente nombrada: páginas de la Unidad 2.1 listadas en Fuentes; [building good agents](https://huggingface.co/docs/smolagents/tutorials/building_good_agents).*
+
+1. Todavía puedes escribir el dummy stop-and-parse sin la biblioteca.
+2. El tipo de agente está elegido a propósito: CodeAgent o ToolCallingAgent, no "lo que importó el notebook."
+3. Cada herramienta tiene nombre, descripción, entradas tipadas y un docstring que **no** dice "usa esto siempre."
+4. `additional_authorized_imports` es una allowlist publicada. Vacía es una lista válida.
+5. `max_steps` está fijado. `verbosity_level` es bastante alto como para haber leído una traza completa.
+6. El wrapper de modelo es una de las clases documentadas. El `model_id` está en el log.
+7. `trust_remote_code` del Hub está apagado salvo que hayas leído el archivo.
+
+Si alguna línea está en blanco, no estás listo para [agentes anidados](/course/smolagents-multi).
 
 ## Caso — el import sin sandbox de PartyKit
 
-PartyKit copió el `CodeAgent` del curso y puso `additional_authorized_imports=["os", "subprocess"]` “para depurar.” Una web inyectada pidió listar variables de entorno. El agente JSON del al lado no pudo; el de código sí. Código-como-acción es expresividad. El sandbox es el precio.
+*Caso pedagógico en voz iAguide; reglas de sandbox citadas de Hugging Face Agents Course, Unidad 2.1, [CodeAgents](https://huggingface.co/learn/agents-course/unit2/smolagents/code_agents) y [Secure code execution](https://huggingface.co/docs/smolagents/tutorials/secure_code_execution).*
 
-Esta lección reescribe ideas del [curso de agentes de Hugging Face](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.
+PartyKit copió el `CodeAgent` del curso y puso `additional_authorized_imports` con `os` y `subprocess` “para depurar.” Una página inyectada pidió listar variables de entorno. El agente JSON de al lado no pudo; el de código sí. Revirtieron la allowlist a `datetime` y movieron los shells de debug a una terminal humana. Código-como-acción es expresividad. El sandbox es el precio de esa expresividad.
+
+Un segundo bug: omitieron `max_steps`. Una herramienta de búsqueda que devolvía boilerplate mandó al agente por veinte consultas casi idénticas hasta que la factura de inferencia se movió. El contador de saltos no es opcional cuando la herramienta tiene red.
+
+## Qué recordar
+
+*Síntesis de las páginas de la Unidad 2.1 listadas en Fuentes, Hugging Face Agents Course (Burtenshaw, Thomas, Simonini y Paniego, Apache-2.0).*
+
+smolagents codifica el bucle dummy. `MultiStepAgent` escribe memoria, muestrea, parsea, ejecuta, registra un `ActionStep`. CodeAgent es el default porque el código compone; ToolCallingAgent es JSON para sistemas simples. Las herramientas son `@tool` o una subclase `Tool` con nombre, descripción, entradas tipadas y `forward`. Los modelos se cambian. Los imports no. Fija `max_steps`. Lee la página de ejecución segura antes de que el agente vea una URL. Recuperación anidada, equipos y visión son la [siguiente particularidad](/course/smolagents-multi).
+
+## Fuentes
+
+Burtenshaw, B., Thomas, J., Simonini, T. y Paniego, S. (s. f.). *Hugging Face Agents Course* (Apache-2.0). https://huggingface.co/learn/agents-course · https://github.com/huggingface/agents-course
+
+- Introducción Unidad 2 (frameworks): https://huggingface.co/learn/agents-course/unit2/introduction
+- Introducción smolagents: https://huggingface.co/learn/agents-course/unit2/smolagents/introduction
+- Why use smolagents: https://huggingface.co/learn/agents-course/unit2/smolagents/why_use_smolagents
+- CodeAgents: https://huggingface.co/learn/agents-course/unit2/smolagents/code_agents
+- ToolCallingAgents: https://huggingface.co/learn/agents-course/unit2/smolagents/tool_calling_agents
+- Tools: https://huggingface.co/learn/agents-course/unit2/smolagents/tools
+- Documentación smolagents: https://huggingface.co/docs/smolagents
+- Guía conceptual ReAct: https://huggingface.co/docs/smolagents/conceptual_guides/react
+- Secure code execution: https://huggingface.co/docs/smolagents/tutorials/secure_code_execution
+- Referencia de modelos: https://huggingface.co/docs/smolagents/main/en/reference/models
+- Building good agents: https://huggingface.co/docs/smolagents/tutorials/building_good_agents
+- GitHub de la biblioteca: https://github.com/huggingface/smolagents
+- Wang, X. et al. (2024). *Executable Code Actions Elicit Better LLM Agents*. https://huggingface.co/papers/2402.01030
+- Notebook del curso (code agents): https://huggingface.co/agents-course/notebooks/blob/main/unit2/smolagents/code_agents.ipynb

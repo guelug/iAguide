@@ -1,0 +1,18 @@
+{
+  "id": "huggingface-inference",
+  "order": 21.2,
+  "slug": "huggingface-inference",
+  "track": "metal",
+  "title": {
+    "en": "Hugging Face Inference Providers and Transformers",
+    "es": "Inference Providers y Transformers en Hugging Face"
+  },
+  "summary": {
+    "en": "Local transformers pipelines versus Inference Providers versus dedicated Endpoints: the OpenAI-shaped router, Hermes HF_TOKEN, free-tier credits, and why a serverless call is not a weight download.",
+    "es": "Pipelines locales de transformers frente a Inference Providers y Endpoints dedicados: el router con forma OpenAI, HF_TOKEN en Hermes, créditos del nivel gratuito, y por qué una llamada serverless no es una descarga de pesos."
+  },
+  "status": "complete",
+  "prereqs": ["huggingface-hub", "local-inference"],
+  "durationMin": 40,
+  "tags": ["huggingface", "inference", "transformers", "providers", "tgi"]
+}

@@ -1,21 +1,198 @@
-## Ciclo de turno
+## `run_conversation` es la cintura
 
-task_id, mensaje, prompt, preflight >50%, mensajes API, capas efimeras, cache Anthropic, llamada interrumpible, tools o persistir.
+Hermes no esconde un segundo cerebro detrás del cuadro de chat. El motor de orquestación es `AIAgent` en `run_agent.py`: una clase que ensambla el system prompt, elige un modo de API, hace una llamada interrumpible al modelo, ejecuta tools, comprime el historial, reintenta y lleva presupuestos de iteración. La guía pública es *Agent Loop Internals* de Nous Research (s. f.). Lean esa página como fuente de verdad; el módulo genérico [bucle del agente](/es/m/agent-loop) permanece agnóstico del harness a propósito.
 
-HTTP en un hilo; /stop descarta la respuesta. Varias tools en ThreadPool salvo clarify. Intercepts: todo, memory, session_search, delegate_task. Presupuesto 500 / subagente 50.
+Dos puntos de entrada envuelven el mismo bucle:
 
-<VisualSlot caption="Pasos del turno, hilo HTTP, pool de tools, intercepts, presupuestos." />
+```python
+response = agent.chat("Fix the bug in main.py")
 
-## Comparar con OpenClaw
+result = agent.run_conversation(
+    user_message="Fix the bug in main.py",
+    system_message=None,
+    conversation_history=None,
+    task_id="task_abc123",
+)
+```
 
-OpenClaw dirige (steer) a mitad de run. Hermes abandona el hilo HTTP.
+`chat()` es un envoltorio delgado que extrae `final_response`. `run_conversation()` devuelve el dict con mensajes, metadatos y uso. Si incrustan Hermes en un host, llamen al método completo para persistir el historial ustedes.
 
-## Caso: clarify concurrente
+<VisualSlot caption="Pasos del turno, hilo HTTP de fondo, secuencial frente a pool, intercepts de agente, presupuestos 500 / 50." />
 
-**Caso.** clarify + terminal en el mismo lote.
+## Tres modos de API, un formato interno
+
+Hermes habla tres modos de cable, resueltos desde argumentos del constructor, detección de proveedor y heurísticas de URL base. El valor por defecto es `chat_completions`.
+
+| Modo de API | Uso | Cliente |
+| --- | --- | --- |
+| `chat_completions` | Endpoints compatibles con OpenAI (OpenRouter, custom, la mayoría) | `openai.OpenAI` |
+| `codex_responses` | API Codex / Responses de OpenAI | `openai.OpenAI` con formato Responses |
+| `anthropic_messages` | API nativa Anthropic Messages | `anthropic.Anthropic` vía adaptador |
+
+Orden de resolución, de la misma página: argumento explícito `api_mode` del constructor; detección por proveedor (un proveedor `anthropic` pasa a `anthropic_messages`); heurísticas de URL base (`api.anthropic.com` igual); luego el default `chat_completions`.
+
+Los tres convergen en el mismo formato interno: dicts al estilo OpenAI con `role` / `content` / `tool_calls`. El contenido de razonamiento de modelos con thinking extendido vive en `assistant_msg["reasoning"]` y puede mostrarse vía `reasoning_callback`. No guardan tres historiales. Guardan uno y convierten en el cable.
+
+<Callout>
+El modo no es una personalidad. Decide cómo se formatean los mensajes, cómo se estructuran las tool calls, cómo se parsean las respuestas y cómo funcionan la caché o el streaming. Si un proveedor rechaza un historial, comprueben primero la alternancia y después el convertidor de ese modo.
+</Callout>
+
+## Un turno, en orden
+
+Cada iteración de `run_conversation()` sigue esta secuencia de Nous Research (*Agent Loop Internals*, s. f.):
+
+1. Generar `task_id` si quien llama lo omitió.
+2. Añadir el mensaje de usuario al historial.
+3. Construir o reutilizar un system prompt cacheado vía `prompt_builder.py`.
+4. Compresión previa si la conversación supera el 50 por ciento de la ventana de contexto del modelo.
+5. Construir mensajes de API para el `api_mode` activo (OpenAI tal cual, ítems de Responses, o adaptador Anthropic).
+6. Inyectar capas efímeras (avisos de presupuesto, presión de contexto).
+7. Aplicar marcadores de prompt caching de Anthropic cuando ese modo está activo.
+8. Hacer la llamada interrumpible `_interruptible_api_call`.
+9. Parsear: si hay `tool_calls`, ejecutar, añadir resultados, volver al paso 5; si hay texto, persistir la sesión, volcar memoria si hace falta, devolver.
+
+Los roles internos son los cuatro habituales: system, user, assistant (`tool_calls` opcional), tool (`tool_call_id` más content). La alternancia es estricta:
+
+- Tras system: User, Assistant, User, Assistant.
+- Durante tools: Assistant con `tool_calls`, luego una o más filas Tool, luego Assistant.
+- Nunca dos mensajes assistant seguidos.
+- Nunca dos mensajes user seguidos.
+- Solo el rol `tool` puede apilarse (resultados en paralelo).
+
+Los proveedores validan estas secuencias y rechazan historiales malformados. Por eso las entregas de cron **no** se espejan en un chat vivo del gateway: una fila de cron en medio de un par user/assistant rompería la cadena. Esa regla vive en *Gateway Internals* de Nous Research (s. f.); es un invariante del bucle, no una preferencia de entrega.
+
+## Interrumpir significa abandonar el hilo HTTP
+
+`_interruptible_api_call()` ejecuta el HTTP POST en un hilo de trabajo. El hilo principal espera tres cosas: respuesta lista, evento de interrupción, o timeout.
+
+Cuando el usuario envía un mensaje nuevo, escribe `/stop`, o llega una señal:
+
+- El hilo de API se abandona. La respuesta se descarta.
+- El agente puede procesar la nueva entrada o apagarse.
+- **No se inyecta ninguna fila assistant parcial** en el historial.
+
+Ese último punto es el motivo. Un mensaje assistant a medio decodificar es un prefijo envenenado: el siguiente turno parece dos assistants, o un assistant que nunca cerró sus `tool_calls`. Hermes prefiere pagar una llamada HTTP desperdiciada a conservar un muñón.
+
+**Caso.** Un operador escribe `/stop` mientras el modelo transmite un plan largo. La CLI se calla. El archivo de sesión no debe contener el plan parcial. Si lo hiciera, `/resume` re reproduciría un assistant truncado y la siguiente llamada al proveedor devolvería 400 por alternancia. La ruta de interrupción existe para que esa fila nunca se escriba.
 
 <TryThis>
-Pseudocodigo: respuesta O interrupt O timeout. Que NO debes append en interrupt?
+Pseudocódigo de la espera: respuesta-lista O interrupción O timeout. En interrupción, listen las tres cosas que no deben hacer: conservar el resultado HTTP, añadir un assistant parcial, o dejar `tool_calls` sin filas tool emparejadas.
 </TryThis>
 
-Fuente: [Agent loop](https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop).
+## Tools: una en el hilo principal, varias en un pool
+
+Cuando el modelo devuelve tool calls:
+
+- Una **sola** tool call corre en el hilo principal.
+- **Varias** tool calls corren en concurrente vía `ThreadPoolExecutor`.
+- Excepción: tools marcadas interactivas (el ejemplo es `clarify`) fuerzan ejecución secuencial.
+- Los resultados se reinsertan en el **orden original de las tool calls**, no en el de finalización.
+
+El flujo por llamada, de la misma página:
+
+1. Resolver el handler en `tools/registry.py`.
+2. Disparar el hook de plugin `pre_tool_call`.
+3. Comprobar `tools/approval.py` por un comando peligroso; si lo hay, invocar `approval_callback` y esperar.
+4. Ejecutar el handler con args más `task_id`.
+5. Disparar `post_tool_call`.
+6. Añadir un mensaje de rol tool con el resultado.
+
+**Caso.** El modelo emite `clarify` y `terminal` en un mismo lote. Un `clarify` concurrente compite con el prompt de la CLI: el terminal puede imprimir mientras el usuario responde, o el prompt puede robar stdin de un PTY. Las tools interactivas fuerzan ejecución secuencial para que la pregunta humana posea el terminal hasta que vuelva.
+
+Cuatro tools nunca llegan a `handle_function_call()` en el registro. `run_agent.py` las intercepta porque tocan estado local del agente:
+
+| Tool | Por qué se intercepta |
+| --- | --- |
+| `todo` | Lee y escribe estado de tareas local al agente |
+| `memory` | Escribe ficheros de memoria persistente con límites de caracteres |
+| `session_search` | Consulta el historial vía la DB de sesión del agente |
+| `delegate_task` | Lanza subagente(s) con contexto aislado |
+
+Devuelven resultados sintéticos. Si el dispatch llega al registro, el handler es un error stub. Los schemas siguen en el registro para que `get_tool_definitions()` pueda anunciarlos.
+
+## Los callbacks son la UI, no el bucle
+
+`AIAgent` es síncrono. Las plataformas (CLI, gateway, ACP) instalan callbacks para que un spinner TUI o un IDE puedan seguir el ritmo:
+
+| Callback | Cuándo | Usado por |
+| --- | --- | --- |
+| `tool_progress_callback` | Antes/después de cada tool | Spinner de CLI, progreso del gateway |
+| `thinking_callback` | El modelo empieza/para de pensar | CLI "thinking..." |
+| `reasoning_callback` | Llega contenido de razonamiento | Display CLI, bloques del gateway |
+| `clarify_callback` | Tool `clarify` | Prompt CLI, mensaje interactivo del gateway |
+| `step_callback` | Tras cada turno completo | Tracking del gateway, progreso ACP |
+| `stream_delta_callback` | Cada token en streaming si está activo | Streaming CLI |
+| `tool_gen_callback` | Tool call parseada del stream | Preview de tool en CLI |
+| `status_callback` | Cambios de estado | Actualizaciones de estado ACP |
+
+ACP actualmente pone `thinking_callback` a `None` y reenvía el razonamiento por `step_callback`. Eso es una decisión del adaptador, documentada en *ACP Internals* de Nous Research (s. f.), no un cambio del bucle.
+
+## Presupuestos: 500 el padre, 50 por subagente
+
+`IterationBudget` es por agente:
+
+- Por defecto **500** iteraciones, configurable vía `agent.max_turns`.
+- Cada agente tiene su propio presupuesto. Los subagentes tienen presupuestos **independientes** limitados a `delegation.max_iterations` (por defecto **50**).
+- Padre más hijos **pueden sumar por encima** del tope del padre.
+- Al 100 por ciento el agente para y devuelve un resumen del trabajo hecho.
+
+Es fácil malinterpretarlo. Un padre de 500 con dos subagentes de 50 puede gastar 600 turnos de modelo de trabajo de pared. El aislamiento es la característica; el tope no es una cartera global de tokens.
+
+El fallback es distinto del presupuesto. En 429, 5xx o 401/403 el bucle recorre `fallback_providers` en orden. En 401/403 intenta refrescar credenciales antes de fallar. Visión, compresión y extracción web tienen cada una su cadena `auxiliary.*`. Un fallo de compresión no roba el hueco de fallback del modelo de chat.
+
+## La compresión vive dentro del bucle
+
+Dos disparadores, de la misma página:
+
+- **Preflight** (antes de la llamada API): la conversación supera el **50 por ciento** de la ventana de contexto.
+- **Auto-compresión del gateway** (entre turnos): supera el **85 por ciento** — más agresiva, porque una sesión de mensajería no debe morir a mitad de respuesta.
+
+Qué ocurre:
+
+1. La memoria se vuelca a disco primero.
+2. Los turnos del medio se resumen.
+3. Los últimos N mensajes quedan intactos (`compression.protect_last_n`, por defecto **20**).
+4. Los pares tool call/resultado se mantienen juntos — nunca se parten.
+5. Se genera un nuevo ID de linaje de sesión (la compresión crea una sesión hija).
+
+Tras cada turno, los mensajes van a SQLite vía `hermes_state.py`, la memoria se vuelca a `MEMORY.md` / `USER.md`, y `/resume` o `hermes chat --resume` pueden recoger la sesión. El linaje importa: una hija comprimida no es una reescritura silenciosa del id padre.
+
+<Callout>
+Vuelquen la memoria **antes** de resumir. Si la compresión falla o el proceso muere, aún tienen `MEMORY.md`. Si resumen primero y luego hay un crash, los hechos duraderos del medio del hilo se han ido.
+</Callout>
+
+## Ficheros que poseen el bucle
+
+| Fichero | Propósito |
+| --- | --- |
+| `run_agent.py` | `AIAgent` — el bucle completo |
+| `agent/prompt_builder.py` | System prompt desde memoria, skills, ficheros de contexto, personalidad |
+| `agent/context_engine.py` | ABC `ContextEngine` |
+| `agent/context_compressor.py` | Resumen con pérdida por defecto |
+| `agent/prompt_caching.py` | Marcadores de caché Anthropic y métricas |
+| `agent/auxiliary_client.py` | Tareas laterales (visión, resumen) |
+| `model_tools.py` | Recogida de schemas y `handle_function_call()` |
+
+## Hermes frente a OpenClaw: la misma necesidad, distinta mecánica
+
+OpenClaw serializa las ejecuciones **por carril de sesión** y, por defecto, **dirige** (steer) un mensaje entrante nuevo hacia el runtime activo (OpenClaw, *Command queue*, s. f.; [Command queue](https://docs.openclaw.ai/concepts/queue)). Hermes interrumpe **abandonando el hilo HTTP** y no inyecta un assistant parcial. Ambos diseños protegen a un único escritor. La reivindicación de escritor de OpenClaw es `activeWriterRunId` en los commits del transcript. La protección de Hermes es "no añadir hasta que la llamada termine o se descarte".
+
+No importen modos de cola de OpenClaw (`steer`, `followup`, `collect`, `interrupt`) a una config de Hermes. No son palancas de Hermes. El equivalente de interrupt en Hermes es `/stop` más el hilo HTTP de fondo.
+
+**Caso.** Un usuario de WhatsApp envía un segundo mensaje mientras Hermes aún llama al proveedor. El guardia de nivel 1 del gateway encola el mensaje y pone el evento de interrupción; se abandona el hilo HTTP; el mensaje nuevo se convierte en la siguiente fila user de `run_conversation`. Si añadieran los tokens en vuelo, tendrían dos assistants seguidos y la siguiente llamada al proveedor fallaría. La lección del gateway cubre el guardia de dos niveles; esta lección explica por qué el bucle debe tirar la respuesta en vuelo.
+
+## Fuentes
+
+Nous Research. (s. f.). *Agent loop internals*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop
+
+Nous Research. (s. f.). *Prompt assembly*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/prompt-assembly
+
+Nous Research. (s. f.). *Context compression and caching*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/context-compression-and-caching
+
+Nous Research. (s. f.). *Tools runtime*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/tools-runtime
+
+Nous Research. (s. f.). *Gateway internals*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals
+
+Nous Research. (s. f.). *ACP internals*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/acp-internals
+
+OpenClaw. (s. f.). *Command queue*. https://docs.openclaw.ai/concepts/queue

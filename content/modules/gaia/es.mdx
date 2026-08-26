@@ -1,21 +1,202 @@
-## Qué mide GAIA
+## Particularidad — qué mide de verdad un ranking
 
-[GAIA](https://huggingface.co/papers/2311.12983) son **466 preguntas** fáciles para personas (~92%) y duras para asistentes (GPT-4 + plugins ~15% al principio). Hace falta razonar a varios pasos, tools, a veces multimodal. Niveles 1–3 añaden pasos. Las respuestas son cortas y fácticas: el scoring es simple y el fuerza bruta falla.
+*Fuente nombrada: Hugging Face Agents Course, Unit 4, [What is GAIA?](https://huggingface.co/learn/agents-course/unit4/what-is-gaia) y el paper [GAIA: A Benchmark for General AI Assistants](https://huggingface.co/papers/2311.12983) (Burtenshaw, Thomas, Simonini y Paniego, Apache-2.0; Mialon et al., 2023).*
 
-Hay un leaderboard público. Es útil. **No es tu producto.** iAguide no hospeda su certificado y no finge que un quiz de este curso sea GAIA.
+Esto no es una quinta vía. Es la particularidad de evaluación que la Unit 4 del Hugging Face Agents Course usa como proyecto final. [GAIA](https://huggingface.co/papers/2311.12983) es un benchmark de **466 preguntas cuidadosamente curadas** que son **conceptualmente simples para personas** y **notablemente duras para los asistentes actuales**. El curso cita la brecha: humanos alrededor del **92 por ciento**, GPT-4 con plugins alrededor del **15 por ciento**, Deep Research (OpenAI) **67,36 por ciento** en validación. Esos números son suyos. No son la nota de tu producto.
+
+iAguide **no** hospeda su certificado. Un quiz de este curso no es GAIA. Quédate con la *forma*: preguntas duras, con tools, multi-hop, de *tu* dominio.
+
+Curso oficial: https://huggingface.co/learn/agents-course · repo: https://github.com/huggingface/agents-course
 
 <VisualSlot caption="Un quiz de opción múltiple frente a una tarea GAIA multi-hop. El nodo del medio son tus usuarios, no el ranking." />
 
-La unidad 4 del curso de agentes es “monta un agente, súbelo al ranking, quizá un certificado.” Quédate con la *forma*: preguntas duras con tools de *tu* dominio. Salta Discord y las Q&A en vivo.
+## Por qué existe la Unit 4
 
-Qué aprender después, en sus palabras: MCP y A2A. MCP lo plegamos en [herramientas](/course/tools-and-mcp); multi-agente en [patrones](/course/agent-patterns) y [smolagents-multi](/course/smolagents-multi).
+*Fuente nombrada: Hugging Face Agents Course, Unit 4, [introduction](https://huggingface.co/learn/agents-course/unit4/introduction).*
 
-<TryThis>
-Elige tres preguntas *estilo* GAIA de un dominio que conozcas. Para cada una, lista las tools y si un quiz sin tools podría falsificar la respuesta. Si el quiz puede, la pregunta no es GAIA.
-</TryThis>
+Los autores llaman a esta la unidad final: has construido una base, ahora la aplicas. Completarla es su ticket al **certificado del curso**. El reto es crear un agente y evaluarlo en un **subconjunto de GAIA**. Para completar *su* curso, el agente necesita **30 por ciento o más** en ese subconjunto. También hay un [Student Leaderboard](https://huggingface.co/spaces/agents-course/Students_leaderboard). Avisan que es avanzada y práctica, con menos guía explícita que las unidades anteriores.
+
+iAguide guarda el aviso y deja fuera el onboarding de Discord. El robo pedagógico es: elige un examen público, exact-match, con tools, que tu bucle no pueda falsificar con vocabulario.
+
+Consejo práctico: si tu examen interno es opción múltiple sobre el agente, eres Quizly. Si necesita un PDF más un calendario más una calculadora, has tomado prestada la forma de GAIA.
+
+## Cuatro pilares, no una noche de trivia
+
+*Fuente nombrada: Hugging Face Agents Course, Unit 4, GAIA’s Core Principles en [what-is-gaia](https://huggingface.co/learn/agents-course/unit4/what-is-gaia); Mialon et al. (2023).*
+
+La unidad lista cuatro pilares de diseño:
+
+1. **Dificultad del mundo real** — razonamiento a varios pasos, comprensión multimodal, interacción con tools.
+2. **Interpretabilidad humana** — sigue siendo conceptualmente simple para una persona.
+3. **No se puede trucar** — la respuesta correcta exige ejecutar la tarea entera; la fuerza bruta falla.
+4. **Simplicidad de evaluación** — respuestas concisas, fácticas, inequívocas.
+
+Eso último es por qué el scoring puede ser exact match. También es por qué un envoltorio charlatán de “FINAL ANSWER” puede poner a cero un hecho correcto. La página hands-on lo repetirá.
+
+Consejo práctico: cuando escribas un GAIA de dominio, exige una cadena fáctica corta. “Explica el ticket” es un quiz. “El id de factura, nada más” es una fila de benchmark.
+
+## Niveles 1, 2 y 3
+
+*Fuente nombrada: Hugging Face Agents Course, Unit 4, Difficulty Levels en [what-is-gaia](https://huggingface.co/learn/agents-course/unit4/what-is-gaia).*
+
+- **Nivel 1**: menos de 5 pasos, uso mínimo de tools.
+- **Nivel 2**: razonamiento más complejo, coordinación entre varias tools, 5–10 pasos.
+- **Nivel 3**: planificación a largo plazo e integración avanzada de tools.
+
+El subconjunto de estudiantes del curso son **20 preguntas extraídas del Nivel 1 del set de validación**, filtradas por tools y pasos. Los autores creen que apuntar al **30 por ciento en Nivel 1** es una prueba justa dado el leaderboard público cuando escribieron la unidad.
+
+Consejo práctico: empieza tu set interno con forma de Nivel 1 (pocas tools, pocos hops) antes de calificar a nadie en planificación de Nivel 3. Un 9/10 de vocabulario con un 0 en tres tareas con forma de Nivel 1 es Quizly otra vez.
+
+<Compare a="Un quiz del curso" b="Una tarea con forma GAIA">
+<Side>
+Opciones cerradas. Sin tools. Mide si el equipo memorizó el glosario. Media 9/10, el producto sigue roto.
+</Side>
+<Side>
+Respuesta fáctica corta. Necesita el bucle: retrieve, calcular, leer un archivo. Exact match. A las personas les parece obvio; al agente no.
+</Side>
+</Compare>
+
+## La pregunta del bordado, como geometría
+
+*Fuente nombrada: Hugging Face Agents Course, Unit 4, Example of a Hard GAIA Question en [what-is-gaia](https://huggingface.co/learn/agents-course/unit4/what-is-gaia).*
+
+El ejemplo duro de la unidad (parafraseado, no copiado como filtración de examen): frutas en un cuadro de 2008, servidas en el desayuno de octubre de 1949 del transatlántico que luego fue atrezzo flotante de una película nombrada, lista separada por comas, en sentido horario desde las 12, en plural. La página nombra por qué duele a los asistentes:
+
+- un **formato de respuesta estructurado**
+- **razonamiento multimodal** (el cuadro)
+- **retrieval multi-hop** de hechos interdependientes (frutas, transatlántico, menú)
+- **secuencia correcta** y planificación para que los hops vayan en orden
+
+Los LLM sueltos se quedan cortos. Por eso GAIA es un benchmark para **sistemas basados en agentes** que razonan, recuperan y ejecutan a lo largo de pasos y modalidades.
+
+Consejo práctico: cuando inventes un análogo de dominio, escribe los hops en papel primero. Si un hop se puede saltar y un quiz sigue puntuando, la pregunta no tiene forma GAIA.
+
+<Myth>
+Un quiz al 90 por ciento significa que el agente funciona. No. Quizly sacó 9/10 en vocabulario y casi cero en tres tareas internas estilo GAIA. El quiz midió palabras. GAIA midió el bucle.
+</Myth>
+
+## Evaluación en vivo en Hugging Face
+
+*Fuente nombrada: Hugging Face Agents Course, Unit 4, Live Evaluation en [what-is-gaia](https://huggingface.co/learn/agents-course/unit4/what-is-gaia).*
+
+GAIA hospeda un **leaderboard público** en Hugging Face donde puedes probar modelos contra **300 preguntas de test**: https://huggingface.co/spaces/gaia-benchmark/leaderboard. El curso también apunta al paper, al post de Deep Research de OpenAI y al blog de DeepResearch open-source de Hugging Face. Son fuentes nombradas, no deberes extra que inventemos.
+
+Consejo práctico: un leaderboard público es un instrumento de investigación. No es un SLA de cliente. No publiques porque un Space esté verde.
+
+Lecturas que nombra la unidad:
+
+- Paper: https://huggingface.co/papers/2311.12983
+- OpenAI Deep Research: https://openai.com/index/introducing-deep-research/
+- DeepResearch open-source: https://huggingface.co/blog/open-deep-research
+
+## El subconjunto de estudiantes y la barra del 30 por ciento
+
+*Fuente nombrada: Hugging Face Agents Course, Unit 4, [hands-on](https://huggingface.co/learn/agents-course/unit4/hands-on) e [introduction](https://huggingface.co/learn/agents-course/unit4/introduction).*
+
+El dataset de *su* leaderboard son 20 preguntas de Nivel 1 de validación, filtradas por número de tools y pasos. Creen que el 30 por ciento es un objetivo justo. iAguide no te califica en ese Space. Robamos la barra como frase de aula: una tarea de Nivel 1 con tools debe ser lo bastante dura para que el 30 por ciento sea un logro, no un insulto.
+
+Consejo práctico: publica tu propio set de 20 filas con claves exact-match antes de discutir modelos. Si no puedes escribir veinte filas con forma de Nivel 1, no tienes un examen; tienes un demo.
+
+## La API de scoring, como la imprimen
+
+*Fuente nombrada: Hugging Face Agents Course, Unit 4, The process en [hands-on](https://huggingface.co/learn/agents-course/unit4/hands-on); docs en vivo https://agents-course-unit4-scoring.hf.space/docs.*
+
+Crearon una API. Resumen de rutas (mira sus docs en vivo para el detalle interactivo):
+
+- `GET /questions` — lista completa de preguntas de evaluación filtradas
+- `GET /random-question` — una pregunta al azar
+- `GET /files/<task_id>` — archivo asociado a un task id
+- `POST /submit` — enviar respuestas, puntuar, actualizar el leaderboard
+
+Submit compara con el ground truth como **EXACT MATCH**. Promptéalo en consecuencia. El equipo de GAIA compartió un ejemplo de prompting en el [Space del leaderboard de GAIA](https://huggingface.co/spaces/gaia-benchmark/leaderboard). Para el curso, **no incluyas el texto FINAL ANSWER** en el envío; el agente debe responder con la respuesta y nada más.
+
+Consejo práctico: el exact match es una decisión de producto. “apple, banana” frente a “apples, bananas” es un cero. Enseña el contrato de salida en el system prompt y luego registra la cadena cruda en la traza (véase [observability](/course/observability)).
+
+El Space plantilla es https://huggingface.co/spaces/agents-course/Final_Assignment_Template. Te animan a cambiarlo. El envío necesita tres cosas: nombre de usuario de Hugging Face, una URL pública `agent_code` (`.../tree/main`) y una lista de respuestas con task id y submitted_answer. Duplica la plantilla en tu perfil si te sientas a *su* examen. iAguide no recogerá esos payloads.
+
+<Callout>
+Su leaderboard de estudiantes es para divertirse. Avisan que las notas altas sin verificar pueden revisarse o quitarse. Mantén el Space público si estás orgulloso de una nota. Nosotros no hospedamos una copia.
+</Callout>
 
 ## Caso — el 9/10 de Quizly y un GAIA silencioso
 
-Quizly entrenó a soporte con veinte preguntas de opción múltiple. Media 9/10. El mismo agente casi no puntuó en tres tareas internas estilo GAIA (PDF + calendario + calculadora). El quiz midió vocabulario. GAIA midió el bucle. Publicaron por el quiz.
+*Caso pedagógico con voz iAguide; geometría de Unit 4 (quiz frente a tareas multi-hop con tools).*
 
-Esta lección reescribe ideas del [curso de agentes de Hugging Face](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.
+Quizly entrenó a soporte con veinte preguntas de opción múltiple sobre su agente. Media 9/10. El mismo agente casi no puntuó en tres tareas internas estilo GAIA (hace falta un PDF + un calendario + una calculadora). El quiz midió vocabulario. GAIA midió el bucle. Publicaron por el quiz.
+
+Después escribieron veinte filas con forma de Nivel 1 y claves exact-match, añadieron un hop de descarga de archivo y dejaron de llamar “eval” al quiz del glosario. El número bajó. El producto tuvo un test.
+
+## Qué aprender después, en sus palabras
+
+*Fuente nombrada: Hugging Face Agents Course, Unit 4, [conclusion](https://huggingface.co/learn/agents-course/unit4/conclusion); cultura de “qué sigue” en la introducción de Unit 4.*
+
+La conclusión te agradece y apunta a recursos curados, incluidos **MCP** y más allá. iAguide pliega MCP en [herramientas](/course/tools-and-mcp) y el multi-agente en [agent-patterns](/course/agent-patterns) y [smolagents-multi](/course/smolagents-multi). No trates un Space de certificado como la última página de esta particularidad.
+
+Consejo práctico: cuando ya existe un set con forma GAIA, el siguiente modo de fallo suele ser una descripción de tool o un envoltorio exact-match, no un framework nuevo. Arréglalos antes de importar LangGraph.
+
+<TryThis>
+Elige tres preguntas estilo GAIA de un dominio que conozcas (no del set si te vas a sentar a su examen). Para cada una, lista las tools y si un quiz sin tools podría falsificar la respuesta. Si el quiz puede, la pregunta no es GAIA. Luego escribe la cadena exact-match que aceptarías, incluida la puntuación.
+</TryThis>
+
+## Lista práctica
+
+*Fuente nombrada: páginas de Unit 4 en Fuentes; docs de scoring https://agents-course-unit4-scoring.hf.space/docs.*
+
+1. Respuestas cortas, fácticas, inequívocas.
+2. Los hops necesitan tools; un quiz de glosario no puede falsificarlos.
+3. Puntúa con exact match; registra la cadena cruda.
+4. Empieza con forma de Nivel 1 (pocos pasos, pocas tools).
+5. Un leaderboard público no es un SLA de cliente.
+6. iAguide no hospeda su certificado. Siéntate a su examen en sus Spaces si quieres su insignia.
+
+## Qué recordar
+
+*Síntesis de Unit 4, Hugging Face Agents Course (Burtenshaw, Thomas, Simonini y Paniego, Apache-2.0), y Mialon et al. (2023).*
+
+GAIA son 466 preguntas fáciles para personas y duras para asistentes, con tres niveles y respuestas exact-match. Humanos alrededor del 92 por ciento; GPT-4 + plugins al principio alrededor del 15. La barra de estudiantes del curso es 30 por ciento en un subconjunto de 20 de Nivel 1. Roba la forma para tu dominio. No confundas un quiz 9/10 con un bucle que puede leer un PDF, un calendario y una calculadora.
+
+## El exact match es un problema de prompt
+
+*Fuente nombrada: Hugging Face Agents Course, Unit 4, The process en [hands-on](https://huggingface.co/learn/agents-course/unit4/hands-on); nota de prompting del leaderboard GAIA en https://huggingface.co/spaces/gaia-benchmark/leaderboard.*
+
+La ruta submit es implacable por diseño. Una lista de frutas correcta en el orden equivocado, un singular donde pedían plural, o una frase alrededor del hecho, todo puntúa cero. No es un bug de vendor. Es el pilar que llamaron simplicidad de evaluación. La secuencia de parada `Final Answer:` del bucle dummy en [dummy-agent](/course/dummy-agent) es la misma bisagra: el arnés debe pelar el envoltorio antes del POST.
+
+Consejo práctico: añade una fila offline cuya única diferencia sea la puntuación. Si tu agente la falla, tienes un bug de envoltorio, no de razonamiento. Traza esa fila como una clase de span propia (véase [observability](/course/observability)).
+
+## Archivos como observaciones, no como chat
+
+*Fuente nombrada: Hugging Face Agents Course, Unit 4, `GET /files/<task_id>` en [hands-on](https://huggingface.co/learn/agents-course/unit4/hands-on).*
+
+Algunas tareas envían un archivo. La API te da una descarga por task id. Ese archivo es una **observación** que el arnés debe ir a buscar y parsear. Si metes los bytes en el system prompt “por si acaso”, has reinventado el RAG ingenuo y reventarás el contexto en Nivel 2. El RAG agéntico de [agentic-rag](/course/agentic-rag) es la misma geometría: retrieve es una tool, no un default.
+
+Consejo práctico: una tool llamada `get_task_file` cuya descripción diga cuándo llamarla. Si el modelo nunca la llama en tareas con archivo, la descripción es el bug. No hagas fine-tune todavía; véase [function-calling-ft](/course/function-calling-ft).
+
+## Enlaces en este curso
+
+*Fuente nombrada: Hugging Face Agents Course, Unit 4 (unidad completa); particularidades iAguide que comparten el bucle.*
+
+- El ciclo interno que enviarás: [dummy-agent](/course/dummy-agent)
+- Agente code-first que usan muchos estudiantes: [smolagents](/course/smolagents)
+- Hops de retrieve: [agentic-rag](/course/agentic-rag)
+- Trazas de fallos exact-match: [observability](/course/observability)
+- Cultura más amplia de eval: [evaluation](/course/evaluation)
+
+Inicio del curso: https://huggingface.co/learn/agents-course · repo: https://github.com/huggingface/agents-course · docs: https://huggingface.co/docs
+
+## Fuentes
+
+Burtenshaw, B., Thomas, J., Simonini, T. y Paniego, S. (s. f.). *Hugging Face Agents Course* (Apache-2.0). https://huggingface.co/learn/agents-course · https://github.com/huggingface/agents-course
+
+Mialon, G., Fourrier, C., Swift, C., Wolf, T., LeCun, Y. y Scialom, T. (2023). *GAIA: A benchmark for general AI assistants*. https://huggingface.co/papers/2311.12983
+
+- Introducción de Unit 4: https://huggingface.co/learn/agents-course/unit4/introduction
+- What is GAIA: https://huggingface.co/learn/agents-course/unit4/what-is-gaia
+- Hands-on: https://huggingface.co/learn/agents-course/unit4/hands-on
+- Conclusión: https://huggingface.co/learn/agents-course/unit4/conclusion
+- Leaderboard público de GAIA: https://huggingface.co/spaces/gaia-benchmark/leaderboard
+- Leaderboard de estudiantes: https://huggingface.co/spaces/agents-course/Students_leaderboard
+- Docs de la API de scoring: https://agents-course-unit4-scoring.hf.space/docs
+- Plantilla de la assignment final: https://huggingface.co/spaces/agents-course/Final_Assignment_Template
+- OpenAI Deep Research (nombrado en la unidad): https://openai.com/index/introducing-deep-research/
+- DeepResearch open-source: https://huggingface.co/blog/open-deep-research
+- Hugging Face docs: https://huggingface.co/docs
