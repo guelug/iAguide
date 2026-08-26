@@ -5,26 +5,41 @@ import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import { Flow, Node3D, Slab, Tag, Turntable, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
+import { useCopy } from "@/lib/useCopy";
 
 type Step = "fit" | "think" | "ctx" | "serve";
 
-const OPTIONS = [
-  { value: "fit" as const, label: "fit", tone: "var(--teal)" },
-  { value: "think" as const, label: "think", tone: "var(--violet)" },
-  { value: "ctx" as const, label: "ctx", tone: "var(--amber)" },
-  { value: "serve" as const, label: "serve", tone: "var(--teal)" },
-];
+
 
 export default function Visual() {
+  const t = useCopy({
+    en: {
+      "run_qwen3_8_locally": "Run Qwen3.8 locally",
+      "step_the_diagram": "step the diagram",
+      "oom_overflow": "OOM / overflow"
+    },
+    es: {
+      "run_qwen3_8_locally": "Corre Qwen3.8 en local",
+      "step_the_diagram": "recorre el diagrama",
+      "oom_overflow": "OOM / overflow"
+    },
+  });
+
+  const OPTIONS = [
+    { value: "fit" as const, label: "fit", tone: "var(--teal)" },
+    { value: "think" as const, label: "think", tone: "var(--violet)" },
+    { value: "ctx" as const, label: "ctx", tone: "var(--amber)" },
+    { value: "serve" as const, label: "serve", tone: "var(--teal)" },
+  ];
   const [step, setStep] = useState<Step>("fit");
 
   return (
     <Figure
-      label="Run Qwen3.8 locally"
-      hint="step the diagram"
+      label={t.run_qwen3_8_locally}
+      hint={t.step_the_diagram}
       legend={[
         { color: P.teal, label: "fits / GGUF" },
-        { color: P.amber, label: "OOM / overflow" },
+        { color: P.amber, label: t.oom_overflow },
         { color: P.violet, label: "thinking / NVFP4" },
       ]}
       controls={
@@ -38,14 +53,14 @@ export default function Visual() {
     >
       <Stage className="h-full w-full" maxDpr={1.75} camera={{ position: [0, 0.35, 7.4], fov: 40 }}>
         <Turntable speed={0.035} tilt={0.1}>
-          <Scene active={step} />
+          <Scene active={step} t={t} />
         </Turntable>
       </Stage>
     </Figure>
   );
 }
 
-function Scene({ active }: { active: Step }) {
+function Scene({ active, t }: { active: Step; t: any }) {
   return (
     <group>
       {active === "fit" ? <FitScene /> : null}

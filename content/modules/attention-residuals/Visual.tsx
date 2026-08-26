@@ -5,26 +5,49 @@ import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import { Flow, Node3D, Slab, Tag, Turntable, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
+import { useCopy } from "@/lib/useCopy";
 
 type Step = "residual" | "full" | "block";
 
-const OPTIONS = [
-  { value: "residual" as const, label: "residual", tone: "var(--amber)" },
-  { value: "full" as const, label: "full", tone: "var(--teal)" },
-  { value: "block" as const, label: "block", tone: "var(--violet)" },
-];
+
 
 export default function Visual() {
+  const t = useCopy({
+    en: {
+      "step_the_diagram": "step the diagram",
+      "residual": "residual",
+      "full": "full",
+      "block": "block",
+      "plus_residual": "plus / residual",
+      "full_attnres": "full AttnRes",
+      "block_summaries": "block summaries"
+    },
+    es: {
+      "step_the_diagram": "recorre el diagrama",
+      "residual": "residual",
+      "full": "completo",
+      "block": "bloque",
+      "plus_residual": "suma / residual",
+      "full_attnres": "AttnRes completo",
+      "block_summaries": "resúmenes de bloque"
+    },
+  });
+
+  const OPTIONS = [
+    { value: "residual" as const, label: t.residual, tone: "var(--amber)" },
+    { value: "full" as const, label: t.full, tone: "var(--teal)" },
+    { value: "block" as const, label: t.block, tone: "var(--violet)" },
+  ];
   const [step, setStep] = useState<Step>("residual");
 
   return (
     <Figure
       label="Depth mixer"
-      hint="step the diagram"
+      hint={t.step_the_diagram}
       legend={[
-        { color: P.amber, label: "plus / residual" },
-        { color: P.teal, label: "full AttnRes" },
-        { color: P.violet, label: "block summaries" },
+        { color: P.amber, label: t.plus_residual },
+        { color: P.teal, label: t.full_attnres },
+        { color: P.violet, label: t.block_summaries },
       ]}
       controls={
         <Switcher
@@ -37,14 +60,14 @@ export default function Visual() {
     >
       <Stage className="h-full w-full" maxDpr={1.75} camera={{ position: [0, 0.35, 7.5], fov: 40 }}>
         <Turntable speed={0.035} tilt={0.1}>
-          <Scene active={step} />
+          <Scene active={step} t={t} />
         </Turntable>
       </Stage>
     </Figure>
   );
 }
 
-function Scene({ active }: { active: Step }) {
+function Scene({ active, t }: { active: Step; t: any }) {
   return (
     <group>
       {active === "residual" ? <ResidualScene /> : null}

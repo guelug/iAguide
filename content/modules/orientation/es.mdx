@@ -4,7 +4,6 @@ iAguide es un curso visual sobre cómo funcionan los sistemas de IA **en la prá
 
 No es un tutorial de un proveedor. No es un paper. Se va a quedar viejo: los CLI cambian de nombre, las fichas se reescriben, una cifra cierta en una GPU es mentira en otra. Cuando damos un número, lo marcamos como **regla práctica** o lo omitimos.
 
-
 <VisualSlot caption="Cuatro vías en un mapa: fundamentos, arnés, entrenamiento, metal. Las particularidades de frameworks viven dentro del arnés — no como quinta vía." />
 
 ## Lo que sabrás hacer
@@ -18,9 +17,52 @@ Al llegar a la guía de campo deberías poder:
 
 ## Cómo funciona el mapa
 
-Cuatro pistas; el Agents Course de Hugging Face vive dentro, no como quinta vía. El [mapa del curso](/course) es el índice: una constelación, no una secuencia cerrada. La orientación es el porche. El lenguaje de los modelos y el arnés son las dos espinas. Entrenamiento y ajuste fino van juntos. Inferencia local, cuantización y hardware son el taller. Las mates son un farol, no una verja. La guía de campo es una lista, no un diploma.
 
-Los módulos en preparación, si aparecen, se ven como teasers. Cómo dejar una carpeta 13 está en Acerca de.
+- **Fundamentos** — el lenguaje de los modelos. Tokens, atención, embeddings, multimodalidad.
+- **Arnés** — el bucle alrededor del modelo. Tools, sesiones, gateway, plugins, jobs, browser, MCP.
+- **Entrenamiento** — ajuste fino, LoRA, datasets, RLHF/DPO/GRPO, distribuidos.
+- **Metal** — inferencia local, cuantización, hardware, throughput, memoria unificada.
+
+Las particularidades de frameworks (smolagents, LangGraph, LlamaIndex, Hermes, OpenClaw) viven **dentro** del arnés — no como quinta vía.
+
+## Lo que el arnés es (y lo que no)
+
+El arnés es **el bucle** que ejecuta un modelo:
+
+- recibe un mensaje,
+- arma un contexto,
+- paga **prefill** (paralelo, cacheable) sobre el prefijo,
+- genera **decode** (secuencial, proporcional a la KV) hasta texto o tool_call,
+- ejecuta tools si las pidió,
+- persiste el turno.
+
+<Myth>
+"El arnés es el modelo." El arnés es el bucle. El modelo es el motor de tokens dentro del bucle. Cambias el motor; el bucle sigue.
+</Myth>
+
+Esto significa que el arnés **no es Hermes ni OpenClaw ni smolagents** — esos son nombres de productos que *implementan* un arnés. El arnés es la idea; las librerías son dialectos.
+
+## Prefill y decode, la base
+
+Cada token que el modelo emite pasa por dos fases muy distintas:
+
+- **Prefill** — el prompt y el historial cacheado se procesan **en paralelo** por capa (compute-heavy, cacheable).
+- **Decode** — cada token nuevo se genera **secuencialmente**, atendiendo a la KV (memory-bandwidth-heavy, no cacheable entre generaciones).
+
+Las dos fases son la razón por la que "system prompt corto" y "respuesta concisa" son optimizaciones distintas. El primero se amortigua sobre todos los turnos futuros si mantienes el prefijo estable; el segundo solo importa una vez por turno.
+
+<Callout>
+Si tu eval cuesta más de lo que predijiste, casi siempre es una de las dos fases: prefill inflado o decode inflado. El dashboard del proveedor te dice cuál.
+</Callout>
+
+## A3B / MoE, en 30 segundos
+
+Un modelo **48B-A3B** tiene 48B parámetros en disco y ~3B **activos por token**. Esto cambia dos cosas:
+
+- **Memoria** dominada por los totales (48B). Cargar el modelo cuesta 48B-veces-bytes en RAM.
+- **FLOPs** por token dominados por los activos (3B). Compactar el contexto ayuda más en un denso 7B que en un A3B, pero **la atención sigue siendo densa** sobre la KV completa.
+
+Por eso "hacer el contexto más largo" sigue siendo caro en un A3B — el ahorro de FLOPs del FFN no abarata la atención.
 
 ## El Agents Course de Hugging Face, en este mapa
 
@@ -48,7 +90,7 @@ Cada lección dura 8–20 minutos. Los diagramas son un lienzo, no un carnaval. 
 Los comandos son **esquemas**: el binario y la idea. Las flags se mueven. Pega en la terminal solo después de leer el `--help` actual.
 
 <TryThis>
-Abre el mapa del curso. Pulsa cualquier estrella. Vuelve con una frase: qué sería “terminado” para ti en este curso — un modelo local, un LoRA mínimo, o un arnés que llama a una herramienta sin romper el hilo.
+Abre el mapa del curso. Pulsa cualquier estrella. Vuelve con una frase: qué sería "terminado" para ti en este curso — un modelo local, un LoRA mínimo, o un arnés que llama a una herramienta sin romper el hilo.
 </TryThis>
 
 ## Lo que no haremos
@@ -60,6 +102,120 @@ Abre el mapa del curso. Pulsa cualquier estrella. Vuelve con una frase: qué ser
 
 Currículo de 2026. Si una página discrepa de la herramienta que tienes en el PATH, fíate de la herramienta y luego manda un parche.
 
+## Vocabulario que importará
+
+Cuatro términos que verás una y otra vez:
+
+- **<Term id="harness">Arnés</Term>** — el bucle alrededor del modelo.
+- **<Term id="prompt-cache">Caché de prompt</Term>** — reutiliza el prefill cuando el prefijo coincide byte a byte.
+- **<Term id="thread">Hilo</Term>** — la conversación durable que el arnés persiste.
+- **<Term id="tool">Herramienta</Term>** — una función tipada que el modelo puede pedir y tú ejecutas.
+
+Si tienes esos cuatro, las lecciones técnicas son detalle. Si no, vuelve aquí.
+
 ## Caso — coleccionar frameworks
 
 Un alumno abrió cinco librerías de agentes antes de escribir un while con un `runTool` falso. Tenía marcadores. No tenía arnés. Empieza por el bucle; colecciona dialectos después.
+
+<Steps>
+<Step title="Mira el mapa">
+Cuatro vías + orientación. Las particularidades viven dentro de una vía, no como quinta.
+</Step>
+<Step title="Lee fundamentals">
+Tokens, atención, embeddings. La base para todo lo demás.
+</Step>
+<Step title="Salta al arnés">
+El bucle es lo que ejecuta tu agente. El modelo es un motor dentro del bucle.
+</Step>
+<Step title="Aprende prefill/decode">
+Dos fases, dos presupuestos. La optimización cambia con la fase.
+</Step>
+<Step title="Mira el metal">
+Cuantización, hardware, throughput. Si corres en local, esto te importa.
+</Step>
+</Steps>
+
+## Lista práctica
+
+1. iAguide = mapa de cómo funcionan los sistemas en práctica.
+2. Cuatro vías: fundamentos, arnés, entrenamiento, metal. Más orientación.
+3. El arnés es el bucle. El modelo es el motor dentro del bucle.
+4. Prefill es paralelo y cacheable. Decode es secuencial y proporcional a la KV.
+5. MoE A3B: memoria por totales, FLOPs por activos. Atención sigue densa.
+6. Los comandos son esquemas. Las flags se mueven. Lee el `--help` actual.
+
+## Cinco cosas que no encontrarás aquí
+
+1. **Comparativas de proveedores** — son mercado; se quedan viejas en meses.
+2. **Papers con cifras exactas** — los benchmarks cambian con cada release.
+3. **APIs detalladas de un producto** — los docs del producto son la fuente.
+4. **Tutoriales paso a paso de frameworks** — los quickstarts de cada framework son mejores.
+5. **Prompts mágicos** — los prompts que valen son los tuyos, sobre tus datos.
+
+## Lo que sí encontrarás
+
+1. **La idea del bucle** — el arnés, sus cinco verbos, sus tres capas.
+2. **Las dos fases del cómputo** — prefill paralelo cacheable, decode secuencial memory-bound.
+3. **El modelo MoE en economía** — totales para memoria, activos para FLOPs, atención siempre densa.
+4. **Las particularidades como dialectos** — Hermes, OpenClaw, smolagents, LangGraph, LlamaIndex; ninguno es "el arnés."
+5. **Las trampas operacionales** — cache bust, kv OOM, sombra de plugins, jobs espejados, allowlists abiertas.
+
+## Fuentes
+
+- Hugging Face Agents Course. https://huggingface.co/learn/agents-course
+- Hermes Agent docs. https://hermes-agent.nousresearch.com/docs
+- OpenClaw docs. https://docs.openclaw.ai/
+- Mixtral paper (concepto MoE/A3B). https://arxiv.org/abs/2401.04088
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Cuáles son las cuatro vías del curso?",
+      options: [
+        { id: "a", text: "Solo una." },
+        { id: "b", text: "Fundamentos (tokens, atención), arnés (bucle, tools, sesiones), entrenamiento (fine-tune, LoRA, RL), metal (cuantización, hardware, throughput). Más la orientación como porche." },
+        { id: "c", text: "Solo entrenamiento y arnés." },
+        { id: "d", text: "Las cuatro son: Hermes, OpenClaw, smolagents, LangGraph." }
+      ],
+      correct: "b",
+      explanation: "Cuatro vías: fundamentos (lenguaje de los modelos), arnés (bucle alrededor del modelo), entrenamiento (ajuste fino y datos), metal (inferencia, hardware, throughput). Las particularidades de productos viven dentro de una vía, no como quinta."
+    },
+    {
+      id: "q2",
+      stem: "¿Cuál es la diferencia entre prefill y decode?",
+      options: [
+        { id: "a", text: "Son lo mismo." },
+        { id: "b", text: "Prefill procesa el prompt en paralelo por capa (compute-heavy, cacheable). Decode genera un token a la vez, secuencialmente (memory-bandwidth-heavy). Distintos presupuestos, distintas optimizaciones." },
+        { id: "c", text: "Decode es paralelo." },
+        { id: "d", text: "Prefill es más caro por token." }
+      ],
+      correct: "b",
+      explanation: "Prefill = batch sobre el prompt, GPU saturada compute. Decode = un token por paso, GPU saturada memory bandwidth. Distinto coste, distinta latencia, distinta caché. Confundirlos lleva a optimizaciones equivocadas (prefill corto vs respuesta corta son cosas distintas)."
+    },
+    {
+      id: "q3",
+      stem: "Modelo 48B-A3B: ¿qué afirmación es correcta?",
+      options: [
+        { id: "a", text: "Activa 48B parámetros por token." },
+        { id: "b", text: "Memoria dominada por totales (48B); FLOPs por token dominados por activos (~3B). La atención sigue siendo densa sobre la KV completa; hacer el contexto más largo sigue siendo caro incluso en MoE." },
+        { id: "c", text: "No tiene KV cache." },
+        { id: "d", text: "Es siempre más rápido que un denso." }
+      ],
+      correct: "b",
+      explanation: "MoE A3B mantiene los 48B en disco (memoria) pero activa 3B por token (FLOPs). El FFN disperso abarata el cómputo; la atención no — atiende a toda la KV. Por eso 'hacer el contexto más largo' sigue siendo caro en un A3B, aunque el FFN sea barato."
+    },
+    {
+      id: "q4",
+      stem: "¿Por qué 'el arnés' no es un producto?",
+      options: [
+        { id: "a", text: "Es un producto." },
+        { id: "b", text: "Porque el arnés es el bucle (la idea), y Hermes, OpenClaw, smolagents, LangGraph son productos que *implementan* el bucle. Llamar al producto 'el arnés' confunde la capa con el dialecto." },
+        { id: "c", text: "El bucle no existe." },
+        { id: "d", text: "Es marketing." }
+      ],
+      correct: "b",
+      explanation: "El arnés es la idea del bucle. Los productos (Hermes, OpenClaw, smolagents) son implementaciones. Cuando alguien dice 'Hermes es el arnés', está confundiendo el dialecto con la capa. La fix: separar nombres o depurarás la capa equivocada."
+    }
+  ]}
+/>

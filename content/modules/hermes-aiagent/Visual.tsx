@@ -5,28 +5,49 @@ import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import { Flow, Node3D, Slab, Tag, Turntable, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
+import { useCopy } from "@/lib/useCopy";
 
 type Step = "entries" | "aiagent" | "chat" | "run" | "names";
 
-const OPTIONS = [
-  { value: "entries" as const, label: "entry points", tone: "var(--teal)" },
-  { value: "aiagent" as const, label: "AIAgent", tone: "var(--amber)" },
-  { value: "chat" as const, label: "chat()", tone: "var(--teal)" },
-  { value: "run" as const, label: "run_conversation", tone: "var(--violet)" },
-  { value: "names" as const, label: "name split", tone: "var(--amber)" },
-];
+
 
 export default function Visual() {
+  const t = useCopy({
+    en: {
+      "step_the_diagram": "step the diagram",
+      "entry_points": "entry points",
+      "name_split": "name split",
+      "core_path": "core path",
+      "cost_volatile": "cost / volatile",
+      "extension": "extension"
+    },
+    es: {
+      "step_the_diagram": "recorre el diagrama",
+      "entry_points": "puntos de entrada",
+      "name_split": "split de nombre",
+      "core_path": "ruta núcleo",
+      "cost_volatile": "coste / volátil",
+      "extension": "extensión"
+    },
+  });
+
+  const OPTIONS = [
+    { value: "entries" as const, label: t.entry_points, tone: "var(--teal)" },
+    { value: "aiagent" as const, label: "AIAgent", tone: "var(--amber)" },
+    { value: "chat" as const, label: "chat()", tone: "var(--teal)" },
+    { value: "run" as const, label: "run_conversation", tone: "var(--violet)" },
+    { value: "names" as const, label: t.name_split, tone: "var(--amber)" },
+  ];
   const [step, setStep] = useState<Step>("entries");
 
   return (
     <Figure
       label="Hermes: AIAgent entry points"
-      hint="step the diagram"
+      hint={t.step_the_diagram}
       legend={[
-        { color: P.teal, label: "core path" },
-        { color: P.amber, label: "cost / volatile" },
-        { color: P.violet, label: "extension" },
+        { color: P.teal, label: t.core_path },
+        { color: P.amber, label: t.cost_volatile },
+        { color: P.violet, label: t.extension },
       ]}
       controls={
         <Switcher
@@ -39,14 +60,14 @@ export default function Visual() {
     >
       <Stage className="h-full w-full" maxDpr={1.75} camera={{ position: [0, 0.35, 7.4], fov: 40 }}>
         <Turntable speed={0.035} tilt={0.1}>
-          <Scene active={step} />
+          <Scene active={step} t={t} />
         </Turntable>
       </Stage>
     </Figure>
   );
 }
 
-function Scene({ active }: { active: Step }) {
+function Scene({ active, t }: { active: Step; t: any }) {
   return (
     <group>
       <Wire points={[[-2.6, 0.2, 0], [2.6, 0.2, 0]]} color={P.line} opacity={0.5} />
@@ -59,9 +80,7 @@ function Scene({ active }: { active: Step }) {
         color={active === "entries" ? P.teal : P.lineStrong}
         fill={active === "entries" ? 0.55 : 0.14}
       />
-      <Tag position={[-2.3, 1.4500000000000002, 0.0]} tone="teal" center>
-        entry points
-      </Tag>
+      <Tag position={[-2.3, 1.4500000000000002, 0.0]} tone="teal" center>{t.entry_points}</Tag>
 
       <Slab
         position={[-0.75, 0.9, 0.0]}
@@ -99,9 +118,7 @@ function Scene({ active }: { active: Step }) {
         color={active === "names" ? P.amber : P.lineStrong}
         fill={active === "names" ? 0.55 : 0.14}
       />
-      <Tag position={[0.0, -0.5, 0.0]} tone="amber" center>
-        name split
-      </Tag>
+      <Tag position={[0.0, -0.5, 0.0]} tone="amber" center>{t.name_split}</Tag>
     </group>
   );
 }

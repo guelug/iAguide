@@ -85,13 +85,13 @@ export function CourseExplorer({
         })}
       </div>
 
-      <div className="relative mt-6 overflow-hidden rounded-2xl border border-line bg-paper">
+      <div className="relative mt-6 max-w-full overflow-hidden rounded-2xl border border-line bg-paper">
         <CourseAtlas
           nodes={nodes}
           activeTrack={track}
           onHover={setHover}
           onSelect={(slug) => router.push(`/m/${slug}`)}
-          className="h-[440px] w-full md:h-[600px]"
+          className="h-[440px] w-full max-w-full md:h-[600px]"
         />
 
         <p className="pointer-events-none absolute right-4 top-4 font-mono text-[0.58rem] tracking-[0.14em] uppercase text-faint">
@@ -123,12 +123,12 @@ export function CourseExplorer({
       {shown.length === 0 ? (
         <p className="mt-12 text-muted">{strings.empty}</p>
       ) : (
-        <ol className="mt-12 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <ol className="mt-12 grid w-full min-w-0 grid-cols-[repeat(auto-fill,minmax(min(100%,17.5rem),1fr))] gap-4">
           {shown.map((c) => {
             const wip = c.status === "wip";
             const inner = (
               <article
-                className={`flex h-full flex-col rounded-xl border border-line bg-surface px-5 py-5 transition-colors ${
+                className={`flex h-full min-w-0 max-w-full flex-col rounded-xl border border-line bg-surface px-5 py-5 transition-colors ${
                   wip ? "opacity-55" : "hover:border-teal/50"
                 }`}
                 style={{ borderTopColor: c.color, borderTopWidth: 2 }}
@@ -158,11 +158,11 @@ export function CourseExplorer({
               </article>
             );
             return (
-              <li key={c.slug}>
+              <li key={c.slug} className="min-w-0 max-w-full">
                 {wip ? (
                   inner
                 ) : (
-                  <Link href={`/m/${c.slug}`} className="block h-full text-inherit no-underline">
+                  <Link href={`/m/${c.slug}`} className="block h-full min-w-0 max-w-full text-inherit no-underline">
                     {inner}
                   </Link>
                 )}

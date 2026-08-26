@@ -5,26 +5,51 @@ import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import { Flow, Node3D, Slab, Tag, Turntable, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
+import { useCopy } from "@/lib/useCopy";
 
 type Step = "path" | "qlora" | "mix" | "export";
 
-const OPTIONS = [
-  { value: "path" as const, label: "path", tone: "var(--teal)" },
-  { value: "qlora" as const, label: "qlora", tone: "var(--amber)" },
-  { value: "mix" as const, label: "mix", tone: "var(--violet)" },
-  { value: "export" as const, label: "export", tone: "var(--teal)" },
-];
+
 
 export default function Visual() {
+  const t = useCopy({
+    en: {
+      "step_the_diagram": "step the diagram",
+      "path": "path",
+      "mix": "mix",
+      "export": "export",
+      "vram_cost": "VRAM / cost",
+      "full_ft_4x": "Full FT 4x",
+      "adapters": "adapters",
+      "gguf_q4": "GGUF q4"
+    },
+    es: {
+      "step_the_diagram": "recorre el diagrama",
+      "path": "ruta",
+      "mix": "mezcla",
+      "export": "exporta",
+      "vram_cost": "VRAM / coste",
+      "full_ft_4x": "FT completo 4x",
+      "adapters": "adaptadores",
+      "gguf_q4": "GGUF q4"
+    },
+  });
+
+  const OPTIONS = [
+    { value: "path" as const, label: t.path, tone: "var(--teal)" },
+    { value: "qlora" as const, label: "qlora", tone: "var(--amber)" },
+    { value: "mix" as const, label: t.mix, tone: "var(--violet)" },
+    { value: "export" as const, label: t.export, tone: "var(--teal)" },
+  ];
   const [step, setStep] = useState<Step>("path");
 
   return (
     <Figure
       label="Fine-tune Qwen3.8"
-      hint="step the diagram"
+      hint={t.step_the_diagram}
       legend={[
         { color: P.teal, label: "path / artefact" },
-        { color: P.amber, label: "VRAM / cost" },
+        { color: P.amber, label: t.vram_cost },
         { color: P.violet, label: "reasoning mix" },
       ]}
       controls={
@@ -38,20 +63,20 @@ export default function Visual() {
     >
       <Stage className="h-full w-full" maxDpr={1.75} camera={{ position: [0, 0.35, 7.4], fov: 40 }}>
         <Turntable speed={0.035} tilt={0.1}>
-          <Scene active={step} />
+          <Scene active={step} t={t} />
         </Turntable>
       </Stage>
     </Figure>
   );
 }
 
-function Scene({ active }: { active: Step }) {
+function Scene({ active, t }: { active: Step; t: any }) {
   return (
     <group>
       {active === "path" ? <PathScene /> : null}
-      {active === "qlora" ? <QloraScene /> : null}
+      {active === "qlora" ? <QloraScene t={t} /> : null}
       {active === "mix" ? <MixScene /> : null}
-      {active === "export" ? <ExportScene /> : null}
+      {active === "export" ? <ExportScene t={t} /> : null}
     </group>
   );
 }
@@ -82,11 +107,11 @@ function PathScene() {
   );
 }
 
-function QloraScene() {
+function QloraScene({ t }: { t: any }) {
   const bars = [
     { x: -2.1, h: 0.85, label: "QLoRA 24G", color: P.teal, tone: "teal" as const, fill: 0.55 },
     { x: 0.0, h: 1.35, label: "LoRA >36G", color: P.amber, tone: "amber" as const, fill: 0.5 },
-    { x: 2.1, h: 1.95, label: "Full FT 4x", color: P.violet, tone: "violet" as const, fill: 0.42 },
+    { x: 2.1, h: 1.95, label: t.full_ft_4x, color: P.violet, tone: "violet" as const, fill: 0.42 },
   ];
   return (
     <group>
@@ -137,10 +162,10 @@ function MixScene() {
   );
 }
 
-function ExportScene() {
+function ExportScene({ t }: { t: any }) {
   const items: { x: number; label: string; tone: "teal" | "amber" | "violet"; color: string }[] = [
-    { x: -2.15, label: "adapters", tone: "teal", color: P.teal },
-    { x: 0.0, label: "GGUF q4", tone: "amber", color: P.amber },
+    { x: -2.15, label: t.adapters, tone: "teal", color: P.teal },
+    { x: 0.0, label: t.gguf_q4, tone: "amber", color: P.amber },
     { x: 2.15, label: "vLLM 16b", tone: "violet", color: P.violet },
   ];
   return (

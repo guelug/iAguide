@@ -5,26 +5,49 @@ import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import { Flow, Node3D, Slab, Tag, Turntable, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
+import { useCopy } from "@/lib/useCopy";
 
 type Step = "naive" | "cached" | "twophase";
 
-const OPTIONS = [
-  { value: "naive" as const, label: "naive PP", tone: "var(--amber)" },
-  { value: "cached" as const, label: "cached", tone: "var(--teal)" },
-  { value: "twophase" as const, label: "two-phase", tone: "var(--violet)" },
-];
+
 
 export default function Visual() {
+  const t = useCopy({
+    en: {
+      "step_the_diagram": "step the diagram",
+      "naive_pp": "naive PP",
+      "cached": "cached",
+      "two_phase": "two-phase",
+      "full_history_resend": "full history / resend",
+      "cached_increment": "cached increment",
+      "phase_1_phase_2": "phase 1 / phase 2"
+    },
+    es: {
+      "step_the_diagram": "recorre el diagrama",
+      "naive_pp": "PP ingenuo",
+      "cached": "en caché",
+      "two_phase": "dos fases",
+      "full_history_resend": "historial completo / reenvío",
+      "cached_increment": "incremento en caché",
+      "phase_1_phase_2": "fase 1 / fase 2"
+    },
+  });
+
+  const OPTIONS = [
+    { value: "naive" as const, label: t.naive_pp, tone: "var(--amber)" },
+    { value: "cached" as const, label: t.cached, tone: "var(--teal)" },
+    { value: "twophase" as const, label: t.two_phase, tone: "var(--violet)" },
+  ];
   const [step, setStep] = useState<Step>("naive");
 
   return (
     <Figure
       label="AttnRes systems"
-      hint="step the diagram"
+      hint={t.step_the_diagram}
       legend={[
-        { color: P.amber, label: "full history / resend" },
-        { color: P.teal, label: "cached increment" },
-        { color: P.violet, label: "phase 1 / phase 2" },
+        { color: P.amber, label: t.full_history_resend },
+        { color: P.teal, label: t.cached_increment },
+        { color: P.violet, label: t.phase_1_phase_2 },
       ]}
       controls={
         <Switcher
@@ -37,14 +60,14 @@ export default function Visual() {
     >
       <Stage className="h-full w-full" maxDpr={1.75} camera={{ position: [0, 0.35, 7.6], fov: 40 }}>
         <Turntable speed={0.035} tilt={0.1}>
-          <Scene active={step} />
+          <Scene active={step} t={t} />
         </Turntable>
       </Stage>
     </Figure>
   );
 }
 
-function Scene({ active }: { active: Step }) {
+function Scene({ active, t }: { active: Step; t: any }) {
   return (
     <group>
       {active === "naive" ? <NaiveScene /> : null}

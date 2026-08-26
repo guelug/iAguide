@@ -1,19 +1,221 @@
 ## Mismo bucle, cuatro sockets
 
-ACP (stdio) para IDEs. HTTP OpenAI para curl y frontends. WS/JSON-RPC para hosts a medida. In-process para tests Python.
+Un arnés serio expone **un** bucle y muchos **sockets** para llegar a él. No es cuatro dialectos: es un loop y cuatro formas de serializarlo.
 
-Si el IDE habla ACP, no inventes un segundo dialecto HTTP.
+- **ACP (stdio)** — para IDEs. JSON-RPC sobre stdin/stdout. Latencia cero, sin red.
+- **HTTP OpenAI-compat** — para curl, frontends, gateways. Peticiones REST, respuestas JSON o SSE stream.
+- **WebSocket / JSON-RPC** — para TUIs, hosts a medida, conexiones persistentes.
+- **In-process** — para tests Python, embedded, librerías. Una llamada a función.
 
-<VisualSlot caption="ACP, HTTP, WebSocket, in-process -- cuatro entradas al mismo bucle." />
+Si el IDE habla ACP, no inventes un segundo dialecto HTTP. Si necesitas stream + cancel, WS. Si solo necesitas completions, HTTP.
+
+<VisualSlot caption="ACP, HTTP, WebSocket, in-process — cuatro entradas al mismo bucle." />
+
+## El bucle es el mismo
+
+Las cuatro superficies llaman a la misma función núcleo: `run_agent(thread, message, options)`. La diferencia es el adaptador de transporte:
+
+- **ACP** mapea `session/load` y `session/prompt` a `run_agent`.
+- **HTTP** mapea `POST /v1/chat/completions` a `run_agent` (con streaming opcional SSE).
+- **WS** mapea eventos `agent` y `assistant` sobre el socket.
+- **In-process** es `run_agent(...)` directo.
+
+Cada adaptador implementa la misma interfaz: serializar el mensaje, llamar al bucle, entregar la respuesta (con stream si toca), propagar cancel.
+
+<Myth>
+"Si tenemos cuatro protocolos, tenemos cuatro implementaciones." No. Cada adaptador es un *thin shim* sobre el bucle. La lógica vive en una capa; el transporte es un detalle.
+</Myth>
+
+## Cuándo usar cada uno
+
+| Socket | Caso | Por qué |
+| --- | --- | --- |
+| ACP (stdio) | Plugin de IDE, editor local | Sin red, latencia mínima, JSON-RPC tipado. |
+| HTTP OpenAI-compat | curl en CI, frontend web, gateway | Ecosistema enorme de clientes. |
+| WS / JSON-RPC | TUI, host persistente, cancel agresivo | Bidireccional, eventos push. |
+| In-process | Tests Python, lib embebida, MCP server | Sin serializar, máxima velocidad. |
+
+<TryThis>
+Elige protocolo según el cliente real, no según la moda. VS Code → ACP. Frontend web → HTTP. TUI → WS. Tests → in-process. Si el adaptador no existe, escribe uno antes que un dialecto paralelo.
+</TryThis>
+
+## Cancel, stream, errores: las tres cosas que diferencian los sockets
+
+Un buen adaptador implementa tres cosas correctamente.
+
+1. **Stream** — el modelo emite tokens. HTTP lo hace con SSE; ACP con eventos sobre stdout; WS con frames. El adaptador no acumula la respuesta, solo la entrega.
+2. **Cancel** — un usuario manda `/stop` o cierra la pestaña. El adaptador mata la request HTTP, cierra el frame WS, mata el subprocess ACP. El bucle respeta cancel y abandona el turno.
+3. **Errores** — el modelo falla (429, 5xx, timeout). El adaptador reintenta o falla rápido según la política. El bucle no se entera; el adaptador decide.
+
+Si tu adaptador no hace las tres, estás reinventando un dialecto. Para de hacerlo.
+
+<Compare a="Adaptador que pasa tests" b="Adaptador que reescribe el bucle">
+
+<Side>
+Thin shim sobre `run_agent`. Stream via SSE o eventos. Cancel via ctx propagado. Errores como respuesta normal. Un test del adaptador es un test del bucle.
+
+</Side>
+
+<Side>
+Parsea el modelo de mensajes a su manera, llama a la API directamente, maneja errores con su propia lógica. Ahora tienes dos bucles. Bienvenido a depurar dos turnos que divergen.
+
+</Side>
+
+</Compare>
 
 ## Caso: chat_completions para un IDE ACP
 
-**Caso.** Un plugin de VS Code pega completions a un API server local y parsea diffs del texto.
+**Caso.** Un plugin de VS Code pega completions a un API server local y parsea diffs del texto. Habla HTTP OpenAI-compat. Pero VS Code tiene su propio canal de sesión, permission requests y cancel.
 
-**Arreglo.** Habla ACP: sesiones, permission requests, cancel.
+**Arreglo.** Habla ACP: sesiones, permission requests, cancel. Reutiliza el socket JSON-RPC que VS Code ya entiende. Si necesitas HTTP para otro cliente, escribe el segundo adaptador; no reescribas el primero.
 
-<TryThis>
-Elige protocolo: VS Code, curl en CI, TUI a medida, test Python.
-</TryThis>
+## Lo que el bucle expone y lo que no
 
-Docs: [integracion Hermes](https://hermes-agent.nousresearch.com/docs/developer-guide/programmatic-integration), [ACP Hermes](https://hermes-agent.nousresearch.com/docs/developer-guide/acp-internals), [protocolo OpenClaw](https://docs.openclaw.ai/gateway/protocol).
+El bucle expone **una API**: `run_agent(thread_id, message, options)`. No expone:
+
+- la implementación del chat completion (Anthropic, OpenAI, local),
+- el formato interno de la sesión (SQLite, JSON, etc.),
+- el system prompt (vive en el perfil, no en el cliente),
+- las tools internas (viven en el registry, no en el cliente).
+
+Lo que sí expone:
+
+- el id de thread, para que el cliente pueda continuar después,
+- los eventos stream (`assistant`, `tool`, `lifecycle`),
+- los códigos de error que tienen semántica (no strings arbitrarios),
+- el contrato de cancel.
+
+Si expones más, filtras el interno. Si expones menos, el cliente no puede implementar UX decente.
+
+## El test vale más que el adaptador
+
+Una práctica útil: el test del bucle es in-process. El test del adaptador HTTP es un cliente HTTP que llama al bucle y compara. Si los dos dan resultados idénticos para el mismo thread + message, el adaptador es correcto. Si divergen, **uno de los dos está mal**, y suele ser el adaptador.
+
+Hermes expone `run_agent` tanto por ACP como por HTTP como por CLI; OpenClaw expone `agent` por WebSocket y por CLI. Los tests cubren el bucle una vez; los adaptadores son thin.
+
+<Steps>
+<Step title="Inventariar clientes">
+¿Qué clientes reales van a llamar al bucle? IDE, curl, frontend web, TUI, MCP server, tests Python. Cada uno es un socket.
+</Step>
+<Step title="Escoger protocolo por cliente">
+VS Code / Cursor / Zed → ACP. Frontend → HTTP OpenAI-compat. TUI → WS. Tests → in-process. No colecciones dialectos.
+</Step>
+<Step title="Thin shim, no reescritura">
+El adaptador traduce eventos y propaga cancel. La lógica vive en una capa. Si tu adaptador tiene 1000+ líneas, es un segundo bucle.
+</Step>
+</Steps>
+
+## Prefill/decode no depende del socket
+
+El socket es cómo el mensaje llega al arnés. Una vez dentro, el arnés hace prefill del prefijo cacheado (en paralelo) y decode de la respuesta (secuencial). El socket solo ve el resultado, no las dos fases.
+
+Pero: si el socket corta a mitad de decode (cancel HTTP, WS cerrado), el bucle abandona el turno. El prefill ya se pagó. El decode parcial se descarta. El transcript se queda con el turno user + la marca de cancel, no con un assistant cortado. Si commites medio assistant, la próxima llamada del modelo ve alternancia inválida y el proveedor devuelve 400.
+
+<Callout>
+"No commitir contenido parcial" no es un detalle. Es la diferencia entre un bucle que sobrevive un cancel y uno que se rompe al siguiente turno. Los adaptadores que concatenan medio JSON de tool_call al chat son la causa más común de errores 400 misteriosos.
+</Callout>
+
+## Cuando el adaptador crece demasiado
+
+Si tu adaptador tiene 1000+ líneas, es un segundo bucle. Tres síntomas:
+
+1. **Lógica de prompt** — el adaptador compone prefijos o decide system prompts. Mover al `prompt_assembly`.
+2. **Lógica de routing** — el adaptador decide a qué sesión va el mensaje. Mover al `gateway`.
+3. **Lógica de tool dispatch** — el adaptador ejecuta tool_calls. Mover al `tools_runtime`.
+
+El adaptador solo traduce eventos y propaga cancel. Si crece, es porque una capa más profunda no está haciendo su trabajo.
+
+## Errores con semántica, no strings
+
+Un error bien modelado tiene tipo y mensaje:
+
+```python
+class AdapterError(Exception):
+    pass
+
+class Canceled(AdapterError):
+    """El usuario canceló. No es un fallo."""
+
+class RateLimited(AdapterError):
+    """El proveedor rechazó por rate. Reintentar."""
+
+class ProtocolError(AdapterError):
+    """El cliente envió algo inválido. No reintentar."""
+
+class TransientError(AdapterError):
+    """La red está caída. Reintentar con backoff."""
+```
+
+El cliente recibe un tipo, no un string arbitrario. Esto le permite decidir reintentar vs fallar vs mostrar UI. Si tu adaptador devuelve `str(e)`, depurar es adivinar.
+
+## Lista práctica
+
+1. Un bucle, muchos adaptadores. No al revés.
+2. Stream, cancel y errores son las tres obligaciones del adaptador.
+3. ACP para IDEs, HTTP para web/curl, WS para TUI/persistente, in-process para tests.
+4. El test del bucle es in-process; el del adaptador compara con in-process. Si divergen, el adaptador está mal.
+5. No commitir contenido parcial. Alternancia válida siempre.
+6. Adaptador thin shim. Si pasa de ~500 líneas, probablemente es un segundo bucle.
+7. Errores con tipo, no strings. El cliente decide qué hacer.
+
+## Fuentes
+
+- Hermes — *Programmatic integration*. https://hermes-agent.nousresearch.com/docs/developer-guide/programmatic-integration
+- Hermes — *ACP internals*. https://hermes-agent.nousresearch.com/docs/developer-guide/acp-internals
+- OpenClaw — *Gateway protocol*. https://docs.openclaw.ai/gateway/protocol
+- OpenAI — *Chat completions API* (compatibilidad). https://platform.openai.com/docs/api-reference/chat
+- ACP — *Agent Client Protocol spec*. https://agentclientprotocol.com/
+- JSON-RPC 2.0 spec. https://www.jsonrpc.org/specification
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "Un plugin de VS Code necesita completar código en el editor. ¿Qué socket debería usar?",
+      options: [
+        { id: "a", text: "HTTP OpenAI-compat, porque es el más común." },
+        { id: "b", text: "ACP sobre stdio, porque el IDE ya entiende JSON-RPC, sin red, y maneja sesiones / cancel nativamente." },
+        { id: "c", text: "WebSocket, porque es bidireccional." },
+        { id: "d", text: "In-process, porque es lo más rápido." }
+      ],
+      correct: "b",
+      explanation: "VS Code (y editores similares) ya exponen un canal JSON-RPC con sesiones, permission requests y cancel. Hablar HTTP ahí es reinventar un dialecto. ACP es la elección obvia para IDEs."
+    },
+    {
+      id: "q2",
+      stem: "¿Qué tres obligaciones mínimas tiene un adaptador sobre el bucle?",
+      options: [
+        { id: "a", text: "Login, OAuth, refresh tokens." },
+        { id: "b", text: "Stream, cancel, errores. El adaptador entrega tokens cuando existen, propaga cancel al bucle, y reporta errores con semántica (no strings)." },
+        { id: "c", text: "Logging, métricas, tracing." },
+        { id: "d", text: "Validación de input, rate limiting, retry." }
+      ],
+      correct: "b",
+      explanation: "Stream (entregar tokens sin acumular), cancel (matar la request al recibir /stop), y errores (reportar con semántica) son los tres. El resto (logging, auth) es ortogonal. Un adaptador sin esas tres está reinventando un dialecto."
+    },
+    {
+      id: "q3",
+      stem: "Un adaptador concatena medio JSON de tool_call en el chat cuando el usuario cancela. ¿Por qué es un bug?",
+      options: [
+        { id: "a", text: "El usuario verá JSON a medias en el chat." },
+        { id: "b", text: "La alternancia user / assistant queda rota; la próxima llamada devuelve 400 del proveedor. No commitir contenido parcial es la diferencia entre sobrevivir un cancel y romperse." },
+        { id: "c", text: "El modelo no entiende JSON parcial." },
+        { id: "d", text: "El bucle cierra antes de tiempo." }
+      ],
+      correct: "b",
+      explanation: "Commitir un assistant parcial con tool_call incompleto rompe la alternancia. El siguiente turno del usuario llega a un proveedor que ve un assistant a medias y devuelve 400. El fix es descartar el contenido parcial y dejar solo la marca de cancel en el transcript."
+    },
+    {
+      id: "q4",
+      stem: "¿Por qué importa que el test del bucle sea in-process?",
+      options: [
+        { id: "a", text: "Es lo único que se puede automatizar." },
+        { id: "b", text: "Permite comparar el resultado del bucle con el del adaptador HTTP/WS. Si divergen, el adaptador (no el bucle) está mal — y se testea sin red." },
+        { id: "c", text: "Es más rápido en GPU." },
+        { id: "d", text: "Es el único protocolo soportado por todos los modelos." }
+      ],
+      correct: "b",
+      explanation: "In-process es el ground truth. Un test del adaptador HTTP/WS compara contra el resultado in-process del mismo thread + message. Si divergen, el adaptador está mal. Esto evita el bug clásico de 'el bucle cambió y nadie probó el cliente.'"
+    }
+  ]}
+/>

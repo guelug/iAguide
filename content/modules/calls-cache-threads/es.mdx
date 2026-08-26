@@ -7,8 +7,20 @@ Dos formas de petición, un mismo trabajo (completar los siguientes tokens):
 
 Si te saltas la plantilla en un modelo instruct, le hablas en un dialecto que no entrenó.
 
-
 <VisualSlot caption="Un prefijo estable acierta la caché; un carácter la rompe. Los hilos anidados son prefijos hijos." />
+
+## Las dos fases, en serio
+
+Cada token que emite el modelo recorre dos tipos de trabajo **muy distintos**. Cuando ves una factura de inferencia, casi siempre una de las dos es la culpable.
+
+- **<Term id="prefill">Prefill</Term>** — el prompt y el historial de mensajes cacheado se procesan **en paralelo** por cada capa. La KV cache para esos tokens se construye una vez. Está limitada por throughput (compute-heavy), es amigable con la GPU, y se amortigua sobre todos los tokens del prefijo. Un system prompt de 12k pagado en cada turno es la línea más común de tu factura.
+- **<Term id="decode">Decode</Term>** — cada token nuevo se genera **secuencialmente**, atendiendo a la KV de cada token previo. Está limitada por latencia (memory-bandwidth-heavy), y el coste de cada token crece con la longitud del prefijo (KV más larga = más claves/valores a los que atender).
+
+Las dos fases son la razón por la que "system prompt corto" y "respuesta concisa" son objetivos de optimización distintos. El primero se amortigua sobre todos los turnos futuros si mantienes el prefijo estable; el segundo solo importa una vez por turno. Inflar el prefijo con mil tokens de skills obsoleto cuesta prefill para siempre. Inflar la respuesta con dos frases de cortesía cuesta decode una vez.
+
+<Callout>
+En un modelo MoE 48B-A3B (48B totales, ~3B activos por token), el prefill paga FLOPs como un denso 3B, pero la **atención** sigue siendo densa sobre la KV completa. "Hacer el contexto más largo" sigue siendo caro en atención incluso en un MoE — el ahorro de FLOPs del FFN no abarata la atención.
+</Callout>
 
 ## tool_call es un mensaje, no un canal paralelo
 
@@ -25,20 +37,24 @@ El streaming lo pone delicado: los argumentos pueden llegar a trozos. Acumula ha
 | <Term id="http-cache">Caché HTTP</Term> | La web | Respuestas GET. Casi nunca el modelo |
 
 <Myth>
-“Activé la caché para que el modelo recuerde al usuario.” La caché de prefijo recuerda **cómputo**, no biografía. Si el prefijo cambia un carácter, fallas.
+"Activé la caché para que el modelo recuerde al usuario." La caché de prefijo recuerda **cómputo**, no biografía. Si el prefijo cambia un carácter, fallas.
 </Myth>
 
 ## Hilos, turnos, sesiones
 
-- **Hilo** — la conversación durable que el arnés persiste.
-- **Turno** — un mensaje de usuario más las rondas de herramientas que haga falta.
-- **Sesión** — un proceso, una pestaña, un login. No asumas que equivale al contexto.
+Tres entidades que se confunden:
 
-Una sesión nueva con el mismo `thread_id` debería recargar el hilo. Un hilo nuevo en la misma sesión debería nacer vacío. Mezclar esto es cómo aparecen a la vez “se olvidó” y “filtró al otro cliente”.
+- **Hilo (thread)** — la conversación durable que el arnés persiste.
+- **Turno (turn)** — un mensaje de usuario más las rondas de herramientas que haga falta.
+- **Sesión (session)** — un proceso, una pestaña, un login. No asumas que equivale al contexto.
+
+Una sesión nueva con el mismo `thread_id` debería recargar el hilo. Un hilo nuevo en la misma sesión debería nacer vacío. Mezclar esto es cómo aparecen a la vez "se olvidó" y "filtró al otro cliente".
 
 ## Subagentes: aislamiento y coste
 
-Un subagente es otra llamada (a veces otro modelo) con una vista más pequeña. Aislamiento: el padre ve un resumen, no 40 archivos de grep. Coste: pagas otro prefill. Modelos baratos para subagentes son una táctica válida; volcar todo el contexto del padre en el hijo no lo es.
+Un subagente es otra llamada (a veces otro modelo) con una vista más pequeña. Aislamiento: el padre ve un resumen, no 40 archivos de grep. Coste: pagas otro prefill.
+
+Modelos baratos para subagentes son una táctica válida; volcar todo el contexto del padre en el hijo no lo es. Si el system prompt del hijo es idéntico byte a byte al del padre, la caché de prefijo ayuda. Si no, paga prefill completo.
 
 <TryThis>
 Registra tres ids en cada llamada: `session_id`, `thread_id`, `turn_id`. Reproduce un bug solo con eso. Si no puedes reconstruir el prompt que se envió de verdad, el arnés vuela a ciegas.
@@ -46,18 +62,142 @@ Registra tres ids en cada llamada: `session_id`, `thread_id`, `turn_id`. Reprodu
 
 ## Streaming sin mentir
 
-El <Term id="streaming">streaming</Term> son tokens cuando existen. Los fragmentos de tool_call no son la respuesta. Ocúltalos o muestra un “ejecutando `search`…”. Nunca concatenes medio argumento en la burbuja del chat.
+El <Term id="streaming">streaming</Term> son tokens cuando existen. Los fragmentos de tool_call no son la respuesta. Ocúltalos o muestra un "ejecutando `search`…". Nunca concatenes medio argumento en la burbuja del chat.
+
+<Myth>
+"El usuario quiere ver los tokens llegar." El usuario quiere ver la respuesta llegar. Tokens sin contexto son ruido. Una barra "ejecutando tool" es más honesta que medio JSON.
+</Myth>
 
 ## Multi-agente son hilos anidados
 
-Un manager más un worker no es otra especie de memoria. Es otro <Term id="thread">hilo</Term> (casi siempre otro prefijo, otra caché) cuyo resumen es un mensaje en el padre. Los ejemplos multi-agente de Hugging Face son esto: aislar búsquedas ruidosas, pagar un segundo prefill. La caché de prefijo acierta solo si el system prompt del hijo es estable.
+Un manager más un worker no es otra especie de memoria. Es otro <Term id="thread">hilo</Term> (casi siempre otro prefijo, otra caché) cuyo resumen es un mensaje en el padre. Los ejemplos multi-agente de Hugging Face son esto: aislar búsquedas ruidosas, pagar un segundo prefill.
+
+La caché de prefijo acierta solo si el system prompt del hijo es estable. Si el manager inyecta contexto distinto por subagente, el hijo paga prefill fresco.
 
 <TryThis>
 Romper la caché de prefijo: escribe dos prompts que difieren en un timestamp en la línea system. Di qué cachés fallan (la KV de esta petición sigue; la de prefijo entre peticiones muere). Luego mueve el timestamp al turno *user* para que el prefijo pueda acertar.
 </TryThis>
 
+## El caso de A3B y los hijos
+
+Si el padre es un MoE 48B-A3B y los hijos son un denso 7B, los dos viven en **presupuestos distintos**:
+
+- Padre: prefill barato (3B activos por token), pero memoria de disco 48B.
+- Hijo: prefill más caro por token (7B activos), pero archivo pequeño y latencia baja.
+
+La cache key del padre y del hijo son **distintas** (modelos distintos). Lo que el padre cachea no le sirve al hijo. Si quieres prefill cacheado en el hijo, su system prompt tiene que ser estable por su cuenta, no heredado del padre.
+
 ## Caso — el hijo que filtraba de TwinDesk
 
-TwinDesk lanzaba un worker web por consulta y pasaba **todo el hilo padre** “por contexto.” El email del cliente A aterrizó en el prefijo del cliente B cuando la clave de caché ignoraba `thread_id`. Los hilos anidados necesitan sus propios ids — los tres que registraste arriba.
+TwinDesk lanzaba un worker web por consulta y pasaba **todo el hilo padre** "por contexto." El email del cliente A aterrizó en el prefijo del cliente B cuando la clave de caché ignoraba `thread_id`. Los hilos anidados necesitan sus propios ids — los tres que registraste arriba.
 
-Esta lección reescribe ideas del [curso de agentes de Hugging Face](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.
+## Las tres preguntas que tu observabilidad debe responder
+
+1. **¿Cuánto prefill se pagó cacheado vs fresco este turno?** El ratio cache/fresh es la métrica que más dice sobre tu prefijo.
+2. **¿Cuánto decode consumió cada turno?** Una respuesta larga cuesta más que corta; presupuéstalo.
+3. **¿Qué herramientas se llamaron y con qué argumentos?** El log indexa tool_calls; el FTS indexa contenido.
+
+Si una de esas tres falta, tu eval retroactivo está ciego.
+
+<Steps>
+<Step title="Identifica las dos fases">
+Prefill (paralelo, cacheable, compute-bound) y decode (secuencial, memory-bound). Dos presupuestos distintos.
+</Step>
+<Step title="Estabiliza el prefijo">
+System prompt idéntico byte a byte entre turnos. Timestamps al efímero. Identidad del modelo al header.
+</Step>
+<Step title="Registra tres ids">
+session_id, thread_id, turn_id en cada llamada. Reproduce bugs solo con eso.
+</Step>
+<Step title="Indexa tres métricas">
+Cache hit rate. Coste por turno. Tools llamadas. Sin una de las tres, eval retroactivo está ciego.
+</Step>
+<Step title="Aísla hilos anidados">
+Cada subagente con sus tres ids. Prefijo estable propio. No heredar contexto sin filtrar.
+</Step>
+</Steps>
+
+## Lista práctica
+
+1. Prefill paralelo y cacheable; decode secuencial y proporcional a la KV.
+2. Caché de prefijo es byte-a-byte. Un carácter mutado = cache bust.
+3. KV cache es por generación; prompt cache es entre generaciones; no confundirlos.
+4. Subagente = otro prefill. Cache hit solo si system prompt del hijo es estable.
+5. Streaming: tokens sí, tool_calls no. Nunca medio JSON en el chat.
+6. Multi-agente = hilos anidados con sus propios ids. Sin ids propios, filtran.
+7. MoE A3B: prefill barato en FLOPs, atención sigue siendo densa en KV.
+
+## El test del prefill y decode
+
+Tres preguntas que un test de prefill/decode debe responder:
+
+1. **¿Cuánto prefill se pagó cacheado vs fresco este turno?** El ratio cache/fresh es la métrica que más dice sobre tu prefijo.
+2. **¿Cuánto decode consumió cada turno?** Una respuesta larga cuesta más que corta.
+3. **¿Qué herramientas se llamaron y con qué argumentos?** El log indexa tool_calls; el FTS indexa contenido.
+
+Si una falta, tu eval retroactivo está ciego.
+
+## Resumiendo en una línea
+
+Prefill es el **trabajo en paralelo** sobre el prompt; decode es el **trabajo secuencial** sobre la respuesta. La caché de prefijo ahorra prefill; la KV cache vive solo dentro de una generación. MoE A3B abarata FLOPs del prefill pero la atención sigue siendo densa. Sin un test que mida las tres métricas (cache hit, tokens, tools), depurar es adivinar.
+
+## Fuentes
+
+- Hugging Face Agents Course, Unit 1. https://huggingface.co/learn/agents-course
+- Anthropic — *Prompt caching*. https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
+- OpenAI — *Prompt caching*. https://platform.openai.com/docs/guides/prompt-caching
+- vLLM — *Automatic Prefix Caching*. https://docs.vllm.ai/en/latest/features/automatic_prefix_caching.html
+- Anthropic — *Extended thinking*. https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué distingue prefill de decode en términos de cómputo?",
+      options: [
+        { id: "a", text: "Son lo mismo." },
+        { id: "b", text: "Prefill procesa el prompt en paralelo por capa (compute-heavy, cacheable). Decode genera un token a la vez, secuencialmente (memory-bandwidth-heavy). Distintos presupuestos, distintas optimizaciones." },
+        { id: "c", text: "Decode es paralelo." },
+        { id: "d", text: "Prefill es más caro por token." }
+      ],
+      correct: "b",
+      explanation: "Prefill = batch sobre el prompt, GPU saturada compute. Decode = un token por paso, GPU saturada memory bandwidth. Distinto coste, distinta latencia, distinta caché. Confundirlos lleva a optimizaciones equivocadas (prefill corto vs respuesta corta son cosas distintas)."
+    },
+    {
+      id: "q2",
+      stem: "Modelo 48B-A3B: ¿qué afirma correctamente el cómputo?",
+      options: [
+        { id: "a", text: "Activa 48B parámetros por token." },
+        { id: "b", text: "Activa ~3B parámetros por token; el coste de FLOPs es el de un denso 3B, pero la atención sobre la KV sigue siendo densa sobre todo el prefijo. Por eso 'hacer el contexto más largo' sigue siendo caro incluso en MoE." },
+        { id: "c", text: "No tiene KV cache." },
+        { id: "d", text: "Es siempre más rápido que un denso." }
+      ],
+      correct: "b",
+      explanation: "MoE A3B mantiene los 48B en disco (memoria) pero activa 3B por token (FLOPs). El FFN disperso abarata el cómputo del prefill; la atención, no — atiende a toda la KV. Por eso 'hacer el contexto más largo' sigue siendo caro en un A3B, aunque el FFN sea barato."
+    },
+    {
+      id: "q3",
+      stem: "¿Por qué un subagente con system prompt idéntico al padre cachea su prefill?",
+      options: [
+        { id: "a", text: "Por magia." },
+        { id: "b", text: "Porque la caché de prefijo del proveedor es byte-a-byte: si el system prompt del hijo coincide con un prefijo cacheado previamente (por el padre o por el mismo hijo en otra invocación), el prefill se ahorra. Si difiere (aunque sea en un timestamp), paga prefill fresco." },
+        { id: "c", text: "El modelo decide." },
+        { id: "d", text: "Es obligatorio." }
+      ],
+      correct: "b",
+      explanation: "La caché es byte-a-byte. Si el system prompt del hijo es idéntico al de un prefijo cacheado, el prefill del hijo se ahorra. Si el manager inyecta contexto distinto (aunque sea un timestamp), el prefijo del hijo difiere y paga prefill completo. La práctica: hijos con system prompt estable y propio."
+    },
+    {
+      id: "q4",
+      stem: "¿Por qué los hilos anidados (subagentes) necesitan sus propios session_id, thread_id, turn_id?",
+      options: [
+        { id: "a", text: "Es un requisito del proveedor." },
+        { id: "b", text: "Porque la caché de prefijo del proveedor puede ignorar thread_id y mezclar prefijos de clientes distintos si los tres ids no están en la clave. Sin ids propios, el email del cliente A puede aterrizar en el prefijo del cliente B." },
+        { id: "c", text: "Es para debugging." },
+        { id: "d", text: "Para métricas." }
+      ],
+      correct: "b",
+      explanation: "La cache key incluye el prefijo, no necesariamente el thread_id. Si dos subagentes de dos clientes tienen el mismo system prompt, sus prefijos pueden coincidir en la caché — y el contenido de un cliente filtrar al otro. Los tres ids propios por subagente son la línea de defensa."
+    }
+  ]}
+/>

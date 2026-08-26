@@ -2,7 +2,7 @@
 
 Los arneses que cuidan el coste parten el system prompt por **vida útil**:
 
-1. **Stable** — identidad y comportamiento (`SOUL.md`), guía de tools, índice de skills, pistas de plataforma que no cambian a mitad de chat.
+1. **Stable** — identidad y comportamiento (`SOUL.md` en OpenClaw, `profile` en Hermes), guía de tools, índice de skills, pistas de plataforma que no cambian a mitad de chat.
 2. **Context** — reglas de proyecto (prioridad Hermes; en OpenClaw, archivos bootstrap del workspace).
 3. **Volatile** — snapshots de memoria / perfil, marca de tiempo, línea de sesión/modelo.
 
@@ -15,21 +15,193 @@ Lo que debe cambiar **cada turno** sin romper el prefijo cacheado vive **efímer
 Las cachés de prompt del proveedor coinciden en el **prefijo**. Un carácter mutado a mitad de sesión en el tier estable → releer a precio completo. Hermes y OpenClaw lo documentan: contenido estable grande encima del límite de caché; reloj y mensajería de canal debajo.
 
 <Myth>
-“Editar MEMORY.md a mitad de chat actualiza lo que el modelo ve en la siguiente ronda.” Los snapshots suelen congelarse hasta un rebuild (sesión nueva, compactación). El disco puede ir por delante del prompt.
+"Editar `MEMORY.md` a mitad de chat actualiza lo que el modelo ve en la siguiente ronda." Los snapshots suelen congelarse hasta un rebuild (sesión nueva, compactación). El disco puede ir por delante del prompt.
+</Myth>
+
+## Anatomía del prefijo
+
+Un prefijo bien diseñado tiene capas:
+
+```
+[1] system prompt estable (caché hit si byte-a-byte idéntico)
+[2] contexto de proyecto (caché hit si no mutó)
+[3] snapshot de memoria (volatile — cambia entre sesiones, no dentro)
+[4] efímero: timestamp, sesión_id, channel_meta (debe ir ABAJO del breakpoint)
+```
+
+La regla: cualquier cosa que **puede mutar** sin que el modelo se entere pertenece al nivel efímero, y va por debajo del último breakpoint de caché.
+
+<Callout>
+El nivel efímero existe específicamente para que cambiar el día, el chat_id o el timestamp no invalide el bloque estable. Es la diferencia entre un dashboard que dice "cache hit: 92%" y uno que dice "cache hit: 0%".
+</Callout>
+
+## Stable: lo que cambia entre releases
+
+El tier stable tiene tres cosas:
+
+1. **Identidad** — quién es el agente, qué hace, qué no hace. SOUL.md es el ejemplo canónico.
+2. **Esquemas de tools** — la lista visible este turno. Si la cambias a mitad de sesión, invalidas el prefix.
+3. **Índice de skills** — nombres + descripciones de una línea. El cuerpo va detrás de `load_skill`.
+
+Stable significa **idéntico byte a byte entre turnos de la misma sesión**. Cambia entre releases (con versionado).
+
+## Context: lo que cambia entre proyectos
+
+El tier context es por **proyecto o workspace**, no por turno. En Hermes es el `AGENTS.md` (más prioridad que cualquier otro archivo). En OpenClaw es el set bootstrap del workspace.
+
+Una mudanza de proyecto cambia este tier. La caché de prefijo puede sobrevivir si el tier context se mantiene estable dentro del proyecto.
+
+<Compare a="Stable idéntico byte a byte" b="Context cambia entre proyectos">
+
+<Side>
+SOUL.md, lista de tools, índice de skills. Cambia entre releases del agente. Versiona.
+
+</Side>
+
+<Side>
+AGENTS.md / bootstrap del workspace. Cambia cuando cambias de proyecto. Misma forma de versionar.
+
+</Side>
+
+</Compare>
+
+## Volatile: lo que cambia entre sesiones, no dentro
+
+El tier volatile es un snapshot congelado al inicio de la sesión:
+
+- snapshot de memoria durable (lo que el modelo "recuerda"),
+- perfil del usuario activo (preferences, last_session),
+- metadata de plataforma estable durante la sesión (chat_type, chat_id).
+
+Este tier **se lee al boot** y se sirve durante toda la sesión sin re-leer el disco. Si lo mutas a mitad de chat, la siguiente ronda del modelo lo ve viejo (porque el snapshot está congelado).
+
+## Efímero: lo que cambia cada turno
+
+Lo efímero son los metadatos que mutan por turno pero no deben invalidar el prefijo:
+
+- timestamp,
+- session_id,
+- channel_meta (por ejemplo, metadata de Slack sobre el thread actual),
+- trace_id para observabilidad.
+
+El arnés añade esto en el **momento de la API**, no en el system prompt congelado. La clave es la posición: por **debajo** del último breakpoint de caché, para que el cambio no toque el bloque cacheado.
+
+## Por qué los timestamps matan caché
+
+Un caso clásico: el operador añade `timestamp: <now>` al inicio del system prompt "para que el modelo sepa qué hora es." Resultado: cada turno el timestamp cambia, el prefijo cambia, la caché muere. La factura se duplica.
+
+Dos fixes:
+
+1. **Mueve el timestamp al turno user** — el system prompt se mantiene estable; el primer turno del usuario lleva el timestamp.
+2. **Mueve el timestamp al nivel efímero** — por debajo del breakpoint; el bloque estable sobrevive.
+
+<Myth>
+"El modelo necesita la hora para funcionar." El modelo puede inferirla de mensajes previos o del timestamp que tú le pasas en el turno user. No la necesita en el system prompt.
 </Myth>
 
 ## Hermes frente a OpenClaw (una decisión)
 
-Hermes ordena `stable → context → volatile` y carga **un** archivo de proyecto por prioridad. OpenClaw inyecta un set bootstrap fijo y puede dejar el contexto temporal **bajo** el límite de caché para que el cambio de día no invalide el prefijo del workspace.
+**Hermes** ordena `stable → context → volatile` y carga **un** archivo de proyecto por prioridad (`AGENTS.md` gana). El system prompt estable incluye SOUL + esquemas + índice de skills.
+
+**OpenClaw** inyecta un set bootstrap fijo (puede ser varios archivos) y deja el contexto temporal **bajo** el límite de caché para que el cambio de día o de canal no invalide el prefijo del workspace. El sistema de breakpoints es explícito y configurable.
 
 ## Caso: cache bust tras `/model`
 
-**Caso.** El operador cambia de modelo a mitad de un hilo de Telegram. Los tokens de input se disparan aunque el texto “parezca igual.”
+**Caso.** El operador cambia de modelo a mitad de un hilo de Telegram. Los tokens de input se disparan aunque el texto "parezca igual." La factura se duplica.
 
-**Por qué.** La identidad del modelo forma parte de la clave de caché del proveedor.
+**Por qué.** La identidad del modelo forma parte de la clave de caché del proveedor. El system prompt "parece igual" pero el header `model: claude-3.5` en la API cambió, y la región estable falla caché.
 
-<TryThis>
-Abre o inventa un `SOUL.md`. Parte notas en tres listas: stable, context, ephemeral. Rodea lo que ibas a mutar cada turno — eso es efímero, no SOUL.
-</TryThis>
+**Fix.** Tres opciones:
 
-Docs: [ensamblado Hermes](https://hermes-agent.nousresearch.com/docs/developer-guide/prompt-assembly), [system prompt OpenClaw](https://docs.openclaw.ai/concepts/system-prompt), [guía SOUL](https://docs.openclaw.ai/concepts/soul).
+1. **Header separado** — el system prompt nunca incluye la identidad del modelo; va en un campo `model` del API call. La región estable no cambia.
+2. **Thread nuevo por modelo** — al cambiar de modelo, abres un thread nuevo. Más simple, pero pierdes continuidad.
+3. **Forzar cache key sin modelo** — algunos proveedores lo soportan. Frágil.
+
+La opción 1 es la correcta arquitectónicamente. El system prompt no sabe qué modelo corre; el arnés lo sabe.
+
+<Steps>
+<Step title="Partir el prompt por vida útil">
+Stable (identidad, tools, índice de skills), context (proyecto), volatile (memoria, perfil), ephemeral (timestamp, session_id).
+</Step>
+<Step title="Fijar breakpoints">
+Cada capa tiene su breakpoint. Cambios arriba del breakpoint invalidan lo de abajo. Cambios abajo no invalidan nada.
+</Step>
+<Step title="Efímero al final">
+Timestamp, session_id, channel_meta. Van por debajo del último breakpoint. No invalidan el bloque estable.
+</Step>
+<Step title="Versionar cambios incompatibles">
+Cambio en SOUL, en la lista de tools, en el índice de skills: bump de versión del prefijo. Caché anterior muere limpia.
+</Step>
+<Step title="Auditar el header">
+Que la identidad del modelo NO esté en el system prompt. Va en el header del API call.
+</Step>
+</Steps>
+
+## Lista práctica
+
+1. Tres vidas: stable / context / volatile. Y un canal efímero para metadatos por turno.
+2. Estabilidad byte a byte en el tier stable. Cache hit depende de eso.
+3. Timestamps, session_ids y channel_meta van al efímero, no al stable.
+4. Cambios incompatibles bump-ean la versión del prefijo. Caché vieja muere limpia.
+5. Identidad del modelo en el header, no en el system prompt.
+6. Mover mutaciones al turno user o al nivel efímero, no al system prompt.
+
+## Fuentes
+
+- Hermes — *Prompt assembly*. https://hermes-agent.nousresearch.com/docs/developer-guide/prompt-assembly
+- OpenClaw — *System prompt*. https://docs.openclaw.ai/concepts/system-prompt
+- OpenClaw — *SOUL*. https://docs.openclaw.ai/concepts/soul
+- Anthropic — *Prompt caching* (cache_control). https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Cuáles son los tres niveles principales de vida útil en un prompt, más el canal efímero?",
+      options: [
+        { id: "a", text: "Solo system y user." },
+        { id: "b", text: "Stable (identidad, tools, skills), context (proyecto), volatile (memoria, perfil), y el canal efímero para metadata que cambia cada turno (timestamp, session_id)." },
+        { id: "c", text: "System, user, assistant." },
+        { id: "d", text: "Solo volatile." }
+      ],
+      correct: "b",
+      explanation: "Stable: identidad, herramientas, índice de skills — idéntico byte a byte entre turnos. Context: proyecto/workspace — cambia entre proyectos. Volatile: memoria, perfil — snapshot congelado al inicio de sesión. Efímero: metadata por turno (timestamp, session_id) que va por debajo del breakpoint de caché para no invalidar el bloque estable."
+    },
+    {
+      id: "q2",
+      stem: "Tu sistema añade `timestamp: <now>` al inicio del system prompt cada turno. ¿Qué pasa?",
+      options: [
+        { id: "a", text: "Funciona bien." },
+        { id: "b", text: "Cada turno el prefijo cambia, la caché muere, la factura se duplica. Mueve el timestamp al turno user o al nivel efímero (bajo el breakpoint)." },
+        { id: "c", text: "Mejora el rendimiento." },
+        { id: "d", text: "El modelo se entrena." }
+      ],
+      correct: "b",
+      explanation: "La caché de prefijo es byte-a-byte. Un timestamp que cambia cada turno cambia el prefijo y la caché muere. Mueve el timestamp al primer turno del usuario, o al nivel efímero (bajo el último breakpoint). El modelo no necesita la hora en el system prompt — la infiere del contexto."
+    },
+    {
+      id: "q3",
+      stem: "Cambio de modelo a mitad de sesión dispara el coste de input. ¿Por qué?",
+      options: [
+        { id: "a", text: "El modelo nuevo es más caro." },
+        { id: "b", text: "La identidad del modelo entra en la clave de caché del proveedor. El system prompt 'parece igual' pero el header cambió; la región estable falla caché. La fix es header separado — la identidad del modelo va en el API call, no en el system prompt." },
+        { id: "c", text: "El usuario lo pidió." },
+        { id: "d", text: "Es un bug." }
+      ],
+      correct: "b",
+      explanation: "La cache key incluye la identidad del modelo. Si el sistema no la separa del prompt estable, cambiar de modelo invalida la caché completa. La fix arquitectónica: la identidad del modelo vive en el header del API call; el system prompt no sabe qué modelo corre. El arnés lo sabe."
+    },
+    {
+      id: "q4",
+      stem: "¿Por qué un snapshot de memoria se sirve 'congelado' durante toda la sesión?",
+      options: [
+        { id: "a", text: "Es un requisito del proveedor." },
+        { id: "b", text: "Porque la memoria cambia entre sesiones, no dentro. Si el snapshot re-se lee del disco cada turno, puede mutar (otro proceso escribe, clock skew) e invalidar la caché. Congelar al boot garantiza estabilidad del tier volatile." },
+        { id: "c", text: "El usuario lo pidió." },
+        { id: "d", text: "Es más rápido." }
+      ],
+      correct: "b",
+      explanation: "El tier volatile es por sesión, no por turno. Si el arnés re-lée el snapshot cada turno, un cambio externo (otro proceso, clock skew) podría mutar el contenido sin que el modelo se entere, y la caché de prefijo muere. Congelar al boot garantiza que el tier se mantiene estable durante toda la sesión."
+    }
+  ]}
+/>

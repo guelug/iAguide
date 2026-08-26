@@ -34,7 +34,7 @@ function LayerPlates() {
           h: 2.5 - Math.abs(t - 0.5) * 0.5,
           d: 2.0 - Math.abs(t - 0.5) * 0.4,
           tone: i === LAYERS - 1 ? P.violet : i % 4 === 0 ? P.amber : P.teal,
-          fill: 0.05 + t * 0.05,
+          fill: 0.16 + t * 0.14,
         };
       }),
     [],
@@ -76,7 +76,7 @@ function LayerPlates() {
             color={p.tone}
             lineWidth={i === LAYERS - 1 ? 2 : 1.2}
             transparent
-            opacity={0.28 + (i / LAYERS) * 0.42}
+            opacity={0.45 + (i / LAYERS) * 0.45}
           />
         </group>
       ))}
@@ -85,6 +85,7 @@ function LayerPlates() {
 }
 
 const dummy = new Object3D();
+const tmpColor = new Color();
 
 /** Token chips crossing the stack, converging on the answer. */
 function TokenChips({ count = 240 }: { count?: number }) {
@@ -129,7 +130,6 @@ function TokenChips({ count = 240 }: { count?: number }) {
     const m = mesh.current;
     if (!m) return;
     const time = still ? 0.4 : clock.elapsedTime;
-    const col = new Color();
     for (let i = 0; i < seeds.length; i++) {
       const s = seeds[i];
       const t = (time * s.speed + s.offset) % 1;
@@ -146,7 +146,7 @@ function TokenChips({ count = 240 }: { count?: number }) {
       dummy.scale.set(0.13 * fade, 0.06 * fade, 0.06 * fade);
       dummy.updateMatrix();
       m.setMatrixAt(i, dummy.matrix);
-      m.setColorAt(i, colorAt(s.warm, t, col));
+      m.setColorAt(i, colorAt(s.warm, t, tmpColor));
     }
     m.instanceMatrix.needsUpdate = true;
     if (m.instanceColor) m.instanceColor.needsUpdate = true;
@@ -214,6 +214,31 @@ function AttentionWeb() {
   );
 }
 
+/** A ring that expands and fades out of the emitted token — the "tick". */
+function PulseRing({ color }: { color: string }) {
+  const ref = useRef<Group>(null);
+  const { still } = useStage();
+  useFrame(({ clock }) => {
+    const g = ref.current;
+    if (!g) return;
+    const t = still ? 0.35 : (clock.elapsedTime * 0.55) % 1;
+    const s = 0.7 + t * 2.1;
+    g.scale.setScalar(s);
+    g.children.forEach((child) => {
+      const m = child as unknown as { material?: { opacity: number } };
+      if (m.material) m.material.opacity = (1 - t) * 0.55;
+    });
+  });
+  return (
+    <group ref={ref} rotation={[0, 0.4, 0]}>
+      <mesh>
+        <torusGeometry args={[0.62, 0.008, 8, 64]} />
+        <meshBasicMaterial color={color} transparent opacity={0.4} toneMapped={false} />
+      </mesh>
+    </group>
+  );
+}
+
 function EmittedToken({ label }: { label: string }) {
   const ref = useRef<Group>(null);
   const { still } = useStage();
@@ -230,6 +255,7 @@ function EmittedToken({ label }: { label: string }) {
       <RoundedBox args={[0.58, 0.3, 0.3]} radius={0.09} smoothness={4}>
         <meshStandardMaterial color={P.teal} roughness={0.32} metalness={0.05} />
       </RoundedBox>
+      <PulseRing color={P.amber} />
       <Halo radius={0.62} thickness={0.008} color={P.amber} opacity={0.75} rotation={[0, 0.4, 0]} spin={0.5} />
       <Halo radius={0.86} thickness={0.005} color={P.violet} opacity={0.45} rotation={[0.6, 0, 0.2]} spin={-0.35} />
       <Tag position={[0, 0.62, 0]} tone="ink" center>
@@ -254,7 +280,7 @@ function InputStack({ label }: { label: string }) {
           <meshStandardMaterial
             color={i === 2 ? P.amber : P.ink}
             transparent
-            opacity={i === 2 ? 0.9 : 0.32}
+            opacity={i === 2 ? 0.9 : 0.5}
             roughness={0.5}
             metalness={0}
           />
@@ -294,7 +320,7 @@ export function HeroStack({ className }: { className?: string }) {
     <Stage
       className={className}
       camera={{ position: [0, 1.5, 8.4], fov: 46, near: 0.1, far: 60 }}
-      fog={[P.paper, 12, 26]}
+      background={P.paper}
     >
       <Rig />
       <group rotation={[0, -0.26, 0]}>

@@ -45,7 +45,8 @@ export const TRACKS: Track[] = [
   },
   {
     id: "metal",
-    color: P.paper,
+    /* Rose as identity (not alarm): paper was invisible on the paper site. */
+    color: P.rose,
     numeral: "IV",
     name: { en: "Running them", es: "Hacerlos correr" },
     blurb: {

@@ -1,10 +1,32 @@
 ## Por qué cuantizamos
 
-Los pesos en FP16/BF16 ocupan 2 bytes cada uno. Un dense 8B ya anda por 16 GB solo de pesos, más caché KV, más activaciones, más fragmentación. La <Term id="quantization">cuantización</Term> guarda (y a menudo computa) esos pesos con menos bits para que quepa y *se mueva* más rápido por memoria. El decode suele estar limitado por ancho de banda: pesos más pequeños pueden ser más tokens/segundo, no solo un archivo menor.
+Los pesos en FP16/BF16 ocupan 2 bytes cada uno. Un dense 8B ya anda por 16 GB solo de pesos, más caché KV, más activaciones, más fragmentación. La <Term id="quantization">cuantización</Term> guarda (y a menudo computa) esos pesos con menos bits para que **quepa** y **se mueva** más rápido por memoria.
+
+El truco mental: la cuantización no cambia los FLOPs del modelo — el número de multiplicaciones y sumas es el mismo. Lo que cambia son los **bytes que se mueven** entre memoria y unidades de cómputo. Y como el decode es memory-bandwidth-bound (lee los pesos enteros para cada token nuevo), **menos bytes = más tokens/segundo**.
 
 <VisualSlot caption="Misma cantidad de pesos. FP16 son barras anchas; Q4/NF4 empaqueta muchas más en el mismo ancho. Metáfora de empaque, no un layout bit a bit." />
 
-La calidad es la factura. Algunas tareas (código justo, nombres exactos) notan los 4 bits más que un chat suelto. No hay un “Q4 pierde un X%” universal. Mide en tus prompts.
+La calidad es la factura. Algunas tareas (código estricto, nombres exactos, JSON bien formado) notan los 4 bits más que un chat suelto. No hay un "Q4 pierde un X%" universal. Mide en tus prompts.
+
+## Prefill frente a decode: dónde ayuda la cuantización
+
+No todas las fases del inference se benefician igual:
+
+- **Prefill** — procesa el prompt en paralelo. Es **compute-bound**: el cuello son los FLOPs por segundo del chip. La cuantización *ayuda*, pero no tanto: las matrices se hacen más pequeñas, sí, pero el cálculo matricial dominante escala con el número de operaciones, no con los bytes de los pesos. Un Q4 puede ser marginalmente más rápido que FP16 en prefill.
+- **Decode** — genera un token nuevo cada vez, **leyendo los pesos enteros para producir uno solo**. Es **memory-bandwidth-bound**: el cuello son los bytes/segundo entre memoria y cómputo. Aquí la cuantización brilla: pasar de FP16 (2 bytes) a Q4 (~0.5 bytes) **cuadruplica los tokens/segundo** en muchas GPUs, porque el ancho de banda efectivo por token se multiplica por 4.
+
+<Callout>
+**Regla práctica**: si tu métrica es *latencia del primer token* (TTFT, dominada por prefill), la cuantización ayuda poco. Si tu métrica es *tokens/segundo en streaming* (dominada por decode), la cuantización ayuda mucho. Optimiza según tu SLO.
+</Callout>
+
+<Compare>
+<Side title="Prefill (paralelo)">
+Cuello: FLOPs. La cuantización comprime pesos pero el cómputo matricial escala con el producto de dimensiones. Margen de mejora modesto.
+</Side>
+<Side title="Decode (secuencial)">
+Cuello: bytes/segundo. Cada token relee los pesos del modelo. Q4 a 0.5 bytes vs FP16 a 2 bytes = 4× más tokens/segundo en muchas GPUs. Aquí gana la cuantización.
+</Side>
+</Compare>
 
 ## Cómo leer un nombre GGUF
 
@@ -23,11 +45,33 @@ También habitual: `Q5_K_M`, `Q6_K`, `Q8_0` (8 bits más clásico), `F16`. `Q4_K
 
 ## GPTQ, AWQ, NF4 — no son apodos GGUF
 
-- **<Term id="gptq">GPTQ</Term>** — cuantización GPU post-entrenamiento, casi siempre 4 bits, con datos de calibración. Vive en stacks de servicio GPU (vLLM y compañía).
-- **<Term id="awq">AWQ</Term>** — activation-aware: protege los pesos que las activaciones marcan como importantes. También ciudadano de servidores GPU.
-- **<Term id="nf4">NF4</Term>** — 4-bit NormalFloat en bitsandbytes / <Term id="qlora">QLoRA</Term>. Un dtype de **entrenamiento**. No verás `NF4` como etiqueta `Q…` de GGUF.
+- **<Term id="gptq">GPTQ</Term>** — cuantización GPU post-entrenamiento, casi siempre 4 bits, con datos de calibración. Vive en stacks de servicio GPU (vLLM y compañía). El "Q" es por quantization.
+- **<Term id="awq">AWQ</Term>** — activation-aware: protege los pesos que las activaciones marcan como importantes. Más rápido en GPUs modernas que GPTQ porque aprovecha INT4 nativo.
+- **<Term id="nf4">NF4</Term>** — 4-bit NormalFloat en bitsandbytes / <Term id="qlora">QLoRA</Term>. Un dtype de **entrenamiento** (carga pesos en NF4 para ahorrar VRAM durante el forward/backward, mantiene grads en FP16/FP32). No verás `NF4` como etiqueta `Q…` de GGUF.
+- **EXL2** — cuantización GPU de ExLlamaV2 con un *bitrate objetivo* que eliges (2.5, 3.5, 4.5 bpw). Útil cuando quieres un trade-off exacto.
+- **FP8 / INT8** — formatos "8 bits" en GPUs modernas (H100, RTX 4090). Mejor calidad que 4 bits, peor que FP16, doble de bytes que Q4. A veces más rápido que Q4 por usar kernels nativos.
 
-EXL2 (módulo anterior) es otra familia GPU con un *bitrate objetivo* que eliges. No mezcles estos archivos entre motores y esperes milagros.
+No mezcles estos archivos entre motores y esperes milagros. Un `.gguf` no abre con vLLM; un `.safetensors` GPTQ no abre con llama.cpp.
+
+<Callout>
+**Diferencia conceptual**: GGUF es un *formato de archivo* con su propio esquema de cuantización (K-quants, i-quants). GPTQ/AWQ son *métodos* que producen checkpoints en formato safetensors. NF4 es un *dtype* de entrenamiento. EXL2 es un *formato* con su propio cuantizador. Misma palabra ("quant"), distintos mundos.
+</Callout>
+
+## Bits por peso: las cifras que importan
+
+| Formato | Bits/peso | Bytes/peso (8B → ?) | Notas |
+| --- | --- | --- | --- |
+| FP32 | 32 | 32 GB | casi nunca en inference |
+| FP16 / BF16 | 16 | 16 GB | baseline |
+| INT8 / Q8_0 | 8 | 8 GB | ~1% peor que FP16, doble de bytes que Q4 |
+| Q6_K | 6.5 | ~6.5 GB | quality/ratio muy bueno |
+| Q5_K_M | 5.5 | ~5.5 GB | buen sweet spot |
+| Q4_K_M | ~4.5 | ~4.5 GB | el default razonable |
+| Q3_K | 3.5 | ~3.5 GB | empieza a perder en código |
+| Q2_K | 2.5 | ~2.5 GB | "último recurso" |
+| NF4 (bnb) | 4 | ~4 GB | entrenamiento |
+
+Las cifras reales las da `ls -lh`. La tabla es una regla práctica para 2026; los esquemas cambian.
 
 ## Trueque de calidad, con honestidad
 
@@ -37,15 +81,95 @@ EXL2 (módulo anterior) es otra familia GPU con un *bitrate objetivo* que eliges
 | Calidad notable en código / extracción | Q5_K_M o Q6_K, o un modelo más chico a más bits |
 | Casi FP16, aún GGUF | Q8_0 — grande; a menudo más lento que Q4 si el decode está limitado por bytes |
 | Servidor GPU, muchos usuarios | AWQ o GPTQ (o FP8 si el hardware lo tiene) como documente el motor |
+| Entrenamiento con QLoRA | NF4 en bitsandbytes |
 
 <Myth>
-“8 bits es siempre más listo que 4.” Suele ser más limpio, no siempre *útilmente* más limpio, y puede ser más lento porque mueves el doble de bytes. Si Q4 pasa tu eval, quédate.
+"8 bits es siempre más listo que 4." Suele ser más limpio, no siempre *útilmente* más limpio, y puede ser más lento porque mueves el doble de bytes. Si Q4 pasa tu eval, quédate.
+</Myth>
+
+<Myth>
+"Cuantizar rompe el modelo." Falso en Q4/Q5 bien hechos. Una cuantización agresiva sin calibración (algunos Q2_K mal cuantizados, o formatos antiguos) sí degrada notablemente. Si ves "tonto" al modelo, prueba primero a cambiar la *plantilla de chat* o el *prompt* antes de culpar al quant.
 </Myth>
 
 <TryThis>
-Coge un instruct 8B en Q4_K_M y en Q8_0 si te cabe en disco. Haz las mismas cinco preguntas factuales y cinco de código. Quédate con el archivo más chico salvo que puedas *señalar* un fallo.
+Coge un instruct 8B en Q4_K_M y en Q8_0 si te cabe en disco. Haz las mismas cinco preguntas factuales y cinco de código. Quédate con el archivo más chico salvo que puedas *señalar* un fallo. Y mide tokens/segundo en una respuesta larga: la diferencia puede ser 2x, no 1.5x.
 </TryThis>
 
-## Caso — el Q4 que “se sentía tonto”
+## Caso — el Q4 que "se sentía tonto"
 
-Un Q4_K_M falló un humo de formato. Culparon al quant y saltaron a FP16. La plantilla de chat era la equivocada. El quant estaba bien; la plantilla no.
+Un Q4_K_M falló un humo de formato. Culparon al quant y saltaron a FP16. La plantilla de chat era la equivocada. El quant estaba bien; la plantilla no. Antes de cambiar de cuantización, mira el `tokenizer.chat_template`.
+
+## Quiz
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Por qué la cuantización ayuda más al decode que al prefill?",
+      options: [
+        { id: "a", text: "Porque el decode es más fácil de optimizar." },
+        { id: "b", text: "El decode es memory-bandwidth-bound: relee los pesos enteros para producir un token nuevo. Menos bytes por peso = más tokens/segundo. El prefill es compute-bound: el cuello son FLOPs, no bytes, así que comprimir los pesos ayuda menos proporcionalmente." },
+        { id: "c", text: "Porque el prefill no usa cuantización." },
+        { id: "d", text: "Por una limitación del CUDA." }
+      ],
+      correct: "b",
+      explanation: "Decode = bandwidth-limited: cada token mueve los bytes de los pesos. Pasar de FP16 (2 bytes) a Q4 (0.5 bytes) multiplica tokens/segundo por ~4. Prefill = compute-limited: las multiplicaciones escalan con dimensiones, no con bytes. La cuantización le ayuda menos."
+    },
+    {
+      id: "q2",
+      stem: "Tienes un dense 8B en FP16 (16 GB) y lo cuantizas a Q4_K_M (~0.5 bytes/peso, ~4 GB). En una GPU con 1 TB/s de bandwidth, ¿cuál es el techo aproximado de tokens/segundo para UN usuario en decode?",
+      options: [
+        { id: "a", text: "Mismo: ~125 tok/s en ambos casos." },
+        { id: "b", text: "FP16: ~62 tok/s (16 GB / 1 TB/s ≈ 16 ms por token). Q4: ~250 tok/s (4 GB / 1 TB/s ≈ 4 ms por token). El Q4 multiplica tokens/segundo por ~4." },
+        { id: "c", text: "El FP16 siempre gana." },
+        { id: "d", text: "Ninguno cambia porque la GPU es la misma." }
+      ],
+      correct: "b",
+      explanation: "El techo está dado por bandwidth / bytes_por_peso_por_token. En FP16: 1 TB/s ÷ 16 GB ≈ 62 lecturas/s = 62 tok/s. En Q4: 1 TB/s ÷ 4 GB ≈ 250 lecturas/s = 250 tok/s. Por eso un Q4 puede sentirse MUCHO más rápido que un FP16 en decode — no es el cómputo, es la memoria."
+    },
+    {
+      id: "q3",
+      stem: "¿Qué es NF4 y por qué no es lo mismo que un GGUF Q4?",
+      options: [
+        { id: "a", text: "NF4 es lo mismo que Q4 con otro nombre." },
+        { id: "b", text: "NF4 es un dtype de 4 bits de bitsandbytes usado en entrenamiento (QLoRA). Carga pesos en NF4 para ahorrar VRAM, mantiene grads en FP16/FP32. No es un esquema de cuantización de inference como los K-quants de GGUF." },
+        { id: "c", text: "NF4 es para imágenes." },
+        { id: "d", text: "NF4 es un motor de NVIDIA." }
+      ],
+      correct: "b",
+      explanation: "NF4 (NormalFloat 4-bit) es un formato de representación de 4 bits optimizado para distribuciones normales de pesos, usado por bitsandbytes en QLoRA. Su trabajo es comprimir el forward/backward de entrenamiento, no producir un checkpoint para inference. Si quieres quant para servir, mira GGUF, GPTQ, AWQ o EXL2."
+    },
+    {
+      id: "q4",
+      stem: "¿Qué archivo abre llama.cpp / Ollama?",
+      options: [
+        { id: "a", text: "Un checkpoint GPTQ en safetensors." },
+        { id: "b", text: "Un archivo GGUF (con su esquema de cuantización K-quants o i-quants). Renombrar un .safetensors a .gguf no funciona — el formato y los metadatos son distintos." },
+        { id: "c", text: "Cualquier archivo .bin." },
+        { id: "d", text: "Solo archivos INT8." }
+      ],
+      correct: "b",
+      explanation: "llama.cpp y Ollama esperan GGUF: un contenedor con pesos + tokenizador + metadatos, con cuantización en esquema K-quants. GPTQ/AWQ son safetensors que van a vLLM/TRT-LLM. La conversión existe (convert_hf_to_gguf.py) pero no es automática ni trivial."
+    },
+    {
+      id: "q5",
+      stem: "Tu modelo quantized 'se siente tonto'. ¿Qué haces primero?",
+      options: [
+        { id: "a", text: "Cambiar a un quant más alto (Q8)." },
+        { id: "b", text: "Verificar el chat_template (tokenizer.apply_chat_template) y el formato del prompt. El 90% de los casos de 'modelo tonto post-quant' son plantillas mal pasadas, no el quant." },
+        { id: "c", text: "Reentrenar el modelo." },
+        { id: "d", text: "Cambiar el hardware." }
+      ],
+      correct: "b",
+      explanation: "El quant Q4_K_M bien hecho rara vez rompe el modelo de forma perceptible. Lo que rompe es enviar el prompt como texto plano en vez de con la plantilla correcta: el modelo no sabe dónde acaba el system, empieza el user, o debe empezar a responder. Es el bug silencioso más común después de un quant."
+    }
+  ]}
+/>
+
+## Fuentes
+
+- Dettmers, T., et al. (2023). *QLoRA: Efficient Finetuning of Quantized LLMs*. https://arxiv.org/abs/2305.14314
+- Lin, J., et al. (2024). *AWQ: Activation-aware Weight Quantization for LLM Compression and Acceleration*. https://arxiv.org/abs/2306.00978
+- Frantar, E., et al. (2023). *GPTQ: Accurate Post-Training Quantization for Generative Pre-trained Transformers*. https://arxiv.org/abs/2210.17323
+- llama.cpp — *K-quants and i-quants*. https://github.com/ggerganov/llama.cpp/wiki/Quantization
+- bitsandbytes — *NF4 documentation*. https://github.com/TimDettmers/bitsandbytes

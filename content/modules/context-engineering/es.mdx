@@ -1,17 +1,209 @@
 ## El prompting es un presupuesto
 
-La ventana es finita. Ingeniería de contexto es decidir **qué se gana el asiento**: perfil, esquemas, trozos recuperados, el hilo, y lo que llames memoria. El orden importa. Un manifiesto de 20k al frente cuesta prefill cada vez que el prefijo cambia y aun así pierde frente a un log de tools ruidoso.
+La ventana es finita. Ingeniería de contexto es decidir **qué se gana el asiento**: perfil, esquemas de tools, trozos recuperados, el hilo vivo y lo que llames memoria. El orden importa. Un manifiesto de 20k al frente cuesta prefill cada vez que el prefijo cambia y aun así pierde frente a un log de tools ruidoso.
 
-**Archivos de contexto del proyecto** (`AGENTS.md`, un índice de skills, un SOUL corto) ganan a pegar el repo. Trae la página que hace falta. SOUL / MEMORY al estilo Hermes son nombres de producto para “política permanente” y “notas durables”: idea útil, no religión. Cortos, versionados, fuera del montón no fiable.
+**Archivos de contexto del proyecto** (`AGENTS.md`, un índice de skills, un SOUL corto) ganan a pegar el repo. Trae la página que hace falta. SOUL / MEMORY al estilo Hermes son nombres de producto para "política permanente" y "notas durables": idea útil, no religión. Cortos, versionados, fuera del montón no fiable.
 
 Da forma al prompt para que el **prefijo estable** sea idéntico byte a byte si quieres aciertos de [caché de prefijo](/course/calls-cache-threads). La salida estructurada va en el contrato, no en un párrafo de esperanzas.
 
 <VisualSlot caption="Una ventana dividida en perfil, un hit de índice o un repo empujado, el hilo y MEMORY. Empujar es el fallo ámbar." />
 
+## Las dos fases de la vida de un token
+
+Cada token que emite el modelo recorre dos tipos de trabajo muy distintos.
+
+- **Prefill** — el prompt y el historial de mensajes cacheado se procesan **en paralelo** por cada capa. La caché KV para esos tokens se construye una vez. Está limitada por throughput, es amigable con la GPU, y se amortigua sobre todos los tokens del prefijo. Un system prompt de 12k pagado en cada turno es la línea más común de tu factura de inferencia.
+- **Decode** — cada token nuevo se genera **secuencialmente**, atendiendo a la KV de cada token previo. Está limitada por latencia, y el coste de cada token crece con la longitud del prefijo (prefijo más largo = más claves/valores a los que atender).
+
+Las dos fases son la razón por la que "system prompt corto" y "respuesta concisa" son objetivos de optimización distintos. El primero se amortigua sobre todos los turnos futuros si mantienes el prefijo estable; el segundo solo importa una vez por turno. Inflar el prefijo con mil tokens de texto de skills obsoleto cuesta prefill para siempre. Inflar la respuesta con dos frases de cortesía cuesta decode una vez.
+
+<Myth>
+"La caché hace que el modelo recuerde al usuario." La caché KV recuerda **cómputo**. La caché de prompt reutiliza el prefill de un prefijo estable. El modelo solo recuerda lo que está actualmente en el prompt — cuando el prompt cambia, la caché que importaba para el prompt viejo se ha ido.
+</Myth>
+
+## Qué cambia un modelo A3B en el presupuesto
+
+Un modelo **48B-A3B** tiene 48B parámetros en disco y ~3B **activos por token**. La división importa para la ingeniería de contexto en dos sitios:
+
+- **Memoria** está dominada por los pesos totales. Un 48B-A3B en Q4 ocupa unos 24 GB en disco. Es lo que necesitas para cargar el modelo en absoluto.
+- **FLOPs** por token están dominados por los parámetros activos. Un 48B-A3B tiene aproximadamente el coste por token de un denso 3B.
+
+Así que cuando añades un chunk de 4k al system prompt, el **coste de prefill** se mueve como se movería en un 3B (barato), pero la **huella en disco** sigue siendo 48B. El fallo inverso también es común: un denso 7B es un archivo pequeño pero el coste por token en un contexto largo es mucho más alto que un 48B-A3B. El coste de eval sigue los FLOPs (parámetros activos), el coste de memoria sigue los totales. No los confundas cuando escribas un doc de "presupuesto de memoria."
+
+<Callout>
+Un MoE A3B es el caso raro en el que "hacer el contexto más largo" es barato por token. El coste dominante en prefill de contexto largo es la atención, no la FFN, y la FFN es donde vive el ahorro. Sigues pagando coste de atención por cada token del prefijo — mantén el prefijo corto incluso en un modelo disperso.
+</Callout>
+
+## Seis asientos en la mesa
+
+Imagina la ventana de contexto como seis asientos etiquetados. Presupuesta cada uno.
+
+1. **Política de sistema** — quién es el agente, qué no debe hacer, contrato de salida. Hermes lo llama `SOUL.md` más un archivo de proyecto; OpenClaw pliega un set bootstrap. **Estable.** Fíjalo para la caché de prefijo.
+2. **Esquemas de tools** — cada descripción visible de `tool_call`, esquema de argumentos, forma de retorno. También **estable** mientras no añadas una tool a mitad de hilo.
+3. **Índice de skills** — nombres, descripciones de una línea. El cuerpo de la skill es una llamada a `load_skill(name)`, no un pegado. Estable por defecto; volátil cuando el operador instala una skill nueva.
+4. **Chunks recuperados** — salida de RAG agéntico. Volátil por naturaleza: por consulta, por tool call. Etiqueta cada chunk como no fiable (ver [safety](/course/safety-and-injection)).
+5. **Hilo vivo** — los turnos recientes del usuario más las rondas de tools. Crece, compacta, y nunca parte un par tool_call/tool_result por una frontera de compactación.
+6. **Snapshot de memoria** — notas durables de turnos anteriores, congeladas al inicio de la sesión. Volátil en el sentido de que cambia entre sesiones, no dentro de una.
+
+Un manifiesto de 20k es uno de esos asientos, inflado hasta llenar los otros. Escoge una silla y quédate en ella.
+
+## Empujar frente a recuperar
+
+Empujar es el modo de fallo ámbar: pegar todo el índice de skills, cada markdown de proyecto, cada resumen de conversación previa, todo en el system prompt "por si acaso." Los costes:
+
+- **Coste de prefill** sube linealmente con el prefijo. Duplicar el system prompt duplica el trabajo que el motor hace en el primer token nuevo de cada turno.
+- **Tasa de acierto de caché de prefijo** baja. Cualquier cambio en cualquiera de ese texto invalida la caché. El coste no es "tu prompt se hizo más largo," es "cada turno re-paga el prefill del bloque entero empujado."
+- **Distracción** — el modelo atiende a todo, diluye atención entre el ruido, y empieza a ignorar piezas que *eran* importantes (la tercera skill en el caso de CodexNest más abajo).
+
+Recuperar es la alternativa: mantén un índice en el prefijo, deja que una tool `load_skill(name)` o `retrieve(query)` traiga el cuerpo bajo demanda. El cuerpo traído pasa a ser parte de la cola volátil, donde no contamina la caché. Coste pagado solo cuando hace falta; la caché sobrevive entre necesidades.
+
+<Compare a="Empujar 40 skills" b="Índice + tool load_skill">
+
+<Side>
+40 archivos markdown concatenados. ~30k de prefill pagado cada turno. El modelo atiende a las 40 en cada paso. Añadir una skill a mitad de sesión revienta la caché de prefijo.
+
+</Side>
+
+<Side>
+40 nombres en el índice. ~1k de prefill pagado cada turno. El modelo llama a `load_skill(name)` cuando toca, paga el prefill del cuerpo una vez, no cachea nada entre turnos.
+
+</Side>
+
+</Compare>
+
+## Qué NO va en el contexto
+
+- **El repo.** Un `AGENTS.md` es un subconjunto curado. El repo no.
+- **El catálogo completo de tools.** Solo los esquemas que el modelo puede llamar este turno.
+- **Transcripts largos de conversación** más allá de la ventana de compactación. El resumen de compactación es la forma durable; el transcript crudo vive en almacenamiento para búsqueda.
+- **Resultados de tools más largos de lo que el modelo necesita.** Un `cat` que devuelve 40k de JSON es un bug. Acota la salida de tool, enlaza el resultado completo por id, y deja que el modelo pida más.
+- **Pros de marketing.** "Eres un asistente excepcionalmente útil…" — nada de eso ayudó a ningún modelo, nunca, en ningún benchmark.
+
+## La forma de un prefijo estable
+
+Un prefijo estable tiene tres propiedades:
+
+- es **idéntico byte a byte** entre peticiones que deberían acertar la caché;
+- está **versionado** cuando envías un cambio que le afecta, para que la invalidación de caché sea observable;
+- es **corto** suficiente para que el coste de re-pagarlo esté acotado.
+
+En Hermes y OpenClaw el prefijo tiene niveles: estable → contexto → volátil. El nivel volátil se añade en el momento de la API (timestamps, metadatos de canal, id de sesión actual) y se mantiene explícitamente **por debajo** del breakpoint de caché, para que el cambio de día o de canal de chat no invalide el bloque estable. Esta es la definición práctica de "efímero" — misma plantilla de prompt, sufijo volátil distinto.
+
+<Steps>
+<Step title="Auditar">
+Pasa tus últimos 100 prompts por un contador de tokens. ¿A dónde va el presupuesto? La mayoría de sorpresas son esquemas de tools o snapshots de memoria obsoletos.
+</Step>
+<Step title="Etiquetar">
+Etiqueta cada bloque como estable / volátil / efímero. Cualquier cosa que pensases mutar cada turno debe salir de estable.
+</Step>
+<Step title="Indexar">
+Sustituye "pegar el cuerpo de la skill" por "nombre en el índice, cuerpo detrás de `load_skill`." Sustituye "pegar el repo" por "AGENTS.md más una tool de retrieve."
+</Step>
+<Step title="Acotar">
+Acota duro la salida de tools. Por defecto 4k caracteres, 64k si la tool es una lectura de fichero. Cualquier cosa más grande va a un fichero que el modelo puede recuperar por id.
+</Step>
+</Steps>
+
+## Leyendo el contador de caché de prefijo
+
+Una señal operacional útil es la **tasa de acierto de caché de prefijo** en el dashboard del proveedor de inferencia. Si la tasa cae tras un cambio de código, casi seguro mutaste el prefijo estable sin querer — normalmente un timestamp, un hash de build, o una cadena de versión dinámica colándose en el system prompt.
+
+Una segunda señal útil es el **coste por turno**. Si el coste se dispara tras un release "no-op", el prefijo cambió. Haz diff de la plantilla de prompt, no del código.
+
+Una tercera señal más molesta: el modelo se vuelve **más perezoso** siguiendo el system prompt tras un acierto de caché de prompt, porque el acierto significa que el system prompt se está leyendo con menor fidelidad en algunos proveedores. Mantén el system prompt corto para que esto nunca importe.
+
+## Cuando el contexto es el cuello de botella
+
+Lo sabrás porque: el coste sube por turno aunque no cambiases el modelo, la latencia del primer token de cada turno sube poco a poco, o el modelo empieza a ignorar instrucciones cerca del fondo del prompt. Tres palancas, en orden:
+
+1. Acorta el prefijo estable.
+2. Indexa y recupera el nivel volátil.
+3. **Compacta** el hilo vivo. Ver [compression-caching](/course/compression-caching).
+
+Si esas fallan, el movimiento correcto es un modelo distinto con un contexto más largo, **no** un system prompt más largo. Un modelo de contexto 200k con un system prompt de 50k es peor que un modelo de contexto 32k con un system prompt de 2k, en coste, latencia y adherencia.
+
 <TryThis>
-Abre un proyecto real. Lista cada archivo que te tentarías a pegar en el system prompt. Tope: 1_500 tokens de texto permanente. ¿Qué pasa a una tool de retrieve? ¿Qué muere?
+Abre un proyecto real. Lista cada archivo que te tentarías a pegar en el system prompt. Tope: 1 500 tokens de texto permanente. ¿Qué pasa a una tool de retrieve? ¿Qué muere?
+
+Después haz el presupuesto de nuevo pero separando el prefijo **cacheado** de la cola volátil **por turno**. Un prefijo estable de 1.5k pagado cada turno durante 1000 turnos son 1.5M de tokens de prefill. Esa es la línea. Una cola volátil de 4k pagada una vez por turno son 4M de tokens de decode, también una vez por turno — pero el decode es secuencial, así que la *latencia* es el presupuesto, no el conteo de tokens.
 </TryThis>
 
 ## Caso — el volcado de skills de CodexNest
 
-CodexNest concatenó cuarenta markdown de skills en el system prompt “para que lo sepa todo.” Prefill de 14s y el modelo ignoraba la tercera skill. Un índice de *nombres* más `load_skill(name)` bajó el prefill un 80% y hizo alcanzable la tercera.
+CodexNest concatenó cuarenta markdown de skills en el system prompt "para que lo sepa todo." Prefill de 14s y el modelo ignoraba la tercera skill. Un índice de *nombres* más `load_skill(name)` bajó el prefill un 80% y hizo alcanzable la tercera.
+
+El arreglo no fue un modelo más pequeño. Fue tratar el índice de skills como **metadatos** y los cuerpos de las skills como **chunks recuperados**. Las formas son distintas. Deben sentarse en asientos distintos.
+
+## Lista práctica
+
+1. Seis asientos: política de sistema, esquemas de tools, índice de skills, chunks recuperados, hilo, snapshot de memoria. Presupuesta cada uno.
+2. Prefijo estable idéntico byte a byte entre turnos. Versiona.
+3. Indexa las skills. Indexa los docs. Mantén los cuerpos detrás de una tool.
+4. Acota la salida de tools. Por defecto 4k caracteres.
+5. Compacta el hilo vivo a una fracción definida de la ventana.
+6. Vigila la tasa de acierto de prefijo y el coste por turno. Se mueven juntos.
+7. No confundas los parámetros "activos" del A3B con la huella en disco. Coste de eval son FLOPs. Coste de memoria son totales.
+
+## Sources
+
+- Hugging Face Agents Course, Unit 1 — tools, thoughts, observations. https://huggingface.co/learn/agents-course
+- Anthropic — *Prompt caching* (marcadores cache_control, reglas de breakpoint). https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
+- OpenAI — *Prompt caching* (precios de entrada cacheada vs sin cachear). https://platform.openai.com/docs/guides/prompt-caching
+- vLLM — *Automatic Prefix Caching*. https://docs.vllm.ai/en/latest/features/automatic_prefix_caching.html
+- Mixtral / concepto A3B: paper *Mixtral of Experts* (Mistral), https://arxiv.org/abs/2401.04088
+- Hugging Face — *Mixture of Experts Explained*. https://huggingface.co/blog/moe
+- Hermes docs: https://hermes-agent.nousresearch.com/docs/developer-guide/prompt-assembly
+- OpenClaw docs: https://docs.openclaw.ai/concepts/system-prompt
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué cachea realmente la caché KV en un transformer?",
+      options: [
+        { id: "a", text: "Las preferencias personales del usuario entre sesiones." },
+        { id: "b", text: "Las keys y values de atención de los tokens ya procesados — dentro de una sola generación." },
+        { id: "c", text: "Los bytes del system prompt para reusar entre peticiones." },
+        { id: "d", text: "Un resumen de conversaciones pasadas." }
+      ],
+      correct: "b",
+      explanation: "La caché KV guarda las keys/values de atención de tokens ya vistos dentro de una generación. No persiste entre peticiones; ese es el trabajo de la caché de prompt/prefijo. No recuerda al usuario; ese es el trabajo de la memoria."
+    },
+    {
+      id: "q2",
+      stem: "Modelo Mixture-of-Experts 48B-A3B: ¿cuál es cierta?",
+      options: [
+        { id: "a", text: "Activa los 48B parámetros por token pero usa menos memoria que un denso 7B." },
+        { id: "b", text: "Activa ~3B parámetros por token; el coste por token está más cerca del de un denso 3B que del de un denso 48B, aunque el archivo en disco sea del tamaño de 48B." },
+        { id: "c", text: "Siempre es más barato que un denso 3B porque se almacenan menos parámetros." },
+        { id: "d", text: "A3B significa que activa 48B parámetros pero solo almacena 3B." }
+      ],
+      correct: "b",
+      explanation: "Los modelos MoE mantienen todos los expertos en disco (coste de memoria = totales) pero enrutan cada token a un subconjunto pequeño (coste de FLOPs = activos). Un 48B-A3B tiene ~3B parámetros activos, así que el cómputo por token está más cerca de un denso 3B que de un denso 48B. El tamaño en disco sigue siendo ~48B."
+    },
+    {
+      id: "q3",
+      stem: "¿Por qué empujar 40 archivos markdown de skills en el system prompt suele doler?",
+      options: [
+        { id: "a", text: "Hace al modelo más confiado pero más lento decodificando." },
+        { id: "b", text: "Revienta la caché de prefijo con cada cambio, diluye la atención, y la tercera skill nunca es alcanzable." },
+        { id: "c", text: "El modelo tiene un límite duro de 10 bloques markdown por prompt." },
+        { id: "d", text: "Las skills solo son efectivas cuando se cargan vía el hub de skills." }
+      ],
+      correct: "b",
+      explanation: "Empujar sube el coste de prefill en cada turno, diluye la atención entre el ruido, y cualquier cambio pequeño en una skill revienta la caché de prompt de las 40. Sustituir los cuerpos por nombres en un índice más una tool `load_skill(name)` arregla las tres cosas."
+    },
+    {
+      id: "q4",
+      stem: "¿Qué coste está dominado por prefill y cuál por decode?",
+      options: [
+        { id: "a", text: "Un system prompt estable largo está dominado por decode; una respuesta larga del asistente está dominada por prefill." },
+        { id: "b", text: "Un system prompt estable largo está dominado por prefill (pagado en paralelo en cada turno); una respuesta larga del asistente está dominada por decode (pagado secuencialmente, token a token)." },
+        { id: "c", text: "Ambos están dominados por prefill, ya que la atención domina." },
+        { id: "d", text: "Ambos están dominados por decode, ya que la generación es secuencial." }
+      ],
+      correct: "b",
+      explanation: "Prefill es trabajo en paralelo sobre el prompt y los tokens previos — un prefijo estable largo lo paga en cada turno. Decode es generación secuencial token a token — una respuesta larga lo paga una vez. Presupuesto distinto, optimización distinta."
+    }
+  ]}
+/>

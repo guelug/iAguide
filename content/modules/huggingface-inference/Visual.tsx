@@ -5,27 +5,44 @@ import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import { Flow, Node3D, Slab, Tag, Turntable, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
+import { useCopy } from "@/lib/useCopy";
 
 type Step = "local" | "providers" | "endpoints" | "jobs";
 
-const OPTIONS = [
-  { value: "local" as const, label: "pipeline", tone: "var(--teal)" },
-  { value: "providers" as const, label: "providers", tone: "var(--amber)" },
-  { value: "endpoints" as const, label: "endpoints", tone: "var(--violet)" },
-  { value: "jobs" as const, label: "jobs", tone: "var(--teal)" },
-];
+
 
 export default function Visual() {
+  const t = useCopy({
+    en: {
+      "step_the_diagram": "step the diagram",
+      "providers": "providers",
+      "serverless_router": "serverless router",
+      "dedicated_jobs": "dedicated / jobs"
+    },
+    es: {
+      "step_the_diagram": "recorre el diagrama",
+      "providers": "proveedores",
+      "serverless_router": "router serverless",
+      "dedicated_jobs": "dedicado / jobs"
+    },
+  });
+
+  const OPTIONS = [
+    { value: "local" as const, label: "pipeline", tone: "var(--teal)" },
+    { value: "providers" as const, label: t.providers, tone: "var(--amber)" },
+    { value: "endpoints" as const, label: "endpoints", tone: "var(--violet)" },
+    { value: "jobs" as const, label: "jobs", tone: "var(--teal)" },
+  ];
   const [step, setStep] = useState<Step>("local");
 
   return (
     <Figure
       label="HF inference paths"
-      hint="step the diagram"
+      hint={t.step_the_diagram}
       legend={[
         { color: P.teal, label: "weights on this machine" },
-        { color: P.amber, label: "serverless router" },
-        { color: P.violet, label: "dedicated / jobs" },
+        { color: P.amber, label: t.serverless_router },
+        { color: P.violet, label: t.dedicated_jobs },
       ]}
       controls={
         <Switcher
@@ -38,20 +55,20 @@ export default function Visual() {
     >
       <Stage className="h-full w-full" maxDpr={1.75} camera={{ position: [0, 0.35, 7.4], fov: 40 }}>
         <Turntable speed={0.035} tilt={0.1}>
-          <Scene active={step} />
+          <Scene active={step} t={t} />
         </Turntable>
       </Stage>
     </Figure>
   );
 }
 
-function Scene({ active }: { active: Step }) {
+function Scene({ active, t }: { active: Step; t: any }) {
   return (
     <group>
       {active === "local" ? <LocalScene /> : null}
       {active === "providers" ? <ProvidersScene /> : null}
       {active === "endpoints" ? <EndpointsScene /> : null}
-      {active === "jobs" ? <JobsScene /> : null}
+      {active === "jobs" ? <JobsScene t={t} /> : null}
     </group>
   );
 }
@@ -128,7 +145,7 @@ function EndpointsScene() {
   );
 }
 
-function JobsScene() {
+function JobsScene({ t }: { t: any }) {
   const items: { x: number; label: string; tone: "teal" | "amber" | "violet"; color: string }[] = [
     { x: -2.15, label: "hf jobs", tone: "teal", color: P.teal },
     { x: 0.0, label: "TGI / vLLM", tone: "amber", color: P.amber },

@@ -5,18 +5,37 @@ import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import { Flow, Node3D, Slab, Tag } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
+import { useCopy } from "@/lib/useCopy";
 
 type Mode = "json" | "code" | "exec";
 
 export default function Visual() {
+  const t = useCopy({
+    en: {
+      "code_as_action_vs_json": "code-as-action vs JSON",
+      "same_loop_different_payload": "same loop, different payload",
+      "json_blob": "json blob",
+      "python_code": "python code",
+      "json_blob_2": "JSON blob",
+      "python_code_2": "Python code"
+    },
+    es: {
+      "code_as_action_vs_json": "código-como-acción vs JSON",
+      "same_loop_different_payload": "mismo bucle, payload distinto",
+      "json_blob": "blob json",
+      "python_code": "código python",
+      "json_blob_2": "blob JSON",
+      "python_code_2": "código Python"
+    },
+  });
   const [mode, setMode] = useState<Mode>("json");
   return (
     <Figure
-      label="code-as-action vs JSON"
-      hint="same loop, different payload"
+      label={t.code_as_action_vs_json}
+      hint={t.same_loop_different_payload}
       legend={[
-          { color: P.amber, label: "json blob" },
-          { color: P.teal, label: "python code" },
+          { color: P.amber, label: t.json_blob },
+          { color: P.teal, label: t.python_code },
           { color: P.violet, label: "sandbox" }
       ]}
       controls={
@@ -24,11 +43,11 @@ export default function Visual() {
           value={mode}
           onChange={setMode}
           options={[
-            { value: "json", label: "JSON blob", tone: P.amber },
-            { value: "code", label: "Python code", tone: P.teal },
+            { value: "json", label: t.json_blob_2, tone: P.amber },
+            { value: "code", label: t.python_code_2, tone: P.teal },
             { value: "exec", label: "Sandbox", tone: P.violet }
           ]}
-          ariaLabel="same loop, different payload"
+          ariaLabel={t.same_loop_different_payload}
         />
       }
     >

@@ -1,23 +1,201 @@
 ## Dos trabajos que se mezclan
 
-**Compactacion** reduce lo que *ve el modelo*: resume el medio, conserva cola verbatim, no parte pares tool_call/resultado.
+Una cosa es **compactar** lo que ve el modelo; otra es **cachear** el cómputo. Las dos se llaman "compresión" en sitios distintos y los bugs se parecen.
 
-**Cache de prefijo** reutiliza *computo* si el prefijo es identico byte a byte. Los breakpoints clavan el system prompt y una ventana rodante.
+- **Compactación** — reduce lo que *ve el modelo*. Resume el medio, conserva la cola verbatim, no parte pares `tool_call` / `tool_result`.
+- **Caché de prefijo** — reutiliza *cómputo* si el prefijo es idéntico byte a byte. Los breakpoints clavan el system prompt y una ventana rodante.
 
-Tras compactar, la region comprimida falla cache; el system prompt puede sobrevivir.
+Tras compactar, la región comprimida falla caché (porque su texto cambió); el system prompt puede sobrevivir (si sigue idéntico byte a byte).
 
 <VisualSlot caption="La ventana se llena, volcar memoria, resumir el medio, conservar cola, recolocar breakpoints." />
 
+## Las dos fases del cómputo: prefill y decode
+
+Conviene recordar qué cachea la caché de prefijo para entender por qué una compactación mata caché.
+
+- **Prefill** — el prompt y el historial cacheado se procesan **en paralelo** por cada capa. La KV cache para esos tokens se construye una vez. Está limitada por throughput (compute-heavy).
+- **Decode** — cada token nuevo se genera **secuencialmente**, atendiendo a la KV de cada token previo. Está limitada por latencia (memory-bandwidth-heavy). El coste por token crece con la longitud del prefijo.
+
+La caché de prefijo del proveedor reutiliza el **prefill**. Un prefijo de 12k cacheado cuesta ~10% del precio del prefill fresco; un prefijo que falla caché cuesta el 100%. Por eso compactar — que cambia el texto — invalida la región compactada de la caché.
+
+<Callout>
+Compactar mata caché por construcción. Si compactas cada 50 turnos en una región que de otro modo estaría cacheada, has convertido prefill cacheado en prefill fresco. Presupuesta el coste de compactar contra el coste de re-pagar el prefill.
+</Callout>
+
+## A3B y la compactación
+
+Un modelo **48B-A3B** (Mixture-of-Experts) tiene 48B parámetros en disco y ~3B **activos por token**. Esto cambia el cálculo de compactación:
+
+- **Memoria** sigue dominada por los totales (48B). Cargar el modelo cuesta 48B-veces-bytes en RAM.
+- **FLOPs** por token siguen dominados por los activos (3B). Compactar para mantener el contexto corto ayuda más en un denso 7B que en un A3B: el A3B ya paga 3B-veces-tokens por token prefill, no 48B.
+
+Pero el coste de **atención** escala con la longitud del prefijo independientemente del MoE. La atención atiende a la KV cache completa; no es dispersa. Por eso "hacer el contexto más largo" sigue siendo caro en un A3B, aunque los FLOPs del FFN sean baratos.
+
+## Cuatro fases de compactación
+
+Una compactación bien hecha recorre cuatro fases en orden.
+
+1. **Podar tools viejas** — quitar resultados de tools que ya no son relevantes (un `search` que el modelo ya usó para decidir, hace 30 turnos).
+2. **Acumular límites** — poner topes duros por salida de tool (4k por defecto, 64k para texto). Lo que pasa del límite va a un fichero por id.
+3. **Resumen LLM** — un resumen del medio del hilo (turnos viejos), conservando la cola verbatim (los últimos N turnos). El resumen es texto nuevo, no verbatim.
+4. **Rearmar** — re-componer el mensaje con system prompt + resumen + cola verbatim. Recolocar los breakpoints de caché: el system prompt arriba del primer breakpoint, el resumen en medio (con su propio breakpoint si es estable), la cola al final.
+
+<TryThis>
+Para 200k de contexto al 50% y cola 20%, calcula 100k y 20k. Escribe las cuatro fases: podar tools viejas, límites, resumen LLM, rearmar.
+</TryThis>
+
+## Compactación con pérdida vs. sin pérdida
+
+- **Con pérdida** — el resumen reemplaza turnos viejos. El modelo ya no ve el texto original. La búsqueda (FTS) en el transcript permite recuperarlo.
+- **Sin pérdida** — los turnos viejos se mueven a un fichero (id por turno), el contexto solo guarda referencias. Más caro en tool calls pero más preciso.
+
+Hermes hace compactación con pérdida por defecto; OpenClaw puede elegir entre las dos. La elección cambia el presupuesto de contexto y el de búsqueda.
+
 ## Umbrales dobles
 
-Una higiene de **gateway** alta (Hermes 85%) caza el Telegram nocturno. Un compresor **en el bucle** mas bajo (50%) es el gestor normal. OpenClaw compacta cerca del limite o ante overflow y puede volcar memoria antes.
+Dos umbrales importantes:
+
+- **Higiene de gateway** (~85% en Hermes) — vacía inbox, logs, memoria durable. Se ejecuta como job. Es lo que cazaría un Telegram nocturno que revienta la ventana.
+- **Compresor en el bucle** (~50%) — el compresor que se ejecuta cuando el contexto pasa del 50%. Compacta el medio, conserva la cola.
+
+OpenClaw compacta cerca del límite o ante overflow y puede volcar memoria antes (a un `MEMORY.md` durable). La compactación cerca del límite es la red de seguridad; la higiene de gateway es el mantenimiento regular.
+
+## Por qué la compactación rompe el exact-match
+
+Si tu eval puntúa exact-match contra el transcript original, compactar el medio lo rompe. La fila que tenía "el id es 12345" ahora tiene un resumen que dice "se identificó el id 12345". Son textualmente distintos.
+
+Tres opciones:
+
+1. **Puntúa por intención**, no por verbatim — evalúa que el modelo emitió "el id es 12345" en algún momento, no en el turno actual.
+2. **Reproducir desde FTS** — antes de compactar, indexa el transcript. El eval busca en el índice, no en el contexto.
+3. **No compactar en eval** — corre el eval con un contexto fresco cada fila; mide el modelo, no la compactación.
+
+<Compare a="Compactar y rezar" b="Compactar y buscar">
+
+<Side>
+El contexto se queda en 30k de resumen. Un test futuro pregunta "¿qué id se mencionó?" → no aparece. El eval da 0.
+
+</Side>
+
+<Side>
+El contexto se queda en 30k de resumen + el FTS indexa el transcript original. El eval busca en el FTS, encuentra el id, da 1. Compactación y búsqueda juntas.
+
+</Side>
+
+</Compare>
 
 ## Caso: el cache bust es una factura
 
-**Caso.** `/model` o fallback a mitad de hilo. La siguiente peticion relee 80k tokens a precio completo. La identidad del modelo entra en la clave de cache.
+**Caso.** `/model` o fallback a mitad de hilo. La siguiente petición relee 80k tokens a precio completo. La factura se duplica o triplica. "¿Por qué subió el coste si no cambié nada?"
 
-<TryThis>
-Para 200k de contexto al 50% y cola 20%, calcula 100k y 20k. Escribe las cuatro fases: podar tools viejas, limites, resumen LLM, rearmar.
-</TryThis>
+**Por qué.** La identidad del modelo forma parte de la clave de caché del proveedor. El system prompt "parece igual" pero el `model: claude-3.5` en el header cambió, y la región estable falla caché.
 
-Docs: [compresion Hermes](https://hermes-agent.nousresearch.com/docs/developer-guide/context-compression-and-caching), [compactacion OpenClaw](https://docs.openclaw.ai/concepts/compaction).
+**Fix.** Separa system prompt en dos regiones:
+
+- System prompt puro (caché estable a través de modelos).
+- Header de modelo (caché estable **dentro** de un modelo, pero cambia entre modelos).
+
+O: cada modelo tiene su propio thread. Cuando cambias de modelo, abres thread nuevo. Más simple, pero pierdes continuidad.
+
+## Compactación, KV cache y el modelo
+
+La KV cache del transformer es **diferente** de la caché de prefijo del proveedor.
+
+- **KV cache** — vive dentro de una generación. Guarda las keys/values de atención de los tokens ya procesados. Se descarta cuando la generación termina.
+- **Caché de prefijo** — vive entre peticiones, si el prefijo coincide. Reutiliza el **prefill** (el trabajo de construir la KV) entre peticiones.
+
+Compactar cambia el texto del contexto, así que el prefill del nuevo contexto es fresco. La KV cache de la generación actual se reconstruye para los nuevos tokens. Pero el **decode** es igual de rápido — la memoria bandwidth no depende de si el prefill fue fresco o cacheado.
+
+<Myth>
+"Compactar reduce el coste de decode." Reduce el **prefill** (porque el contexto es más corto) y la **latencia** del primer token. Pero el coste por token de decode una vez que la KV está construida es proporcional a la longitud de la KV — que sigue siendo la longitud del contexto compactado.
+</Myth>
+
+## Pasos de una compactación decente
+
+<Steps>
+<Step title="Detectar">
+El contexto pasa del umbral (50% típico). Mide tokens, no caracteres. Caracteres mienten para Unicode y para JSON.
+</Step>
+<Step title="Podar">
+Quita resultados de tools obsoletas. Saca turnos viejos del medio. Conserva la cola verbatim.
+</Step>
+<Step title="Resumir">
+Un LLM resume el medio. El resumen es texto nuevo. Etiquétalo como resumen (no como verbatim) en el transcript persistente.
+</Step>
+<Step title="Recolocar breakpoints">
+System prompt arriba. Resumen en el medio con su breakpoint. Cola al final con su breakpoint. Versiona cada breakpoint.
+</Step>
+<Step title="Medir">
+Tasa de acierto de caché. Coste por turno. Latencia del primer token. Si la tasa cae, la compactación está invalidando más caché de la que ahorra.
+</Step>
+</Steps>
+
+## Lista práctica
+
+1. Compactación cambia lo que ve el modelo. Caché de prefijo reutiliza el cómputo. No las confundas.
+2. Prefill es paralelo y cacheable. Decode es secuencial y proporcional a la KV.
+3. Compactar mata caché por construcción. Presupuesta el coste.
+4. Cuatro fases: podar, límites, resumen, rearmar.
+5. Con pérdida = resumen + FTS. Sin pérdida = referencias a ficheros.
+6. Umbral del 50% en el bucle; higiene de gateway al 85%.
+7. Cache bust por cambio de modelo: header separado, o thread nuevo.
+
+## Fuentes
+
+- Hermes — *Context compression and caching*. https://hermes-agent.nousresearch.com/docs/developer-guide/context-compression-and-caching
+- OpenClaw — *Compaction*. https://docs.openclaw.ai/concepts/compaction
+- Anthropic — *Prompt caching* (cache_control, breakpoints). https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
+- vLLM — *Automatic Prefix Caching*. https://docs.vllm.ai/en/latest/features/automatic_prefix_caching.html
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "Compactas el medio de un hilo. ¿Qué pasa con la caché de prefijo?",
+      options: [
+        { id: "a", text: "Se mantiene, porque compactar no cambia el system prompt." },
+        { id: "b", text: "La región compactada falla caché porque su texto cambió. El system prompt puede sobrevivir si sigue idéntico byte a byte." },
+        { id: "c", text: "Toda la caché muere." },
+        { id: "d", text: "Se duplica." }
+      ],
+      correct: "b",
+      explanation: "La caché de prefijo coincide byte a byte. Si cambias el texto de la región compactada, esa región falla caché en la siguiente petición. El system prompt, si sigue idéntico byte a byte, sobrevive — pero ahora tienes una región re-pagada (resumen) y una cacheada (system prompt)."
+    },
+    {
+      id: "q2",
+      stem: "¿Qué cachea realmente la caché de prefijo del proveedor?",
+      options: [
+        { id: "a", text: "La KV cache de una generación." },
+        { id: "b", text: "El prefill — el trabajo en paralelo de procesar el prefijo para construir la KV. Reutilizado entre peticiones si el prefijo coincide byte a byte." },
+        { id: "c", text: "Las respuestas HTTP del modelo." },
+        { id: "d", text: "Los embeddings de los tokens." }
+      ],
+      correct: "b",
+      explanation: "La caché de prefijo cachea el resultado del prefill (la KV construida), no la respuesta HTTP ni la KV de una generación actual. Cuando el prefijo coincide byte a byte entre peticiones, el prefill se ahorra — el modelo arranca directamente con decode."
+    },
+    {
+      id: "q3",
+      stem: "¿Por qué compactar mata caché por construcción?",
+      options: [
+        { id: "a", text: "Por un bug del proveedor." },
+        { id: "b", text: "Porque la región compactada tiene texto nuevo (el resumen), que ya no coincide byte a byte con el original. La siguiente petición re-paga el prefill de esa región." },
+        { id: "c", text: "Porque el modelo cambia." },
+        { id: "d", text: "Por la zona horaria." }
+      ],
+      correct: "b",
+      explanation: "La caché es byte-a-byte. Si cambias el texto (resumen LLM, podado, límites), el prefijo nuevo no coincide con el viejo. El proveedor detecta el cambio y re-paga el prefill de esa región. Por eso compactar tiene un coste inmediato: lo que ahorras en contexto lo pagas en prefill fresco."
+    },
+    {
+      id: "q4",
+      stem: "¿Cómo cambia un modelo A3B (48B totales, 3B activos) el cálculo de compactación?",
+      options: [
+        { id: "a", text: "El A3B no se compacta." },
+        { id: "b", text: "El coste de FLOPs por token sigue los activos (3B), pero la atención escala con la longitud del prefijo. Compactar para mantener el contexto corto ayuda más en un denso 7B que en un A3B — pero el prefill largo sigue siendo caro en atención." },
+        { id: "c", text: "El A3B tiene memoria infinita." },
+        { id: "d", text: "El A3B no tiene KV cache." }
+      ],
+      correct: "b",
+      explanation: "MoE A3B mantiene los 48B en disco (memoria) pero activa 3B por token (FLOPs). El FFN disperso abarata el cómputo del prefill; la atención, no — atiende a toda la KV. Por eso 'hacer el contexto más largo' sigue siendo caro en un A3B, aunque el FFN sea barato. Compactar ayuda en ambos casos."
+    }
+  ]}
+/>

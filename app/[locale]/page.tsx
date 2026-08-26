@@ -31,8 +31,8 @@ export default async function HomePage({
   return (
     <div className="relative flex flex-1 flex-col">
       {/* ---------------------------------------------------------- hero */}
-      <section className="relative min-h-[92svh] overflow-hidden">
-        <HeroStack className="absolute inset-0" />
+      <section className="relative min-h-[92svh] overflow-x-clip overflow-y-visible">
+        <HeroStack className="pointer-events-none absolute inset-0 max-w-full overflow-x-clip touch-pan-y" />
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_top,var(--paper)_1%,transparent_38%),linear-gradient(to_right,var(--paper)_8%,color-mix(in_srgb,var(--paper)_72%,transparent)_38%,transparent_66%)]"
@@ -45,7 +45,7 @@ export default async function HomePage({
               className="mt-7 max-w-2xl text-lg leading-relaxed text-ink-soft md:text-xl rise"
               style={{ animationDelay: "120ms" }}
             >
-              {t("promise")}
+              {t("promise", { count: MODULES.length })}
             </p>
             <div
               className="mt-10 flex flex-wrap items-center gap-3 rise"
@@ -100,7 +100,7 @@ export default async function HomePage({
       </section>
 
       {/* --------------------------------------------------------- layers */}
-      <section className="shell border-t border-line py-20 md:py-28">
+      <section id="layers" className="shell border-t border-line py-20 md:py-28">
         <Reveal>
           <p className="kicker">{t("layersTitle")}</p>
           <p className="mt-5 max-w-2xl text-lg leading-relaxed text-ink-soft">

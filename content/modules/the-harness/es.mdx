@@ -8,13 +8,39 @@ El modelo es un motor de tokens dentro de ese bucle. Cambias el motor; el bucle 
 
 <VisualSlot caption="El bucle del agente. El pulso es un turno recorriendo el arnés, no un segundo cerebro." />
 
+## Prefill y decode: la base del arnés
+
+Dentro del paso "modelo" del bucle, hay dos fases muy distintas que importan para diseñar el arnés:
+
+- **<Term id="prefill">Prefill</Term>** — el prompt y el historial de mensajes cacheado se procesan **en paralelo** por cada capa. La KV cache para esos tokens se construye una vez. Está limitada por throughput (compute-heavy), es amigable con la GPU, y se amortigua sobre todos los tokens del prefijo. Un system prompt de 12k pagado en cada turno es la línea más común de tu factura de inferencia.
+- **<Term id="decode">Decode</Term>** — cada token nuevo se genera **secuencialmente**, atendiendo a la KV de cada token previo. Está limitada por latencia (memory-bandwidth-heavy), y el coste de cada token crece con la longitud del prefijo.
+
+Las dos fases son la razón por la que "system prompt corto" y "respuesta concisa" son objetivos de optimización distintos en el arnés. El primero se amortigua sobre todos los turnos futuros si mantienes el prefijo estable; el segundo solo importa una vez por turno. Inflar el prefijo con mil tokens de skills obsoleto cuesta prefill para siempre. Inflar la respuesta con dos frases de cortesía cuesta decode una vez.
+
+<Callout>
+Cuando optimizas el arnés, decide cuál de las dos fases estás optimizando. Si el problema es el primer token lento, el prefill es largo. Si el problema es la respuesta lenta, el decode es largo. Si el problema es la factura, probablemente prefill fresco que debería ser cacheado. Distintas palancas.
+</Callout>
+
+## A3B / MoE en el arnés
+
+Un modelo **48B-A3B** (Mixture-of-Experts) tiene 48B parámetros en disco y ~3B **activos por token**. Esto cambia la economía del arnés en dos sitios:
+
+- **Memoria** dominada por los totales (48B en Q4 ≈ 24 GB en disco). Cargar el modelo cuesta 48B-veces-bytes en RAM unificada o VRAM.
+- **FLOPs** por token dominados por los activos (3B). El coste por token está más cerca del de un denso 3B que del de un denso 48B.
+
+Para el arnés, esto significa tres cosas prácticas:
+
+1. **El coste de prefill escala con FLOPs activos, no con totales** — un prefill de 12k tokens en un 48B-A3B paga como un denso 3B, no como un denso 48B. Eso abarata el contexto largo.
+2. **La atención sobre la KV sigue siendo densa** — el FFN disperso abarata el cómputo; la atención no. Hacer el contexto más largo sigue siendo caro en atención.
+3. **El coste de memoria no baja** — los 48B totales siguen siendo 48B en disco. La caché de modelos en RAM/VRAM cuesta lo mismo.
+
 <Myth>
-“Hermes es el arnés.” <Term id="nous-hermes">Nous Hermes</Term> es una **familia de modelos** (chat de pesos abiertos de Nous Research). La gente escribe “Hermess” cuando quiere decir el bucle: perfiles, herramientas, hilos. Separa los nombres o depurarás la capa equivocada.
+"Hermes es el arnés." <Term id="nous-hermes">Nous Hermes</Term> es una **familia de modelos** (chat de pesos abiertos de Nous Research). La gente escribe "Hermess" cuando quiere decir el bucle: perfiles, herramientas, hilos. Separa los nombres o depurarás la capa equivocada.
 </Myth>
 
 ## Perfiles y el system prompt
 
-Un <Term id="system-prompt">perfil / system prompt</Term> es el texto permanente: quién es el agente, qué no debe hacer, qué herramientas hay, cómo formatear. Se inyecta cada turno o se sostiene en una <Term id="prompt-cache">caché de prefijo</Term>. No es “memoria de este usuario”. Es política.
+Un <Term id="system-prompt">perfil / system prompt</Term> es el texto permanente: quién es el agente, qué no debe hacer, qué herramientas hay, cómo formatear. Se inyecta cada turno o se sostiene en una <Term id="prompt-cache">caché de prefijo</Term>. No es "memoria de este usuario". Es política.
 
 Los buenos perfiles son cortos, comprobables y versionados. Un manifiesto de 20k tokens cuesta prefill en cada prefijo nuevo y aun así se ignora cuando el hilo es ruidoso.
 
@@ -26,7 +52,7 @@ Si omites permisos, construiste un control remoto para quien hable con el modelo
 
 ## Hilos, no corazonadas
 
-Un hilo es la unidad durable: mensajes, resultados, a veces un directorio de trabajo. No es una cookie de <Term id="session">sesión</Term>. Diseña como si “este hilo fuera el contexto” y admite que lo vas a compactar.
+Un hilo es la unidad durable: mensajes, resultados, a veces un directorio de trabajo. No es una cookie de <Term id="session">sesión</Term>. Diseña como si "este hilo fuera el contexto" y admite que lo vas a compactar.
 
 ## Subagentes
 
@@ -42,14 +68,14 @@ Tres tácticas honestas:
 
 ## Kernel significa dos cosas
 
-En GPU, un <Term id="kernel">kernel</Term> es el programa compilado que corre en el dispositivo (atención, matmul). En arneses, la gente dice “kernel” al runtime interno: el que hace stream, llama herramientas y decide parar. Misma palabra. Capa distinta. Si alguien dice “el kernel ha petado”, pregunta cuál.
+En GPU, un <Term id="kernel">kernel</Term> es el programa compilado que corre en el dispositivo (atención, matmul). En arneses, la gente dice "kernel" al runtime interno: el que hace stream, llama herramientas y decide parar. Misma palabra. Capa distinta. Si alguien dice "el kernel ha petado", pregunta cuál.
 
 ## Un bucle trabajado
 
 1. El mensaje de usuario aterriza en un hilo.
 2. El arnés arma mensajes: perfil, historia compactada, texto nuevo, esquemas de herramientas.
-3. Prefill del prefijo (acierto de caché si el prefijo coincidió byte a byte).
-4. Decode hasta un stop o un tool call.
+3. **Prefill** del prefijo (acierto de caché si el prefijo coincidió byte a byte).
+4. **Decode** hasta un stop o un tool call.
 5. Si hay tool call: permisos → ejecutar → añadir resultado → ir a 3.
 6. Si nace un subagente: corre 1–5 en un hijo, añade un resumen, sigue.
 7. Si la ventana aprieta: compacta y sigue.
@@ -58,6 +84,67 @@ En GPU, un <Term id="kernel">kernel</Term> es el programa compilado que corre en
 <TryThis>
 Escribe el bucle de arriba en pseudocódigo, con un `runTool(name, args)` falso y una allowlist estricta. No conectes un modelo de verdad todavía. El arnés se puede testear sin pesos.
 </TryThis>
+
+## El arnés y la elección del modelo
+
+El arnés es el mismo independientemente del modelo. Pero el modelo **sí** cambia la economía del arnés:
+
+- **Dense 7B** — barato en memoria, caro por FLOPs por token. Un prefill largo cuesta.
+- **Dense 70B** — caro en memoria (140 GB en FP16), menos por token. Cabe en hardware de servidor.
+- **48B-A3B** — MoE barato en FLOPs, caro en memoria. Cabe en hardware de servidor con cuantización. Prefill barato por FLOPs pero atención densa.
+- **Mixtral 8x7B** — MoE similar al A3B pero con otra distribución de expertos.
+
+Tu arnés **no debería** saber cuál es. Pero tu `model_card.json` o equivalente debería decir "MoE 48B-A3B" para que tu dashboard de prefill pueda estimar FLOPs activos y no totales.
+
+<Myth>
+"Un modelo más grande siempre es mejor." No para el arnés. Un 7B denso en un arnés con caché de prompt perfecta puede costar menos por turno que un 70B denso con caché rota. La elección de modelo es ortogonal a la optimización del arnés.
+</Myth>
+
+## El arnés en producción: tres señales
+
+Un arnés en producción tiene tres señales operativas:
+
+1. **Tasa de acierto de caché de prefijo** — debería estar > 80% en operación normal. Si cae, casi seguro mutaste el prefijo sin querer.
+2. **Coste por turno** — input + output + tools. Si sube sin un cambio de modelo, el prefill está re-pagándose.
+3. **Latencia del primer token** — proxy del prefill. Si sube, el contexto creció.
+
+Las tres señales son ortogonales. Una puede subir mientras las otras dos bajan. Por eso el dashboard tiene tres paneles, no uno.
+
+## Por qué el arnés se queda, el modelo cambia
+
+El modelo es commodity. El arnés es producto.
+
+- **Modelo commodity** — el mismo MoE 48B-A3B lo hospedan tres vendors con precios distintos. Cambias de vendor en una config.
+- **Arnés producto** — el bucle, las tools, los permisos, los skills, el gateway, los jobs — todo eso es código tuyo. Cambiarlo cuesta semanas.
+
+Si tu arnés está bien abstraído (un solo punto que conoce al modelo, todo lo demás unaware), cambias de modelo en un día. Si tu arnés tiene "este prompt solo funciona con Claude 3.5" hardcodeado, cambias de modelo en un trimestre.
+
+## El arnés mínimo, en cinco líneas
+
+```python
+def turn(thread, user_text):
+    thread.append(user_message(user_text))
+    while True:
+        prompt = assemble_prompt(thread, profile=PROFILE, tools=TOOLS)
+        out = model.generate(prompt)
+        if not out.tool_call:
+            thread.append(out.assistant_message)
+            return out.text
+        thread.append(out.tool_call_message)
+        result = dispatch(out.tool_call, policy=POLICY)
+        thread.append(tool_result_message(out.tool_call.id, result))
+```
+
+Cinco líneas. El resto es detalle (compactación, retries, persistencia). Si puedes testear esto sin un modelo, tienes el esqueleto.
+
+## Lo que el arnés NO es
+
+- **No es el modelo** — el modelo es el motor; el arnés es el vehículo.
+- **No es el framework** — el framework (smolagents, LangGraph, LlamaIndex) es un dialecto; el arnés es la idea.
+- **No es la plataforma** — Telegram, Discord, Slack son adaptadores; el arnés es el bucle detrás.
+- **No es el system prompt** — el system prompt es input del bucle, no el bucle mismo.
+
+Confundir estas cosas es depurar la capa equivocada. Caso clásico: "Hermes ignora las tools" — el modelo está bien; el arnés no las expone.
 
 ## Dónde fue el tutorial dummy
 
@@ -69,10 +156,75 @@ Lab, aún sin modelo: implementa `runTool(name, args)` con allowlist dura y `max
 
 ## Caso — Hermes-el-nombre frente a Hermes-el-bucle
 
-Un equipo abrió “Hermes ignora las tools” contra pesos de Nous. El perfil no listaba tools; el runtime no parseaba llamadas. Depuraban el motor. El arnés — esta página — estaba vacío. Quédate con el mito del principio cuando alguien diga “Hermess.”
+Un equipo abrió "Hermes ignora las tools" contra pesos de Nous. El perfil no listaba tools; el runtime no parseaba llamadas. Depuraban el motor. El arnés — esta página — estaba vacío. Quédate con el mito del principio cuando alguien diga "Hermess."
+
+## Caso — la KV cache que se quedó sin memoria
+
+Una sesión larga con un denso 70B mantuvo la KV cache del prefill en RAM. La ventana creció a 100k tokens; la KV cache pasó de 4 GB a 40 GB. El contenedor OOM-killed antes de terminar la compactación. La fix fue: topes duros por ventana + compactación proactiva antes del 50%.
 
 Esta lección reescribe ideas del [curso de agentes de Hugging Face](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.
 
 ## Siguiente en esta vía
 
 El mapa del arnés sigue en dos capas. **Patrón general** (sin producto en el título): [bucle del agente](/course/agent-loop), [ensamblado de prompt](/course/prompt-assembly), [runtime de tools](/course/tools-runtime), [sesiones](/course/sessions), [gateway](/course/gateway), [compresión y caché](/course/compression-caching), [plugins y skills](/course/plugins-and-skills), [trabajos programados](/course/scheduled-jobs), [tools de browser](/course/browser-tools), [acceso programático](/course/programmatic-access). **Particularidades de producto** después: Hermes (`hermes-*`) y OpenClaw (`openclaw-*`). Las codificaciones Hugging Face (dummy-agent, smolagents, LangGraph, LlamaIndex) siguen en esta misma vía — no hay una quinta.
+
+## Fuentes
+
+- Hugging Face Agents Course, Unit 1-2. https://huggingface.co/learn/agents-course
+- Mixtral / concepto A3B. https://arxiv.org/abs/2401.04088
+- Hugging Face — *Mixture of Experts Explained*. https://huggingface.co/blog/moe
+- Hermes Agent docs. https://hermes-agent.nousresearch.com/docs
+- OpenClaw docs. https://docs.openclaw.ai/
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué distingue prefill de decode en el bucle del arnés?",
+      options: [
+        { id: "a", text: "Son lo mismo." },
+        { id: "b", text: "Prefill procesa el prompt en paralelo por capa (compute-heavy, cacheable, coste proporcional al prefijo). Decode genera un token a la vez, secuencialmente (memory-bandwidth-heavy, coste proporcional a la KV)." },
+        { id: "c", text: "Decode es paralelo." },
+        { id: "d", text: "Prefill es más caro por token." }
+      ],
+      correct: "b",
+      explanation: "Prefill = batch sobre el prompt, GPU saturada compute. Decode = un token por paso, GPU saturada memory bandwidth. Distinto coste, distinta latencia, distinta caché. Cuando optimizas el arnés, decides cuál de las dos estás atacando."
+    },
+    {
+      id: "q2",
+      stem: "Modelo 48B-A3B en el arnés: ¿cuál es la implicación correcta?",
+      options: [
+        { id: "a", text: "El coste por token es el de un denso 48B." },
+        { id: "b", text: "Coste por FLOPs token es el de un denso 3B (~3B activos); memoria de disco dominada por los 48B totales. La atención sobre la KV sigue siendo densa — el contexto largo sigue siendo caro." },
+        { id: "c", text: "El A3B no tiene KV cache." },
+        { id: "d", text: "Es gratis." }
+      ],
+      correct: "b",
+      explanation: "MoE A3B: memoria por totales (48B), FLOPs por activos (3B). El FFN disperso abarata el cómputo; la atención no. Tu arnés debería ser modelo-agnóstico, pero tu estimador de coste debe distinguir FLOPs activos de memoria de disco — no confundirlos."
+    },
+    {
+      id: "q3",
+      stem: "¿Por qué el arnés es producto y el modelo es commodity?",
+      options: [
+        { id: "a", text: "Porque sí." },
+        { id: "b", text: "Porque el modelo se cambia en una config (mientras sea el mismo arnés). El bucle, los permisos, los skills, el gateway, los jobs — eso es código tuyo que cuesta semanas cambiar. Si tu arnés está bien abstraído, cambias de modelo en un día." },
+        { id: "c", text: "Porque el modelo es gratis." },
+        { id: "d", text: "Es marketing." }
+      ],
+      correct: "b",
+      explanation: "El modelo se commodity: el mismo MoE 48B-A3B lo hospedan varios vendors. Cambiar de vendor o modelo es config. El arnés es producto: el bucle, las tools, los permisos, los skills — código tuyo que tarda semanas en migrar. Por eso la abstracción del modelo (un solo punto que lo conoce) es la palanca más barata."
+    },
+    {
+      id: "q4",
+      stem: "Si tu latencia de primer token sube sin que el modelo haya cambiado, ¿dónde mirar primero?",
+      options: [
+        { id: "a", text: "Es un bug del modelo." },
+        { id: "b", text: "Prefill más largo. Mira el tamaño del prefijo (system prompt + cola + tools visibles). Si creció, hay dos causas: prefijo cacheable que dejó de acertar, o prefijo estable que se infló (skills añadidos, system prompt que creció)." },
+        { id: "c", text: "Es la red." },
+        { id: "d", text: "Es la RAM." }
+      ],
+      correct: "b",
+      explanation: "Latencia del primer token = prefill. Si sube sin cambio de modelo, el prefill paga más tokens. Dos causas comunes: (1) caché de prefijo rota por un cambio byte-a-byte, (2) prefijo estable que se infló (skills nuevos, system prompt que creció). El dashboard te dice cuál."
+    }
+  ]}
+/>

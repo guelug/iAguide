@@ -1,20 +1,209 @@
-## Dos palancas de extension
+## Dos palancas de extensión
 
-**Plugin** - codigo con manifiesto. **Skill** - SKILL.md bajo demanda.
+Un arnés serio se extiende por dos carriles, y confundirlos te cuesta un PR rechazado.
 
-<VisualSlot caption="Descubrimiento, manifiesto, register frente a indice de skills." />
+- **Plugin** — código con manifiesto. Registra tools, eventos, adaptadores. Vive en el árbol del agente.
+- **Skill** — `SKILL.md` con instrucciones y tools ya existentes. Bajo demanda, cargada cuando el modelo la pide.
+
+<VisualSlot caption="Descubrimiento, manifiesto, register frente a índice de skills." />
+
+## La diferencia práctica
+
+|  | Plugin | Skill |
+| --- | --- | --- |
+| **Qué es** | Código | Markdown + invocación a tools existentes |
+| **Cuándo cargar** | En boot | Cuando el modelo llama `load_skill(name)` |
+| **Qué añade** | Tools nuevas, hooks, adaptadores | Instrucciones + workflow |
+| **Coste de prefill** | Solo el índice (nombres) | Solo el índice (nombres) |
+| **Necesita API keys** | A veces | No |
+| **Necesita rebuild** | Sí | No (es texto) |
+| **Permisos** | Los declara en el manifiesto | Heredados del perfil activo |
+
+Un skill es un *workflow documentado*. Un plugin es *código que extiende el arnés*.
 
 <Compare a="Skill" b="Tool / plugin">
-<Side>Instrucciones y tools existentes.</Side>
-<Side>API keys, streaming, CDP, canal nuevo.</Side>
+<Side>
+Instrucciones y tools existentes. Si necesitas enseñarle al agente una receta (cómo hacer inbox-triage paso a paso), skill.
+
+</Side>
+<Side>
+API keys, streaming, CDP, canal nuevo. Si necesitas una integración que no existe (un canal de chat raro, una API SaaS), plugin.
+
+</Side>
 </Compare>
+
+## El manifiesto del plugin
+
+Un plugin decente expone:
+
+- **name** — id único. Sin colisiones.
+- **tools** — lista de tools que registra, con sus esquemas.
+- **permissions** — qué necesita (red, filesystem, shell, OAuth).
+- **entry** — punto de carga (módulo Python, binario, etc.).
+- **version** — para que el arnés sepa cuándo re-cargar.
+
+Hermes descubre `registry.register()` a nivel de módulo. OpenClaw filtra por perfil + allow/deny + sandbox + plugins. Si la política quita una tool, el modelo **no ve su esquema** este turno.
+
+## SKILL.md, la anatomía
+
+Un SKILL.md tiene:
+
+1. **Frontmatter** — `name`, `description` (una línea, va al índice), `version`, opcionalmente `requires_tools`.
+2. **Cuándo usarla** — el disparador. Si el modelo no sabe cuándo cargarla, la descripción falla.
+3. **Pasos** — el workflow. Numerado, accionable.
+4. **Pitfalls** — qué sale mal. El modelo los leerá antes de actuar.
+5. **Fuentes** — si la skill cita docs externas, ponlas. El modelo puede verificarlas.
+
+<Myth>
+"Un skill más largo es más útil." No. Un skill largo entra al contexto, compite por atención, y se queda obsoleto. Corto, concreto, versionado. Si pasa de 1k palabras, divídelo.
+</Myth>
+
+## Descubrimiento y sombreado
+
+El arnés descubre plugins y skills en paths declarados. El **sombreado** (dos plugins con el mismo nombre) requiere política explícita:
+
+- **Hermes** — el último plugin cargado gana; las advertencias se loguean. Override requiere `--force` o config explícita.
+- **OpenClaw** — por defecto, error. Override con `override: true` y consentimiento del usuario.
+
+Si dos plugins registran `web_search` sin override, el comportamiento es **indefinido** o **explícitamente rechazado**, según el arnés. Esa es la decisión correcta: la ambigüedad mata debug.
 
 ## Caso: dos plugins, un nombre
 
-**Caso.** Ambos registran web_search sin puerta de override.
+**Caso.** Ambos registran `web_search` sin puerta de override. En producción, una versión de `web_search` devuelve resultados de Bing, otra de Google. El comportamiento cambia entre deploys.
+
+**Arreglo.** Renombrar uno a `web_search_bing`. O declarar uno como override explícito del otro. O usar el sistema de orden de carga para que el "ganador" sea determinista.
 
 <TryThis>
-Boceta plugin.yaml (12 lineas) y SKILL.md (20). No instales nada.
+Boceta un `plugin.yaml` (12 líneas) y un `SKILL.md` (20). No instales nada — solo la forma. El plugin tiene `name`, `tools`, `permissions`. El skill tiene frontmatter + pasos.
 </TryThis>
 
-Docs: [plugins Hermes](https://hermes-agent.nousresearch.com/docs/developer-guide/plugins), [skills Hermes](https://hermes-agent.nousresearch.com/docs/developer-guide/creating-skills), [OpenClaw tools](https://docs.openclaw.ai/tools).
+## Versionado y carga caliente
+
+Tres preguntas:
+
+1. **¿Cambia el esquema de la tool?** El modelo ve el esquema este turno. Si lo cambias, invalida la caché de prefijo. Versiona el cambio.
+2. **¿Cambia el comportamiento?** Si la tool hace lo mismo pero con un parámetro nuevo (opcional), el cambio es compatible. Sin versionado.
+3. **¿Cambia el output?** Si el output añade campos, el modelo no se rompe. Si los quita, sí.
+
+Hermes recarga plugins en `--reload` o al boot. OpenClaw recarga plugins desde el directorio watch. Los skills son texto, así que el reload es trivial.
+
+## El índice y la caché de prefijo
+
+Plugins y skills entran al contexto por su **nombre** (índice), no por su **cuerpo**. El cuerpo va detrás de `load_skill(name)`. Esto es la razón por la que un skill de 30k no cuesta 30k de prefill cada turno — solo 1k del índice.
+
+Por eso el arnés trata el índice como **estable** y los cuerpos como **volátiles**. Cualquier cambio en un cuerpo (un skill editado) no invalida la caché de prefijo del índice; invalida solo la caché de prefijo del cuerpo (cuando se carga).
+
+<Callout>
+Si pegas los cuerpos de los skills en el system prompt, revientas la caché de prefijo con cada cambio. El skill es texto; trátalo como texto. Su carga es bajo demanda.
+</Callout>
+
+## Permisos y sandbox
+
+Un plugin pide permisos en su manifiesto:
+
+- `net: outgoing` — para llamadas HTTP salientes.
+- `fs: read` / `fs: write` — para acceso a disco.
+- `shell` — para ejecutar comandos.
+- `oauth: <provider>` — para flujos OAuth.
+
+El arnés valida los permisos contra la política del perfil. Si un plugin pide `shell` y el perfil lo deniega, el plugin no se carga (o se carga sin las tools que necesitan shell).
+
+OpenClaw va más lejos: cada tool corre en un **sandbox** (container, vm, o al menos un chroot). Si la tool es `email_send`, no debería tener acceso a `fs: read /etc`.
+
+<Steps>
+<Step title="Decidir plugin o skill">
+¿Necesitas código nuevo (HTTP, OAuth, binario)? → plugin. ¿Necesitas instrucciones nuevas sobre tools existentes? → skill.
+</Step>
+<Step title="Manifiesto explícito">
+Nombre único, tools listadas, permisos declarados. Sin sorpresas en boot.
+</Step>
+<Step title="SKILL.md corto">
+Frontmatter con `description` de una línea. Pasos numerados. Pitfalls. Menos de 1k palabras.
+</Step>
+<Step title="Sombreado resuelto">
+Dos plugins con el mismo nombre → error explícito o override con consentimiento. No indeterminismo.
+</Step>
+<Step title="Versión y reload">
+Cambios de esquema: versiona. Cambios compatibles: sin versión. Recarga desde el watch dir.
+</Step>
+</Steps>
+
+## Lista práctica
+
+1. Plugin = código con manifiesto. Skill = instrucciones con tools existentes.
+2. Manifiesto: `name`, `tools`, `permissions`, `entry`, `version`.
+3. SKILL.md: frontmatter corto, pasos accionables, pitfalls, fuentes.
+4. Índice de nombres en prefill; cuerpos detrás de `load_skill`.
+5. Sombreado: error o override con consentimiento. Nunca indeterminismo.
+6. Permisos validados contra el perfil. Sandbox por tool.
+7. Versionado compatible vs incompatible según cambie el esquema o el output.
+
+## El test mínimo de un plugin
+
+Tres tests que cualquier plugin debe pasar:
+
+1. **Carga limpia** — el plugin se registra sin tirar el arnés. Si falla, el arnés sigue con los demás plugins.
+2. **Shadow detection** — dos plugins con el mismo nombre disparan el error de sombreado.
+3. **Permissions check** — un plugin que pide `shell` en un perfil sin `shell` no expone sus tools.
+
+Estos tests son unit, no necesitan modelo. Sin GPU, sin API key, en milisegundos.
+
+## Fuentes
+
+- Hermes — *Plugins*. https://hermes-agent.nousresearch.com/docs/developer-guide/plugins
+- Hermes — *Creating skills*. https://hermes-agent.nousresearch.com/docs/developer-guide/creating-skills
+- OpenClaw — *Tools*. https://docs.openclaw.ai/tools
+- MCP — *Model Context Protocol*. https://modelcontextprotocol.io/
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "Necesito enseñarle al agente una receta de inbox-triage paso a paso. ¿Plugin o skill?",
+      options: [
+        { id: "a", text: "Plugin, porque necesito tools nuevas." },
+        { id: "b", text: "Skill, porque la receta son instrucciones sobre tools existentes (read_email, label_email). No necesito código nuevo." },
+        { id: "c", text: "Las dos cosas." },
+        { id: "d", text: "Un cron." }
+      ],
+      correct: "b",
+      explanation: "Una receta sobre tools ya existentes es exactamente para lo que sirve un skill. No necesitas código nuevo; necesitas documentar el workflow. Plugin sería sobre-ingeniería: tendrías que registrar tools nuevas o duplicar funcionalidad."
+    },
+    {
+      id: "q2",
+      stem: "Dos plugins registran `web_search`. ¿Qué pasa?",
+      options: [
+        { id: "a", text: "Gana el primero." },
+        { id: "b", text: "Comportamiento indefinido o error explícito. El sombreado sin política es un bug: dos implementaciones distintas para un mismo nombre. Solución: renombrar o declarar override con consentimiento." },
+        { id: "c", text: "El modelo elige." },
+        { id: "d", text: "Se ignora uno silenciosamente." }
+      ],
+      correct: "b",
+      explanation: "Sombreado sin política es ambigüedad. En producción, una versión devuelve Bing, otra Google, y el comportamiento cambia entre deploys. La política correcta: error explícito (OpenClaw) o log + override (Hermes). Nunca indeterminismo silencioso."
+    },
+    {
+      id: "q3",
+      stem: "El cuerpo de un skill de 30k caracteres va al prefill. ¿Por qué es un problema?",
+      options: [
+        { id: "a", text: "Porque el modelo no entiende 30k." },
+        { id: "b", text: "Porque cada cambio en el cuerpo invalida la caché de prefijo (toda la skill re-pagada), y 30k diluye la atención. La práctica: el índice de nombres va en el prefill; el cuerpo se carga vía `load_skill(name)` cuando hace falta." },
+        { id: "c", text: "Porque el sistema operativo lo prohíbe." },
+        { id: "d", text: "No es un problema." }
+      ],
+      correct: "b",
+      explanation: "Pegar el cuerpo en el prefill cuesta 30k por turno, diluye la atención, y cualquier edición del skill revienta la caché de prefijo completa. La práctica correcta: índice de nombres en el prefijo (1k), cuerpo detrás de load_skill. El modelo paga el cuerpo solo cuando la necesita."
+    },
+    {
+      id: "q4",
+      stem: "Un plugin declara `shell: true` en su manifiesto pero el perfil lo deniega. ¿Qué pasa?",
+      options: [
+        { id: "a", text: "El plugin se carga con todas sus tools." },
+        { id: "b", text: "El plugin no se carga (o se carga sin las tools que necesitan shell). Los permisos del manifiesto deben coincidir con la política del perfil activo." },
+        { id: "c", text: "El usuario decide en tiempo de ejecución." },
+        { id: "d", text: "Es un bug del manifiesto." }
+      ],
+      correct: "b",
+      explanation: "El arnés valida los permisos del manifiesto contra la política del perfil. Si hay conflicto, el plugin no se carga completo (o falla al cargar las tools que necesitan el permiso denegado). Esto es defensa en profundidad: el plugin declara lo que necesita, el perfil decide qué se le concede."
+    }
+  ]}
+/>

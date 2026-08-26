@@ -1,13 +1,164 @@
-## Rápido para ti no es barato para todos
+## Por qué un chat rápido no es un servidor barato
 
-Un usuario, una copia, SM ociosos: bien para un portátil. Un servidor quiere **batching continuo**, **paged attention** / KV paginada, y a veces **decodificación especulativa**. Throughput y latencia se negocián. vLLM y compañía: lee *sus* docs actuales.
+Un usuario, una copia del modelo, SM ociosos: bien para un portátil. Un servidor quiere **batching continuo** (admitir peticiones nuevas a mitad del decode de otras), **paged attention** / KV paginada (para que la memoria no sea un bloque gigante por petición) y a veces **decodificación especulativa** (un modelo pequeño propone tokens; el grande verifica varios a la vez).
 
-<VisualSlot caption="Un usuario solo frente a un batch continuo. Lo especulativo añade un paso de draft." />
+Throughput (tokens/s sumados entre usuarios) y latencia (tiempo hasta el primer token para ti) **se negocian**. vLLM, TensorRT-LLM y compañía son los nombres habituales — lee *sus* docs actuales; las flags se mueven.
+
+<VisualSlot caption="Un usuario solo frente a un batch continuo compartiendo GPU. Lo especulativo añade un paso de borrador." />
+
+## Prefill y decode: dos trabajos en una misma máquina
+
+Un servidor hace dos trabajos muy distintos en cada petición:
+
+- **<Term id="prefill">Prefill</Term>** — procesar el prompt. Muchos tokens en paralelo, cómputo denso, toca <Term id="flops">FLOPs</Term>. Es la ráfaga inicial; suele dominarse por el cálculo matricial. Si el motor no aprovecha bien los SMs, aquí se siente lento el *tiempo hasta el primer token* (TTFT).
+- **<Term id="decode">Decode</Term>** — generar la respuesta, **un token a la vez**, reutilizando la <Term id="kv-cache">caché KV</Term>. Cada token nuevo obliga a releer los pesos del modelo entero para una sola predicción. Aquí el cuello de botella es **ancho de banda de memoria**: bytes por segundo, no FLOPs por segundo.
+
+Por eso un Q4 a veces *se siente* más rápido que un Q8 en el mismo hardware: mueves menos bytes por token. Y por eso un H100 con muchísima HBM barre a una 4090 para servir: no son los FLOPs (los dos están bien servidos), es la *bandwidth*.
+
+<Callout>
+Si optimizas para *tu* latencia, mira el TTFT (prefill) y el TPOT — *time per output token* (decode). Si optimizas para *todos los usuarios*, mira tokens/s agregados y utilization de GPU. Son curvas distintas; un cambio puede mejorar una y empeorar la otra.
+</Callout>
+
+## Batching continuo: la magia está en admitir a mitad del decode
+
+El batching *estático* mete N peticiones, espera a que todas terminen, sirve las siguientes. Desperdicia GPU: cuando una petición corta termina, su slot queda vacío hasta que las demás acaben.
+
+El **batching continuo** (vLLM, TGI, TRT-LLM) va petición a petición: cuando una termina, mete otra en su slot *en mitad del paso de decode del resto*. La GPU nunca se queda ociosa mientras haya cola. A igualdad de modelo, **x2 a x4 más tokens/s agregados** es habitual.
+
+Esto no es gratis: el scheduler decide cada paso qué secuencias avanzan y cuáles esperan. Si una petición tiene 8k de contexto y otra 256, el scheduler intenta no penalizar a la corta. Por eso ves `--max-num-seqs`, `--max-model-len`, `--scheduling-policy` en la docs: estás negociando.
+
+## Paged attention: la caché KV no es una losa por petición
+
+Sin paginación, una petición con contexto 8k reserva un bloque contiguo enorme de VRAM aunque use solo unos cientos de tokens. Si tienes 32 GB de VRAM y una KV de 8 GB por petición, caben 4 — y se acabó, da igual cuánto contexto uses de verdad.
+
+**Paged attention** (vLLM, TRT-LLM, llama.cpp con `--paged-attn`) trocea la caché KV en **páginas** (como la memoria virtual). Asignas páginas solo cuando las necesitas, las reciclas entre peticiones, fragmentas menos. Permite más usuarios concurrentes por GPU y hasta `prefix caching` decente (compartir el prefijo común entre peticiones).
+
+Es invisible para el cliente. Pero cuando el ingeniero dice "no me cabe otro usuario", suele ser la caché KV mal gestionada, no el modelo.
+
+## Decodificación especulativa
+
+La idea: un **modelo pequeño** (draft) propone varios tokens seguidos; el **modelo grande** (target) los verifica todos en una sola pasada de prefill. Si el draft acierta k tokens, el grande emite k tokens por el coste de uno.
+
+Funciona cuando:
+- El draft y el target **comparten tokenizador** (casi siempre sí, si son de la misma familia).
+- El patrón de salida es **predecible** (chat, código, relleno en medio, RAG). Falla estrepitosamente cuando la salida diverge mucho (escritura creativa libre, generación muy larga con cambios de tema).
+- El draft es **bastante más barato** de correr que el target. Si el draft es medio target, el overhead se come la ganancia.
+
+No es magia. Es una transferencia de cómputo del target al draft en regiones donde el target habría hecho un paso de decode por token igualmente.
+
+## TTFT y TPOT — los dos números que importan
+
+Dos métricas, dos cuellos de botella:
+
+- **<Term id="ttft">TTFT</Term>** (*time to first token*) — cuánto tarda el servidor en emitir el primer token tras la petición. Dominado por el **prefill** (cola + cómputo del prompt). Si tienes prompts largos en la mezcla, el TTFT sube.
+- **<Term id="tpot">TPOT</Term>** (*time per output token*) — media del tiempo entre tokens una vez empieza la generación. Dominado por el **decode** (ancho de banda, KV cache, concurrencia).
+
+SLOs típicos: "p95 TTFT < 800 ms, p95 TPOT < 50 ms". Mide ambos en producción, no en local.
+
+<Callout>
+**Tokens/s por usuario** ≠ **tokens/s agregados**. Una sola petición sola en una H100 puede ir lentísima porque la GPU no tiene a quién batchear. El batching continuo hace subir el agregado pero a veces empeora la latencia individual. Hay un punto dulce que se mide, no se adivina.
+</Callout>
+
+## Esquema de decisiones (orden importa)
+
+1. **Elige motor** — vLLM para NVIDIA "normal", TRT-LLM para producción ajustada al hardware, llama.cpp / Ollama si necesitas CPU/Metal, MLX si es Apple Silicon servidor.
+2. **Elige cuantización** — AWQ o GPTQ a 4 bits es el suelo razonable en GPU. NF4 / bitsandbytes solo si entrenas. FP8 si el hardware lo soporta de verdad.
+3. **Elige max-model-len y max-num-seqs** — los dos multiplican VRAM (KV por petición × número de peticiones). Mide en carga real.
+4. **Activa paged attention y prefix caching** — casi siempre ganas concurrencia por la misma GPU.
+5. **Evalúa speculative decoding** — solo si tienes un draft creíble y tráfico predecible.
+6. **Mide TTFT, TPOT y tokens/s agregados** — con tu mezcla real de prompts, no con un test sintético.
+
+<Myth>
+"Con batching continuo siempre ganas." Ganas en *agregado*. Si tu SLO es latencia p95 por usuario individual, un batch demasiado grande sube TPOT. El tamaño de batch es un knob, no un máximo.
+</Myth>
+
+<Compare>
+<Side title="Un usuario en portátil">
+Llamadas secuenciales. Una copia del modelo. Prefill rápido, decode a bandwidth nativa. No hay scheduler: cada petición es un proceso.
+</Side>
+<Side title="Servidor con muchos usuarios">
+Batching continuo, KV paginada, prefix caching, a veces draft especulativo. Scheduler decide cada paso quién avanza. Tuning de max-num-seqs y max-model-len es el día a día.
+</Side>
+</Compare>
 
 <TryThis>
-Escribe tu SLO en una línea: “p95 TTFT bajo Xs a Y concurrentes.” Di si afinarías batch, quant o draft primero — y qué medirías para saber que te equivocaste.
+Escribe tu SLO en una línea: "p95 TTFT < Xs a Y concurrentes". Di si afinarías batch, quant o draft primero — y qué medirías para saber que te equivocaste. Si no puedes escribir esa línea, no estás listo para producción.
 </TryThis>
 
 ## Caso — la GPU vacía de SoloServe
 
-SoloServe ponía un worker vLLM por cliente “por aislamiento.” GPUs al 15% y factura de cluster ocupado. Batching continuo en un pool compartido con claves por tenant bajó el coste sin cambiar el modelo.
+SoloServe ponía un worker vLLM por cliente "por aislamiento". GPUs al 15% y factura de cluster ocupado. Batching continuo en un pool compartido con claves por tenant bajó el coste sin cambiar el modelo. Aislamiento se hace con namespaces, rate limits y quotas — no con workers separados.
+
+## Quiz
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué fase del inference está limitada por ancho de banda de memoria y por qué?",
+      options: [
+        { id: "a", text: "El prefill, porque procesa todos los tokens del prompt a la vez." },
+        { id: "b", text: "El decode, porque genera un token nuevo cada vez y debe releer todos los pesos del modelo desde memoria para producir uno solo. Mueve los bytes de los pesos por cada token." },
+        { id: "c", text: "Las dos por igual, porque ambas fases hacen lo mismo." },
+        { id: "d", text: "Ninguna, el cuello de botella suele ser el disco." }
+      ],
+      correct: "b",
+      explanation: "El decode lee los pesos del modelo entero para producir un único token nuevo; el número de FLOPs por token es bajo, así que el cuello dominante es bytes por segundo. El prefill, en cambio, procesa muchos tokens en paralelo y es denso en cómputo (FLOPs), no en bytes."
+    },
+    {
+      id: "q2",
+      stem: "Un Q4 puede sentirse más rápido que un Q8 en el mismo hardware. ¿Por qué?",
+      options: [
+        { id: "a", text: "Porque el modelo es más pequeño y por tanto 'piensa menos'." },
+        { id: "b", text: "Porque en decode mueves menos bytes por token: mitad de memoria, banda de memoria similar, más tokens/segundo. La calidad es parecida en tareas generales." },
+        { id: "c", text: "Porque el cuantizador Q4 introduce un atajo matemático." },
+        { id: "d", text: "Es una casualidad: el Q8 siempre es igual o más rápido." }
+      ],
+      correct: "b",
+      explanation: "El decode es memory-bandwidth-bound. Si reduces los bytes por peso a la mitad, recorres la memoria del modelo a la mitad de tiempo por token — y los tokens/segundo suben. La calidad cae un poco en algunas tareas, pero el throughput gana casi siempre."
+    },
+    {
+      id: "q3",
+      stem: "¿Qué resuelve la paginación de la caché KV?",
+      options: [
+        { id: "a", text: "Hace que el modelo responda más rápido." },
+        { id: "b", text: "Permite asignar memoria en páginas pequeñas en lugar de un bloque contiguo por petición, así caben más usuarios concurrentes por GPU y se desperdicia menos VRAM." },
+        { id: "c", text: "Sustituye la cuantización de los pesos." },
+        { id: "d", text: "Sirve para entrenar, no para servir." }
+      ],
+      correct: "b",
+      explanation: "Sin paginación, cada petición reserva un bloque contiguo para su KV aunque use poco. Con paginación, asignas páginas conforme se necesitan, las compartes entre peticiones (prefix caching) y reduces fragmentación. Resultado: más concurrencia por GPU."
+    },
+    {
+      id: "q4",
+      stem: "La decodificación especulativa ayuda más cuando…",
+      options: [
+        { id: "a", text: "…la salida es muy impredecible, como escritura creativa libre." },
+        { id: "b", text: "…el patrón de salida es predecible (chat, código, RAG) y el modelo draft es mucho más barato que el target." },
+        { id: "c", text: "…el modelo draft es la mitad de grande que el target." },
+        { id: "d", text: "…no hay GPU disponible y todo va en CPU." }
+      ],
+      correct: "b",
+      explanation: "El draft acierta muchos tokens cuando el patrón es predecible. Si diverge mucho, el target rechaza casi todo y has pagado el coste del draft para nada. La regla: el draft debe ser 'mucho más barato' y la salida 'razonablemente continua'."
+    },
+    {
+      id: "q5",
+      stem: "Tu p95 TTFT sube justo después del pico de tráfico. ¿Qué pasa primero?",
+      options: [
+        { id: "a", text: "El modelo se degrada por temperatura." },
+        { id: "b", text: "La cola de admisión crece, así que el prefill de cada nueva petición espera su turno antes de empezar. El TTFT se dispara antes que el TPOT." },
+        { id: "c", text: "La GPU se sobrecalienta y baja el reloj automáticamente." },
+        { id: "d", text: "El batching continuo aumenta el TPOT de cada uno." }
+      ],
+      correct: "b",
+      explanation: "El TTFT incluye el tiempo en cola más el prefill. Con más tráfico, la cola crece y el TTFT se dispara. El TPOT puede incluso bajar (más batching = mejor decode por usuario), pero la espera inicial sube. Es la señal clásica de que necesitas más réplicas o un scheduler con prioridad."
+    }
+  ]}
+/>
+
+## Fuentes
+
+- Kwon, W., et al. (2023). *Efficient Memory Management for Large Language Model Serving with PagedAttention* — vLLM. https://arxiv.org/abs/2309.06180
+- Leviathan, Y., Kalman, M., & Matias, Y. (2023). *Fast Inference from Transformers via Speculative Decoding*. https://arxiv.org/abs/2211.17192
+- vLLM documentation — *Performance and tuning*. https://docs.vllm.ai/
+- NVIDIA TensorRT-LLM documentation — *In-flight batching, paged KV*. https://github.com/NVIDIA/TensorRT-LLM

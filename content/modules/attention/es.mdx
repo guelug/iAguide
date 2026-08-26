@@ -1,31 +1,209 @@
 ## La atención es una mezcla
 
-La <Term id="attention">atención</Term> es cómo un token lee la ventana. Para el token que predices, el modelo arma una **query**. Cada token ya presente ofrece una **key** y un **value**. Las puntuaciones dicen cuánto le importa cada key; los values se mezclan con esas puntuaciones.
+La <Term id="attention">atención</Term> es cómo un token lee la ventana. Para el token que estás prediciendo, el modelo arma una **query** (una pregunta vectorial). Cada token ya presente ofrece una **key** (una etiqueta vectorial). Las puntuaciones que salen del producto punto query·key dicen cuánto le importa cada key a esta query; los **values** se mezclan con esas puntuaciones y se devuelve un vector final.
 
 Un esquema, no un paper:
 
 $$
-\mathrm{Attention}(Q,K,V) = \mathrm{softmax}\!\left(\frac{QK^\top}{\sqrt{d}}\right) V
+\mathrm{Attention}(Q, K, V) = \mathrm{softmax}\!\left(\frac{QK^\top}{\sqrt{d}}\right) V
 $$
 
-$d$ es la dimensión de la key; la raíz evita que las puntuaciones exploten. No hace falta derivarlo para publicar. Hace falta: **cada token nuevo atiende sobre las keys cacheadas**, por eso existe la <Term id="kv-cache">caché KV</Term> y por eso el contexto largo cuesta memoria.
+$d$ es la dimensión de la key; la raíz evita que las puntuaciones exploten cuando las dimensiones crecen. Si te saltas la raíz, los softmax se vuelven picos casi-one-hot y los gradientes mueren. El detalle técnico importa porque sin él el modelo no entrena.
+
+No hace falta derivarlo para publicar. Hace falta: **cada token nuevo atiende sobre las keys cacheadas**, por eso existe la <Term id="kv-cache">caché KV</Term> y por eso el contexto largo cuesta memoria.
 
 <VisualSlot caption="Una query mira las keys; los values se mezclan. Cambia a cabezas y luego a GQA, donde las keys se comparten." />
 
-## El bloque alrededor
+## El bloque transformer al completo
 
-Un bloque transformer suele ser: (opcional) RMSNorm → atención → residual → (opcional) RMSNorm → MLP → residual. El flujo residual es la autovía; atención y MLP son incorporaciones.
+Una capa de un transformer decoder moderno suele tener este esqueleto:
 
-**Multi-head** son varias mezclas QKV en paralelo, luego concatenadas. **GQA / MQA** comparten keys y values entre cabezas para encoger la caché KV. **RoPE** rota queries y keys para que la posición sea un ángulo relativo. Salen en las fichas. Son ingeniería, no otra arquitectura.
+<Steps>
+<Step>
+**RMSNorm** (opcional, pero casi siempre). Normaliza las activaciones. Estable, barato, mejor que LayerNorm en la práctica para modelos grandes.
+</Step>
+<Step>
+**Multi-head attention** con máscara causal. Aquí se calcula QKV desde el estado de cada token; se aplica la fórmula de arriba con la máscara; se concatenan las cabezas; se proyecta.
+</Step>
+<Step>
+**Residual.** Se suma el resultado al input del bloque. La autovía del gradiente.
+</Step>
+<Step>
+**RMSNorm** otra vez.
+</Step>
+<Step>
+**MLP (feed-forward).** Dos lineales con una no-linealidad en medio (SwiGLU/GeLU). Aquí “piensa” el modelo por cada token una vez que la atención le dio contexto.
+</Step>
+<Step>
+**Residual.** Se suma al estado. Y otra capa encima.
+</Step>
+</Steps>
 
-## Prefill frente a decode, otra vez
+El **flujo residual es la autovía**; atención y MLP son incorporaciones que se enchufan a la autopista sin romperla. Por eso los transformers apilan docenas de capas sin degradarse: el camino del gradiente es recto.
 
-El prefill escribe un bloque de keys y values. El decode añade el KV de un token y atiende sobre lo cacheado. Por eso el primer token de un prompt largo es lento, y una *generación* larga se encarece.
+<Callout>
+Si quitas el residual, no entrena. Si quitas la norma, diverge. Si quitas la atención, queda un MLP apilado (funciona, pero pierde la mezcla entre tokens). Si quitas el MLP, queda un “mezclador puro” que no transforma lo suficiente. Cada pieza hace lo suyo.
+</Callout>
+
+## Multi-head: varias mezclas a la vez
+
+En lugar de una sola atención, los transformers calculan varias en paralelo. Cada “cabeza” tiene sus propias matrices W_Q, W_K, W_V y aprende a fijarse en cosas distintas: una cabeza mira sintaxis, otra mira correferencias, otra mira el último sustantivo. Al final se concatenan y se proyectan.
+
+- Con **dimensión de modelo d_model=4096** y **32 cabezas**, cada cabeza opera en dimensión 128.
+- Más cabezas no siempre mejor. La práctica moderna usa **Grouped Query Attention (GQA)** o **Multi-Query Attention (MQA)** para reducir el coste de memoria.
+
+<Compare>
+<Side title="Multi-Head Attention (MHA)">
+Cada cabeza tiene su propio K y su propio V. Memoria de caché KV = n_cabezas × n_capas × 2 × n_tokens × d_cabeza. Calidad máxima, memoria máxima.
+</Side>
+<Side title="Multi-Query Attention (MQA)">
+Todas las cabezas comparten **un solo K y un solo V**. Memoria de caché ≈ 1/n_cabezas respecto a MHA. Calidad algo peor en benchmarks académicos; apenas se nota en producción.
+</Side>
+<Side title="Grouped Query Attention (GQA)">
+Híbrido: n_grupos cabezas comparten K/V (típicamente n_grupos=4 u 8). Balance entre calidad y memoria. Lo que usa Llama 2 70B, Llama 3, Mistral, etc.
+</Side>
+</Compare>
+
+## RoPE: la posición como ángulo
+
+Los transformers no saben nada de orden hasta que se lo dices. La opción clásica (positional embeddings sinusoidales o aprendidas) tiene un problema: posiciones absolutas no se generalizan bien a longitudes nuevas.
+
+<Term id="rope">RoPE</Term> (Rotary Position Embeddings) lo arregla rotando queries y keys por un ángulo que depende de la posición. La consecuencia importante: la atención entre dos tokens depende solo de su **distancia relativa**, no de su posición absoluta. Esto permite:
+
+- Generalizar a secuencias más largas que las del entrenamiento (con extrapolación o interpolación).
+- Compartir la misma matemática entre prefill (paralelo, todas las posiciones a la vez) y decode (un token a la vez, una rotación cada vez).
+
+<Myth>
+“RoPE hace que el modelo entienda el tiempo.” No. Rota vectores en espacios de dimensión par. Lo que entienda el modelo lo decide el entrenamiento; RoPE le da la información posicional con la que puede aprenderlo.
+</Myth>
+
+## Prefill y decode, otra vez (con la caché al microscopio)
+
+El prefill escribe un bloque de keys y values para todos los tokens del prompt, de todas las capas. El decode añade las keys y values de **un solo token** por capa y atiende sobre todo lo cacheado.
+
+<VisualSlot caption="KV cache: prefill escribe N×layers×heads bloques; decode añade 1×layers×heads bloques por paso." />
+
+Cuanto crece la caché, en concreto, para un modelo con L capas, H cabezas KV (atención: en GQA, H puede ser menor que las cabezas de atención), dimensión d y precisión fp16 (2 bytes por número):
+
+$$
+\mathrm{bytes}_{KV} = 2 \cdot L \cdot H \cdot d \cdot \mathrm{seq\_len} \cdot 2
+$$
+
+Para un Llama 3 8B (32 capas, 8 grupos KV, dimensión 128) con 8.000 tokens de contexto:
+
+$$
+2 \cdot 32 \cdot 8 \cdot 128 \cdot 8000 \cdot 2 \approx 1\,\mathrm{GB}
+$$
+
+Con 128.000 tokens, esa misma cuenta son ~16 GB. **Solo de caché**, sin contar pesos ni activaciones. Por eso las ventanas enormes revientan hardware modesto aunque el modelo “quepa”.
+
+<Callout>
+Si tu anuncio presume de ventana de 128k y tu demo cabe en una sola GPU de 24 GB, alguien ha olvidado multiplicar por la longitud del contexto en la fórmula de la caché KV. Pasa más de lo que debería.
+</Callout>
+
+## Máscara causal: el futuro no existe
+
+En un decoder, el token de la posición $i$ solo puede atender a posiciones $j \leq i$. Esto se implementa con una **máscara causal**: una matriz triangular inferior que pone $-\infty$ (o un número muy grande negativo) en las posiciones futuras, de modo que softmax las ignora.
+
+¿Por qué? Porque el modelo tiene que aprender la distribución $P(\text{token}_i \mid \text{tokens}_{<i})$. Si viera el futuro, sería un clasificador, no un generador.
 
 <TryThis>
-En papel, con el prompt de 7 tokens “The capital of France is”, rodea qué tokens puede ver la query de `is` (máscara causal: solo el pasado). Luego una frase: qué se rompería si la máscara fuera bidireccional en el decode.
+En papel, con el prompt de 7 tokens “The capital of France is”, rodea qué tokens puede ver la query de `is` (máscara causal: solo el pasado). Luego escribe una frase: qué se rompería si la máscara fuera bidireccional en el decode (spoiler: la query de cada posición vería la respuesta que viene después, y el modelo aprendería a usar esa información — quedaría un modelo que no puede generar, solo reescribir).
 </TryThis>
+
+## Variantes y mejoras que verás en el zoo
+
+Más allá del vanilla, las variantes modernas cambian la atención para ganar contexto, velocidad o memoria:
+
+- **FlashAttention**: reordena las multiplicaciones para minimizar accesos a HBM y hace el cálculo en registros. Mismas matemáticas, varias veces más rápido, misma memoria o menos.
+- **Paged Attention (vLLM)**: gestiona la caché KV como páginas (como memoria virtual) para no desperdiciar GB en padding.
+- **Sliding Window Attention (Mistral)**: cada token solo atiende a los últimos N. Reduce memoria drástivamente; se compensa apilando capas.
+- **Multi-Latent Attention (MLA, DeepSeek)**: comprime K y V en un vector latente de dimensión menor antes de guardar la caché. Mucho menos memoria por token a costa de un poco de matemática extra.
+- **Linear Attention**: aproximaciones que reemplazan softmax con un kernel. Más rápido, menos preciso, popular en modelos grandes de contexto.
+
+Para usar un modelo no necesitas saber qué variante usa. Para entrenarlo, debuggear latencia o decidir un cuant, sí.
+
+## Por qué la atención domina el coste de inferencia
+
+A pesar de toda la ingeniería, la atención sigue siendo O(n²) en la longitud del contexto para una sola capa, y O(n² · L) para todo el modelo. Esto significa:
+
+- Duplicar el contexto **cuadruplica** el trabajo de atención en el prefill.
+- Generar 4.000 tokens en una ventana de 4.000 cuesta mucho menos que generarlos en una ventana de 100.000 con sliding window, porque cada paso tiene que leer más keys y values.
+
+Las técnicas anteriores (Flash, paged, sliding, MLA, linear) **todas** apuntan a bajar ese O(n²) sin tocar las matemáticas exactas que el modelo aprendió. Por eso el campo se mueve: cambiar la atención cambia la economía.
 
 ## Caso — la demo 128k de Lumen
 
 Lumen anunció ventana de 128k en un 8B de portátil. Los pesos cabían. A 80k tokens de PDF empujado, el proceso murió. Habían presupuestado VRAM para pesos y olvidado que GQA sigue guardando **keys y values por token**. La atención no “falló”. La caché no cabía.
+
+## Caso — el chat que “se olvidaba”
+
+Un equipo médico construyó un chat para resumir historiales. Pasaron el historial entero en cada turno (8k tokens). En turnos cortos el modelo iba bien; cuando el historial crecía, “se olvidaba” de cosas del principio. No era olvido: el modelo atendía a 8k tokens y la atención, siendo O(n²), se diluía. La señal del primer párrafo se perdía en el ruido del medio. La solución no fue “más memoria del modelo”, fue retrieval sobre el historial.
+
+## Caso — el flash-attention que sí
+
+Una startup corría inferencia de un 13B en una A100 con ventana de 32k. Con la atención vanilla, 12 tokens/segundo. Con FlashAttention-2, 38 tokens/segundo. Mismos pesos, mismo modelo, mismo cuant. Solo cambió el orden de las multiplicaciones y el kernel de CUDA. **El hardware no había cambiado; el código sí.**
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Por qué la raíz cuadrada de d aparece en la fórmula de atención?",
+      options: [
+        { id: "a", text: "Para que las puntuaciones quepan en fp16." },
+        { id: "b", text: "Para escalar los productos punto antes del softmax: sin ella, los logits explotan al crecer d, los softmax se vuelven one-hot, y los gradientes se anulan." },
+        { id: "c", text: "Es un detalle decorativo del paper original." },
+        { id: "d", text: "Para ahorrar memoria." }
+      ],
+      correct: "b",
+      explanation: "Los productos punto crecen con la dimensionalidad. Sin la raíz, los logits tienen varianza proporcional a d, el softmax se concentra en el argmax y los gradientes desaparecen en el resto de las keys. La raíz mantiene la escala bajo control y permite entrenar."
+    },
+    {
+      id: "q2",
+      stem: "¿Qué gana Grouped Query Attention (GQA) frente a Multi-Head Attention (MHA) tradicional?",
+      options: [
+        { id: "a", text: "Mayor calidad en todos los benchmarks." },
+        { id: "b", text: "Reduce drásticamente la memoria de la caché KV (las cabezas comparten grupos de K/V) con una caída de calidad mínima. Es lo que usa Llama 3." },
+        { id: "c", text: "Permite ventanas de contexto arbitrariamente grandes." },
+        { id: "d", text: "Hace que el modelo entrene más rápido en GPU." }
+      ],
+      correct: "b",
+      explanation: "GQA divide las cabezas en grupos: cada grupo comparte K y V. Memoria de caché KV ≈ n_grupos/n_cabezas respecto a MHA. La calidad baja muy poco. Llama 2 70B, Llama 3, Mistral, etc. usan GQA. No es lo mismo que Multi-Query (1 grupo) ni que MHA (n grupos)."
+    },
+    {
+      id: "q3",
+      stem: "Modelo 7B con 32 capas, 32 cabezas KV, dimensión 128, fp16, contexto de 8k tokens. ¿Cuánta memoria extra necesita solo para la caché KV?",
+      options: [
+        { id: "a", text: "≈ 1 GB." },
+        { id: "b", text: "≈ 1 MB." },
+        { id: "c", text: "≈ 16 MB." },
+        { id: "d", text: "≈ 32 GB." }
+      ],
+      correct: "a",
+      explanation: "2 (K+V) × 32 capas × 32 cabezas × 128 dim × 8000 tokens × 2 bytes (fp16) ≈ 4 GB para esa configuración exacta; variando parámetros cabe en el orden de 1–4 GB. Lo importante es que la caché KV crece linealmente con la longitud del contexto y se acumula por capa y por cabeza. Multiplica por 16 para 128k."
+    },
+    {
+      id: "q4",
+      stem: "¿Por qué la máscara causal es obligatoria en un decoder generativo?",
+      options: [
+        { id: "a", text: "Por una limitación técnica de CUDA." },
+        { id: "b", text: "Porque el modelo aprende P(token_i | tokens_{<i}). Si viera el futuro, aprendería a reescribir, no a generar." },
+        { id: "c", text: "Para ahorrar memoria." },
+        { id: "d", text: "Para acelerar el entrenamiento." }
+      ],
+      correct: "b",
+      explanation: "La distribución objetivo es condicionada al pasado. Sin máscara causal, el modelo ve la respuesta que viene después durante el entrenamiento y aprende a copiarla en lugar de predecirla. En inferencia, cuando ya no hay futuro, el modelo degenera. La máscara es el contrato que define el problema."
+    }
+  ]}
+/>
+
+## Fuentes
+
+- Vaswani, A., et al. (2017). *Attention Is All You Need*. https://arxiv.org/abs/1706.03762
+- Su, J., et al. (2022). *RoFormer: Enhanced Transformer with Rotary Position Embedding* (RoPE). https://arxiv.org/abs/2104.09864
+- Shazeer, N. (2019). *Fast Transformer Decoding: One Write-Head is All You Need* (MQA). https://arxiv.org/abs/1911.02150
+- Ainslie, J., et al. (2023). *GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints* (GQA). https://arxiv.org/abs/2305.13245
+- Dao, T., et al. (2022). *FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness*. https://arxiv.org/abs/2205.14135
+- Kwon, W., et al. (2023). *Efficient Memory Management for Large Language Model Serving with PagedAttention* (vLLM). https://arxiv.org/abs/2309.06180
+- DeepSeek-V2 (2024) — Multi-Latent Attention. https://arxiv.org/abs/2405.04434
+- Karpathy — *Let's build GPT* y *Let's reproduce GPT-2*. https://www.youtube.com/@karpathy

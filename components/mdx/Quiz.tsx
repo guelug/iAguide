@@ -1,7 +1,6 @@
 "use client";
 
-import {
-  createContext,
+teContext,
   useCallback,
   useContext,
   useEffect,

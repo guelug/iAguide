@@ -5,17 +5,16 @@ La <Term id="attention">atención</Term> es un paso de mezcla. Para cada token, 
 Un croquis, no un paper:
 
 $$
-\mathrm{Attention}(Q,K,V) = \mathrm{softmax}\!\left(\frac{QK^\top}{\sqrt{d}}\right) V
+\mathrm{Attention}(Q, K, V) = \mathrm{softmax}\!\left(\frac{QK^\top}{\sqrt{d}}\right) V
 $$
 
-$d$ es la dimensión de la key; la raíz es un truco de escala para que las puntuaciones no exploten al crecer $d$. Multi-head son varios de estos en paralelo, luego concatenados. GQA / MQA comparten keys y values entre cabezas para achicar la caché KV — mismo dibujo, ingeniería distinta.
+$d$ es la dimensión de la key; la raíz es un truco de escala para que las puntuaciones no exploten al crecer $d$. Multi-head son varios de estos en paralelo, luego concatenados. GQA / MQA comparten keys y values entre cabezas para achicar la caché KV — mismo dibujo, ingeniería distinta. La profundidad del tema vive en [attention](/course/attention); aquí solo queremos la imagen.
+
+<VisualSlot caption="Atención mezcla; softmax convierte puntuaciones en una distribución; LoRA es un delta fino sobre W congelada." />
 
 No hace falta derivar esto para usar un modelo. Hace falta: **cada token nuevo atiende sobre las keys cacheadas**, y por eso existe la caché KV.
 
-
-<VisualSlot caption="La atención mezcla; softmax convierte puntuaciones en una distribución; LoRA es un delta fino sobre W congelada." />
-
-## Softmax
+## Softmax: de puntuaciones a probabilidades
 
 El <Term id="softmax">softmax</Term> convierte un vector de puntuaciones $z$ en una distribución:
 
@@ -23,38 +22,262 @@ $$
 \mathrm{softmax}(z)_i = \frac{e^{z_i}}{\sum_j e^{z_j}}
 $$
 
-Puntuación grande → masa cerca de 1. La temperatura en el muestreo es (intuitivamente) dividir los logits antes: $z / T$. $T \to 0$ es greedy.
+- Las exponenciales garantizan que todo sea positivo.
+- El denominador normaliza para que la suma sea 1.
+- Puntuación grande → masa cerca de 1.
 
-## Entropía cruzada
+Tres propiedades que importan en la práctica:
 
-Entrenar el siguiente token es “sorprenderse menos del token verdadero”. La <Term id="cross-entropy">entropía cruzada</Term> contra un one-hot (o un id de etiqueta) es la pérdida habitual. Pérdida baja en un token significa que el modelo ya le daba alta probabilidad. No es una nota moral.
+<Steps>
+<Step>
+**Invariancia a la suma.** Sumar una constante a todos los logits no cambia la distribución. Por eso se aplica la operación en logits con valores arbitrarios (incluso de ±20) sin overflow si se resta el máximo antes (`logsumexp trick`).
+</Step>
+<Step>
+**Sensibilidad al máximo.** El argmax es estable: cambios pequeños en los logits no mueven el ganador. La distribución, en cambio, sí se mueve. Por eso a **temperatura 0** (argmax) el modelo es determinista, pero los cambios de logits no se notan hasta que uno supere al primero.
+</Step>
+<Step>
+**Temperatura = división previa.** Dividir los logits por $T$ antes del softmax es lo que se llama “temperatura”. $T \to 0$ aproxima argmax (greedy). $T \to \infty$ aproxima uniforme. $T = 1$ es la distribución original.
+</Step>
+</Steps>
 
-Si haces LoRA en un set minúsculo hasta pérdida ~0, memorizaste. Puede ser lo que querías (un formato) o un desastre (un nombre).
+<Myth>
+“Temperatura 0 es lo más preciso.” No. Es lo más **decidido**. Si el argmax es el token equivocado, falla con total confianza. La temperatura es una perilla de distribución, no de corrección.
+</Myth>
+
+<Callout>
+Cuando veas un muestreador que admite `temperature=0`, lo que está haciendo es saltar el muestreo y devolver el argmax. No es lo mismo que muestrear con $T$ muy pequeño: el argmax es único, el muestreo a $T$ muy bajo casi nunca lo es.
+</Callout>
+
+## Entropía cruzada: la pérdida del modelo de lenguaje
+
+Entrenar el siguiente token es “sorprenderse menos del token verdadero”. La <Term id="cross-entropy">entropía cruzada</Term> entre la distribución predicha y el one-hot (o un id de etiqueta) es la pérdida habitual:
+
+$$
+\ell = -\sum_i y_i \log p_i = -\log p_{\text{true}}
+$$
+
+Para un one-hot, todos los términos se anulan menos el del token verdadero. La pérdida es literalmente $-\log P(\text{token correcto})$. Tres consecuencias prácticas:
+
+<Steps>
+<Step>
+**Pérdida baja = confianza alta.** Si el modelo ya le daba probabilidad 0,9 al token correcto, la pérdida es $-\log 0,9 \approx 0,1$. Si le daba 0,01, la pérdida es $\approx 4,6$. La métrica no es moral: es sorpresa.
+</Step>
+<Step>
+**Las pérdidas se suman por token.** Una secuencia de 1.000 tokens con pérdida media 2,0 suma 2.000 nats. Por eso las curvas de entrenamiento se ven en “número total de nats/bits consumidos”, no por epoch.
+</Step>
+<Step>
+**LoRA hasta pérdida ~0 es memorización.** Si haces LoRA sobre un dataset pequeño hasta que la pérdida baja a casi 0, el modelo está memorizando ejemplos. Puede ser lo que querías (un formato, una firma) o un desastre (datos sensibles, overfitting).
+</Step>
+</Steps>
 
 ## Gradientes, un párrafo
 
-Un <Term id="gradient">gradiente</Term> es la dirección para mover parámetros y reducir la pérdida. El backprop lo calcula desde la pérdida hacia atrás. Un optimizador (AdamW, etc.) da el paso. Casi nunca lo escribirás a mano. Te encontrarás **NaNs** (LR alto, datos malos) y **sobreajuste** (demasiados pasos). Esas son historias de gradiente en el campo.
+Un <Term id="gradient">gradiente</Term> es la dirección para mover parámetros y reducir la pérdida. El backprop lo calcula desde la pérdida hacia atrás, aplicando la regla de la cadena capa a capa. Un optimizador (SGD, AdamW, Lion, …) toma el gradiente y decide cuánto moverse en esa dirección.
+
+Casi nunca escribirás el bucle a mano. Pero te encontrarás con sus problemas en producción:
+
+- **NaNs.** Learning rate demasiado alto, datos corruptos, división por cero, overflow en fp16. La red “explota”. Solución: bajar LR, usar bf16, grad clipping.
+- **Pérdida no baja.** LR demasiado bajo, arquitectura rota, datos mal etiquetados, bug en el dataloader.
+- **Sobreajuste.** Demasiados pasos, dataset demasiado pequeño, modelo demasiado grande para la cantidad de datos. La pérdida de train baja pero la de validación sube. Regularización, early stopping, más datos.
+
+<Myth>
+“Más LR = entrena más rápido.” A veces. Hasta que diverge. La mayoría de runs estables usan LR entre 1e-5 y 5e-4 con AdamW y warmup.
+</Myth>
 
 ## LoRA como un delta de rango bajo
 
-Una capa lineal es $y = W x$ con $W$ una matriz grande. LoRA congela $W$ y aprende
+Una capa lineal es $y = W x$ con $W$ una matriz grande ($d \times k$). LoRA (Low-Rank Adaptation) **congela $W$** y aprende un delta:
 
 $$
 \Delta W = BA
 $$
 
-donde $B$ es $d \times r$, $A$ es $r \times k$, y $r$ (el <Term id="rank">rango</Term>) es pequeño. La capa servida es $W + \frac{\alpha}{r} BA$ (las convenciones de escala varían; sigue a tu trainer).
+donde $B$ es $d \times r$, $A$ es $r \times k$, y $r$ (el <Term id="rank">rango</Term>) es típicamente 4, 8, 16 o 64. La capa servida es:
 
-Por qué cabe en una GPU: guardas dos rectángulos finos en vez de un cuadrado. Por qué puede fallar: si la conducta que quieres no es de rango bajo en esa capa, $r$ es demasiado pequeño.
+$$
+y = W x + \frac{\alpha}{r} BA x
+$$
+
+(Las convenciones de escala $\alpha / r$ varían; sigue a tu trainer. Lo importante es que el delta tiene un factor de escala aprendible.)
+
+<Compare>
+<Side title="W completa (4096×4096)">
+$W$ sola: 16,7 M parámetros. Si haces fine-tune, tienes que guardar gradientes y optimizador para todos. Con Adam, son ~3× el peso en memoria. **No cabe en una sola GPU de 24 GB.**
+</Side>
+<Side title="LoRA r=16">
+$2 \times 4096 \times 16 = 131$k parámetros. Tres órdenes de magnitud menos. Solo guardas los gradientes y el optimizador para esos. **Cabe en una GPU de portátil con modelo entero cargado.**
+</Side>
+</Compare>
 
 <TryThis>
-En papel, para un peso $4096 \times 4096$, compara parámetros de $W$ completa frente a LoRA $r=16$: $2 \times 4096 \times 16$. Ese ratio es por qué QLoRA-más-LoRA es un proyecto de fin de semana y el ajuste completo de la misma capa no lo es.
+En papel, para un peso $4096 \times 4096$, compara parámetros de $W$ completa frente a LoRA $r=16$: $2 \times 4096 \times 16$. Ese ratio (~128× menos) es por qué QLoRA-más-LoRA es un proyecto de fin de semana y el ajuste completo de la misma capa no lo es.
 </TryThis>
 
+### Por qué LoRA puede fallar
+
+LoRA asume que el cambio que quieres inducir ($\Delta W$) es de **rango bajo**. Si la conducta que necesitas no es aproximadamente de rango bajo en esa capa, $r$ demasiado pequeño simplemente no la captura. Tres señales:
+
+- Subir $r$ no mejora la pérdida → la adaptación no es de rango bajo en esa capa.
+- La pérdida de train baja pero la de validación no → overfitting en la adaptación, no falta de capacidad.
+- Todas las matrices LoRA convergen al mismo vector → falta diversidad, sube $r$ o aplica LoRA a más capas.
+
 <Callout>
-Esta página es un farol. Si necesitas pruebas, un curso de aprendizaje profundo trata la atención y el backprop con el respeto que merecen. Aquí solo hace falta mates para no tenerle miedo a un nombre GGUF o a un config de LoRA.
+LoRA no es magia. Es una hipótesis estructural sobre qué tipo de cambio necesitas. Si el cambio es enorme (cambiar idioma, cambiar dominio entero), LoRA con $r$ pequeño va a subajustar. $r$ alto + más capas + más datos funciona; “un solo LoRA chiquito que arregla todo” no.
+</Callout>
+
+## Temperatura como efecto geométrico
+
+Dividir logits por $T$ antes de softmax tiene una interpretación geométrica: la **distribución se afila** cuando $T < 1$ y se **aplana** cuando $T > 1$. Una forma de pensarlo:
+
+- A $T$ muy baja, softmax se vuelve casi argmax: el token con el logit más alto se lleva casi toda la masa.
+- A $T$ muy alta, softmax se vuelve casi uniforme: todos los tokens tienen probabilidad similar.
+- A $T = 1$, distribución original del modelo.
+
+Implicaciones para muestreo:
+
+| Temperatura | Comportamiento típico |
+|-------------|----------------------|
+| 0,0 | Greedy, determinista (si el runtime lo permite) |
+| 0,2–0,4 | Casi determinista, útil para extracción de JSON |
+| 0,6–0,8 | Balance, ideal para chatbots |
+| 1,0 | Distribución original |
+| 1,2–1,5 | Más diversidad, “creativo” pero arriesgado |
+| > 1,5 | Balbuceo, divagación |
+
+<Callout>
+Para tareas donde necesitas formato estricto (JSON válido, regex, código que compile), empieza con temperatura 0 y arregla los bugs del prompt antes de subirla. La temperatura no compensa un prompt malo.
+</Callout>
+
+## Embeddings y similitud: coseno, no distancia
+
+En [embeddings y retrieval](/course/embeddings-and-retrieval) cubrimos la búsqueda vectorial en detalle. Aquí lo justo para no tenerle miedo a una API.
+
+Un embedding es un vector $v \in \mathbb{R}^d$. Dos formas habituales de medir cercanía:
+
+<Steps>
+<Step>
+**Producto interno** ($v \cdot u$). Crece con las magnitudes. Si los embeddings están normalizados (longitud 1), equivale al coseno.
+</Step>
+<Step>
+**Similitud coseno** ($\frac{v \cdot u}{\|v\| \|u\|}$). Ángulo entre los vectores, independiente de la magnitud. Es la métrica por defecto en casi todas las APIs de embeddings.
+</Step>
+<Step>
+**Distancia euclídea** ($\|v - u\|$). Útil cuando las magnitudes importan (no es lo habitual en LLMs).
+</Step>
+</Steps>
+
+Lo que **no** es:
+
+- **No es probabilidad.** Un coseno de 0,9 no significa 90 % de probabilidad de relevancia.
+- **No es causal.** Que dos textos tengan embeddings cercanos no significa que uno hable del otro.
+- **No es estable entre modelos.** Embeddings de OpenAI no se mezclan con embeddings de Cohere. Cada modelo vive en su propio espacio.
+
+<Callout>
+Cuando una API te devuelve “similitud = 0,87”, piensa en ella como “*es probable que* el pasaje sea relevante”. Si necesitas certeza, pasa un reranker encima. Si necesitas semántica más fina, pasa un cross-encoder.
+</Callout>
+
+## Probabilidad, entropía y perplejidad
+
+Tres conceptos cercanos que verás en logs y papers:
+
+- **Probabilidad** $p_i$: la masa que el modelo asigna al token $i$. Siempre entre 0 y 1.
+- **Entropía** $H = -\sum_i p_i \log p_i$: cuán “plana” está la distribución. Distribución uniforme sobre 32k tokens: entropía = $\log 32000 \approx 10,4$. Distribución en argmax: entropía = 0.
+- **Perplejidad** $2^H$ (con log base 2) o $e^H$ (con ln): cuántos tokens “efectivos” está considerando el modelo. Una perplejidad de 50 significa que el modelo se comporta como si en cada paso dudara entre 50 tokens plausibles.
+
+En entrenamiento se reporta **cross-entropy media** (nats o bits). En evaluación de modelos de lenguaje, **perplejidad** sobre un corpus held-out. Más baja = mejor ajuste.
+
+## Cuando las mates te muerden
+
+Tres problemas reales que verás en producción y que tienen raíz matemática:
+
+<Steps>
+<Step>
+**Overflow en fp16.** Los logits pueden valer ±20. $e^{20} \approx 5 \times 10^8$. Cabe en fp16, pero si la operación se hace sin restar el máximo, $e^{50}$ es infinito y todo colapsa. Por eso todo framework serio aplica el truco del log-sum-exp.
+</Step>
+<Step>
+**NaNs en softmax.** Si un logit es +inf, el softmax da 1,0 en una entrada y 0,0 en el resto. Los gradientes de las entradas con probabilidad 0 son cero. Si todo el batch tiene un logit +inf, los gradientes del batch son cero y el optimizador se queda quieto. Solución: grad clipping, bf16, kernels estables.
+</Step>
+<Step>
+**Degradación del LR.** Un learning rate que iba bien al principio puede diverger al final del entrenamiento. Cosas estándar: cosine schedule, warmup, grad clipping, AdamW con betas bien puestos.
+</Step>
+</Steps>
+
+<Callout>
+Esta página es un farol. Si necesitas pruebas, un curso de aprendizaje profundo trata la atención y el backprop con el respeto que merecen. Aquí solo hace falta mates para no tenerle miedo a un nombre GGUF o a un config de LoRA, y para entender qué hace el optimizador cuando algo va mal.
 </Callout>
 
 ## Caso — la temperatura como mando moral
 
-Alguien puso temperatura 0 “para ser veraz.” Softmax se afiló; el token equivocado siguió equivocado. La temperatura es un mando de distribución, no una conciencia.
+Alguien puso temperatura 0 “para ser veraz.” Softmax se afiló; el token equivocado siguió equivocado. La temperatura es un mando de distribución, no una conciencia. El equipo perdió dos días hasta que un dev imprimió los logits de la siguiente palabra después de la pregunta, vio que la respuesta verdadera estaba en el cuarto puesto, y entendió que el problema era el prompt — no la temperatura.
+
+## Caso — LoRA que no aprendía
+
+Un equipo aplicó LoRA r=4 a una sola capa de atención de un 13B para clasificar tickets de soporte. Pérdida no bajaba de 1,8. Subieron $r$ a 64: misma cosa. Aplicaron LoRA a las cuatro capas de atención + las dos de MLP: la pérdida bajó a 0,4 en una epoch. **El cambio no era de rango bajo en una sola capa; era distribuido por toda la red.** La hipótesis de LoRA no se cumplió.
+
+## Caso — embeddings que parecían “al revés”
+
+Un equipo construyó un buscador con embeddings de un modelo multilingüe. En español, los rankings eran buenos; en inglés, parecían “al revés” — el documento correcto salía en la posición 5, no en la 1. La causa: estaban usando **distancia euclídea** sobre embeddings no normalizados, y el modelo multilingüe tenía magnitudes mayores para textos en inglés (probablemente por cobertura de vocabulario). Cambiaron a **similitud coseno** y los rankings volvieron a la normalidad. La métrica importa.
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué hace exactamente la 'temperatura' en el muestreo de un LLM?",
+      options: [
+        { id: "a", text: "Cambia los logits antes del softmax dividiéndolos por T. T→0 aproxima argmax (greedy); T→∞ aproxima uniforme." },
+        { id: "b", text: "Cambia el tamaño del modelo en memoria." },
+        { id: "c", text: "Cambia la arquitectura de atención." },
+        { id: "d", text: "Cambia el contexto máximo del modelo." }
+      ],
+      correct: "a",
+      explanation: "Temperatura es división de logits antes de softmax. T pequeña afila la distribución; T grande la aplana. T=0 técnicamente no es argmax exacto salvo en kernels que lo implementan como caso especial."
+    },
+    {
+      id: "q2",
+      stem: "En una capa lineal W de 4096×4096 con LoRA r=16, ¿cuántos parámetros entrenables tiene el adaptador?",
+      options: [
+        { id: "a", text: "16,7 millones (igual que W)." },
+        { id: "b", text: "≈ 131 mil (2 × 4096 × 16), unas 128 veces menos que W." },
+        { id: "c", text: "4096 (solo el rango)." },
+        { id: "d", text: "65 mil (la mitad de W)." }
+      ],
+      correct: "b",
+      explanation: "B es d×r y A es r×k. Para d=k=4096 y r=16: 4096×16 + 16×4096 = 131.072 parámetros entrenables. Es por qué QLoRA-más-LoRA cabe en una sola GPU y el ajuste completo de la misma capa, no."
+    },
+    {
+      id: "q3",
+      stem: "¿Por qué la entropía cruzada es la pérdida natural para entrenar un modelo de lenguaje?",
+      options: [
+        { id: "a", text: "Porque mide sorpresa: -log P(token correcto). Si el modelo ya le daba probabilidad alta, la pérdida es baja. Es literalmente 'qué tan sorprendido se queda el modelo por el token verdadero'." },
+        { id: "b", text: "Porque es la única función diferenciable." },
+        { id: "c", text: "Por razones históricas que ya no importan." },
+        { id: "d", text: "Porque el modelo no puede aprender nada más." }
+      ],
+      correct: "a",
+      explanation: "Cross-entropy entre la distribución predicha y el one-hot del token correcto se reduce a -log p_true. Es una medida directa de sorpresa. Minimizarla es exactamente 'asignar más probabilidad al token correcto'."
+    },
+    {
+      id: "q4",
+      stem: "Embeddings de un LLM: ¿por qué la similitud coseno suele ser mejor métrica que distancia euclídea?",
+      options: [
+        { id: "a", text: "Porque es más rápida de calcular." },
+        { id: "b", text: "Porque mide ángulo entre vectores, no magnitud. Si dos embeddings tienen magnitudes distintas pero direcciones similares (texto semánticamente cercano pero longitudes distintas), el coseno los ve parecidos; el euclídeo los penaliza." },
+        { id: "c", text: "Porque es lo que usan todas las APIs." },
+        { id: "d", text: "Porque los embeddings siempre están normalizados." }
+      ],
+      correct: "b",
+      explanation: "Los embeddings de pasaje tienen magnitudes que dependen del texto (longitud, vocabulario, estilo). Lo que importa para relevancia es la dirección. Coseno ignora la magnitud; euclídea la cuenta. Por eso coseno es el default en casi todas las APIs de embeddings."
+    }
+  ]}
+/>
+
+## Fuentes
+
+- Vaswani, A., et al. (2017). *Attention Is All You Need* (la fórmula de atención). https://arxiv.org/abs/1706.03762
+- Hu, E., et al. (2022). *LoRA: Low-Rank Adaptation of Large Language Models*. https://arxiv.org/abs/2106.09685
+- Dettmers, T., et al. (2023). *QLoRA: Efficient Finetuning of Quantized LLMs*. https://arxiv.org/abs/2305.14314
+- Loshchilov, I. & Hutter, F. (2019). *Decoupled Weight Decay Regularization* (AdamW). https://arxiv.org/abs/1711.05101
+- Goodfellow, I., Bengio, Y., & Courville, A. (2016). *Deep Learning* (MIT Press) — capítulos 4 (optimización) y 8 (attention).
+- Karpathy — *Zero to Hero* series (vídeos paso a paso sobre backprop, attention, GPT). https://www.youtube.com/@karpathy
+- Hugging Face — *LoRA conceptual guide*. https://huggingface.co/docs/peft/conceptual_guides/lora
+- OpenAI — *Embeddings guide* (métricas, normalización). https://platform.openai.com/docs/guides/embeddings

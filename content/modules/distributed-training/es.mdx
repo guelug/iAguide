@@ -12,10 +12,248 @@ El interconector se vuelve el muro. Un portátil puede hacer LoRA. No puede pree
 
 <VisualSlot caption="Cuatro dispositivos: data parallel comparte el batch; tensor parte una capa; pipeline apila etapas." />
 
+## ¿Por qué entrenar un modelo grande necesita más de una GPU?
+
+Un modelo de 7B en fp16 son ~14 GB solo de pesos. Para entrenarlo con Adam necesitas además:
+
+- **Pesos**: 14 GB (1× en fp16)
+- **Gradientes**: 14 GB (1× en fp16)
+- **Estado del optimizador** (momentos + varianza en fp32): 56 GB (4×)
+
+Total: ~84 GB por el estado, sin contar activaciones. Una sola A100 de 80 GB no llega. Una H100 de 80 GB tampoco. Y esto solo para 7B.
+
+Sube a 70B, son ~840 GB solo de estado. Necesitas un *clúster*, no una GPU. De ahí las estrategias de partición.
+
+## Data parallel (DDP): la más simple
+
+Cada GPU tiene una copia completa del modelo. Cada GPU procesa un mini-batch distinto. Al final del paso, los gradientes se promedian (all-reduce) entre todas las GPUs.
+
+<Compare>
+<Side title="Ventajas">
+- Implementación más simple (DistributedDataParallel en PyTorch lo hace casi gratis).
+- Escala lineal con el número de GPUs *si el batch es lo bastante grande*.
+- Funciona para cualquier tamaño de modelo quepa en una GPU.
+</Side>
+<Side title="Desventajas">
+- Memoria replicada: 8 GPUs no te dan 8× la memoria, te dan 8× el *throughput* sobre la misma memoria.
+- Batch efectivo crece rápido; necesitas ajustar el learning rate (linear scaling rule).
+</Side>
+</Compare>
+
+<Term id="ddp">DDP</Term> es el pan de cada día para SFT y LoRA de modelos hasta donde quepan en una sola GPU. Para modelos más grandes, necesitas partir el modelo también.
+
+## Tensor parallel (TP): partir una capa
+
+En lugar de copiar el modelo entero, partes *cada matriz grande* entre varias GPUs. Para una capa attention de d=4096 con 8 GPUs, cada una tiene 512 dimensiones; el all-reduce entre las cabezas es constante.
+
+- **Latencia dominada por all-reduce.** Las GPUs necesitan hablar entre ellas en cada forward.
+- **Requiere interconector rápido.** NVLink o NVSwitch entre GPUs dentro de un mismo nodo. Infiniband entre nodos.
+- **Funciona bien hasta ~8–16 GPUs.** Más allá, el sincronizado se vuelve cuello de botella.
+
+<Term id="megatron-lm">Megatron-LM</Term> popularizó este patrón; sigue siendo lo que usa la mayoría de frameworks para paralelizar capas grandes.
+
+## Pipeline parallel (PP): capas en etapas
+
+En lugar de partir cada capa, partes las *capas*: GPU 0 tiene las capas 0–7, GPU 1 las 8–15, etc. Procesas un batch como una tubería: cada etapa toma un microbatch, lo pasa al siguiente.
+
+- **Menos comunicación** que TP: solo pasan activaciones entre etapas.
+- **Pipeline bubble** (la tubería tiene burbujas). Al principio y al final del batch, algunas GPUs están ociosas. Se mitiga con más microbatches.
+- **Memory imbalance.** Las primeras etapas pueden necesitar más memoria porque almacenan activaciones para el backward.
+
+<Compare>
+<Side title="Tensor parallel">
+Parte una capa. Comunicación densa entre GPUs. Bueno dentro de un nodo.
+</Side>
+<Side title="Pipeline parallel">
+Parte capas. Comunicación escasa. Bueno entre nodos, pero introduce "burbuja" de.pipeline.
+</Side>
+</Compare>
+
+<Term id="pipedream">PipeDream</Term>, <Term id="gpipe">GPipe</Term> y <Term id="pipedream-flush">1F1B</Term> son las recetas canónicas. Cada uno tiene su trade-off entre memoria, comunicación y utilización.
+
+## ZeRO / FSDP: partir el estado del optimizador
+
+<Term id="zero">ZeRO</Term> (Zero Redundancy Optimizer) ataca el problema de memoria del data parallel: en vez de tener el optimizador entero replicado, lo partes entre las GPUs.
+
+Tres niveles:
+
+<Steps>
+<Step>
+**ZeRO-1**: solo el estado del optimizador se parte. Pesos y gradientes siguen replicados.
+</Step>
+<Step>
+**ZeRO-2**: añade los gradientes a la partición. Pesos aún replicados.
+</Step>
+<Step>
+**ZeRO-3** (FSDP en PyTorch): parte también los pesos. Cada GPU tiene solo 1/N de los pesos; los carga bajo demanda. Más comunicación, pero permite entrenar modelos enormes en GPUs modestas en número.
+</Step>
+</Steps>
+
+<Term id="fsdp">FSDP</Term> es la implementación nativa de PyTorch del ZeRO-3. Es lo que verás en Hugging Face Accelerate, torchtune y la mayoría de recetas actuales.
+
+<Callout>
+FSDP ahorra memoria a costa de comunicación. Necesitas un buen interconector (NVLink idealmente). Para entrenar un 70B en 8× A100 80 GB sin FSDP, necesitarías TP+PP complicados; con FSDP-3, un anillo NVLink lo hace posible.
+</Callout>
+
+## Expert parallel (EP): MoE a escala
+
+En un modelo MoE, los expertos viven en GPUs distintas. Cada token se enruta a la GPU donde está su experto; si los expertos activos están en GPUs distintas, los tokens viajan por la red.
+
+- **All-to-all communication** es el patrón dominante.
+- La red entre GPUs se vuelve el cuello de botella absoluto.
+- Común combinar EP con TP dentro de cada experto.
+
+<Term id="deepspeed-moe">DeepSpeed-MoE</Term> y las recetas de Megatron son las implementaciones de referencia.
+
+## Cuándo usar qué (reglas de pulgar)
+
+<Compare>
+<Side title="LoRA / QLoRA en una GPU">
+Nada: el modelo cabe en una sola GPU. DDP opcional para velocidad si tienes varias.
+</Side>
+<Side title="SFT de 7B–13B en 2–8 GPUs">
+DDP o FSDP. FSDP si la memoria está justa.
+</Side>
+<Side title="SFT de 70B en 8–16 GPUs">
+FSDP-3 o TP+PP. Verificar el bus: NVLink obligatorio, no PCIe.
+</Side>
+<Side title="Pretrain de 7B+">
+TP+PP+FSDP combinados. Mínimo 8× H100 80GB en NVLink para un 7B decente; un 70B realista pide un clúster de 64+ GPUs.
+</Side>
+<Side title="MoE 100B+">
+EP+TP+PP+CP. Esto es lo que hace DeepSeek-V3 y similares. El club de los que tienen el dinero y el bus.
+</Side>
+</Compare>
+
+## El bus es el muro
+
+Un equipo con 8 GPUs en PCIe no puede hacer tensor parallel de un 70B decentemente. ¿Por qué? Porque cada forward necesita sincronizar capas entre GPUs, y PCIe se queda en ~32 GB/s por enlace (vs. NVLink a 600+ GB/s por enlace).
+
+Lo que se ve en la práctica:
+
+- **NVLink / NVSwitch** dentro de un nodo: suficiente para TP y FSDP.
+- **Infiniband HDR/NDR** entre nodos: lo mínimo para pretrain multi-nodo serio.
+- **Ethernet 10 GbE**: ni lo intentes para TP; vale solo para DDP de modelos pequeños.
+
+<Term id="nccl">NCCL</Term> es la librería de comunicación que usa PyTorch para DDP y FSDP; está optimizada para NVLink e Infiniband, y mal-trata a Ethernet.
+
+## Sharded data parallel (FSDP) en práctica
+
+```bash
+# Conceptualmente:
+# - Cada GPU tiene 1/N de los pesos.
+# - En el forward, se hace all-gather de la capa necesaria.
+# - Después del backward, se hace reduce-scatter.
+# - Libera memoria del optimizador y los pesos que no están en uso.
+#
+# torchrun --nproc_per_node=8 tu_trainer.py
+# Dentro: model = FSDP(model, sharding_strategy=ShardingStrategy.FULL_SHARD)
+```
+
 <TryThis>
 Etiqueta tu meta real: LoRA en una GPU, SFT multi-GPU, o pretrain. Si es la tercera, escribe el interconector que necesitas antes de la lista de GPUs.
 </TryThis>
 
+## Lo que un portátil no puede vs lo que una workstation sí
+
+<Steps>
+<Step>
+**LoRA en un instruct pequeño (≤13B)** — un portátil moderno con 32 GB de memoria unificada puede hacerlo con MLX o Unsloth en cuant 4-bit. Lento, pero funciona.
+</Step>
+<Step>
+**LoRA en una workstation con 1–2× RTX 4090 / A6000** — el sweet spot de hobbyista serio. 24–48 GB de VRAM, suficiente para 13B–30B con QLoRA.
+</Step>
+<Step>
+**SFT completo de 7B en una sola A100/H100 80 GB** — viable si eres cuidadoso con batch size, gradient checkpointing, y fp8/bf16.
+</Step>
+<Step>
+**Pretrain de 7B honesto** — necesitas mínimo 8–16 GPUs A100/H100 con NVLink durante semanas. Coste de cinco a seis cifras en cloud.
+</Step>
+<Step>
+**Pretrain de 70B+** — laboratorio o proveedor. No es proyecto de equipo pequeño.
+</Step>
+</Steps>
+
 ## Caso — las 8× GPU por PCIe
 
 Una startup montó 8 GPU de consumo por PCIe y esperaba tensor-parallel de 70B. El sync se comió la semana. Necesitaban fabric, o un modelo más pequeño. El diagrama era correcto; el bus no.
+
+Lección: el *diagrama* de paralelización (TP=8, capas=80) es la parte fácil. La *infraestructura* (NVLink, NCCL, all-reduce sobre PCIe) es donde se evaporan los fines de semana.
+
+## Caso — el equipo que sí tenía NVLink pero olvidó el switch
+
+Un equipo con 16× H100 en dos nodos NVLink-8 dentro de cada nodo quiso pretrain un 13B. Les iba perfecto dentro de cada nodo. El inter-nodo iba por Ethernet 25 GbE. Resultado: TP-8 dentro del nodo, pero los gradientes entre nodos tardaban 4× más que el cómputo. La pérdida se veía rara (saltos) y la GPU utilization cayó al 50%.
+
+Arreglo: alquilar Infiniband HDR entre los nodos. Coste extra: similar al de una H100 por mes. Vale la pena.
+
+## Caso — FSDP que casi sí
+
+Un equipo entrenó un 70B con FSDP-3 en 8× A100 80 GB. Memoria: sobrada. Tiempo: pesadilla. Cada forward hacía all-gather de capas enormes; el bus PCIe entre las A100 se saturaba. Con NVLink habría sido 5× más rápido.
+
+Lección: FSDP reduce memoria, no tiempo de comunicación. Sin el bus adecuado, pagas en latencia lo que ahorraste en VRAM.
+
+## Quiz rápido
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué estrategia replica el modelo entero en cada GPU y solo reparte los datos?",
+      options: [
+        { id: "a", text: "Tensor parallel." },
+        { id: "b", text: "Pipeline parallel." },
+        { id: "c", text: "Data parallel (DDP)." },
+        { id: "d", text: "Expert parallel." }
+      ],
+      correct: "c",
+      explanation: "Data parallel (DDP) replica el modelo entero en cada GPU y reparte el batch entre ellas. Al final del paso se promedian los gradientes (all-reduce). Es simple y escala bien mientras el modelo quepa en una sola GPU. Memoria no escala con el número de GPUs."
+    },
+    {
+      id: "q2",
+      stem: "¿Qué hace ZeRO-3 / FSDP?",
+      options: [
+        { id: "a", text: "Replica el optimizador en cada GPU." },
+        { id: "b", text: "Parte los pesos, los gradientes y el estado del optimizador entre las GPUs, eliminando la redundancia de memoria del data parallel." },
+        { id: "c", text: "Divide las capas en etapas secuenciales." },
+        { id: "d", text: "Parte las cabezas de atención entre GPUs." }
+      ],
+      correct: "b",
+      explanation: "ZeRO-3 / FSDP parte los tres componentes (pesos, gradientes, optimizador) entre las GPUs. Cada GPU tiene solo 1/N. A cambio, hace all-gather y reduce-scatter bajo demanda. Permite entrenar modelos enormes con menos GPUs totales, a costa de más comunicación."
+    },
+    {
+      id: "q3",
+      stem: "¿Por qué tensor parallel exige NVLink y no vale con PCIe?",
+      options: [
+        { id: "a", text: "Porque TP solo funciona con GPUs NVIDIA." },
+        { id: "b", text: "Porque TP sincroniza cada capa (all-reduce) en cada forward; el ancho de banda de PCIe (~32 GB/s por enlace) lo convierte en cuello de botella, mientras NVLink (600+ GB/s) no." },
+        { id: "c", text: "Porque PCIe no soporta fp16." },
+        { id: "d", text: "Porque TP necesita Infiniband obligatorio." }
+      ],
+      correct: "b",
+      explanation: "TP requiere sincronización densa entre GPUs en cada forward y cada backward. PCIe Gen4 anda por 32 GB/s por enlace, NVLink por 600+ GB/s. La diferencia es de un orden de magnitud. TP con PCIe es matemáticamente posible pero prácticamente inusable para modelos grandes."
+    },
+    {
+      id: "q4",
+      stem: "Tienes 8× RTX 4090 en una placa con PCIe y quieres entrenar un 70B. ¿Cuál es el primer problema real?",
+      options: [
+        { id: "a", text: "No hay suficiente VRAM total." },
+        { id: "b", text: "El bus PCIe no soporta TP decente; necesitas NVLink, NVSwitch o cambiar a un esquema FSDP/PP con menos comunicación síncrona." },
+        { id: "c", text: "Las RTX 4090 no soportan fp16." },
+        { id: "d", text: "El CUDA no funciona con tantas GPUs." }
+      ],
+      correct: "b",
+      explanation: "La VRAM total sí podría bastar (8× 24 GB = 192 GB), pero el problema dominante es la comunicación. Con PCIe, TP se vuelve cuello de botella; con FSDP, la comunicación sigue siendo alta pero menos síncrona. La opción realista es FSDP o 1F1B pipeline parallel con bus mejorado."
+    }
+  ]}
+/>
+
+## Fuentes
+
+- Shoeybi, M., et al. (2019). *Megatron-LM: Training Multi-Billion Parameter Language Models Using Model Parallelism*. https://arxiv.org/abs/1909.08053
+- Huang, Y., et al. (2019). *GPipe: Efficient Training of Giant Neural Networks using Pipeline Parallelism*. https://arxiv.org/abs/1811.06965
+- Harlap, A., et al. (2018). *PipeDream: Generalized Pipeline Parallelism for DNN Training* (1F1B). https://arxiv.org/abs/1806.03377
+- Rasley, J., et al. (2020). *DeepSpeed: Extreme-scale model training for everyone* (ZeRO). https://arxiv.org/abs/1912.01752
+- Zhao, Y., et al. (2023). *PyTorch FSDP: Experiences on Scaling Fully Sharded Data Parallel*. https://arxiv.org/abs/2304.11277
+- Li, S., et al. (2023). *DeepSpeed-MoE* (Expert Parallel). https://www.deepspeed.ai/tutorials/mixture-of-experts/
+- PyTorch Distributed Overview: https://pytorch.org/docs/stable/distributed.html
+- Hugging Face Accelerate (FSDP recipes): https://huggingface.co/docs/accelerate

@@ -2,14 +2,218 @@
 
 Los pesos imitan lo que ven. Un trainer bonito sobre una mezcla sucia produce un lío seguro. **Fuentes**, **deduplicación**, **filtrado**, **contaminación** (eval filtrada al train), **sintéticos** y **licencias** son el trabajo. No es glamuroso. Es decisivo.
 
-Los corpus de pretrain son industria. Para SFT y trazas de tools puedes poseer el set: unos cientos de pares limpios en la plantilla que servirás ganan a un volcado raspado.
+Piénsalo así: la mayor parte del presupuesto de cómputo de un laboratorio se va en *electrones moviéndose*; la mayor parte del *conocimiento* viene de qué texto se metió en el cucharón. Si tuvieras que decidir dónde poner el próximo ingeniero senior, este módulo es el que paga.
 
 <VisualSlot caption="Un volcado crudo de puntos frente a una mezcla filtrada. La contaminación es el modo rosa." />
+
+## De dónde sale el texto
+
+<Steps>
+<Step>
+**Web scrape.** Common Crawl, páginas específicas, dumps de Wikipedia, repos públicos. Escala brutal, calidad desigual. La mayor parte de los datos de preentrenamiento viene de aquí, depurada.
+</Step>
+<Step>
+**Libros y papers.** Texto largo, alta densidad, bien escrito. Caros por token, pero disproportionately valiosos para que el modelo aprenda a mantener coherencia.
+</Step>
+<Step>
+**Foros y Q&A.** StackOverflow, Reddit, foros técnicos. Ruido alto, señal útil; sirve para aprender el registro conversacional y la resolución de problemas paso a paso.
+</Step>
+<Step>
+**Código.** GitHub, documentación, issues. Es un lenguaje formal que enseña estructura, sintaxis y razonamiento algorítmico.
+</Step>
+<Step>
+**Sintético.** Generado por otro modelo. Útil para déficits (matemáticas, código raro, formatos estrictos). Sesgado como el profesor.
+</Step>
+<Step>
+**Humano propio.** Para SFT y trazas de tools, esto es lo que posees. Unas centenas de pares limpios en la plantilla que servirás ganan a un volcado raspado.
+</Step>
+</Steps>
+
+<Callout>
+Para preentrenamiento, la mezcla es industrial: equipos enteros pasan meses curando un corpus. Para fine-tune de un agente, el dueño del producto *es* el dueño del dataset. Esa asimetría cambia el tipo de trabajo.
+</Callout>
+
+## Deduplicación: la cura para la repetición
+
+Hay tres sabores que se acumulan:
+
+<Compare>
+<Side title="Exacta">
+Dos filas idénticas byte a byte. Trivial de detectar con un hash. La ganan las plantillas que se concatenaron mal o exports de soporte que alguien exportó tres veces.
+</Side>
+<Side title="Casi-duplicados">
+Mismo contenido con cambios mínimos: un FAQ reformateado, una página con dos anuncios insertados. Detección con MinHash, SimHash o embeddings. Es donde más te descuidas.
+</Side>
+<Side title="Duplicación cruzada">
+Una página que aparece en Common Crawl, en un dump de GitHub y en un PDF de un paper. El modelo la ve cuatro veces y cree que es cuatro veces más importante.
+</Side>
+</Compare>
+
+Si dejas los duplicados, la pérdida se ve bien (las copias adicionales son memorización fácil) y el modelo sobreajusta esos ejemplos. La métrica "loss baja" se vuelve mentira sin dedup.
+
+<Myth>
+"Más datos siempre ganan." Más datos *limpios* ganan. Más datos *duplicados* es el mismo epoch inflado varias veces; el modelo memoriza lo repetido y descuida el resto.
+</Myth>
+
+## Filtrado: lo que se queda fuera
+
+Filtros que verás en cualquier pipeline serio:
+
+- **Longitud** — filas vacías, una sola palabra, megadumps. Entrenan al modelo a generar vacío o a cortarse.
+- **Idioma** — detecta y separa. Si quieres un modelo bilingüe, lo decides tú; si no, el ruido en otros idiomas roba capacidad.
+- **PII** — emails, teléfonos, direcciones. Es un problema legal y ético. Hash y reescritura es mejor que tirar todo el documento.
+- **NSFW y violencia** — la discusión de qué filtrar es política de producto, no de ML. Pero la política hay que escribirla.
+- **Toxicidad** — heurísticas + clasificadores. Ojo: los clasificadores también tienen sesgos.
+- **Ratio de símbolos raros** — si un párrafo es 40% caracteres no-ASCII y no-Romance, probablemente es spam o encoding roto.
+
+<Term id="quality-filtering">Quality filtering</Term> puede ser tan simple como "palabras por frase mayor que X" o tan complicado como un clasificador entrenado sobre textos marcados como "buenos" por humanos.
+
+## Contaminación: el eval filtrado al train
+
+El escenario más feo y más común: tu set de evaluación ("¿cuánto sabe el modelo sobre X") contiene preguntas cuyas respuestas aparecen casi literales en el corpus de entrenamiento. Tu benchmark mide **memorización**, no capacidad.
+
+<Steps>
+<Step>
+Toma los prompts de tu eval. Hashea o embebe cada uno.
+</Step>
+<Step>
+Pasa el corpus por el mismo hasheador o un índice ANN.
+</Step>
+<Step>
+Marca cada fila de train: ¿se parece mucho a un prompt de eval?
+</Step>
+<Step>
+Quítala, reescríbela, o acepta la contaminación y documenta el sesgo.
+</Step>
+</Steps>
 
 <TryThis>
 Toma veinte prompts tuyos. Marca: guardar, reescribir, tirar. Mira si alguna pregunta de eval aparece casi literal en el train. Si sí, estás puntuando memorización.
 </TryThis>
 
+## Datos sintéticos: lo que viene de otro modelo
+
+Cuando no tienes suficiente dato humano para un dominio estrecho (matemáticas de competición, formato de herramientas, estilos raros), generas ejemplos con un modelo fuerte y los metes como si fueran reales.
+
+Sirve, pero con tres condiciones:
+
+1. **El profesor es más capaz que el alumno.** Si le pides a un 7B que genere trayectorias de agente para entrenar a un 7B, hereda sus errores.
+2. **Filtra y verifica.** El profesor alucina. Si no compruebas, entrenas con basura con buena prosa.
+3. **Mezcla con humano.** Un corpus 100% sintético colapsa hacia la distribución del profesor. Un 20–40% sintético suele ser el sweet spot.
+
+<Callout>
+Sintético no es "gratis". Pagas inferencia del profesor, que puede ser más caro que los datos humanos en términos de dólares por ejemplo útil. La cuenta sale a veces, a veces no.
+</Callout>
+
+## Licencias: lo que decides antes de publicar
+
+Hay datos que no puedes usar para entrenar modelos que después venderás:
+
+- **Copyright** — libros, artículos de noticias, canciones. Si no tienes un contrato, no entrenes.
+- **Términos de servicio** — Reddit, Twitter, StackOverflow: cada uno tiene su propia cláusula sobre ML training. Léelas.
+- **Datos personales** — GDPR, CCPA y demás. El consentimiento o el interés legítimo se discute, pero tu equipo legal tiene que firmar.
+- **PII sin anonimizar** — basura legal esperando a salir.
+
+<Myth>
+"Lo encontré en internet es público y puedo usarlo." El copyright no funciona así. El scrape no te da licencia.
+</Myth>
+
+## Pipeline, en orden
+
+<Steps>
+<Step>
+**Sourcing.** Decide la mezcla: web X%, código Y%, libros Z%, sintético W%. Documenta las proporciones; son política de producto.
+</Step>
+<Step>
+**Dedup.** Quita exactas, luego casi-duplicados, luego cruzados. Mide cuánto cae el tamaño del corpus en cada paso.
+</Step>
+<Step>
+**Filtrado.** Aplica las heurísticas y el clasificador de calidad. Lleva un log de qué cae y por qué.
+</Step>
+<Step>
+**Contaminación.** Compara contra todos tus sets de evaluación. Quita o documenta.
+</Step>
+<Step>
+**Mezcla final.** Re-muestrea con las proporciones finales. El shuffle es importante: batches con dominios mezclados generalizan mejor.
+</Step>
+<Step>
+**Verificación.** Saca un subconjunto y léealo a mano. Si tú no aguantarías entrenar con eso, no lo hagas entrenar.
+</Step>
+</Steps>
+
 ## Caso — el FAQ duplicado de EchoLab
 
-EchoLab afinó sobre un export de soporte. Un FAQ estaba 400 veces. La pérdida se veía genial. El modelo contestaba ese FAQ y encogía de hombros el resto. Dedup habría mostrado 12 archivos, no una fantasía de 5_000 filas.
+EchoLab afinó sobre un export de soporte. Un FAQ estaba 400 veces. La pérdida se veía genial. El modelo contestaba ese FAQ y encrguía de hombros el resto. Dedup habría mostrado 12 archivos, no una fantasía de 5_000 filas.
+
+## Caso — el benchmark "filtrado"
+
+Un equipo publicó un paper con resultados espectaculares en su propio benchmark. No habían verificado contaminación. El corpus de entrenamiento era Common Crawl más todo StackOverflow sin filtrar. Resultado: el modelo recitaba las respuestas del benchmark casi verbatim. Los revisores se dieron cuenta. El paper se retractó.
+
+## Caso — el bot conversacional que aprendió a insultar
+
+Un producto afinó con transcripciones de un call center sin filtrar toxicidad. Los agentes humanos, en sus peores momentos, eran agresivos con clientes. El modelo aprendió el registro. Un filtro de toxicidad básico habría prevenido el incidente.
+
+## Quiz rápido
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Por qué la deduplicación es crítica antes de entrenar?",
+      options: [
+        { id: "a", text: "Reduce el coste de cómputo, nada más." },
+        { id: "b", text: "Evita que el modelo sobreajuste ejemplos repetidos (memorización) y que la pérdida parezca mejor de lo que es. También reduce el sesgo hacia el contenido duplicado." },
+        { id: "c", text: "Es un requisito legal en la UE." },
+        { id: "d", text: "Mejora la calidad del texto generado automáticamente." }
+      ],
+      correct: "b",
+      explanation: "La dedup ataca dos problemas a la vez: el modelo sobreajusta el contenido repetido (lo memoriza palabra por palabra), y las métricas de evaluación se inflan artificialmente. También reduce el tamaño del corpus, pero ése es un beneficio secundario."
+    },
+    {
+      id: "q2",
+      stem: "Tienes un benchmark de 200 preguntas para medir razonamiento. ¿Cuál es el primer paso antes de entrenar?",
+      options: [
+        { id: "a", text: "Ejecutar el benchmark con el modelo base para tener una baseline." },
+        { id: "b", text: "Buscar las preguntas (o sus respuestas) en el corpus de entrenamiento y medir solapamiento para detectar contaminación." },
+        { id: "c", text: "Subir el benchmark a un leaderboard público." },
+        { id: "d", text: "Dividir el benchmark en train y test." }
+      ],
+      correct: "b",
+      explanation: "Si tu evaluación contiene material casi literal del corpus, no estás midiendo capacidad: estás midiendo memorización. El primer paso de cualquier pipeline serio es buscar solapamiento y filtrar, reescribir, o documentar."
+    },
+    {
+      id: "q3",
+      stem: "Generas 50.000 ejemplos sintéticos con un modelo grande para entrenar un modelo más pequeño. ¿Qué riesgo principal tienes?",
+      options: [
+        { id: "a", text: "El modelo pequeño no va a converger." },
+        { id: "b", text: "El dataset sintético hereda los sesgos y errores del modelo profesor; si no filtras ni verificas, entrenas al alumno con basura vestida de buena prosa." },
+        { id: "c", text: "Los datos sintéticos son ilegales en la mayoría de jurisdicciones." },
+        { id: "d", text: "El modelo pequeño va a aprender a copiar literalmente al profesor." }
+      ],
+      correct: "b",
+      explanation: "El modelo profesor alucina, se equivoca con seguridad, y tiene sus puntos ciegos. Si no filtras y verificas los ejemplos sintéticos, entrenas al alumno con errores que se ven plausibles. Sintético necesita curaduría."
+    },
+    {
+      id: "q4",
+      stem: "Tu corpus de preentrenamiento incluye Common Crawl sin filtrar. ¿Cuál de estos problemas NO se resuelve con un filtro de calidad?",
+      options: [
+        { id: "a", text: "Spam y páginas vacías." },
+        { id: "b", text: "Texto en idiomas que no quieres." },
+        { id: "c", text: "Contaminación: tu benchmark aparece verbatim en el corpus." },
+        { id: "d", text: "Caracteres de encoding roto." }
+      ],
+      correct: "c",
+      explanation: "Los filtros de calidad atacan volumen, idioma, caracteres. La contaminación contra un benchmark concreto es un problema distinto: requiere comparar contra ese benchmark específico, normalmente con hashes o embeddings. Un filtro genérico no sabe qué benchmark usas tú."
+    }
+  ]}
+/>
+
+## Fuentes
+
+- Carlini, N., et al. (2023). *Extracting Training Data from Large Language Models*. https://arxiv.org/abs/2012.07805
+- Lee, K., et al. (2022). *Deduplicating Training Data Makes Language Models Better*. https://arxiv.org/abs/2107.06499
+- Kandpal, N., et al. (2023). *Large Language Models Struggle to Learn Long-Tail Knowledge from Web Text*. https://arxiv.org/abs/2310.16020
+- Hoffmann, J., et al. (2022). *Training Compute-Optimal Large Language Models* (Chinchilla). https://arxiv.org/abs/2203.15556
+- Penedo, G., et al. (2023). *The RefinedWeb Dataset for Falcon LLM*. https://arxiv.org/abs/2306.01116
+- Documentación Hugging Face Datasets: https://huggingface.co/docs/datasets
+- Common Crawl: https://commoncrawl.org/

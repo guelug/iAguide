@@ -6,38 +6,203 @@ Un agente no es un chat. Es un **while**: pensamiento → acción → observaci�
 - **Acción** — una llamada estructurada: JSON, un snippet Python, o un mensaje de function-calling. El generador **para** para que el arnés parsee.
 - **Observación** — el resultado real de *tu* código, añadido como mensaje. Si dejas que el modelo siga, inventará la observación.
 
-Ese bucle es ReAct: razonar entrelazado con actuar. CoT es paso a paso sin entorno. Los modelos de “razonamiento” recientes se *entrenaron* a pensar tras tokens especiales: eso es entrenamiento, no un truco de prompt.
+Ese bucle es ReAct: razonar entrelazado con actuar. CoT es paso a paso sin entorno. Los modelos de "razonamiento" recientes se *entrenaron* a pensar tras tokens especiales: eso es entrenamiento, no un truco de prompt.
 
 <VisualSlot caption="Pensamiento, acción, observación como un ciclo. smolagents pone Python en la acción; LangGraph puede ramificar el ciclo en un grafo." />
 
-## Patrones que de verdad compras
+## Cinco patrones que compras (y el fallo que cada uno compra)
 
 | Patrón | Lo que querías | El fallo que compras |
 | --- | --- | --- |
-| Planificar-y-actuar | Una lista antes de las tools | Planes que ignoran observaciones |
-| Bucle ReAct | Adaptar tras cada tool | Bucles que nunca emiten Final Answer |
-| Subagente / manager | Aislar trabajo ruidoso | Doble prefill, contexto perdido |
-| Crítico | Una segunda pasada | Dos modelos de acuerdo en un esquema malo |
-| Memoria durable | Hechos entre hilos | MEMORY vieja tratada como política |
+| **Planificar-y-actuar** | Una lista antes de las tools | Planes que ignoran observaciones |
+| **Bucle ReAct** | Adaptar tras cada tool | Bucles que nunca emiten Final Answer |
+| **Subagente / manager** | Aislar trabajo ruidoso | Doble prefill, contexto perdido |
+| **Crítico** | Una segunda pasada | Dos modelos de acuerdo en un esquema malo |
+| **Memoria durable** | Hechos entre hilos | MEMORY vieja tratada como política |
 
-Los subagentes son bucles anidados con menos tools. El coste es otro prefill. Úsalos cuando el padre se ahogaría, no como pack de personalidad.
+Los subagentes son bucles anidados con menos tools. El coste es otro prefill (paralelo, cacheable si el system prompt del hijo es estable). Úsalos cuando el padre se ahogaría, no como pack de personalidad.
+
+## Planificar-y-actuar (Plan-and-Execute)
+
+El modelo hace un plan upfront (lista de pasos), luego ejecuta cada paso. La gracia: el plan es legible para el humano. El fallo: el plan no se adapta a las observaciones, así que un tool_call que devuelve algo inesperado deja al agente ejecutando un plan obsoleto.
+
+Variante decente: re-planificar cada N pasos si las observaciones divergen.
+
+<Compare a="Plan-and-execute puro" b="ReAct con replan">
+
+<Side>
+Plan: [1] leer README, [2] buscar en el código, [3] ejecutar test. Ejecuta. El test falla. Sigue ejecutando el plan obsoleto.
+
+</Side>
+
+<Side>
+Pensamiento: voy a probar X. Acción: search. Observación: no encontró. Pensamiento: cambio a Y. Acción: search. Observación: encontró. Acción final.
+
+</Side>
+
+</Compare>
+
+## ReAct y por qué gana
+
+ReAct (Reasoning + Acting) entrelaza pensamiento y acción. Cada paso observa el resultado antes de decidir el siguiente. Es el patrón por defecto en Hugging Face agents, en smolagents, en Hermes, en OpenClaw.
+
+Por qué gana sobre plan-and-execute: porque el modelo **ve** el resultado antes de comprometerse. Si la observación es rara, replantea. Si todo va bien, sigue.
+
+<Myth>
+"ReAct es lento porque piensa mucho." ReAct es eficiente: cada paso gasta pocos tokens y obtiene información real. Plan-and-execute gasta muchos tokens upfront en un plan que puede estar mal.
+</Myth>
+
+## Subagente / manager
+
+Un subagente es otro bucle con menos contexto, menos tools, prompt más estrecho. El manager lo invoca para tareas ruidosas (búsquedas, parsing, transformaciones) y devuelve un resumen.
+
+Aislamiento: el padre ve un resumen, no 40 archivos de grep.
+Coste: pagas otro prefill. Si el system prompt del subagente es idéntico byte a byte al del padre, la caché de prefijo ayuda; si no, paga prefill completo.
+
+Un patrón útil: el subagente usa un **modelo más barato** (un 7B en lugar del 70B del padre). Coste total más bajo, latencia similar.
+
+## Crítico (reflexión)
+
+Dos pasadas: el agente produce una respuesta, un crítico la evalúa. El crítico puede ser el mismo modelo o uno distinto. El fallo clásico: dos modelos de acuerdo en un esquema malo. Si el crítico tiene los mismos sesgos que el agente, su aprobación no añade señal.
+
+Para que el crítico sirva, tiene que:
+
+- operar con un prompt distinto,
+- tener acceso a información que el agente no tenía,
+- poder pedir cambios (no solo aprobar/rechazar).
+
+## Memoria durable
+
+El agente guarda hechos entre hilos. La práctica:
+
+- escribe al final del turno si el usuario confirma,
+- lee al boot de la nueva sesión,
+- trata como contenido, no como política (ver [safety](/course/safety-and-injection)).
+
+El fallo clásico: MEMORY.md vieja tratada como system prompt. El modelo obedece instrucciones de hace tres sesiones sin saber que son viejas. La fix: etiquetar fecha de origen, citar antes de actuar.
 
 ## Comparar — tres codificaciones del mismo bucle
 
 El ciclo general no es de un vendor. Las librerías son dialectos:
 
 - **smolagents** — `MultiStepAgent` escribe la memoria a mensajes, muestrea, parsea un bloque de **código** (`CodeAgent`) o un tool call **JSON** (`ToolCallingAgent`), ejecuta, registra un `ActionStep`. Sesgo por defecto: el código es la acción.
-- **LlamaIndex** — forma de recuperación. Load → index → `QueryEngine`, luego el engine como tool de un `FunctionAgent` / `ReActAgent` / `AgentWorkflow`. El bucle sigue siendo ReAct; el producto es “pregunta a mis datos.”
+- **LlamaIndex** — forma de recuperación. Load → index → `QueryEngine`, luego el engine como tool de un `FunctionAgent` / `ReActAgent` / `AgentWorkflow`. El bucle sigue siendo ReAct; el producto es "pregunta a mis datos."
 - **LangGraph** — el bucle se compila en **estado**, **nodos**, **aristas**, **reducers**. Úsalo cuando el flujo de control *es* el producto. Un grafo que debía ser un `while` es ceremonia. Un bucle que necesitaba un grafo es una rama que falta.
 
 Cada dialecto tiene su módulo de particularidad. No colecciones frameworks como quinta vía.
 
 <TryThis>
-En una hoja, dibuja ReAct para “¿qué tiempo hace en Lyon?”. Marca dónde smolagents pondría una llamada Python, dónde LlamaIndex un QueryEngine, y dónde LangGraph una arista condicional. Si no puedes marcarlos sin inventar cajas, aún no necesitas esa librería.
+En una hoja, dibuja ReAct para "¿qué tiempo hace en Lyon?". Marca dónde smolagents pondría una llamada Python, dónde LlamaIndex un QueryEngine, y dónde LangGraph una arista condicional. Si no puedes marcarlos sin inventar cajas, aún no necesitas esa librería.
 </TryThis>
+
+## Cuando un bucle ReAct no basta
+
+Tres señales:
+
+1. **Necesitas una aprobación humana** — un grafo con un nodo "esperar approval" se modela limpio en LangGraph. En ReAct puro es un tool_call a `ask_human` y rezar.
+2. **El flujo tiene branches genuinos** — "si tool A falla, probar B; si B falla, escalar." ReAct lo hace en el prompt; LangGraph lo hace en aristas explícitas.
+3. **Tienes estado persistente entre turnos** — un grafo con checkpointer (MemorySaver) te da replay gratis. ReAct puro reconstruye desde el transcript.
+
+Fuera de esos tres casos, ReAct es suficiente. El grafo es ceremonia hasta que demuestres lo contrario.
 
 ## Caso — el grafo de Helix que quería ser un bucle
 
-Helix reescribió un bot de soporte de tres pasos como un LangGraph de once nodos porque “los grafos son serios.” El único condicional era “¿falló la tool?”. Una semana en reducers. Un bucle ReAct con reintentos habría salido el martes. Luego *sí* hizo falta un grafo: una arista de aprobación humana que pedía legal. El primero era teatro; el segundo, el producto.
+Helix reescribió un bot de soporte de tres pasos como un LangGraph de once nodos porque "los grafos son serios." El único condicional era "¿falló la tool?". Una semana en reducers. Un bucle ReAct con reintentos habría salido el martes.
+
+Luego *sí* hizo falta un grafo: una arista de aprobación humana que pedía legal. El primero era teatro; el segundo, el producto.
+
+## El test: ¿necesitas un grafo?
+
+Hazte tres preguntas:
+
+1. ¿Tu flujo tiene branches que un `while` no modela limpio?
+2. ¿Tienes estado entre turnos que el transcript no captura?
+3. ¿Necesitas un nodo explícito de aprobación humana?
+
+Si todas son no, ReAct. Si alguna es sí, grafo. El grafo no es mejor; es **apropiado** para flujos que el bucle no representa bien.
+
+<Steps>
+<Step title="Empieza por ReAct">
+Un bucle while con `tool_call → tool_result → repeat`. Sin librerías. Sin frameworks.
+</Step>
+<Step title="Mide los fallos">
+Cuando falla, categoriza: ¿plan obsoleto? ¿loop infinito? ¿falta de aprobación? ¿estado entre turnos?
+</Step>
+<Step title="Elige patrón por fallo">
+Plan obsoleto → re-planificar cada N. Loop infinito → max steps. Aprobación → grafo con nodo human. Estado → checkpointer.
+</Step>
+<Step title="Elige librería por dialecto">
+Python en la acción → smolagents CodeAgent. RAG como producto → LlamaIndex. Flujo complejo → LangGraph.
+</Step>
+</Steps>
+
+## Lista práctica
+
+1. El ciclo es el producto. ReAct es el patrón por defecto.
+2. Plan-and-execute gana legibilidad; pierde adaptabilidad.
+3. Subagentes aíslan ruido y pagan otro prefill.
+4. Crítico sirve si el prompt es distinto, no si es "una segunda opinión."
+5. Memoria durable es contenido, no política.
+6. Grafo cuando el bucle no basta. No antes.
 
 Esta lección reescribe ideas del [curso de agentes de Hugging Face](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.
+
+## Fuentes
+
+- Hugging Face Agents Course, Unit 1-2. https://huggingface.co/learn/agents-course
+- smolagents docs. https://huggingface.co/docs/smolagents
+- LangGraph docs. https://langchain-ai.github.io/langgraph/
+- LlamaIndex docs. https://docs.llamaindex.ai/
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Por qué ReAct gana sobre Plan-and-Execute en la mayoría de los casos?",
+      options: [
+        { id: "a", text: "Es más moderno." },
+        { id: "b", text: "Porque entrelaza pensamiento y acción: cada paso observa el resultado antes de comprometerse. Plan-and-Execute gasta tokens en un plan que puede estar mal si las observaciones divergen." },
+        { id: "c", text: "Es lo que recomienda el proveedor." },
+        { id: "d", text: "Es más fácil de implementar." }
+      ],
+      correct: "b",
+      explanation: "ReAct entrelaza pensamiento y observación. Cada paso ve el resultado antes de decidir el siguiente. Plan-and-Execute tiene un plan upfront que no se adapta a observaciones inesperadas. ReAct gana en adaptabilidad con un coste de tokens similar o menor."
+    },
+    {
+      id: "q2",
+      stem: "Un subagente ejecuta una búsqueda ruidosa para el padre. ¿Cuál es el trade-off real?",
+      options: [
+        { id: "a", text: "Es gratis." },
+        { id: "b", text: "Aislamiento: el padre ve un resumen, no 40 archivos de grep. Coste: pagas otro prefill (paralelo y cacheable si el system prompt del hijo es estable). Úsalo cuando el padre se ahogaría, no como pack de personalidad." },
+        { id: "c", text: "Es más rápido siempre." },
+        { id: "d", text: "Mejora la calidad." }
+      ],
+      correct: "b",
+      explanation: "El subagente aísla ruido pero cuesta otro prefill. Si el system prompt del hijo es idéntico byte a byte, la caché de prefijo lo amortigua; si no, pagas prefill completo. Usar cuando el padre se ahogaría (muchos resultados), no como pack de personalidad."
+    },
+    {
+      id: "q3",
+      stem: "¿Cuándo un LangGraph (grafo) es mejor que un ReAct puro?",
+      options: [
+        { id: "a", text: "Siempre, los grafos son 'serios'." },
+        { id: "b", text: "Cuando el flujo tiene branches genuinos (aprobación humana, escalación), estado persistente entre turnos, o un checkpoint explícito. Fuera de eso, ReAct es suficiente; un grafo es ceremonia." },
+        { id: "c", text: "Cuando el modelo es pequeño." },
+        { id: "d", text: "Cuando hay más de tres tools." }
+      ],
+      correct: "b",
+      explanation: "Grafo cuando el bucle no basta: aprobación humana (nodo explícito), branches que un while no modela limpio, estado entre turnos que el transcript no captura. Si tu flujo es lineal con reintentos, ReAct. El grafo no es mejor; es apropiado para ciertos flujos."
+    },
+    {
+      id: "q4",
+      stem: "¿Qué falla con 'memoria durable tratada como política'?",
+      options: [
+        { id: "a", text: "Consume mucha RAM." },
+        { id: "b", text: "El modelo obedece instrucciones de hace N sesiones sin saber que son viejas. La memoria es contenido, no system prompt; etiquetar fecha de origen y exigir citarla antes de actuar es la fix." },
+        { id: "c", text: "Se pierde en reinicios." },
+        { id: "d", text: "Es más lento." }
+      ],
+      correct: "b",
+      explanation: "La memoria durable es contenido, no política. Si el modelo la obedece sin verificar, ejecuta instrucciones obsoletas. La fix: etiquetar fecha de origen, tratar como contenido, y exigir al modelo citar el origen antes de actuar sobre un hecho que no viene del system prompt."
+    }
+  ]}
+/>

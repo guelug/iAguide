@@ -5,17 +5,30 @@ import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import { Flow, Node3D, Slab, Tag, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
+import { useCopy } from "@/lib/useCopy";
 
 type Mode = "schema" | "allow" | "mcp";
 
 export default function Visual() {
+  const t = useCopy({
+    en: {
+      "name_schema_your_code": "name · schema · your code",
+      "the_model_writes_a_call_you_run_it": "the model writes a call; you run it",
+      "schema": "schema"
+    },
+    es: {
+      "name_schema_your_code": "nombre · schema · tu código",
+      "the_model_writes_a_call_you_run_it": "el modelo escribe la llamada; tú la ejecutas",
+      "schema": "schema"
+    },
+  });
   const [mode, setMode] = useState<Mode>("schema");
   return (
     <Figure
-      label="name · schema · your code"
-      hint="the model writes a call; you run it"
+      label={t.name_schema_your_code}
+      hint={t.the_model_writes_a_call_you_run_it}
       legend={[
-          { color: P.teal, label: "schema" },
+          { color: P.teal, label: t.schema },
           { color: P.amber, label: "allowlist" },
           { color: P.violet, label: "mcp" }
       ]}
@@ -28,7 +41,7 @@ export default function Visual() {
             { value: "allow", label: "Allowlist", tone: P.amber },
             { value: "mcp", label: "MCP", tone: P.violet }
           ]}
-          ariaLabel="the model writes a call; you run it"
+          ariaLabel={t.the_model_writes_a_call_you_run_it}
         />
       }
     >

@@ -5,14 +5,23 @@ import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import { Flow, Node3D, Tag, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
+import { useCopy } from "@/lib/useCopy";
 
 type Mode = "react" | "code" | "graph";
 
 export default function Visual() {
+  const t = useCopy({
+    en: {
+      "one_cycle_three_encodings": "one cycle, three encodings"
+    },
+    es: {
+      "one_cycle_three_encodings": "un ciclo, tres codificaciones"
+    },
+  });
   const [mode, setMode] = useState<Mode>("react");
   return (
     <Figure
-      label="one cycle, three encodings"
+      label={t.one_cycle_three_encodings}
       hint="ReAct is the idea; libraries are dialects"
       legend={[
           { color: P.teal, label: "react" },

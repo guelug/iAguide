@@ -93,7 +93,7 @@ export function Stage({
   maxDpr = 2,
 }: Props) {
   const host = useRef<HTMLDivElement>(null);
-  const [onScreen, setOnScreen] = useState(false);
+  const [onScreen, setOnScreen] = useState(true);
   const [quality, setQuality] = useState(1);
   const still = useStillness();
 
@@ -112,7 +112,11 @@ export function Stage({
   const ctl = typeof controls === "object" ? controls : {};
 
   return (
-    <div ref={host} className={className}>
+    <div
+      ref={host}
+      className={className}
+      style={{ maxWidth: "100%", overflow: "clip", touchAction: "pan-y" }}
+    >
       {onScreen || still ? (
         <Canvas
           /* `flat` disables tone mapping: diagram colours must match the

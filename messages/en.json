@@ -19,7 +19,7 @@
   "home": {
     "kicker": "Night classroom · 2026 · MIT",
     "title": "iAguide",
-    "promise": "Twenty-seven modules on how AI actually works — the tokens under the words, the loop around the weights, the arithmetic of training, and the memory bus that decides how fast you think.",
+    "promise": "{count} modules on how AI actually works — the tokens under the words, the loop around the weights, the arithmetic of training, and the memory bus that decides how fast you think.",
     "cta": "Open the course map",
     "ctaAlt": "Start at module 00",
     "scroll": "Scroll",
@@ -111,12 +111,6 @@
     "myth": "Myth",
     "callout": "Note",
     "quiz": "Quiz",
-    "quizSaved": "Saved in this browser",
-    "quizHint": "Pick an option. The explanation appears immediately.",
-    "quizScore": "{correct} of {total} correct · {answered} answered",
-    "quizRetry": "Retry",
-    "quizCorrect": "Correct",
-    "quizWrong": "Not that one"
   },
   "footer": {
     "license": "MIT License",

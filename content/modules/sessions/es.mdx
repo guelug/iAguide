@@ -1,30 +1,205 @@
 ## Sesión ≠ cookie del navegador
 
-Una **sesión** es la unidad durable que el arnés persiste. Una pestaña de proceso no lo es.
+Una **sesión** es la unidad durable que el arnés persiste. Una pestaña de proceso, un login, una cookie — no lo son.
 
-Las claves de enrutado eligen *qué* sesión recibe el mensaje. La compactación cambia *qué ve el modelo*, no siempre el id que buscas después.
+Tres entidades que se confunden y no deberían:
+
+- **Sesión** — el proceso vivo, la pestaña. Cuando el proceso muere, la sesión acaba.
+- **Hilo (thread)** — la conversación durable. Persiste entre sesiones. Es lo que el arnés guarda.
+- **Turno (turn)** — un mensaje de usuario más las rondas de tools que el agente haya hecho.
+
+La persistencia es del hilo, no de la sesión. La compactación cambia *qué ve el modelo*, no siempre el id que buscas después.
 
 <VisualSlot caption="Clave → fila → transcript → compactar → buscar." />
 
+## Las claves de enrutado
+
+Cada superficie tiene su propia clave, porque cada superficie tiene su propio patrón de "qué cuenta como una conversación".
+
+- **DM** — un hilo por usuario (en `main` con `dmScope=main`) o un hilo por DM (con `dmScope=isolated`).
+- **Grupo** — un hilo por grupo, o un hilo por thread dentro del grupo (Slack/Discord tienen threads anidados).
+- **Cron / job** — un hilo propio por job, con su propia clave.
+- **Webhook** — un hilo por `webhook_id`, no por IP.
+- **Browser tool** — un hilo efímero por sesión de browser, separado del chat.
+
+Las claves viven en una fila de SQLite, indexadas. El gateway resuelve `clave → row` en cada mensaje.
+
+<Myth>
+"Un agente, una sesión." No. Un agente, N hilos. El número depende de las superficies y de la política de scope. Un DM aislado con 100 humanos son 100 hilos.
+</Myth>
+
 ## Patrones compartidos
 
-- Claves por superficie (DM, grupo, cron, webhook).
-- SQLite (Hermes `state.db` WAL+FTS5; OpenClaw `openclaw-agent.sqlite` por agente).
-- Compactación con linaje **o** in-place.
-- Búsqueda para recordar tras comprimir.
+Cuatro patrones aparecen en todos los arneses serios:
+
+1. **Claves por superficie** — DM, grupo, cron, webhook, browser. Cada una con su esquema.
+2. **SQLite con WAL + FTS5** — Hermes `state.db` con Write-Ahead Logging y full-text search. OpenClaw `openclaw-agent.sqlite` por agente.
+3. **Compactación con linaje o in-place** — el linaje guarda la versión original; in-place reescribe sin huella. Cada uno con trade-offs de búsqueda y espacio.
+4. **Búsqueda** — el FTS indexa el transcript completo. La compactación borra el contexto pero no la búsqueda.
+
+## Compactación con pérdida pero recuperable
+
+La compactación es con pérdida (resumen reemplaza verbatim) pero **recuperable** si:
+
+- el transcript completo se persiste en una tabla `messages`,
+- un FTS indexa esa tabla,
+- el resumen cita los turnos que reemplaza.
+
+Si el modelo (o el operador) necesita el verbatim, lo busca en el FTS. La compactación no es una operación destructiva; es una operación de contexto, no de almacenamiento.
+
+<Compare a="Compactar y olvidar" b="Compactar y buscar">
+
+<Side>
+El contexto se queda en 30k de resumen. La tabla `messages` se queda vacía. El FTS no tiene nada. No hay vuelta atrás.
+
+</Side>
+
+<Side>
+El contexto se queda en 30k de resumen. La tabla `messages` tiene los 200k originales. El FTS indexa el transcript completo. Puedes buscar el verbatim si lo necesitas.
+
+</Side>
+
+</Compare>
 
 ## Hermes frente a OpenClaw (dmScope)
 
-Hermes: `agent:main:{platform}:{chat_type}:{chat_id}`. OpenClaw: `session.dmScope` decide si los DM comparten `main` o se aíslan — crítico con varios humanos.
+**Hermes**: clave `agent:main:{platform}:{chat_type}:{chat_id}`. Por defecto, todos los DM van a `main`. Si quieres aislar, cambias la clave manualmente o usas un perfil por usuario.
+
+**OpenClaw**: `session.dmScope` decide si los DM comparten `main` o se aíslan por usuario. Esto es crítico cuando varios humanos comparten el agente — el contexto de uno no debería filtrarse al otro. OpenClaw lo expone como config explícita porque es la decisión más cara que un operador toma al desplegar.
+
+<TryThis>
+Boceta dos claves (DM y grupo) y una tercera para un cron que debe empezar vacío. La clave del cron NO debe colisionar con la del chat vivo.
+</TryThis>
 
 ## Caso: Telegram que explota de noche
 
-**Caso.** El grupo llena la ventana; a la mañana el turno revienta por contexto. Alguien desactivó la compactación “para no perder nada.”
+**Caso.** El grupo llena la ventana; a la mañana el turno revienta por contexto. Alguien desactivó la compactación "para no perder nada." La sesión se queda en 250k tokens y el modelo empieza a ignorar instrucciones cerca del fondo.
 
-**Práctica.** Compactar es con pérdida pero recuperable si vuelcas memoria y mantienes FTS/archivos.
+**Práctica.** Compactar es con pérdida pero recuperable si vuelcas memoria y mantienes FTS/archivos. Desactivar compactación es la decisión peor tomada con la mejor intención.
 
-<TryThis>
-Boceta dos claves (DM y grupo) y una tercera para un cron que debe empezar vacío.
-</TryThis>
+## Lo que la compactación sí rompe, lo que no
 
-Docs: [sesiones Hermes](https://hermes-agent.nousresearch.com/docs/developer-guide/session-storage), [sesiones OpenClaw](https://docs.openclaw.ai/concepts/session).
+| Lo que rompe | Lo que NO rompe |
+| --- | --- |
+| Exact-match contra verbatim del contexto | La búsqueda por FTS en el transcript |
+| Reproducción byte-a-byte del prefill | El linaje del thread (turnos originales indexados) |
+| La fidelidad de un turno viejo | La identidad del hilo (mismo `thread_id`) |
+| | Los tool_call/tool_result (compactación los conserva en la cola) |
+
+La compactación cambia el **texto** del contexto, no la **identidad** del hilo. Cuando reproduzcas un bug, usa el `thread_id` y el `turn_id`, no el texto.
+
+## Búsqueda y replay
+
+Tres usos de la búsqueda:
+
+1. **Recuperar contexto perdido** — "¿de qué hablamos sobre el id 12345?" El modelo busca en FTS y encuentra el turno.
+2. **Audit** — "¿quién ejecutó `email_send` el martes?" El log indexa por tool_call.
+3. **Eval retroactivo** — dado un bug, encuentras el turno, reproduces el prompt exacto, corres el eval.
+
+Si tu arnés no soporta estos tres, tu modelo es opaco. La búsqueda es la diferencia entre "el agente dijo algo raro" y "el agente dijo esto en el turno N por esta razón".
+
+## Cinco cosas que NO van en el mismo hilo
+
+1. **DM y grupo** — claves distintas. Privacidad.
+2. **Chat vivo y cron** — sesiones distintas. El cron no espeja en el chat.
+3. **Browser efímero y chat principal** — el browser es un sandbox.
+4. **Múltiples humanos con contextos distintos** — `dmScope` aislado.
+5. **Webhooks de múltiples fuentes** — un hilo por `webhook_id`.
+
+Si algo de esto vive en el mismo hilo, hay un bug esperando un incidente.
+
+## Cuando el thread_id no es estable
+
+Dos bugs comunes:
+
+- **Compactación borra el thread_id** — no debería. La identidad del hilo es independiente de su contenido.
+- **Sesión nueva con mismo `thread_id`** — debería recargar el hilo del almacenamiento. Si no lo hace, has abierto una sesión fantasma que cree empezar de cero pero tiene el mismo id que otra.
+
+Mezclar esto es cómo aparecen a la vez "se olvidó" y "filtró al otro cliente".
+
+<Steps>
+<Step title="Definir claves">
+DM, grupo, cron, webhook, browser. Cada uno con su esquema. Documenta `dmScope`.
+</Step>
+<Step title="Storage">
+SQLite con WAL + FTS5. Una tabla por surface. Índices por clave.
+</Step>
+<Step title="Compactar con linaje">
+Resumen en el contexto. Transcript completo en `messages`. FTS sobre `messages`.
+</Step>
+<Step title="Búsqueda y replay">
+Tres usos: recuperar contexto, audit, eval retroactivo. Sin búsqueda, el modelo es opaco.
+</Step>
+<Step title="Aislar lo sensible">
+Multi-usuario → `dmScope=isolated`. Cron → sesión propia. Browser → sandbox.
+</Step>
+</Steps>
+
+## Lista práctica
+
+1. Sesión ≠ cookie. Hilo ≠ sesión. Turno ≠ hilo.
+2. Clave de sesión por superficie. Documenta el scope.
+3. SQLite con WAL + FTS5. Transcript completo persistente.
+4. Compactación con pérdida pero recuperable. FTS como memoria de búsqueda.
+5. Cinco cosas que NO van en el mismo hilo. Cero excepciones.
+6. Búsqueda: recuperar, audit, eval.
+
+## Fuentes
+
+- Hermes — *Session storage*. https://hermes-agent.nousresearch.com/docs/developer-guide/session-storage
+- OpenClaw — *Session*. https://docs.openclaw.ai/concepts/session
+- SQLite — *Write-Ahead Logging*. https://www.sqlite.org/wal.html
+- SQLite — *FTS5*. https://www.sqlite.org/fts5.html
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Cuál es la diferencia entre sesión, hilo y turno?",
+      options: [
+        { id: "a", text: "Son sinónimos." },
+        { id: "b", text: "Sesión es el proceso vivo. Hilo es la conversación durable (lo que persiste). Turno es un mensaje de usuario más las rondas de tools. La persistencia es del hilo, no de la sesión." },
+        { id: "c", text: "Sesión es el thread, turno es el proceso." },
+        { id: "d", text: "Turno es una cookie." }
+      ],
+      correct: "b",
+      explanation: "Tres entidades distintas. Sesión = proceso (muere con el proceso). Hilo = conversación durable (lo que el arnés guarda en SQLite). Turno = un mensaje de usuario más sus rondas de tools. Persistencia es del hilo; la compactación cambia el contexto del hilo pero no su identidad."
+    },
+    {
+      id: "q2",
+      stem: "Desactivo compactación 'para no perder nada'. ¿Por qué es mala idea?",
+      options: [
+        { id: "a", text: "Porque el modelo necesita compactar." },
+        { id: "b", text: "Porque la ventana revienta y el modelo ignora instrucciones cerca del fondo. La compactación es con pérdida pero recuperable si vuelcas el transcript completo al FTS; desactivarla te deja con una ventana saturada y sin búsqueda que compense." },
+        { id: "c", text: "Es buena idea, preserva todo." },
+        { id: "d", text: "El proveedor lo prohíbe." }
+      ],
+      correct: "b",
+      explanation: "Compactación es con pérdida pero recuperable: el resumen reemplaza el verbatim en el contexto, pero el transcript completo persiste en `messages` y el FTS lo indexa. Desactivar compactación te da ventana saturada (contexto que el modelo ignora) sin el beneficio de búsqueda. La decisión mejor intencionada con el peor resultado."
+    },
+    {
+      id: "q3",
+      stem: "Varios humanos comparten el mismo agente en DM. ¿Qué config de scope es la correcta?",
+      options: [
+        { id: "a", text: "dmScope=main — todos al mismo hilo." },
+        { id: "b", text: "dmScope=isolated — un hilo por usuario. Si no, el contexto de un humano filtra al otro cuando el modelo atiende al transcript completo." },
+        { id: "c", text: "No importa." },
+        { id: "d", text: "Desactivar DM." }
+      ],
+      correct: "b",
+      explanation: "Con dmScope=main, todos los DM van al mismo hilo. El modelo ve 'este usuario dijo X, después este otro preguntó Y' — filtraciones garantizadas. Con dmScope=isolated, cada humano tiene su propio hilo. La decisión es crítica cuando varios humanos comparten agente."
+    },
+    {
+      id: "q4",
+      stem: "¿Para qué sirve el FTS indexado sobre `messages` si el contexto ya tiene el resumen?",
+      options: [
+        { id: "a", text: "Para nada." },
+        { id: "b", text: "Para tres cosas: (1) recuperar contexto perdido — el modelo busca en FTS cuando el resumen no es suficiente; (2) audit — quién ejecutó qué tool; (3) eval retroactivo — reproducir el prompt exacto de un bug. Sin FTS, el modelo es opaco." },
+        { id: "c", text: "Para SEO." },
+        { id: "d", text: "Para métricas." }
+      ],
+      correct: "b",
+      explanation: "El FTS sobre `messages` no compite con el resumen; lo complementa. Recuperas verbatim cuando el resumen pierde detalle. Auditas tool_calls. Reproduces bugs. Tres usos que hacen del modelo un sistema depurable. Sin FTS, tienes un chat opaco."
+    }
+  ]}
+/>

@@ -1,17 +1,32 @@
-## Tres tipos de “abierto”
+## Tres tipos de "abierto"
 
 - **<Term id="closed-model">Cerrado</Term>** — solo API. Alquilas tokens. Hardware, cuantización y a menudo el system prompt no son tuyos.
 - **<Term id="open-weights">Pesos abiertos</Term>** — puedes bajar parámetros. Datos, código de entrenamiento y licencia pueden seguir cerrados.
-- **<Term id="open-source-model">Código abierto</Term>** — una afirmación más fuerte. Lee la licencia. Busca código de entrenamiento y docs de datos. Muchos modelos “open” famosos son pesos abiertos con cláusula de investigación o no comercial.
+- **<Term id="open-source-model">Código abierto</Term>** — una afirmación más fuerte. Lee la licencia. Busca código de entrenamiento y docs de datos. Muchos modelos "open" famosos son pesos abiertos con cláusula de investigación o no comercial.
 
 Si no puedes ejecutarlo sin una clave de proveedor, para *tus* fines es cerrado, aunque el paper sea público.
-
 
 <VisualSlot caption="Lee la ficha: pesos abiertos frente a una API, dense frente a MoE, base frente a instruct." />
 
 ## Dense frente a MoE
 
-Un modelo <Term id="dense">dense</Term> usa (más o menos) todos los parámetros en cada token. Un <Term id="moe">Mixture of Experts</Term> enruta cada token a unos pocos expertos. Los parámetros **totales** pueden parecer enormes; los **activos** por token son lo que pagas en cómputo. La memoria sigue teniendo que sostener los expertos que podrías tocar, así que “70B MoE” no es “70B dense” ni “7B”. Lee la ficha: activos frente a totales.
+Un modelo <Term id="dense">dense</Term> usa (más o menos) todos los parámetros en cada token. Un <Term id="moe">Mixture of Experts</Term> enruta cada token a unos pocos expertos. Los parámetros **totales** pueden parecer enormes; los **activos** por token son lo que pagas en cómputo. La memoria sigue teniendo que sostener los expertos que podrías tocar, así que "70B MoE" no es "70B dense" ni "7B". Lee la ficha: activos frente a totales.
+
+### El caso A3B y la trampa del marketing
+
+A3B es la mejor ilustración de la trampa MoE. Un A3B 48B / 3B:
+
+- **Memoria**: 48B de expertos en RAM. A FP16 son 96 GB; a Q4_K_M ~24-28 GB. La "memoria" que dimensionas son los totales.
+- **Velocidad de cómputo por token**: comparable a un dense 3B. Aquí los activos sí mandan.
+- **Marketing**: "3B activos" se interpreta como "cabe como un 3B". Falso. Es la propiedad de velocidad, no la de capacidad.
+
+La regla práctica: si la ficha dice "MoE", busca la tabla con `total_parameters` y `active_parameters`. Multiplica los totales por 2 bytes (FP16) o por 0.6 bytes (Q4) para dimensionar memoria. Los activos te dan el FLOPS estimado por token.
+
+<Callout>
+**Dense vs MoE para tu caso**:
+- Quieres *predecibilidad de memoria y velocidad*: dense. Cada byte y cada FLOP escala 1:1 con el tamaño.
+- Quieres *mejor relación calidad/cómputo*: MoE. Más calidad por FLOP gastado, pero la memoria es sorpresa si no lees la ficha.
+</Callout>
 
 ## Los tamaños son un idioma, no una nota
 
@@ -24,27 +39,131 @@ Se dice 3B, 8B, 70B. Es cuenta de parámetros, no inteligencia. Regla práctica:
 - **<Term id="reasoning-model">Razonamiento</Term>** — entrenado o moldeado para gastar tokens en trabajo intermedio. Esos tokens se pagan. No es otra física.
 - **Coder** — más datos de código y a menudo el hábito de rellenar en el medio. Sigue siendo siguiente-token.
 
-Un sufijo “Hermes” o “Instruct” es un **ajuste de un base**, no un arnés.
+Un sufijo "Hermes" o "Instruct" es un **ajuste de un base**, no un arnés.
 
 ## Cómo leer una ficha de Hugging Face
 
 Mira, en este orden:
 
-1. Licencia — ¿puedes usarlo en comercial y redistribuir pesos?
-2. Arquitectura y tamaño — dense/MoE, contexto, vocabulario.
-3. Plantilla de chat — `tokenizer.chat_template` o un ejemplo. La plantilla equivocada es un bug silencioso de calidad.
-4. Uso previsto y límites — casi siempre te dicen dónde falla.
-5. Archivos — `safetensors` frente a GGUF frente a EXL2. Casa el archivo con el motor (módulos siguientes).
-6. Evals publicadas — una pista, no tu test de aceptación.
+1. **Licencia** — ¿puedes usarlo en comercial y redistribuir pesos? Apache 2.0 y MIT son abiertos; Llama-community tiene restricciones; otras son research-only.
+2. **Arquitectura y tamaño** — dense/MoE, contexto, vocabulario. Si MoE, busca la tabla con totales vs activos.
+3. **Plantilla de chat** — `tokenizer.chat_template` o un ejemplo. La plantilla equivocada es un bug silencioso de calidad.
+4. **Uso previsto y límites** — casi siempre te dicen dónde falla.
+5. **Archivos** — `safetensors` frente a GGUF frente a EXL2. Casa el archivo con el motor (módulos siguientes).
+6. **Evals publicadas** — una pista, no tu test de aceptación.
+7. **Cuantizaciones recomendadas** — qué Q*_K_M o AWQ ofrece el autor.
 
 <TryThis>
-Abre cualquier ficha instruct que de verdad podrías ejecutar. Anota licencia, contexto, nombre de plantilla y formato de archivo. Si no encuentras la plantilla, no estás listo para servirla.
+Abre cualquier ficha instruct que de verdad podrías ejecutar. Anota licencia, contexto, nombre de plantilla, formato de archivo y (si es MoE) total vs active params. Si no encuentras la plantilla, no estás listo para servirla. Repite con un MoE y confirma que el "active" no es lo que cabe en tu hardware.
 </TryThis>
+
+## Memoria, cómputo y el "tamaño que pagas"
+
+La cifra "8B" o "70B" oculta tres números distintos:
+
+- **Memoria del archivo** — bytes en disco. FP16 = 2×params, Q4 ≈ 0.5×params, Q8 ≈ 1×params. Esto es lo que cabe en VRAM.
+- **Memoria total con KV** — suma pesos + KV cache + overhead runtime. Para un 8B denso a 8k contexto: ~5 GB Q4 + ~1 GB KV + ~3 GB runtime ≈ 9 GB. A 128k contexto: KV sube a 8-16 GB.
+- **FLOPs por token** — para dense es ~2 × params por token (forward pass). Para MoE son ~2 × activos. Esto determina latencia de prefill y, en parte, de decode.
+
+<Compare>
+<Side title="Dense 8B Q4, contexto 8k">
+~4 GB de archivo. ~1 GB de KV. ~9 GB totales en GPU. Decode ~100-200 tok/s en una 4090. Predecible.
+</Side>
+<Side title="A3B 48B/3B Q4, contexto 8k">
+~24-28 GB de archivo. ~1-2 GB de KV (KV suele ser denso, no MoE). ~30 GB totales. Decode tan rápido como un dense 3B en memoria (cómputo), pero limitado por el bandwidth que necesita cargar los 24 GB cada vez.
+</Side>
+</Compare>
+
+<Myth>
+"Un MoE 8x7B ocupa lo mismo que un dense 7B." Falso: el archivo tiene **8 expertos de 7B** cada uno, no 1 experto de 7B. A 4 bits, ~28 GB. Es ocho veces más memoria, no dos. La velocidad por token puede ser comparable a un 7B denso, pero la memoria es otra historia.
+</Myth>
 
 ## Un selector, no una corazonada
 
-Pregunta, en este orden: **¿tiene que quedarse en esta máquina?** **¿Qué contexto necesitas de verdad?** **¿Qué motor lo va a cargar?** Luego elige el modelo más pequeño que pase un humo de cinco prompts escritos por ti. Sube de tamaño solo cuando el humo falle por una razón que sepas nombrar.
+Pregunta, en este orden:
+
+1. **¿Tiene que quedarse en esta máquina?** Si sí, busca pesos abiertos con cuantización disponible. Si no, la API compite.
+2. **¿Qué contexto necesitas de verdad?** No el máximo de marketing; el real de tu arnés + un margen.
+3. **¿Qué motor lo va a cargar?** GGUF para llama.cpp/Ollama, safetensors (AWQ/GPTQ/FP8) para vLLM, MLX para MLX-LM.
+4. **¿Cuánta memoria tienes?** Resta overhead. El modelo quepa *con su KV* y con margen para KV por peticiones concurrentes.
+
+Elige el **modelo más pequeño que pase un humo de cinco prompts escritos por ti**. Sube de tamaño solo cuando el humo falle por una razón que sepas nombrar. Los rankings importan menos que tu test.
 
 ## Caso — modelo base en un chat
 
-Un equipo metió un GGUF base en un chat y dijo que el modelo estaba roto. Completaba el prompt, no seguía una plantilla. La ficha decía base. La UI asumía instruct.
+Un equipo metió un GGUF base en un chat y dijo que el modelo estaba roto. Completaba el prompt, no seguía una plantilla. La ficha decía base. La UI asumía instruct. La regla: si la ficha no menciona "Instruct" o "Chat", asumes base y aplicas la plantilla tú mismo (o usas un modelo instruct).
+
+## Quiz
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué afirma 'open-weights' que NO afirma 'open source'?",
+      options: [
+        { id: "a", text: "Que puedes descargar los pesos." },
+        { id: "b", text: "Que los datos, código de entrenamiento y licencia son abiertos. Open-weights solo garantiza que los pesos son descargables; el resto puede seguir siendo cerrado o research-only." },
+        { id: "c", text: "Que el modelo es gratis de usar." },
+        { id: "d", text: "Que el modelo está en Hugging Face." }
+      ],
+      correct: "b",
+      explanation: "Open-weights = 'puedes bajar los parámetros'. Open source = 'licencia permite uso comercial, redistribución, y normalmente código y datos'. Muchos 'modelos open' famosos son solo open-weights con cláusula de research o no comercial. Lee la LICENSE, no el README."
+    },
+    {
+      id: "q2",
+      stem: "Tu A3B 48B/3B se anuncia como '3B activo, cabe en 12 GB'. ¿Es verdad?",
+      options: [
+        { id: "a", text: "Sí, porque solo activa 3B por token." },
+        { id: "b", text: "No: la memoria debe sostener los 48B totales. A Q4 son ~24-28 GB. El '3B activo' es velocidad (FLOPs), no capacidad (memoria). La ficha del modelo tiene ambos números por separado." },
+        { id: "c", text: "Solo si el modelo está cuantizado a 2 bits." },
+        { id: "d", text: "Solo en hardware específico de NVIDIA." }
+      ],
+      correct: "b",
+      explanation: "La cifra de activos se refiere a FLOPs por token (velocidad de cómputo). La memoria que tienes que cargar son los totales: 48B × 0.5 bytes ≈ 24 GB en Q4. Por eso el marketing dice una cosa y la realidad de hardware otra. Lee la tabla de parámetros, no la nota de prensa."
+    },
+    {
+      id: "q3",
+      stem: "¿Por qué un modelo 'base' no funciona bien en una UI de chat?",
+      options: [
+        { id: "a", text: "Porque el modelo base es más pequeño." },
+        { id: "b", text: "Porque un modelo base está entrenado para completar texto, no para seguir instrucciones con plantilla de chat. Si le mandas un prompt estilo chat sin delimitadores, intenta completarlo — a veces pegando respuestas, a veces inventando turnos." },
+        { id: "c", text: "Porque el tokenizador no funciona." },
+        { id: "d", text: "Por una limitación del hardware." }
+      ],
+      correct: "b",
+      explanation: "El modelo base aprendió 'dado este texto, sigue'. Si tu UI le manda 'system: ... user: ... assistant:' sin la plantilla exacta, ve prosa y la continúa. La solución es usar siempre un modelo Instruct/Chat, o aplicar la plantilla a mano con tokenizer.apply_chat_template."
+    },
+    {
+      id: "q4",
+      stem: "Una ficha dice 'Apache 2.0' para los pesos pero no publica los datos de entrenamiento. ¿Qué significa?",
+      options: [
+        { id: "a", text: "Que es open source completo." },
+        { id: "b", text: "Que los pesos son abiertos en el sentido legal (puedes usarlos comercialmente, redistribuirlos, modificarlos), pero la receta —datos, código, hiperparámetros— no. No es open source en el sentido fuerte." },
+        { id: "c", text: "Que no se puede usar comercialmente." },
+        { id: "d", text: "Que el modelo es gratis." }
+      ],
+      correct: "b",
+      explanation: "Apache 2.0 en los pesos = 'puedes hacer casi cualquier cosa con los parámetros'. Pero open source 'fuerte' pide licencia + datos + código de entrenamiento disponibles. Aquí solo tienes los pesos. Es open-weights con buena licencia, no open source completo."
+    },
+    {
+      id: "q5",
+      stem: "Tienes que elegir entre un dense 8B y un MoE A3B 48B/3B para una app local. ¿Qué pesa más?",
+      options: [
+        { id: "a", text: "El MoE siempre: más parámetros, mejor calidad." },
+        { id: "b", text: "Depende: si la prioridad es calidad en tareas complejas y tienes 32+ GB de RAM/VRAM, el MoE da más por FLOP. Si la prioridad es latencia predecible y hardware modesto, el dense 8B es más honesto: cabe, no te sorprende con picos de memoria, y la latencia es estable." },
+        { id: "c", text: "El dense siempre: menos parámetros, mejor." },
+        { id: "d", text: "Da igual, son lo mismo." }
+      ],
+      correct: "b",
+      explanation: "Dense = predecible. MoE = más calidad por cómputo a cambio de memoria sorpresa. Si tu arnés necesita respuestas rápidas y estables en hardware limitado, dense gana por consistencia. Si tienes memoria de sobra y quieres mejor calidad por token generado, MoE compite. La elección es de tu constraint, no del número absoluto de parámetros."
+    }
+  ]}
+/>
+
+## Fuentes
+
+- Llama Team, AI @ Meta (2024). *The Llama 3 Herd of Models*. https://arxiv.org/abs/2407.21783
+- Mistral AI (2024). *Mixtral 8x7B / Mixtral 8x22B — technical notes*. https://arxiv.org/abs/2401.04088
+- Open Source Initiative — *OSAID 1.0 definition of open source AI*. https://opensource.org/ai
+- Hugging Face — *Model card guide*. https://huggingface.co/docs/hub/model-cards
+- Jiang, A. Q., et al. (2024). *Mixtral of Experts*. https://arxiv.org/abs/2401.04088

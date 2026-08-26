@@ -5,28 +5,51 @@ import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import { Flow, Node3D, Slab, Tag, Turntable, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
+import { useCopy } from "@/lib/useCopy";
 
 type Step = "a" | "b" | "c" | "d" | "e";
 
-const OPTIONS = [
-  { value: "a" as const, label: "stdio", tone: "var(--teal)" },
-  { value: "b" as const, label: "session", tone: "var(--teal)" },
-  { value: "c" as const, label: "events", tone: "var(--violet)" },
-  { value: "d" as const, label: "permissions", tone: "var(--amber)" },
-  { value: "e" as const, label: "fork", tone: "var(--amber)" },
-];
+
 
 export default function Visual() {
+  const t = useCopy({
+    en: {
+      "step_the_diagram": "step the diagram",
+      "session": "session",
+      "events": "events",
+      "permissions": "permissions",
+      "core_path": "core path",
+      "cost_volatile": "cost / volatile",
+      "extension": "extension"
+    },
+    es: {
+      "step_the_diagram": "recorre el diagrama",
+      "session": "sesión",
+      "events": "eventos",
+      "permissions": "permisos",
+      "core_path": "ruta núcleo",
+      "cost_volatile": "coste / volátil",
+      "extension": "extensión"
+    },
+  });
+
+  const OPTIONS = [
+    { value: "a" as const, label: "stdio", tone: "var(--teal)" },
+    { value: "b" as const, label: t.session, tone: "var(--teal)" },
+    { value: "c" as const, label: t.events, tone: "var(--violet)" },
+    { value: "d" as const, label: t.permissions, tone: "var(--amber)" },
+    { value: "e" as const, label: "fork", tone: "var(--amber)" },
+  ];
   const [step, setStep] = useState<Step>("a");
 
   return (
     <Figure
       label="Hermes: ACP adapter"
-      hint="step the diagram"
+      hint={t.step_the_diagram}
       legend={[
-        { color: P.teal, label: "core path" },
-        { color: P.amber, label: "cost / volatile" },
-        { color: P.violet, label: "extension" },
+        { color: P.teal, label: t.core_path },
+        { color: P.amber, label: t.cost_volatile },
+        { color: P.violet, label: t.extension },
       ]}
       controls={
         <Switcher
@@ -39,14 +62,14 @@ export default function Visual() {
     >
       <Stage className="h-full w-full" maxDpr={1.75} camera={{ position: [0, 0.35, 7.4], fov: 40 }}>
         <Turntable speed={0.035} tilt={0.1}>
-          <Scene active={step} />
+          <Scene active={step} t={t} />
         </Turntable>
       </Stage>
     </Figure>
   );
 }
 
-function Scene({ active }: { active: Step }) {
+function Scene({ active, t }: { active: Step; t: any }) {
   return (
     <group>
       <Wire points={[[-2.6, 0.2, 0], [2.6, 0.2, 0]]} color={P.line} opacity={0.5} />
@@ -69,9 +92,7 @@ function Scene({ active }: { active: Step }) {
         color={active === "b" ? P.amber : P.lineStrong}
         fill={active === "b" ? 0.55 : 0.14}
       />
-      <Tag position={[-0.75, 1.4500000000000002, 0.0]} tone="amber" center>
-        session
-      </Tag>
+      <Tag position={[-0.75, 1.4500000000000002, 0.0]} tone="amber" center>{t.session}</Tag>
 
       <Slab
         position={[0.75, 0.9, 0.0]}
@@ -79,9 +100,7 @@ function Scene({ active }: { active: Step }) {
         color={active === "c" ? P.violet : P.lineStrong}
         fill={active === "c" ? 0.55 : 0.14}
       />
-      <Tag position={[0.75, 1.4500000000000002, 0.0]} tone="violet" center>
-        events
-      </Tag>
+      <Tag position={[0.75, 1.4500000000000002, 0.0]} tone="violet" center>{t.events}</Tag>
 
       <Slab
         position={[2.3, 0.9, 0.0]}
@@ -89,9 +108,7 @@ function Scene({ active }: { active: Step }) {
         color={active === "d" ? P.teal : P.lineStrong}
         fill={active === "d" ? 0.55 : 0.14}
       />
-      <Tag position={[2.3, 1.4500000000000002, 0.0]} tone="teal" center>
-        permissions
-      </Tag>
+      <Tag position={[2.3, 1.4500000000000002, 0.0]} tone="teal" center>{t.permissions}</Tag>
 
       <Slab
         position={[0.0, -1.05, 0.0]}

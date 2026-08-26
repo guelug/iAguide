@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Obsidian writing aliases (same inode as *.mdx — do not commit)
+/content/modules/**/*.md
+/content/.obsidian/
+/content/00-Indice.md

@@ -5,19 +5,34 @@ import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import { Node3D, Slab, Tag, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
+import { useCopy } from "@/lib/useCopy";
 
 type Mode = "quiz" | "gaia" | "product";
 
 export default function Visual() {
+  const t = useCopy({
+    en: {
+      "quiz_vs_gaia": "quiz vs GAIA",
+      "easy_for_people_hard_for_loops": "easy for people, hard for loops",
+      "product": "product",
+      "product_2": "Product"
+    },
+    es: {
+      "quiz_vs_gaia": "quiz vs GAIA",
+      "easy_for_people_hard_for_loops": "fácil para personas, difícil para bucles",
+      "product": "producto",
+      "product_2": "Producto"
+    },
+  });
   const [mode, setMode] = useState<Mode>("quiz");
   return (
     <Figure
-      label="quiz vs GAIA"
-      hint="easy for people, hard for loops"
+      label={t.quiz_vs_gaia}
+      hint={t.easy_for_people_hard_for_loops}
       legend={[
           { color: P.amber, label: "quiz" },
           { color: P.teal, label: "gaia" },
-          { color: P.violet, label: "product" }
+          { color: P.violet, label: t.product }
       ]}
       controls={
         <Switcher
@@ -26,9 +41,9 @@ export default function Visual() {
           options={[
             { value: "quiz", label: "Quiz", tone: P.amber },
             { value: "gaia", label: "GAIA", tone: P.teal },
-            { value: "product", label: "Product", tone: P.violet }
+            { value: "product", label: t.product_2, tone: P.violet }
           ]}
-          ariaLabel="easy for people, hard for loops"
+          ariaLabel={t.easy_for_people_hard_for_loops}
         />
       }
     >

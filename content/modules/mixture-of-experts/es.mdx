@@ -1,15 +1,230 @@
 ## La mayoría de los parámetros puede dormir
 
-Una capa dense usa todos los pesos en cada token. Una **mezcla de expertos** enruta cada token a unos pocos MLP. El total puede ser enorme; los parámetros **activos** por token son menos. Por eso un “400B MoE” puede parecerse a un dense de 30B en FLOPs — y aun así necesitar VRAM para *albergar* a los que no disparas.
+Una capa dense usa todos los pesos en cada token. Una **mezcla de expertos** enruta cada token a unos pocos MLP. El total puede ser enorme; los parámetros **activos** por token son menos. Por eso un "400B MoE" puede parecerse a un dense de 30B en FLOPs — y aun así necesitar VRAM para *albergar* a los que no disparas.
 
-El router debe equilibrar o unos pocos expertos se sobreajustan. Las fichas dirán params activos, número de expertos y top-k. Cree la ficha; mide la memoria tú.
+Piénsalo como una biblioteca con mil bibliotecarios: en cada pregunta solo consultas a dos de ellos, pero la biblioteca entera está en el edificio. El coste del edificio es por todos; el coste de la consulta es por los dos.
 
 <VisualSlot caption="Un router sobre seis expertos. Dense los enciende todos; top-k dos; la VRAM sigue albergando a los dormidos." />
+
+## A3B y la familia MoE moderna
+
+El etiquetado A3B se ha vuelto común en modelos abiertos recientes (DeepSeek, Qwen-MoE, Mixtral). "A3B" significa "**A**ctivates 3**B**": aproximadamente 3 mil millones de parámetros activos por token. El *total* puede ser 30B, 48B, 100B o más.
+
+Ejemplos típicos que verás en Hugging Face a 2026:
+
+<Compare>
+<Side title="Mixtral 8x7B">
+~13B parámetros activos por token (top-2 entre 8 expertos), ~47B totales. Memoria para servir ≈ 47B en cuantización; FLOPs por token ≈ 13B dense.
+</Side>
+<Side title="DeepSeek-V2 / V3">
+236B totales, ~21B activos por token. Fine-grained experts: 160 expertos pequeños con top-6. Mucho más eficiente por token que un dense de 21B.
+</Side>
+<Side title="Qwen3-30B-A3B (y similares)">
+~30B totales, ~3B activos. Pensado para correr en una sola GPU fuerte (o dos con offload). El sueño de tener "calidad de 30B con coste de 3B" — con asteriscos.
+</Side>
+</Compare>
+
+El asterisco grande: la **memoria** que necesitas es por el *total*. Si tu GPU tiene 24 GB y el modelo total en fp16 son 60 GB, no corre.
+
+## Memoria vs FLOPs: la confusión más cara
+
+Esta es la tabla mental que te salva:
+
+| Cantidad | Dense | MoE |
+| --- | --- | --- |
+| Memoria del checkpoint (descarga, disco) | N × bytes | N × bytes (total) |
+| VRAM para servir (sin offload) | N × bytes | **N × bytes (total)** |
+| FLOPs por token | O(N) | O(N_activos) |
+| FLOPs por entrenamiento (forward) | O(N × tokens) | O(N_activos × tokens) |
+| VRAM para entrenar (optimizador + gradientes) | ~12N bytes (Adam) | ~12N bytes (total) |
+
+<Callout>
+N es el total. N_activos es lo que se usa por token. Un MoE 48B-A3B: descarga 48B; entrena con estado de 48B; calcula como 3B.
+</Callout>
+
+<Myth>
+"Un MoE 48B-A3B corre en una GPU de 24 GB." Solo si cuantizas el *total* a 4-bit y haces offload parcial. El cuant aplica a todos los expertos, no a los activos.
+</Myth>
+
+## El router: el portero con sus propios problemas
+
+En cada capa MoE hay un pequeño módulo (el *router*) que mira el embedding del token y decide a qué expertos enviarlo. Para cada token se calcula:
+
+$$
+g_i = \mathrm{softmax}(W_r \cdot x)_i
+$$
+
+Luego se eligen los top-k expertos por score. La salida de la capa es una mezcla ponderada:
+
+$$
+y = \sum_{i \in \text{top-k}} g_i \cdot E_i(x)
+$$
+
+Tres problemas prácticos del router:
+
+<Steps>
+<Step>
+**Colapso de expertos.** El router aprende a mandar todos los tokens al mismo experto. La capacidad del modelo se hunde a la de un dense pequeño. Solución: pérdidas de balanceo (auxiliary loss) que penalizan distribuciones desiguales.
+</Step>
+<Step>
+**Routing inestable.** El router cambia sus decisiones a lo largo del entrenamiento. Necesitas una *política de referencia* y posiblemente ruido durante el entrenamiento para mantener la exploración.
+</Step>
+<Step>
+**Overconfidence.** El softmax se vuelve one-hot y un solo experto domina cada token. La auxiliary loss típicamente incluye un término que empuja a una distribución más uniforme.
+</Step>
+</Steps>
+
+<Compare>
+<Side title="Top-1 routing">
+Un solo experto por token. Más eficiente en FLOPs, más inestable, más riesgo de colapso. Switch Transformer lo popularizó.
+</Side>
+<Side title="Top-2 routing">
+Dos expertos por token. Estándar de facto en Mixtral y derivados. Balance entre calidad y estabilidad.
+</Side>
+<Side title="Fine-grained experts">
+Decenas de expertos pequeños con top-k mayor. DeepSeek-V2/V3. Más suave, mejor balanceo, más libros de cuentas.
+</Side>
+</Compare>
+
+## Expertos que duermen pero cuestan VRAM
+
+Aunque un experto no se active en *este* batch, sus pesos siguen residentes en VRAM. Las consecuencias prácticas:
+
+- **Offload total imposible sin cuant.** Si los totales no caben, o cuantizas el modelo entero, o haces offload a CPU/SSD (lento).
+- **Cuantización uniforme.** No puedes cuantizar a 8-bit solo los expertos no usados; el cuant se aplica al checkpoint completo.
+- **Sleeping experts experiment.** Algunos papers (DeepSeek-V3) introducen un término que *permite* a un experto dormirse; sigue ahí, pero sus pesos apenas cambian. El truco: reduce el coste de actualización, no el de residencia.
+
+<Term id="shared-experts">Shared experts</Term> es otra técnica: algunos expertos son compartidos por todos los tokens (no pasan por el router). Reducen la varianza y bajan la carga del router; los pagas siempre.
+
+## Cuándo MoE te conviene
+
+<Compare>
+<Side title="Dense pequeño (1B–8B)">
+Entrenar y servir es barato. Inferencia predecible. Sin balanceo de router. Para la mayoría de productos, esto basta.
+</Side>
+<Side title="MoE medio (10B–50B total, 2B–5B activos)">
+Calidad alta con coste de inferencia manejable. Entrenamiento más caro y complejo. Útil cuando necesitas calidad sin GPU extrema.
+</Side>
+<Side title="Dense grande (70B+)">
+Entrenamiento brutal. Inferencia cara pero predecible. Cuando la prioridad es calidad pura y tienes presupuesto de hardware.
+</Side>
+<Side title="MoE grande (100B+ total, 10B–30B activos)">
+Lo más difícil: entrenar balanceado, servir con memoria para el total, debugging del router. Para laboratorios y proveedores.
+</Side>
+</Compare>
 
 <TryThis>
 En la ficha de un MoE que podrías correr, anota: params totales, activos, expertos, top-k. Estima si tu GPU aguanta el *total* o solo lo activo — y cuál de los dos errores ibas a cometer.
 </TryThis>
 
+## Inferencia MoE: dos modos
+
+Cuando sirves un MoE, hay dos patrones:
+
+<Steps>
+<Step>
+**Eager.** Cargas todos los expertos en VRAM (o memoria unificada). El router elige; los activos se calculan. La latencia por token es comparable a un dense del tamaño de los activos.
+</Step>
+<Step>
+**Offloaded / dynamic.** Mantienes los activos frecuentes en VRAM, los demás en CPU o SSD; los cargas bajo demanda. Latencia más variable; ahorras VRAM a costa de *throughput*.
+</Step>
+</Steps>
+
+<Term id="expert-offload">Expert offloading</Term> es lo que hacen llama.cpp y algunos runners MoE para que un 48B-A3B quepa en hardware modesto. Pagas en latencia por el primer token de cada secuencia; los siguientes, si los expertos ya están cargados, vuelan.
+
+## Lectura crítica de la ficha de un MoE
+
+Cuando lees la tarjeta de un modelo MoE:
+
+1. **¿Cuántos expertos y top-k?** Te dice qué fracción de los totales se calcula.
+2. **¿Hay shared experts?** Suma su cuenta al cálculo activo.
+3. **¿Tamaño del router?** Suele ser trivial, pero en modelos pequeños puede ser un porcentaje notable.
+4. **¿dtype nativo?** Un "30B" en fp32 son 120 GB; en fp16 son 60 GB; en int4 son 15 GB. La memoria cambia radicalmente.
+5. **¿Requiere tensor parallel?** A veces los expertos activos no caben en una sola GPU, y necesitas partir el modelo entre varias.
+
+<Myth>
+"Si activo 3B, corre como un 3B dense." No del todo. La **latencia por token** es similar a un dense de N_activos; el **throughput por batch** puede ser peor si los expertos activos cambian bruscamente entre tokens (cachés que no reusan).
+</Myth>
+
 ## Caso — el optimismo MoE-en-Mac
 
-Un equipo compró un Mac porque “los params activos son 17B.” El quant mapeó todos los expertos a memoria unificada y la máquina hizo swap. Los FLOPs activos estaban bien. Los pesos residentes no.
+Un equipo compró un Mac porque "los params activos son 17B." El quant mapeó todos los expertos a memoria unificada y la máquina hizo swap. Los FLOPs activos estaban bien. Los pesos residentes no.
+
+Solución: cuantizaron a 3-bit para que el total (no los activos) cupiera, o se fueron a una workstation con 96 GB de VRAM real.
+
+## Caso — el router que se obsesionó con la palabra "user"
+
+Un equipo afinó un MoE 30B-A3B con trazas de agente. A las pocas horas, el router empezó a mandar todos los tokens que contenían "user" al mismo experto. Sospecha: el dominio de entrenamiento era estrecho y el router encontró un atajo. Resultado: un experto sobrecargado y los demás infradesarrollados. La auxiliary loss se quedó corta.
+
+Arreglo: remezclar el dataset con ejemplos más variados y subir el coeficiente de la pérdida de balanceo.
+
+## Caso — el modelo que pasaba memoria pero no cabía en inferencia
+
+Un laboratorio publicó un MoE 200B-A20B. En el paper, "cabe en una H100 de 80 GB con cuant 4-bit". En la práctica, las activaciones + caché KV + workspace de CUDA pasaban de 80 GB; necesitaban 96 GB. El paper tenía razón en el *modelo*; se le olvidó el resto.
+
+Lección: el tamaño del modelo es solo una línea del presupuesto de VRAM.
+
+## Quiz rápido
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "Modelo MoE etiquetado 48B-A3B. ¿Cuál es cierta?",
+      options: [
+        { id: "a", text: "Activa los 48B parámetros por token pero usa menos memoria que un dense 7B." },
+        { id: "b", text: "Activa ~3B parámetros por token; el coste de cómputo por token es comparable a un dense 3B, pero el archivo en disco y la VRAM para servir son del tamaño de 48B." },
+        { id: "c", text: "Siempre es más barato que un dense 3B porque almacena menos parámetros." },
+        { id: "d", text: "A3B significa que activa 48B parámetros pero solo almacena 3B." }
+      ],
+      correct: "b",
+      explanation: "El sufijo A3B en 48B-A3B significa 'Active 3B'. El cálculo por token es como un dense 3B; el *almacenamiento* y la VRAM para servir son del tamaño del total (48B). El cuant se aplica a todos los expertos, no solo a los activos."
+    },
+    {
+      id: "q2",
+      stem: "¿Por qué un MoE 48B-A3B no corre en una sola GPU de 24 GB sin cuant?",
+      options: [
+        { id: "a", text: "Porque solo se calculan 3B parámetros y la GPU no sabe qué hacer con los otros 45B." },
+        { id: "b", text: "Porque los pesos de TODOS los expertos (los 48B) deben estar residentes para que el router pueda elegirlos; incluso los expertos no activos ocupan VRAM aunque no se calculen." },
+        { id: "c", text: "Porque el router necesita más VRAM que los expertos." },
+        { id: "d", text: "Porque los modelos MoE siempre requieren tensor parallel." }
+      ],
+      correct: "b",
+      explanation: "El router no sabe de antemano qué experto se activará; necesita poder acceder a todos. Los expertos dormidos ocupan VRAM aunque no se calculen sus FLOPs en ese token. Sin cuant o offload, necesitas VRAM para el total."
+    },
+    {
+      id: "q3",
+      stem: "¿Qué problema ataca la 'auxiliary loss' en una capa MoE?",
+      options: [
+        { id: "a", text: "El sobreajuste al tokenizador." },
+        { id: "b", text: "El colapso del router: que aprenda a mandar todos los tokens al mismo experto, perdiendo capacidad efectiva del modelo." },
+        { id: "c", text: "La fuga de PII en los datos." },
+        { id: "d", text: "El overfitting a datos sintéticos." }
+      ],
+      correct: "b",
+      explanation: "Sin presión, el router encuentra atajos y colapsa: la mayoría de tokens van al mismo experto. La auxiliary loss añade un término a la pérdida total que penaliza distribuciones desiguales y mantiene la utilización balanceada entre expertos."
+    },
+    {
+      id: "q4",
+      stem: "En Mixtral 8x7B (top-2), si el modelo total son ~47B y quieres servirlo en una sola GPU de 24 GB, ¿qué necesitas?",
+      options: [
+        { id: "a", text: "Nada; los 24 GB bastan porque solo se calculan ~13B por token." },
+        { id: "b", text: "Cuantización del modelo completo (4-bit o 3-bit) y posiblemente offload parcial; la VRAM requerida es proporcional al total, no a los activos." },
+        { id: "c", text: "Solo necesitas apagar la mitad de los expertos en runtime." },
+        { id: "d", text: "Una versión densa equivalente más pequeña del mismo modelo." }
+      ],
+      correct: "b",
+      explanation: "Los 47B totales tienen que estar residentes para que el router pueda elegirlos. A 4-bit, son ~24 GB; cabe justo. A 3-bit, sobra. El cuant se aplica a todos los expertos, y el cálculo de los activos ocurre dentro de esa VRAM."
+    }
+  ]}
+/>
+
+## Fuentes
+
+- Shazeer, N., et al. (2017). *Outrageously Large Neural Networks: The Sparsely-Gated Mixture-of-Experts Layer*. https://arxiv.org/abs/1701.06538
+- Fedus, W., Zoph, B., Shazeer, N. (2022). *Switch Transformers: Scaling to Trillion Parameter Models with Simple and Efficient Sparsity*. https://arxiv.org/abs/2101.03961
+- Jiang, A.Q., et al. (2024). *Mixtral of Experts*. https://arxiv.org/abs/2401.04088
+- DeepSeek-AI (2024). *DeepSeek-V2: A Strong, Economical, and Efficient Mixture-of-Experts Language Model*. https://arxiv.org/abs/2405.04434
+- DeepSeek-AI (2024). *DeepSeek-V3 Technical Report*. https://arxiv.org/abs/2412.19437
+- Qwen Team (2025). *Qwen3 Technical Report* (incluye variantes MoE-A3B). https://qwenlm.github.io/blog/qwen3/
+- Fedus, W., Dean, J. (2017). *Mixture-of-Experts Layer Implementations*. https://github.com/tensorflow/tensor2tensor/blob/master/tensor2tensor/models/research/moe.md

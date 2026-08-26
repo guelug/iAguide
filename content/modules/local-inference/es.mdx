@@ -1,14 +1,35 @@
 ## Cuatro runtimes, cuatro trabajos
 
-- **<Term id="llamacpp">llama.cpp</Term>** — motor C/C++ para <Term id="gguf">GGUF</Term>. CPU, Metal, CUDA y más. Máximo control (`n-gpu-layers`, contexto, batch). Muchas apps de escritorio son una piel encima.
+- **<Term id="llamacpp">llama.cpp</Term>** — motor C/C++ para <Term id="gguf">GGUF</Term>. CPU, Metal, CUDA y más. Máximo control (`-ngl`, contexto, batch, KV cache, speculative decoding). Muchas apps de escritorio son una piel encima.
 - **<Term id="ollama">Ollama</Term>** — CLI + servidor HTTP local. Baja modelos, API estilo OpenAI, menos palancas. Bien para un equipo que quiere un modelo en un comando.
-- **<Term id="vllm">vLLM</Term>** — servidor GPU para *muchos usuarios a la vez*: KV cache paginada, batching continuo. Típico en cajas NVIDIA. No es la primera opción para un chat de portátil.
+- **<Term id="vllm">vLLM</Term>** — servidor GPU para *muchos usuarios a la vez*: KV cache paginada, batching continuo, prefix caching. Típico en cajas NVIDIA. No es la primera opción para un chat de portátil.
 - **<Term id="mlx">MLX</Term> / MLX-LM** — arrays nativos de Apple Silicon. Buen throughput en memoria unificada; también puede ajustar. Los pesos son formato MLX, no GGUF.
 
 Son complementos. Un equipo mixto Mac/Linux suele usar Ollama al día a día, llama.cpp cuando importa una flag, MLX cuando el Mac tiene que ser rápido, vLLM cuando una caja GPU tiene tráfico de verdad.
 
-
 <VisualSlot caption="Tres motores: llama.cpp para GGUF, Ollama por comodidad, vLLM para throughput en GPU." />
+
+## Prefill y decode: cómo se manifiestan en cada motor
+
+Cuando corres un modelo en local, las dos fases del inference se comportan distinto según el motor:
+
+- **<Term id="prefill">Prefill</Term>** — al enviar un prompt, el motor lo ingiere y llena la caché KV. En CPU puro (llama.cpp `-ngl 0`) el prefill es lento; en Metal o CUDA, es rápido. **TTFT** alto = prefill caro.
+- **<Term id="decode">Decode</Term>** — token a token, leyendo los pesos del modelo cada vez. En CPU va a ~20-40 tok/s para un 8B Q4; en Metal (Mac M-series), ~40-80; en GPU dedicada, 100-300+. **Tokens/segundo** = decode.
+
+Lo que cambia entre motores:
+
+| Motor | Prefill típico | Decode típico | Memoria |
+| --- | --- | --- | --- |
+| llama.cpp CPU | lento (1-3 s para 1k tokens) | lento (15-30 tok/s) | sistema |
+| llama.cpp Metal (M-series) | medio (200-500 ms para 1k) | medio (40-80 tok/s) | unified |
+| llama.cpp CUDA | rápido (50-150 ms) | rápido (100-200 tok/s) | VRAM |
+| Ollama | hereda del backend | hereda del backend | idem |
+| vLLM | rápido + batching | rápido + batching | VRAM |
+| MLX-LM | medio-rápido | medio-rápido | unified |
+
+<Callout>
+**Si tu caso de uso es un solo usuario con prompts cortos**, lo que más notas es el TTFT (prefill). Optimiza con cuantización solo si afecta al decode, porque el prefill apenas se beneficia. **Si es generación larga**, lo que notas es tokens/segundo (decode), y ahí la cuantización sí importa.
+</Callout>
 
 ## Formatos de archivo
 
@@ -17,6 +38,7 @@ Son complementos. Un equipo mixto Mac/Linux suele usar Ollama al día a día, ll
 | <Term id="gguf">GGUF</Term> | Un archivo: pesos + tokenizador + metadatos, casi siempre cuantizado | llama.cpp, Ollama, LM Studio |
 | <Term id="safetensors">safetensors</Term> | Contenedor de tensores, no un esquema de cuantización | vLLM, Hugging Face, entrenamiento |
 | <Term id="exl2">EXL2</Term> | Cuantización GPU de ExLlamaV2 con un bitrate objetivo | ExLlamaV2 / TabbyAPI |
+| MLX checkpoints | Arrays nativos de Apple | MLX / MLX-LM |
 
 No renombres `.safetensors` a `.gguf`. Convierte con la herramienta que documenta el motor (`convert_hf_to_gguf.py` / `llama-quantize` en llama.cpp, o el exportador de tu trainer).
 
@@ -42,18 +64,134 @@ Las flags cambian. `llama-cli` antes era `main`. Lee `--help` del binario que co
 
 ## Contexto frente a velocidad
 
-Más <Term id="context-window">contexto</Term> es más <Term id="kv-cache">caché KV</Term> y un prefill más pesado. Los tokens/segundo en decode suelen caer a medida que crece la caché. Si pides 128k “por si acaso”, lo pagas en cada prompt largo aunque el usuario haya hecho una pregunta de una línea.
+Más <Term id="context-window">contexto</Term> es más <Term id="kv-cache">caché KV</Term> y un prefill más pesado. Los tokens/segundo en decode suelen caer a medida que crece la caché. Si pides 128k "por si acaso", lo pagas en cada prompt largo aunque el usuario haya hecho una pregunta de una línea.
 
 Regla práctica: pon el contexto en lo que tu arnés envía de verdad, más un margen para la respuesta — no en el máximo de marketing del modelo.
 
 <TryThis>
-Ejecuta el mismo prompt de 50 tokens con contexto 4k y con el máximo del modelo, mismo GGUF. Compara el tiempo hasta el primer token. Ese delta es sobre todo prefill y reserva de caché, no “pensamiento más listo”.
+Ejecuta el mismo prompt de 50 tokens con contexto 4k y con el máximo del modelo, mismo GGUF. Compara el tiempo hasta el primer token. Ese delta es sobre todo prefill y reserva de caché, no "pensamiento más listo". Si el TTFT a 4k es de 300 ms y a 128k es de 4 s, ya sabes dónde se va el tiempo.
 </TryThis>
 
+## Streaming, lo que ven los usuarios
+
+El streaming envía tokens al cliente conforme se generan. Importa porque:
+
+- **TTFT percibido**: el usuario ve el primer token rápido aunque el total tarde. Sin streaming, no ve nada hasta el final.
+- **Cancelación**: el cliente puede parar el generation a mitad. Sin streaming, no hay manera.
+- **Buffers**: el motor emite tokens en bloques pequeños (cada 4-16 ms), no uno a uno. El códec de streaming del runtime decide el tamaño.
+
+Todos los motores decentes streamean por defecto. Lo que cambia es la granularidad del buffer y el protocolo (SSE, WebSocket, NDJSON en stdout para CLI).
+
 <Callout>
-Ollama esconde `n_gpu_layers`. llama.cpp te deja poner unas capas en GPU y el resto en RAM. Así un GGUF de 30B cojea en una tarjeta de 12 GB. Lento, pero corre.
+Ollama esconde `n_gpu_layers`. llama.cpp te deja poner unas capas en GPU y el resto en RAM. Así un GGUF de 30B cojea en una tarjeta de 12 GB. Lento, pero corre. Útil cuando quieres probar un modelo más grande del que tu GPU aguanta.
+</Callout>
+
+## Selección práctica de motor
+
+| Caso de uso | Motor recomendado | Por qué |
+| --- | --- | --- |
+| Portátil Mac, chat suelto | Ollama o LM Studio | Cero config, descarga y corre |
+| Mac, app propia con control fino | llama.cpp o MLX | Acceso a flags, cuantización, hardware |
+| Servidor GPU, muchos usuarios | vLLM o TRT-LLM | Throughput con batching continuo |
+| Experimentar con kernels / fine-tuning | MLX o transformers nativo | Mejor introspección |
+| Solo CPU, presupuesto bajo | llama.cpp CPU | Lo que cabe, lo que corre |
+| macOS servidor con muchos usuarios | MLX-LM server | Aprovecha unified memory |
+
+<Myth>
+"vLLM es siempre más rápido." Es el más rápido *por usuario agregado en un servidor GPU*. Para un solo usuario en un Mac, llama.cpp Metal o MLX-LM te dan la misma experiencia con menos overhead. El servidor se justifica cuando hay cola; el local se justifica cuando la cola es tu solo yo.
+</Myth>
+
+## Cuándo descargarte capas a RAM
+
+llama.cpp tiene `-ngl N` (n GPU layers): cuántas capas del modelo van a GPU. El resto se queda en RAM del sistema y se trae por PCIe cuando hace falta. Útil cuando el modelo **no cabe entero en VRAM**:
+
+```bash
+# Un 30B Q4 (~18 GB) en una tarjeta de 12 GB
+# -ngl 24 deja 24 capas en GPU, el resto en RAM
+./llama-cli -m model-Q4_K_M.gguf -ngl 24 -c 4096
+```
+
+Lo que pasa: el motor hace un **prefill casi entero en GPU** (rápido), pero el **decode va más lento** porque tiene que cruzar PCIe para cada capa que no está en VRAM. Velocidad típica: 5-15 tok/s. Útil para probar, no para producción.
+
+<Callout>
+**Layer offloading no es gratis.** Cada capa en RAM añade un viaje PCIe por token de decode. Si tu modelo casi cabe en VRAM (digamos 90%), a veces es mejor reducir contexto o量化 más agresivo que descargar capas.
 </Callout>
 
 ## Caso — GGUF en vLLM
 
-Alguien convirtió a GGUF “porque el portátil lo usaba” y luego intentó servir con vLLM. Contenedor equivocado para ese motor. Empareja el artefacto con el runtime.
+Alguien convirtió a GGUF "porque el portátil lo usaba" y luego intentó servir con vLLM. Contenedor equivocado para ese motor. Empareja el artefacto con el runtime: GGUF para llama.cpp/Ollama, safetensors (AWQ/GPTQ/FP8) para vLLM, MLX para MLX-LM.
+
+## Quiz
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "En un inference local de un solo usuario en una Mac, ¿qué fase suele limitar la experiencia y por qué?",
+      options: [
+        { id: "a", text: "El decode, porque es la fase más larga." },
+        { id: "b", text: "El prefill domina el TTFT (tiempo hasta el primer token), pero el decode domina los tokens/segundo de streaming. Para una sola pregunta corta, el TTFT es lo que el usuario siente; para respuestas largas, el decode." },
+        { id: "c", text: "Las dos por igual, no hay diferencia." },
+        { id: "d", text: "El tokenizador." }
+      ],
+      correct: "b",
+      explanation: "El prefill corre una sola vez por turno y determina cuándo aparece el primer token. El decode corre durante toda la generación y determina cuántos tokens/segundo ves. Para UX: prompt corto = TTFT importa; respuesta larga = tokens/segundo importa."
+    },
+    {
+      id: "q2",
+      stem: "¿Por qué un Q4 a veces se siente más rápido que un Q8 en el mismo hardware local?",
+      options: [
+        { id: "a", text: "Porque Q4 piensa menos." },
+        { id: "b", text: "El decode es memory-bandwidth-bound: con Q4 mueves la mitad de bytes por token, así que el ancho de banda efectivo por token se duplica y los tokens/segundo suben. El cómputo es el mismo." },
+        { id: "c", text: "Porque Q4 tiene menos parámetros." },
+        { id: "d", text: "Por una optimización mágica de llama.cpp." }
+      ],
+      correct: "b",
+      explanation: "Decode = releer pesos para cada token. A 0.5 bytes/peso (Q4) vs 1 byte/peso (Q8), recorres la memoria del modelo a la mitad de tiempo por token. Los FLOPs son los mismos; lo que cambia son los bytes."
+    },
+    {
+      id: "q3",
+      stem: "¿Por qué no puedes simplemente renombrar un .safetensors a .gguf y usarlo con llama.cpp?",
+      options: [
+        { id: "a", text: "Porque la extensión es importante pero puedes renombrar." },
+        { id: "b", text: "GGUF y safetensors son formatos distintos: GGUF incluye tokenizador, metadatos y un esquema de cuantización propio (K-quants). safetensors es solo un contenedor de tensores. Renombrar no convierte nada — hace falta convert_hf_to_gguf.py o el exportador del motor." },
+        { id: "c", text: "Por copyright." },
+        { id: "d", text: "Porque son motores distintos pero el formato es el mismo." }
+      ],
+      correct: "b",
+      explanation: "Un archivo GGUF es un contenedor con pesos + tokenizer + metadatos + esquema de cuantización concreto. safetensors es solo un formato de almacenamiento de tensores. La conversión no es trivial: hay que re-empaquetar y, si quieres quant, re-cuantizar con el esquema del motor destino."
+    },
+    {
+      id: "q4",
+      stem: "Tu modelo de 30B no cabe en tu GPU de 12 GB. ¿Qué haces primero?",
+      options: [
+        { id: "a", text: "Lo dejo correr y ya." },
+        { id: "b", text: "Cuantizar más agresivo (Q4 → Q2) y/o reducir contexto. Solo si no funciona, prueba layer offloading (-ngl bajo) — pero el decode irá 5-15 tok/s por el PCIe." },
+        { id: "c", text: "Comprar una GPU nueva inmediatamente." },
+        { id: "d", text: "Cambiar el modelo a uno cualquiera más chico sin mirar." }
+      ],
+      correct: "b",
+      explanation: "Antes de gastar dinero:量化 más agresivo (Q3_K o Q2_K comprimen ~25% más) y/o reduce contexto (corta KV a la mitad = mitad de memoria). Si aun así no cabe, layer offloading funciona pero penaliza el decode. La opción más rápida: un modelo más chico que sí quepa entero."
+    },
+    {
+      id: "q5",
+      stem: "vLLM vs llama.cpp para un solo usuario en un portátil. ¿Cuál y por qué?",
+      options: [
+        { id: "a", text: "vLLM siempre." },
+        { id: "b", text: "llama.cpp (o Ollama encima). vLLM brilla con muchos usuarios concurrentes por batching continuo; para uno solo en un portátil, el overhead de scheduler no se amortiza. llama.cpp en Metal/CUDA da latencia comparable con menos ceremonia." },
+        { id: "c", text: "Da igual, son lo mismo." },
+        { id: "d", text: "Solo vLLM puede correr cuantizado." }
+      ],
+      correct: "b",
+      explanation: "vLLM está optimizado para servidores con cola: batching continuo, paged KV, prefix caching. Todo eso es overhead inútil si solo atiendes a un usuario. llama.cpp / Ollama / LM Studio son la opción correcta para un solo cliente local."
+    }
+  ]}
+/>
+
+## Fuentes
+
+- llama.cpp — *README and quantization docs*. https://github.com/ggerganov/llama.cpp
+- Ollama — *Documentation*. https://github.com/ollama/ollama/blob/main/docs/api.md
+- vLLM — *Documentation and benchmarks*. https://docs.vllm.ai/
+- MLX — *Apple's MLX framework*. https://ml-explore.github.io/mlx/
+- LM Studio — *Local model runner*. https://lmstudio.ai/docs

@@ -5,28 +5,55 @@ import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import { Flow, Node3D, Slab, Tag, Turntable, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
+import { useCopy } from "@/lib/useCopy";
 
 type Step = "tool" | "cdp" | "dialog" | "frames" | "target";
 
-const OPTIONS = [
-  { value: "tool" as const, label: "browser tool", tone: "var(--teal)" },
-  { value: "cdp" as const, label: "CDP socket", tone: "var(--teal)" },
-  { value: "dialog" as const, label: "dialogs", tone: "var(--amber)" },
-  { value: "frames" as const, label: "frames", tone: "var(--violet)" },
-  { value: "target" as const, label: "sandbox/host/node", tone: "var(--amber)" },
-];
+
 
 export default function Visual() {
+  const t = useCopy({
+    en: {
+      "step_the_diagram": "step the diagram",
+      "browser_tool": "browser tool",
+      "cdp_socket": "CDP socket",
+      "dialogs": "dialogs",
+      "frames": "frames",
+      "sandbox_host_node": "sandbox/host/node",
+      "core_path": "core path",
+      "cost_volatile": "cost / volatile",
+      "extension": "extension"
+    },
+    es: {
+      "step_the_diagram": "recorre el diagrama",
+      "browser_tool": "herramienta de navegador",
+      "cdp_socket": "socket CDP",
+      "dialogs": "diálogos",
+      "frames": "frames",
+      "sandbox_host_node": "sandbox/host/nodo",
+      "core_path": "ruta núcleo",
+      "cost_volatile": "coste / volátil",
+      "extension": "extensión"
+    },
+  });
+
+  const OPTIONS = [
+    { value: "tool" as const, label: t.browser_tool, tone: "var(--teal)" },
+    { value: "cdp" as const, label: t.cdp_socket, tone: "var(--teal)" },
+    { value: "dialog" as const, label: t.dialogs, tone: "var(--amber)" },
+    { value: "frames" as const, label: t.frames, tone: "var(--violet)" },
+    { value: "target" as const, label: t.sandbox_host_node, tone: "var(--amber)" },
+  ];
   const [step, setStep] = useState<Step>("tool");
 
   return (
     <Figure
       label="Browser as a tool backend"
-      hint="step the diagram"
+      hint={t.step_the_diagram}
       legend={[
-        { color: P.teal, label: "core path" },
-        { color: P.amber, label: "cost / volatile" },
-        { color: P.violet, label: "extension" },
+        { color: P.teal, label: t.core_path },
+        { color: P.amber, label: t.cost_volatile },
+        { color: P.violet, label: t.extension },
       ]}
       controls={
         <Switcher
@@ -39,14 +66,14 @@ export default function Visual() {
     >
       <Stage className="h-full w-full" maxDpr={1.75} camera={{ position: [0, 0.35, 7.4], fov: 40 }}>
         <Turntable speed={0.035} tilt={0.1}>
-          <Scene active={step} />
+          <Scene active={step} t={t} />
         </Turntable>
       </Stage>
     </Figure>
   );
 }
 
-function Scene({ active }: { active: Step }) {
+function Scene({ active, t }: { active: Step; t: any }) {
   return (
     <group>
       <Wire points={[[-2.6, 0.2, 0], [2.6, 0.2, 0]]} color={P.line} opacity={0.5} />
@@ -59,9 +86,7 @@ function Scene({ active }: { active: Step }) {
         color={active === "tool" ? P.teal : P.lineStrong}
         fill={active === "tool" ? 0.55 : 0.14}
       />
-      <Tag position={[-2.3, 1.4500000000000002, 0.0]} tone="teal" center>
-        browser tool
-      </Tag>
+      <Tag position={[-2.3, 1.4500000000000002, 0.0]} tone="teal" center>{t.browser_tool}</Tag>
 
       <Slab
         position={[-0.75, 0.9, 0.0]}
@@ -69,9 +94,7 @@ function Scene({ active }: { active: Step }) {
         color={active === "cdp" ? P.amber : P.lineStrong}
         fill={active === "cdp" ? 0.55 : 0.14}
       />
-      <Tag position={[-0.75, 1.4500000000000002, 0.0]} tone="amber" center>
-        CDP socket
-      </Tag>
+      <Tag position={[-0.75, 1.4500000000000002, 0.0]} tone="amber" center>{t.cdp_socket}</Tag>
 
       <Slab
         position={[0.75, 0.9, 0.0]}
@@ -79,9 +102,7 @@ function Scene({ active }: { active: Step }) {
         color={active === "dialog" ? P.violet : P.lineStrong}
         fill={active === "dialog" ? 0.55 : 0.14}
       />
-      <Tag position={[0.75, 1.4500000000000002, 0.0]} tone="violet" center>
-        dialogs
-      </Tag>
+      <Tag position={[0.75, 1.4500000000000002, 0.0]} tone="violet" center>{t.dialogs}</Tag>
 
       <Slab
         position={[2.3, 0.9, 0.0]}
@@ -89,9 +110,7 @@ function Scene({ active }: { active: Step }) {
         color={active === "frames" ? P.teal : P.lineStrong}
         fill={active === "frames" ? 0.55 : 0.14}
       />
-      <Tag position={[2.3, 1.4500000000000002, 0.0]} tone="teal" center>
-        frames
-      </Tag>
+      <Tag position={[2.3, 1.4500000000000002, 0.0]} tone="teal" center>{t.frames}</Tag>
 
       <Slab
         position={[0.0, -1.05, 0.0]}
@@ -99,9 +118,7 @@ function Scene({ active }: { active: Step }) {
         color={active === "target" ? P.amber : P.lineStrong}
         fill={active === "target" ? 0.55 : 0.14}
       />
-      <Tag position={[0.0, -0.5, 0.0]} tone="amber" center>
-        sandbox/host/node
-      </Tag>
+      <Tag position={[0.0, -0.5, 0.0]} tone="amber" center>{t.sandbox_host_node}</Tag>
     </group>
   );
 }

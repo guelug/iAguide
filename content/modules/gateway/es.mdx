@@ -1,33 +1,238 @@
 ## Un proceso, muchas superficies
 
-Un **gateway** es el dueño longevo de las plataformas de chat. Los clientes no abren cada uno su sesión de WhatsApp.
+Un **gateway** es el dueño longevo de las plataformas de chat. No es un endpoint HTTP; es un proceso que:
 
-Patrón: plataforma → adaptador → evento → autorizar → clave de sesión → run → entregar.
+- mantiene conexiones con cada plataforma (Telegram, Discord, Slack, WhatsApp, IRC, custom),
+- normaliza eventos en una forma interna,
+- autoriza, rutea por clave de sesión, ejecuta el agente, entrega la respuesta.
+
+Si abres un cliente por cada usuario por cada plataforma, no tienes un gateway — tienes N sesiones de WhatsApp.
 
 <VisualSlot caption="Los adaptadores normalizan; auth y pairing abren la puerta; la entrega sale." />
 
+## El patrón canónico
+
+Cinco pasos en orden:
+
+1. **Adaptador** convierte el evento de la plataforma (webhook, polling, WS) en un evento interno con `chat_id`, `user_id`, `text`, `metadata`.
+2. **Auth** valida el origen (allowlist, código de pairing, OAuth). Por defecto, deny.
+3. **Routing** elige la sesión: `clave → fila en SQLite → contexto`.
+4. **Agent run** llama al bucle con el mensaje, espera respuesta (stream si toca).
+5. **Delivery** envía la respuesta por el adaptador de la plataforma. Sin espejo en el transcript, sin logs del usuario.
+
+<Myth>
+"El gateway es solo un proxy HTTP." Un proxy no mantiene conexiones, no normaliza eventos, no autoriza, no entrega con retries. Un gateway es un **proceso con estado**.
+</Myth>
+
 ## Trabajos del gateway
 
-Adaptadores, pairing/allowlists, slash commands con guarda, entrega (a menudo sin espejo en el transcript), fondo (cron, caducidad, flush de memoria).
+El gateway hace siete cosas, en este orden de criticidad:
+
+1. **Adaptadores** — uno por plataforma. Conecta, desconecta, envía, recibe.
+2. **Pairing / allowlist** — quién puede hablar con el agente.
+3. **Slash commands** — `/model`, `/reset`, `/compact`, `/new`. Cada uno con guarda explícita.
+4. **Routing** — clave de sesión → fila SQLite → contexto.
+5. **Delivery** — enviar la respuesta. Con retries. Sin espejo en transcript.
+6. **Cron / scheduled** — jobs programados, sesión propia, entrega outbound.
+7. **Hygiene** — caducidad de sesión, flush de memoria, garbage collection.
+
+Si el gateway no hace la 1 y la 5, no es un gateway; es un script.
 
 ## Hermes frente a OpenClaw
 
-Hermes: `GatewayRunner`, clave `agent:main:…`, guarda de dos niveles, `/pair`. OpenClaw: un Gateway por host en WebSocket `:18789`, protocolo tipado, nodes `role: node`, Tailscale Serve.
+**Hermes** tiene un `GatewayRunner` que arranca adapters, mantiene conexiones, y ejecuta `AIAgent` por mensaje. La clave de sesión es `agent:main:{platform}:{chat_type}:{chat_id}`. La auth tiene dos niveles: allowlist por chat_id y código de pairing one-shot. El comando es `/pair`.
+
+**OpenClaw** corre un Gateway por host en WebSocket `:18789`. Protocolo tipado (JSON-RPC con tipos explícitos). Los nodes hablan al Gateway por `role: node`. La autenticación usa Tailscale Serve (mTLS) por debajo y códigos de pairing por encima.
+
+Mismo oficio. Distinto dueño del proceso y de la red.
+
+## Auth: deny por defecto
+
+Tres modos de auth, de más estricto a más abierto:
+
+- **Allowlist explícita** — solo los `chat_id` de la lista pueden hablar. Apropiado para producción.
+- **Pairing one-shot** — un código generado por el gateway; el primer mensaje lo incluye; queda allowlisted.
+- **Open con wildcard** — cualquiera puede hablar. Apropiado para sandbox / pruebas, **nunca** para producción.
+
+<Myth>
+"Open con wildcard está bien para empezar." Está bien para que te exfiltren el inbox el martes.
+</Myth>
+
+## Clave de sesión: el ruteo
+
+La clave de sesión decide qué hilo recibe el mensaje. Formatos comunes:
+
+- **Hermes**: `agent:main:{platform}:{chat_type}:{chat_id}`. Un DM con un usuario es un hilo; un grupo es otro.
+- **OpenClaw**: configurable. `session.dmScope` decide si todos los DM del mismo agente van al mismo hilo (`main`) o se aíslan por usuario. Crítico si compartes el agente entre varios humanos con contextos que no deberían mezclarse.
+
+La clave vive en una fila SQLite. El gateway la resuelve en cada mensaje, sin estado en memoria. Si el gateway reinicia, no pierde el routing.
+
+## Delivery: la parte descuidada
+
+La entrega tiene tres fallos comunes:
+
+1. **Sin retries** — la plataforma cae 30 segundos; el mensaje se pierde. El gateway debe reintentar con backoff.
+2. **Espejado en transcript** — la respuesta del agente aparece como un mensaje del usuario siguiente. Alternancia rota.
+3. **Sin formato** — un mensaje Markdown del agente se envía como texto plano en WhatsApp. Pierde estructura.
+
+La práctica: la entrega es **outbound** (no se espeja), con retries exponenciales, y un adapter por plataforma que sepa serializar el formato correcto (Markdown → WhatsApp, HTML → Slack, etc.).
+
+<Compare a="Delivery con retries" b="Delivery sin retries">
+
+<Side>
+La plataforma está caída 30 segundos. El gateway reintenta 1s, 4s, 16s, 64s. La entrega tiene éxito. El usuario recibe el mensaje.
+
+</Side>
+
+<Side>
+La plataforma está caída 30 segundos. El mensaje se pierde. El usuario re-envía. El agente contesta dos veces.
+
+</Side>
+
+</Compare>
+
+## Adaptadores: la pieza más variable
+
+Un adaptador implementa:
+
+- `connect()` — abre conexión (long-poll, WS, webhook server).
+- `disconnect()` — cierra limpio.
+- `receive()` → `Event` — normaliza el evento a `{chat_id, user_id, text, ...}`.
+- `send(chat_id, content)` — entrega formateada.
+- `pair(code)` — opcional, para plataformas que lo soporten.
+
+Hermes tiene adaptadores para Telegram, Discord, Slack, WhatsApp, IRC. OpenClaw tiene los mismos más un "raw" para integraciones custom. La interfaz es la misma; el detalle de plataforma es lo que cambia.
+
+## El gateway como singleton
+
+El gateway **debe** ser un singleton por token de plataforma. Si dos procesos comparten el mismo token de Telegram, o ambos aletean (race conditions en updates) o uno se queda mudo (otro se quedó con el lock). La solución:
+
+- **Lock por token** — un solo proceso posee la conexión. Otros esperan.
+- **Leader election** — un coordinador (etcd, Redis, el propio gateway) elige al dueño.
+- **Stateless con idempotency** — si tu adaptador soporta idempotency keys, dos réplicas pueden coexistir sin pisarse.
+
+<Myth>
+"Escalar el gateway es fácil, solo lanza más instancias." Escalar la **recepción** es fácil. Escalar la **conexión con la plataforma** requiere lock o idempotency.
+</Myth>
 
 ## Caso: dos perfiles, un token
 
-**Caso.** Dos procesos comparten el mismo token de Telegram. Uno muere o ambos aletean.
+**Caso.** Dos procesos comparten el mismo token de Telegram. Uno muere o ambos aletean. Los mensajes se pierden, llegan dos veces, o llegan en el orden equivocado.
 
-**Patrón.** Bloqueo por token / un solo dueño de la sesión del bot.
+**Patrón.** Bloqueo por token / un solo dueño de la sesión del bot. Si necesitas redundancia, pon un load balancer delante y usa una capa de sticky session basada en el `chat_id`. O migra a una plataforma con webhook idempotente y múltiples workers.
+
+## Prefill/decode y el gateway
+
+El gateway no ejecuta el modelo, pero paga prefill:
+
+- **Prefill** — se paga en el bucle, no en el gateway. Pero el gateway decide qué pasa al bucle (el mensaje, el contexto, los tools visibles).
+- **Decode** — se paga en el bucle. El gateway recibe el stream y lo entrega token a token (o acumula si la plataforma no soporta stream).
+
+Lo que el gateway *puede* hacer bien: mantener el **system prompt cacheado** entre mensajes de la misma sesión. Si la sesión tiene una larga vida y el system prompt es estable, el prefill se amortigua sobre todos los turnos.
+
+## El gateway como observabilidad
+
+Un gateway bien diseñado tiene un único log estructurado por turno:
+
+```
+ts=2026-08-27T09:00:00Z
+session=agent:main:telegram:dm:12345
+turn=42
+tokens_in=12450  tokens_out=850
+cache_hit=true
+tools_called=["search", "read_file"]
+duration_ms=4200
+```
+
+Si no puedes reproducir un bug con eso, tu observabilidad tiene un agujero. Cada campo debe estar poblado por defecto.
 
 <Steps>
-<Step title="Normalizar">El adaptador convierte el webhook en un evento con chat_id, user_id, texto.</Step>
-<Step title="Autorizar">Allowlist, código de pairing, o open con comodín — por defecto deny.</Step>
-<Step title="Correr y entregar">Resolver sesión, agent run, enviar.</Step>
+<Step title="Adaptadores por plataforma">
+Telegram, Discord, Slack, WhatsApp, IRC, custom. Cada uno con connect / disconnect / receive / send.
+</Step>
+<Step title="Auth deny por defecto">
+Allowlist o pairing. Open solo en sandbox.
+</Step>
+<Step title="Routing por clave">
+`agent:main:{platform}:{chat_type}:{chat_id}`. Resolver en SQLite, no en memoria.
+</Step>
+<Step title="Delivery con retries">
+Backoff exponencial. Sin espejo en transcript. Formato por plataforma.
+</Step>
+<Step title="Singleton por token">
+Un dueño de la conexión por plataforma. Lock o idempotency keys si escalas.
+</Step>
+<Step title="Log estructurado por turno">
+ts, session, turn, tokens, cache_hit, tools, duration. Reproduce bugs con eso.
+</Step>
 </Steps>
 
-<TryThis>
-Lista cinco métodos de un adaptador: connect, disconnect, send, y dos opcionales. Contrasta luego con las lecciones de producto.
-</TryThis>
+## Lista práctica
 
-Docs: [gateway Hermes](https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals), [arquitectura OpenClaw](https://docs.openclaw.ai/concepts/architecture).
+1. Gateway = proceso con estado. No proxy HTTP.
+2. Auth deny por defecto. Allowlist o pairing.
+3. Routing por clave de sesión en SQLite.
+4. Delivery outbound, con retries, formato por plataforma.
+5. Singleton por token de plataforma.
+6. Cron y hygiene viven en el gateway (o cerca).
+7. Log estructurado por turno. Reproducible.
+
+## Fuentes
+
+- Hermes — *Gateway internals*. https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals
+- OpenClaw — *Architecture*. https://docs.openclaw.ai/concepts/architecture
+- Tailscale — *Serve and funnel*. https://tailscale.com/kb/1223/serve/
+- JSON-RPC 2.0 spec. https://www.jsonrpc.org/specification
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué hace un gateway que no hace un proxy HTTP?",
+      options: [
+        { id: "a", text: "Cobra dinero." },
+        { id: "b", text: "Mantiene conexiones, normaliza eventos, autoriza, rutea por sesión, ejecuta el agente, entrega con retries. Es un proceso con estado." },
+        { id: "c", text: "Es un load balancer." },
+        { id: "d", text: "Solo HTTP, igual que el proxy." }
+      ],
+      correct: "b",
+      explanation: "Un proxy HTTP no tiene estado: reenvía y olvida. Un gateway mantiene conexiones activas con cada plataforma, normaliza eventos heterogéneos a un modelo interno, autoriza, rutea por sesión persistente, ejecuta el bucle del agente, y entrega con retries. Siete trabajos, no dos."
+    },
+    {
+      id: "q2",
+      stem: "Tu gateway tiene 'open con wildcard' en producción. ¿Cuál es el riesgo real?",
+      options: [
+        { id: "a", text: "Ninguno, está bien para empezar." },
+        { id: "b", text: "Cualquiera puede hablar con el agente. Combinado con RAG sobre datos privados y herramientas con side-effect (email, shell, http_post), es la tríada letal completa. La auth deny por defecto con allowlist o pairing es la defensa." },
+        { id: "c", text: "Solo spam." },
+        { id: "d", text: "Es un bug menor." }
+      ],
+      correct: "b",
+      explanation: "Open con wildcard + RAG sobre datos privados + tools con side-effect compone la tríada letal. Cualquier chunk inyectado puede pedir exfiltración. Auth deny por defecto (allowlist o pairing one-shot) es el suelo. Open es solo para sandbox."
+    },
+    {
+      id: "q3",
+      stem: "Dos réplicas del gateway comparten el mismo token de Telegram. ¿Por qué es un problema?",
+      options: [
+        { id: "a", text: "Consume más memoria." },
+        { id: "b", text: "Ambas intentan mantener la conexión con Telegram. Los updates se pierden, llegan dos veces, o llegan en orden inverso. La solución es un lock por token (un solo dueño) o idempotency keys en la plataforma." },
+        { id: "c", text: "Es lo normal en sistemas distribuidos." },
+        { id: "d", text: "El proveedor lo prohíbe." }
+      ],
+      correct: "b",
+      explanation: "Telegram (y la mayoría de plataformas de chat) espera un único dueño del webhook o long-poll. Dos procesos compitiendo por updates se pisan. Solución: lock distribuido por token, o migrar a una plataforma con idempotency keys (Fewer retries, fewer duplicates)."
+    },
+    {
+      id: "q4",
+      stem: "¿Por qué el gateway debe loguear tokens_in, cache_hit y tools_called por turno?",
+      options: [
+        { id: "a", text: "Para cobrar al usuario." },
+        { id: "b", text: "Porque sin esos campos no puedes reproducir un bug. Una fila de log sin tokens ni cache_hit no te dice si el prefill fue fresco, si el modelo recibió lo que crees, o qué tools se ejecutaron." },
+        { id: "c", text: "Para debugging de UI." },
+        { id: "d", text: "No es necesario." }
+      ],
+      correct: "b",
+      explanation: "Reproducibilidad. Si un usuario reporta 'el agente no me escuchó', necesitas saber qué tokens llegaron al modelo (¿el prefijo era estable?), si hubo cache hit (¿se invalidó la caché?), y qué tools se ejecutaron. Sin esos campos, depurar es adivinar."
+    }
+  ]}
+/>

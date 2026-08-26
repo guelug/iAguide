@@ -5,28 +5,53 @@ import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import { Flow, Node3D, Slab, Tag, Turntable, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
+import { useCopy } from "@/lib/useCopy";
 
 type Step = "three" | "turn" | "hf" | "rotate" | "myth";
 
-const OPTIONS = [
-  { value: "three" as const, label: "three bills", tone: "var(--teal)" },
-  { value: "turn" as const, label: "one turn", tone: "var(--amber)" },
-  { value: "hf" as const, label: "HF credit", tone: "var(--violet)" },
-  { value: "rotate" as const, label: "429 / 402", tone: "var(--amber)" },
-  { value: "myth" as const, label: "Plus myth", tone: "var(--teal)" },
-];
+
 
 export default function Visual() {
+  const t = useCopy({
+    en: {
+      "what_a_harness_spends": "What a harness spends",
+      "step_the_diagram": "step the diagram",
+      "one_turn": "one turn",
+      "hf_credit": "HF credit",
+      "plus_myth": "Plus myth",
+      "local_credit": "local / credit",
+      "api_token": "API token",
+      "electricity": "electricity"
+    },
+    es: {
+      "what_a_harness_spends": "qué gasta un harness",
+      "step_the_diagram": "recorre el diagrama",
+      "one_turn": "un turno",
+      "hf_credit": "crédito de HF",
+      "plus_myth": "mito del Plus",
+      "local_credit": "local / crédito",
+      "api_token": "token de API",
+      "electricity": "electricidad"
+    },
+  });
+
+  const OPTIONS = [
+    { value: "three" as const, label: "three bills", tone: "var(--teal)" },
+    { value: "turn" as const, label: t.one_turn, tone: "var(--amber)" },
+    { value: "hf" as const, label: t.hf_credit, tone: "var(--violet)" },
+    { value: "rotate" as const, label: "429 / 402", tone: "var(--amber)" },
+    { value: "myth" as const, label: t.plus_myth, tone: "var(--teal)" },
+  ];
   const [step, setStep] = useState<Step>("three");
 
   return (
     <Figure
-      label="What a harness spends"
-      hint="step the diagram"
+      label={t.what_a_harness_spends}
+      hint={t.step_the_diagram}
       legend={[
         { color: P.teal, label: "subscription quota" },
         { color: P.amber, label: "pay-per-token" },
-        { color: P.violet, label: "local / credit" },
+        { color: P.violet, label: t.local_credit },
       ]}
       controls={
         <Switcher
@@ -39,18 +64,18 @@ export default function Visual() {
     >
       <Stage className="h-full w-full" maxDpr={1.75} camera={{ position: [0, 0.35, 7.4], fov: 40 }}>
         <Turntable speed={0.035} tilt={0.1}>
-          <Scene active={step} />
+          <Scene active={step} t={t} />
         </Turntable>
       </Stage>
     </Figure>
   );
 }
 
-function Scene({ active }: { active: Step }) {
+function Scene({ active, t }: { active: Step; t: any }) {
   return (
     <group>
-      {active === "three" ? <ThreeScene /> : null}
-      {active === "turn" ? <TurnScene /> : null}
+      {active === "three" ? <ThreeScene t={t} /> : null}
+      {active === "turn" ? <TurnScene t={t} /> : null}
       {active === "hf" ? <HfScene /> : null}
       {active === "rotate" ? <RotateScene /> : null}
       {active === "myth" ? <MythScene /> : null}
@@ -58,11 +83,11 @@ function Scene({ active }: { active: Step }) {
   );
 }
 
-function ThreeScene() {
+function ThreeScene({ t }: { t: any }) {
   const cols = [
     { x: -2.15, h: 1.1, label: "sub quota", color: P.teal, tone: "teal" as const },
-    { x: 0.0, h: 1.55, label: "API token", color: P.amber, tone: "amber" as const },
-    { x: 2.15, h: 0.85, label: "electricity", color: P.violet, tone: "violet" as const },
+    { x: 0.0, h: 1.55, label: t.api_token, color: P.amber, tone: "amber" as const },
+    { x: 2.15, h: 0.85, label: t.electricity, color: P.violet, tone: "violet" as const },
   ];
   return (
     <group>
@@ -79,7 +104,7 @@ function ThreeScene() {
   );
 }
 
-function TurnScene() {
+function TurnScene({ t }: { t: any }) {
   return (
     <group>
       <Wire points={[[-2.5, 0.2, 0], [2.5, 0.2, 0]]} color={P.line} opacity={0.5} />
@@ -96,9 +121,7 @@ function TurnScene() {
       <Tag position={[2.2, 1.5, 0]} tone="violet" center>
         N calls
       </Tag>
-      <Tag position={[0, -0.85, 0]} tone="amber" center>
-        one turn
-      </Tag>
+      <Tag position={[0, -0.85, 0]} tone="amber" center>{t.one_turn}</Tag>
     </group>
   );
 }

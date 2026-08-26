@@ -5,27 +5,50 @@ import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import { Flow, Node3D, Slab, Tag, Turntable, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
+import { useCopy } from "@/lib/useCopy";
 
 type Step = "repos" | "tokens" | "cli" | "cache";
 
-const OPTIONS = [
-  { value: "repos" as const, label: "repos", tone: "var(--teal)" },
-  { value: "tokens" as const, label: "tokens", tone: "var(--amber)" },
-  { value: "cli" as const, label: "hf cli", tone: "var(--violet)" },
-  { value: "cache" as const, label: "cache", tone: "var(--teal)" },
-];
+
 
 export default function Visual() {
+  const t = useCopy({
+    en: {
+      "step_the_diagram": "step the diagram",
+      "cache": "cache",
+      "git_xet_repo": "Git + Xet repo",
+      "cli_cache": "CLI / cache",
+      "fine_grained": "fine-grained",
+      "hub_cache": "hub cache",
+      "prune": "prune"
+    },
+    es: {
+      "step_the_diagram": "recorre el diagrama",
+      "cache": "caché",
+      "git_xet_repo": "repo Git + Xet",
+      "cli_cache": "CLI / caché",
+      "fine_grained": "fino",
+      "hub_cache": "caché del hub",
+      "prune": "purga"
+    },
+  });
+
+  const OPTIONS = [
+    { value: "repos" as const, label: "repos", tone: "var(--teal)" },
+    { value: "tokens" as const, label: "tokens", tone: "var(--amber)" },
+    { value: "cli" as const, label: "hf cli", tone: "var(--violet)" },
+    { value: "cache" as const, label: t.cache, tone: "var(--teal)" },
+  ];
   const [step, setStep] = useState<Step>("repos");
 
   return (
     <Figure
       label="Hugging Face Hub"
-      hint="step the diagram"
+      hint={t.step_the_diagram}
       legend={[
-        { color: P.teal, label: "Git + Xet repo" },
+        { color: P.teal, label: t.git_xet_repo },
         { color: P.amber, label: "token / scope" },
-        { color: P.violet, label: "CLI / cache" },
+        { color: P.violet, label: t.cli_cache },
       ]}
       controls={
         <Switcher
@@ -38,20 +61,20 @@ export default function Visual() {
     >
       <Stage className="h-full w-full" maxDpr={1.75} camera={{ position: [0, 0.35, 7.4], fov: 40 }}>
         <Turntable speed={0.035} tilt={0.1}>
-          <Scene active={step} />
+          <Scene active={step} t={t} />
         </Turntable>
       </Stage>
     </Figure>
   );
 }
 
-function Scene({ active }: { active: Step }) {
+function Scene({ active, t }: { active: Step; t: any }) {
   return (
     <group>
       {active === "repos" ? <ReposScene /> : null}
-      {active === "tokens" ? <TokensScene /> : null}
+      {active === "tokens" ? <TokensScene t={t} /> : null}
       {active === "cli" ? <CliScene /> : null}
-      {active === "cache" ? <CacheScene /> : null}
+      {active === "cache" ? <CacheScene t={t} /> : null}
     </group>
   );
 }
@@ -87,9 +110,9 @@ function ReposScene() {
   );
 }
 
-function TokensScene() {
+function TokensScene({ t }: { t: any }) {
   const bars = [
-    { x: -2.1, h: 0.9, label: "fine-grained", color: P.teal, tone: "teal" as const, fill: 0.55 },
+    { x: -2.1, h: 0.9, label: t.fine_grained, color: P.teal, tone: "teal" as const, fill: 0.55 },
     { x: 0.0, h: 1.35, label: "read", color: P.amber, tone: "amber" as const, fill: 0.5 },
     { x: 2.1, h: 1.85, label: "write", color: P.violet, tone: "violet" as const, fill: 0.42 },
   ];
@@ -137,11 +160,11 @@ function CliScene() {
   );
 }
 
-function CacheScene() {
+function CacheScene({ t }: { t: any }) {
   const items: { x: number; label: string; tone: "teal" | "amber" | "violet"; color: string }[] = [
     { x: -2.15, label: "HF_HOME", tone: "teal", color: P.teal },
-    { x: 0.0, label: "hub cache", tone: "amber", color: P.amber },
-    { x: 2.15, label: "prune", tone: "violet", color: P.violet },
+    { x: 0.0, label: t.hub_cache, tone: "amber", color: P.amber },
+    { x: 2.15, label: t.prune, tone: "violet", color: P.violet },
   ];
   return (
     <group>

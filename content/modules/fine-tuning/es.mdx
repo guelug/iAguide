@@ -4,16 +4,61 @@
 - **<Term id="lora">LoRA</Term>** — congelar el base; aprender un par de rango bajo cuyo producto es ΔW. El movimiento <Term id="peft">PEFT</Term> por defecto.
 - **<Term id="qlora">QLoRA</Term>** — LoRA con el base en 4 bits (típicamente <Term id="nf4">NF4</Term>) para que un modelo más grande quepa en una GPU. El adapter que guardas sigue siendo pequeño; luego lo fusionas o lo cargas encima del base.
 
-LoRA no es más débil “por definición”. Lo es cuando el rango es demasiado pequeño para la conducta que quieres, o cuando los datos se contradicen.
-
+LoRA no es más débil "por definición". Lo es cuando el rango es demasiado pequeño para la conducta que quieres, o cuando los datos se contradicen.
 
 <VisualSlot caption="W congelada, un par LoRA BA fino, y la suma servida. Function-calling es una plantilla que puedes entrenar encima." />
 
+## Cómo funciona LoRA por dentro
+
+La idea elegante: en lugar de actualizar la matriz W completa, aprendes una corrección ΔW de rango bajo. Concretamente, para una matriz W de dimensión d×k, LoRA añade:
+
+$$
+W' = W + \frac{\alpha}{r} \cdot B \cdot A
+$$
+
+Donde A es k×r, B es r×d, y r es el rango (típicamente 4–64). A se inicializa aleatorio; B se inicializa a cero, de modo que al principio W' = W (el modelo empieza idéntico al base). Solo se entrenan A y B.
+
+- **Memoria entrenando:** solo guardas gradientes y estado del optimizador para A y B. Para r=16 y d=4096, A y B son 4096·16 + 16·4096 = 131k parámetros cada uno por capa. Para 32 capas, ~8M parámetros. Comparado con 7B: una gota.
+- **Memoria del base:** sin cuant, W está en fp16/bf16. Con QLoRA, está en 4-bit (NF4).
+- **Inferencia:** o cargas W y los adapters y calculas W + (α/r)BA en cada forward (algo más caro), o fusionas el adapter al modelo y sirves W' como un modelo normal (mismo coste que el base).
+
+<Compare>
+<Side title="Full fine-tuning">
+W se actualiza. Memoria: 12·N bytes (pesos + gradientes + optimizador). Necesitas GPUs grandes. Calidad máxima.
+</Side>
+<Side title="LoRA">
+W congelada. Solo A y B se entrenan. Memoria: 12·N_adapter bytes (minúsculo) + N_bytes para el base. GPUs pequeñas. Calidad comparable en muchos casos.
+</Side>
+<Side title="QLoRA">
+W congelada Y cuantizada a 4-bit (NF4). Memoria: ~0.5·N_bytes para el base + N_adapter. Puedes cargar un 70B en una sola A100 80GB.
+</Side>
+</Compare>
+
+<Myth>
+"LoRA es siempre inferior a full fine-tuning." No. Para muchas tareas, LoRA con buen rango y buenos datos queda dentro del 1–2% del full FT. La diferencia importa más cuando el modelo necesita aprender capacidades muy nuevas (idiomas, dominios raros) que el base no había visto.
+
 ## La calidad del dato gana a las épocas extra
 
-Unos cientos de ejemplos *limpios*, con esquema estable, en la **misma plantilla que servirás**, ganan a un volcado raspado. Deduplica. Pon la instrucción en el turno de usuario si así lo vas a llamar. Incluye un poco de “decir que no / preguntar” para que no cumpla siempre.
+Unos cientos de ejemplos *limpios*, con esquema estable, en la **misma plantilla que servirás**, ganan a un volcado raspado. Deduplica. Pon la instrucción en el turno de usuario si así lo vas a llamar. Incluye un poco de "decir que no / preguntar" para que no cumpla siempre.
 
 Evalúa antes de publicar: un set aparte de prompts que te importen, juzgados por ti o por un script, no por un ranking público.
+
+<Term id="few-shot-eval">Few-shot eval</Term> es tentador ("le doy 5 ejemplos y juzgo"). Pero pocos ejemplos no capturan varianza; necesitas un set de eval reservado, juzgado consistentemente, del orden de 30–100 prompts para tener señal.
+
+<Steps>
+<Step>
+**Reúne 100–500 ejemplos limpios** en la plantilla de chat que usarás (ChatML, Llama-3, etc.).
+</Step>
+<Step>
+**Reserva 20–50 prompts para eval**, que *no* entrenes.
+</Step>
+<Step>
+**Juzga tú**, con una rúbrica escrita, o con un LLM juez que también valides contra ti.
+</Step>
+<Step>
+**Mira la distribución de fallos.** Si todos los fallos son del mismo tipo, hay bug; si son variados, falta capacidad.
+</Step>
+</Steps>
 
 ## Hiperparámetros que de verdad tocas
 
@@ -25,7 +70,39 @@ Los nombres cambian de herramienta; las ideas no:
 - **épocas / pasos** — los sets pequeños se sobreajustan rápido. Mejor parar con un eval minúsculo.
 - **módulos objetivo** — como mínimo las proyecciones de atención; algunas recetas añaden MLP. Más módulos = más capacidad y memoria.
 
-No imprimimos un LR “universal”. Lee el ejemplo actual de la herramienta para tu modelo base.
+No imprimimos un LR "universal". Lee el ejemplo actual de la herramienta para tu modelo base.
+
+<Compare>
+<Side title="Receta 'segura' (LoRA conservador)">
+r=8, alpha=16, módulos=q_proj/v_proj, LR=2e-4, 3 épocas, batch=4, gradient accumulation=4. Buen punto de partida para SFT de estilo.
+</Side>
+<Side title="Receta 'agresiva' (LoRA con más capacidad)">
+r=64, alpha=128, módulos=q/k/v/o + gate/up/down, LR=1e-4, 5–10 épocas. Para tareas que requieren cambio de comportamiento más profundo.
+</Side>
+</Compare>
+
+<Callout>
+El LR "correcto" depende del modelo base. Llama 3 fine-tunea bien con LR 1e-4 a 3e-4 en LoRA; Mistral acepta 2e-4; modelos más grandes suelen querer LR más bajo. Cuando copies una receta, mira el modelo base para el que fue escrita.
+</Callout>
+
+## NEFTune y otros trucos de regularización
+
+Cuando haces SFT con pocos datos (cientos de pares), el modelo sobreajusta rápido. Trucos comunes:
+
+<Steps>
+<Step>
+**<Term id="neftune">NEFTune</Term>**. Añade ruido uniforme a los embeddings de input durante el entrenamiento. Suena raro; funciona. Mejora la robustez del modelo afinado en datos limitados.
+</Step>
+<Step>
+**Weight decay**. Regularización L2 estándar. Útil incluso con LoRA (donde solo se aplica a los parámetros entrenados).
+</Step>
+<Step>
+**Dropout**. En los módulos LoRA. Útil con datasets grandes; innecesario con datasets pequeños.
+</Step>
+<Step>
+**Early stopping**. Evalúa cada N pasos; para cuando el eval se degrada. El mejor amigo contra el sobreajuste.
+</Step>
+</Steps>
 
 ## Herramientas con nombre real (2026)
 
@@ -36,6 +113,21 @@ Siguen siendo las tres que te encuentras:
 - **torchtune** — recetas PyTorch que puedes leer como Python. Historia MPS en Apple Silicon más decente que el stack centrado en CUDA.
 
 Hugging Face TRL sostiene buena parte de esto. Usa un stack de punta a punta; mezclar un export de Unsloth con un YAML de Axolotl que no entiendes es cómo se evaporan los fines de semana.
+
+<Compare>
+<Side title="Unsloth">
+NVIDIA. LoRA/QLoRA rápido. Integración con export a GGUF. Ideal para: hobby, single-GPU, rapidez de iteración.
+</Side>
+<Side title="Axolotl">
+YAML-driven. Muchas recetas (full FT, LoRA, DPO, GRPO). Ideal para: pipelines reproducibles, multi-GPU, cocinas de opciones.
+</Side>
+<Side title="torchtune">
+Recetas PyTorch nativas. MPS decente para Apple Silicon. Ideal para: Mac, lectura como código, investigación.
+</Side>
+<Side title="Hugging Face TRL">
+SFTTrainer, DPOTrainer, GRPOTrainer. La librería detrás de muchos. Ideal para: integración con Trainer estándar.
+</Side>
+</Compare>
 
 ## Esquema de comandos (no para pegar y rezar)
 
@@ -53,22 +145,143 @@ Lee siempre el README actual del proyecto. La *forma* es:
 
 El camino de Unsloth suele terminar en un GGUF para llama.cpp u Ollama. Axolotl y torchtune suelen dejar pesos Hugging Face; conviertes después si necesitas GGUF.
 
+<Term id="merge-and-unload">Merge and unload</Term> es el nombre común en Unsloth: fusionas el adapter LoRA al modelo base y exportas un directorio HF con pesos completos. Si después quieres cuantizar a GGUF, lo haces con llama.cpp's `convert` + `quantize`.
+
+<Steps>
+<Step>
+**Trainer → adapter**. El trainer guarda solo los pesos LoRA (decenas de MB).
+</Step>
+<Step>
+**Adapter → fusionado**. Con `merge_and_unload()` o equivalente: W' = W + (α/r)BA. Pesos fusionados: tamaño completo del modelo.
+</Step>
+<Step>
+**Fusionado → cuantizado** (opcional). GGUF, AWQ, GPTQ, EXL2, según dónde sirvas.
+</Step>
+</Steps>
+
 <TryThis>
 Antes de instalar nada, escribe 20 prompts de eval que tu LoRA no deba fallar. Si no puedes escribir veinte, aún no tienes una tarea: tienes un humor.
 </TryThis>
 
 <Myth>
-“QLoRA es un modelo de 4 bits para siempre.” QLoRA es cómo *entrenas*. Puedes fusionar a un artefacto de más precisión para servir, o dejar el adapter aparte. Servir un GGUF de 4 bits es otra decisión (módulo de cuantización).
+"QLoRA es un modelo de 4 bits para siempre." QLoRA es cómo *entrenas*. Puedes fusionar a un artefacto de más precisión para servir, o dejar el adapter aparte. Servir un GGUF de 4 bits es otra decisión (módulo de cuantización).
 </Myth>
 
 ## Function-calling es una plantilla que puedes entrenar
 
 Si el modelo tiene que *aprender* a emitir tokens de tools, eso es un fine-tune — Bonus 1 de Hugging Face, en [fine-tune de function-calling](/course/function-calling-ft). Reúne ~20 pares limpios antes de tocar Unsloth. Si el esquema aún se mueve, **no afinés**; arregla el esquema.
 
+<Callout>
+Si quieres que el modelo use una tool, el esquema JSON debe ser estable entre los datos de entrenamiento y el esquema de producción. Un cambio de campo en producción rompe todo el adapter. Entrena con el esquema final.
+</Callout>
+
 <TryThis>
 Escribe cinco prompts que *no* deban llamar a una tool, y cinco que deban llamar exactamente a una. Si no puedes, no tienes una tarea de function-calling. Tienes una esperanza.
 </TryThis>
 
+## Cuándo NO hacer fine-tuning
+
+Antes de gastar un fin de semana afinando, pregúntate:
+
+<Compare>
+<Side title="Sí fine-tune cuando">
+Tienes datos de calidad, una tarea específica repetitiva, y necesitas latencia o coste menor que prompting largo. O necesitas que el modelo emita un formato que el base no produce de forma fiable.
+</Side>
+<Side title="No fine-tune cuando">
+No tienes datos limpios, la tarea cambia cada semana, o el prompting con un buen system message te da el 90% de lo que necesitas. El fine-tuning amplifica; si tu señal es ruidosa, amplifica ruido.
+</Side>
+</Compare>
+
+## LoRA vs prompt engineering: el presupuesto mental
+
+Un fine-tune toma horas a días. Un cambio de prompt toma minutos. Empieza por el prompt; si después de 3–5 iteraciones sigues sin llegar, plantéate fine-tuning.
+
+<Term id="prompt-engineering">Prompt engineering</Term> es infra gratis; LoRA es infra que pagas una vez y amortizas. Si la tarea es estable y de alta frecuencia, LoRA gana. Si es exploratoria, prompt.
+
 ## Caso — LoRA sobre un esquema móvil
 
 Un equipo afinó tool calls mientras el esquema JSON cambiaba cada sprint. El adapter del lunes rechazaba los campos del viernes. Congelaron el esquema y luego entrenaron. El LoRA estaba bien; el proceso no.
+
+## Caso — el LoRA que olvidó decir hola
+
+Un equipo afinó un modelo para responder preguntas técnicas muy específicas con 500 pares del dominio. El modelo aprendió a ser preciso y telegráfico. Olvidó saludar, despedirse, y manejar preguntas generales. El producto perdió el registro conversacional.
+
+Arreglo: mezclar ~10–20% de ejemplos generales (chit-chat, "no sé", "puedes reformular") en el dataset de entrenamiento. El LoRA aprende la tarea nueva sin borrar el comportamiento general.
+
+## Caso — el LoRA con rango insuficiente
+
+Un equipo afinó un 13B con LoRA r=4 (el mínimo) para una tarea de razonamiento largo. El modelo aprendió algo pero se quedó corto: las mejoras saturaron pronto. Subieron a r=32 y el rendimiento mejoró notablemente.
+
+Lección: el rango importa. r=4 sirve para ajustes de estilo (formato, tono); r=16–64 para adaptaciones más profundas; r=128+ se acerca a full FT en capacidad.
+
+## Caso — el adapter que no fusionaba
+
+Un equipo usó Unsloth y guardó el adapter. Cuando intentaron fusionarlo semanas después con una versión distinta de transformers, falló: la estructura de capas del modelo base había cambiado. Tuvieron que reentrenar.
+
+Lección: congela el commit del modelo base, las versiones de transformers/peft, y el hash del tokenizer junto con el adapter. Sin eso, "cargar el LoRA viejo" puede ser imposible.
+
+## Quiz rápido
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué hace exactamente LoRA?",
+      options: [
+        { id: "a", text: "Reentrena todos los parámetros del modelo." },
+        { id: "b", text: "Aprende dos matrices pequeñas A (k×r) y B (r×d) cuya diferencia ΔW = (α/r)·BA se suma a la matriz congelada W; solo A y B reciben gradientes y estado del optimizador." },
+        { id: "c", text: "Cuantiza el modelo a 4 bits para siempre." },
+        { id: "d", text: "Entrena un modelo desde cero." }
+      ],
+      correct: "b",
+      explanation: "LoRA congela W y aprende A (k×r) y B (r×d), de modo que la matriz efectiva es W + (α/r)BA. Como r es pequeño (4–64), A y B tienen muchísimos menos parámetros que W, y solo ellos reciben gradientes y estado del optimizador. Al final puedes fusionarlos o servirlos por separado."
+    },
+    {
+      id: "q2",
+      stem: "Tu LoRA sobre un modelo 7B en fp16 con r=16, alpha=32, módulos=q/v_proj. Aproximadamente, ¿cuántos parámetros entrenables?",
+      options: [
+        { id: "a", text: "7B (todos)." },
+        { id: "b", text: "≈ 4–16 millones (depende de capas y dimensiones); muchísimos menos que 7B porque solo A y B de cada capa." },
+        { id: "c", text: "70 mil millones." },
+        { id: "d", text: "No se puede saber." }
+      ],
+      correct: "b",
+      explanation: "Para cada capa con d=4096 y r=16, A y B son 4096·16 + 16·4096 = 131k parámetros. Con ~32 capas y solo q/v_proj (dos matrices por capa), son ~8M parámetros. Algunos millones, no miles de millones. Por eso LoRA entrena en GPUs pequeñas."
+    },
+    {
+      id: "q3",
+      stem: "¿Por qué es crítico usar exactamente la misma plantilla de chat en SFT y en inferencia?",
+      options: [
+        { id: "a", text: "Por estética." },
+        { id: "b", text: "Porque el modelo aprende los tokens especiales (system, user, assistant) durante el SFT; si cambias la plantilla en producción, los tokens no coinciden y el modelo degrada mucho." },
+        { id: "c", text: "Es un requisito de Hugging Face." },
+        { id: "d", text: "Solo afecta al rendimiento." }
+      ],
+      correct: "b",
+      explanation: "Los modelos instruct se entrenan con delimitadores específicos (ChatML usa <|im_start|>system<|im_sep|>...; Llama-3 usa <|begin_of_text|><|start_header_id|>...). Si cambias la plantilla en inferencia, el modelo ve tokens que no aprendió y no sabe dónde comienza su respuesta. La degradación es severa."
+    },
+    {
+      id: "q4",
+      stem: "Acabas de entrenar un LoRA y tu eval reservado ha bajado respecto al SFT base. ¿Cuál es la causa más probable?",
+      options: [
+        { id: "a", text: "El modelo base estaba roto." },
+        { id: "b", text: "Sobreajuste: el modelo aprendió los datos de entrenamiento pero perdió capacidad general. Soluciones: mezclar datos generales, bajar épocas, subir eval temprano (early stopping), o bajar el rango LoRA." },
+        { id: "c", text: "El adapter está cuantizado." },
+        { id: "d", text: "El tokenizer cambió." }
+      ],
+      correct: "b",
+      explanation: "Si el eval reservado baja después de SFT, lo más común es sobreajuste: el modelo memorizó los datos de entrenamiento y olvidó comportamiento general. Las contramedidas son mezclar datos generales (10–30%), early stopping con tu set de eval, reducir épocas, o bajar el rango del LoRA."
+    }
+  ]}
+/>
+
+## Fuentes
+
+- Hu, E.J., et al. (2021). *LoRA: Low-Rank Adaptation of Large Language Models*. https://arxiv.org/abs/2106.09685
+- Dettmers, T., et al. (2023). *QLoRA: Efficient Finetuning of Quantized LLMs*. https://arxiv.org/abs/2305.14314
+- Mangrulkar, S., et al. (2022). *PEFT: State-of-the-art Parameter-Efficient Fine-Tuning methods*. https://github.com/huggingface/peft
+- Ivison, H., et al. (2023). *NEFTune: Noisy Embeddings Improve Instruction Finetuning*. https://arxiv.org/abs/2310.05914
+- Unsloth repo: https://github.com/unslothai/unsloth
+- Axolotl repo: https://github.com/axolotl-ai-cloud/axolotl
+- torchtune repo: https://github.com/pytorch/torchtune
+- Hugging Face TRL: https://huggingface.co/docs/trl

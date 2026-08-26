@@ -19,7 +19,7 @@
   "home": {
     "kicker": "Aula nocturna · 2026 · MIT",
     "title": "iAguide",
-    "promise": "Veintisiete módulos sobre cómo funciona de verdad la IA: los tokens bajo las palabras, el bucle alrededor de los pesos, la aritmética del entrenamiento y el bus de memoria que decide a qué velocidad piensas.",
+    "promise": "{count} módulos sobre cómo funciona de verdad la IA: los tokens bajo las palabras, el bucle alrededor de los pesos, la aritmética del entrenamiento y el bus de memoria que decide a qué velocidad piensas.",
     "cta": "Abrir el mapa del curso",
     "ctaAlt": "Empezar por el módulo 00",
     "scroll": "Baja",
@@ -107,16 +107,10 @@
     "disclaimer": "Aviso educativo"
   },
   "mdx": {
-    "tryThis": "Prueba esto",
+    "tryThis": "Pruébalo",
     "myth": "Mito",
     "callout": "Nota",
     "quiz": "Cuestionario",
-    "quizSaved": "Guardado en este navegador",
-    "quizHint": "Elige una opción. La explicación aparece al momento.",
-    "quizScore": "{correct} de {total} bien · {answered} respondidas",
-    "quizRetry": "Rehacer",
-    "quizCorrect": "Correcto",
-    "quizWrong": "No es esa"
   },
   "footer": {
     "license": "Licencia MIT",

@@ -72,9 +72,8 @@ function HarnessCluster() {
         <Node3D
           key={i}
           position={p}
-          color={i === 0 ? P.paper : P.amber}
+          color={i === 0 ? P.amberDeep : P.amber}
           radius={i === 0 ? 0.13 : 0.085}
-          intensity={i === 0 ? 2 : 1.1}
           pulse={i * 0.7}
         />
       ))}
@@ -93,11 +92,11 @@ function HarnessCluster() {
       {/* Tool call: out of the loop and back in. */}
       <Flow
         points={[ring[2], [-1.9, -0.35, 0.7], [-1.55, 0.6, 0.9], ring[3]]}
-        color={P.paper}
+        color={P.teal}
         count={2}
         speed={0.25}
         size={0.035}
-        lineOpacity={0.22}
+        lineOpacity={0.28}
       />
       <Halo radius={1.4} thickness={0.006} color={P.amber} opacity={0.25} rotation={[0, 0, 0]} />
     </group>
@@ -127,7 +126,7 @@ function ModelCluster() {
           position={[0, y, 0]}
           size={[1.5 - Math.abs(i - 3) * 0.06, 0.13, 1.1]}
           color={i % 3 === 0 ? P.violet : P.teal}
-          opacity={0.16}
+          fill={0.16}
           rim={0.5}
         />
       ))}
@@ -142,7 +141,7 @@ function ModelCluster() {
         radius={0.028}
         opacity={0.75}
       />
-      <Node3D position={[0, 1.28, 0]} color={P.paper} radius={0.1} intensity={2.4} pulse={0.2} />
+      <Node3D position={[0, 1.28, 0]} color={P.violet} radius={0.1} pulse={0.2} />
       <Motes count={90} radius={1.9} color={P.teal} size={0.02} opacity={0.4} speed={0.05} />
     </group>
   );
@@ -164,7 +163,7 @@ function SiliconCluster() {
             0,
           ],
           scale: filled ? 1 : 0.5,
-          color: filled ? (r === 4 ? P.violet : P.paper) : P.faint,
+          color: filled ? (r === 4 ? P.violet : P.teal) : P.faint,
         });
       }
     }
@@ -173,7 +172,7 @@ function SiliconCluster() {
 
   return (
     <group>
-      <Lattice cells={cells} size={0.13} emissive={0.55} />
+      <Lattice cells={cells} size={0.13} opacity={0.55} />
       <Wire
         points={[
           [-1.15, -0.85, 0],
@@ -194,7 +193,7 @@ function SiliconCluster() {
         size={0.045}
         lineOpacity={0}
       />
-      <Halo radius={1.45} thickness={0.005} color={P.paper} opacity={0.16} rotation={[0, 0, 0]} />
+      <Halo radius={1.45} thickness={0.005} color={P.violet} opacity={0.2} rotation={[0, 0, 0]} />
     </group>
   );
 }
@@ -229,9 +228,7 @@ export function LayerTriptych({
     <Stage
       className={className}
       camera={{ position: [0, 0, 9.4], fov: 44 }}
-      fog={[P.void, 10, 26]}
-      bloom={{ intensity: 0.9, threshold: 0.2 }}
-      vignette={false}
+      background={P.paper}
     >
       <Rig active={active} />
       <Cluster index={0} active={active}>

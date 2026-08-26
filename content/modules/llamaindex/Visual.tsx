@@ -5,28 +5,45 @@ import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import { Flow, Slab, Tag } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
+import { useCopy } from "@/lib/useCopy";
 
 type Mode = "index" | "query" | "agent";
 
 export default function Visual() {
+  const t = useCopy({
+    en: {
+      "index_retriever_agent": "index → retriever → agent",
+      "index": "index",
+      "agent": "agent",
+      "index_2": "Index",
+      "agent_2": "Agent"
+    },
+    es: {
+      "index_retriever_agent": "índice → retriever → agente",
+      "index": "índice",
+      "agent": "agente",
+      "index_2": "Índice",
+      "agent_2": "Agente"
+    },
+  });
   const [mode, setMode] = useState<Mode>("index");
   return (
     <Figure
-      label="index → retriever → agent"
+      label={t.index_retriever_agent}
       hint="LlamaIndex is retrieval-shaped"
       legend={[
-          { color: P.teal, label: "index" },
+          { color: P.teal, label: t.index },
           { color: P.amber, label: "queryengine" },
-          { color: P.violet, label: "agent" }
+          { color: P.violet, label: t.agent }
       ]}
       controls={
         <Switcher
           value={mode}
           onChange={setMode}
           options={[
-            { value: "index", label: "Index", tone: P.teal },
+            { value: "index", label: t.index_2, tone: P.teal },
             { value: "query", label: "QueryEngine", tone: P.amber },
-            { value: "agent", label: "Agent", tone: P.violet }
+            { value: "agent", label: t.agent_2, tone: P.violet }
           ]}
           ariaLabel="LlamaIndex is retrieval-shaped"
         />

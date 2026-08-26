@@ -5,28 +5,51 @@ import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import { Flow, Node3D, Slab, Tag, Turntable, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
+import { useCopy } from "@/lib/useCopy";
 
 type Step = "a" | "b" | "c" | "d" | "e";
 
-const OPTIONS = [
-  { value: "a" as const, label: "daemon", tone: "var(--teal)" },
-  { value: "b" as const, label: ":18789", tone: "var(--teal)" },
-  { value: "c" as const, label: "clients", tone: "var(--amber)" },
-  { value: "d" as const, label: "nodes", tone: "var(--violet)" },
-  { value: "e" as const, label: "one per host", tone: "var(--amber)" },
-];
+
 
 export default function Visual() {
+  const t = useCopy({
+    en: {
+      "step_the_diagram": "step the diagram",
+      "clients": "clients",
+      "nodes": "nodes",
+      "one_per_host": "one per host",
+      "core_path": "core path",
+      "cost_volatile": "cost / volatile",
+      "extension": "extension"
+    },
+    es: {
+      "step_the_diagram": "recorre el diagrama",
+      "clients": "clientes",
+      "nodes": "nodos",
+      "one_per_host": "uno por host",
+      "core_path": "ruta núcleo",
+      "cost_volatile": "coste / volátil",
+      "extension": "extensión"
+    },
+  });
+
+  const OPTIONS = [
+    { value: "a" as const, label: "daemon", tone: "var(--teal)" },
+    { value: "b" as const, label: ":18789", tone: "var(--teal)" },
+    { value: "c" as const, label: t.clients, tone: "var(--amber)" },
+    { value: "d" as const, label: t.nodes, tone: "var(--violet)" },
+    { value: "e" as const, label: t.one_per_host, tone: "var(--amber)" },
+  ];
   const [step, setStep] = useState<Step>("a");
 
   return (
     <Figure
       label="OpenClaw: one Gateway daemon"
-      hint="step the diagram"
+      hint={t.step_the_diagram}
       legend={[
-        { color: P.teal, label: "core path" },
-        { color: P.amber, label: "cost / volatile" },
-        { color: P.violet, label: "extension" },
+        { color: P.teal, label: t.core_path },
+        { color: P.amber, label: t.cost_volatile },
+        { color: P.violet, label: t.extension },
       ]}
       controls={
         <Switcher
@@ -39,14 +62,14 @@ export default function Visual() {
     >
       <Stage className="h-full w-full" maxDpr={1.75} camera={{ position: [0, 0.35, 7.4], fov: 40 }}>
         <Turntable speed={0.035} tilt={0.1}>
-          <Scene active={step} />
+          <Scene active={step} t={t} />
         </Turntable>
       </Stage>
     </Figure>
   );
 }
 
-function Scene({ active }: { active: Step }) {
+function Scene({ active, t }: { active: Step; t: any }) {
   return (
     <group>
       <Wire points={[[-2.6, 0.2, 0], [2.6, 0.2, 0]]} color={P.line} opacity={0.5} />
@@ -79,9 +102,7 @@ function Scene({ active }: { active: Step }) {
         color={active === "c" ? P.violet : P.lineStrong}
         fill={active === "c" ? 0.55 : 0.14}
       />
-      <Tag position={[0.75, 1.4500000000000002, 0.0]} tone="violet" center>
-        clients
-      </Tag>
+      <Tag position={[0.75, 1.4500000000000002, 0.0]} tone="violet" center>{t.clients}</Tag>
 
       <Slab
         position={[2.3, 0.9, 0.0]}
@@ -89,9 +110,7 @@ function Scene({ active }: { active: Step }) {
         color={active === "d" ? P.teal : P.lineStrong}
         fill={active === "d" ? 0.55 : 0.14}
       />
-      <Tag position={[2.3, 1.4500000000000002, 0.0]} tone="teal" center>
-        nodes
-      </Tag>
+      <Tag position={[2.3, 1.4500000000000002, 0.0]} tone="teal" center>{t.nodes}</Tag>
 
       <Slab
         position={[0.0, -1.05, 0.0]}
@@ -99,9 +118,7 @@ function Scene({ active }: { active: Step }) {
         color={active === "e" ? P.amber : P.lineStrong}
         fill={active === "e" ? 0.55 : 0.14}
       />
-      <Tag position={[0.0, -0.5, 0.0]} tone="amber" center>
-        one per host
-      </Tag>
+      <Tag position={[0.0, -0.5, 0.0]} tone="amber" center>{t.one_per_host}</Tag>
     </group>
   );
 }

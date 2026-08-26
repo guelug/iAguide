@@ -101,7 +101,7 @@ function NodeMesh({
       {hovered ? (
         <>
           <Halo radius={0.42} thickness={0.006} color={node.color} opacity={0.8} spin={1.2} />
-          <Tag position={[0, 0.5, 0]} tone="paper" center>
+          <Tag position={[0, 0.5, 0]} tone="ink" center>
             {String(node.order).padStart(2, "0")} · {node.title}
           </Tag>
         </>
@@ -136,21 +136,22 @@ function Thread({ points, dim }: { points: V3[]; dim: boolean }) {
 
   return (
     <group>
+      {/* The reading order, drawn in teal so it survives the paper. */}
       <Line
         points={line}
-        color={P.paper}
-        lineWidth={1.1}
+        color={P.teal}
+        lineWidth={1.8}
         transparent
-        opacity={dim ? 0.08 : 0.2}
+        opacity={dim ? 0.12 : 0.45}
       />
       <group ref={group}>
         {Array.from({ length: beads }, (_, i) => (
           <mesh key={i}>
             <sphereGeometry args={[0.035, 10, 10]} />
             <meshBasicMaterial
-              color={P.paper}
+              color={P.tealDeep}
               transparent
-              opacity={dim ? 0.25 : 0.85}
+              opacity={dim ? 0.2 : 0.8}
               toneMapped={false}
             />
           </mesh>
@@ -209,8 +210,7 @@ export function CourseAtlas({
     <Stage
       className={className}
       camera={{ position: [0, 2.6, 9.2], fov: 44 }}
-      fog={[P.void, 8, 24]}
-      bloom={{ intensity: 1.05, threshold: 0.18 }}
+      background={P.paper}
       controls={{ enableZoom: true, autoRotate: !hover, autoRotateSpeed: 0.32, minDistance: 5, maxDistance: 16 }}
     >
       <group onPointerMissed={() => handleHover(null)}>
@@ -228,7 +228,7 @@ export function CourseAtlas({
               color={c.color}
               lineWidth={rel ? 2 : 1}
               transparent
-              opacity={rel ? 0.85 : dim ? 0.04 : 0.16}
+              opacity={rel ? 0.85 : dim ? 0.04 : 0.1}
             />
           );
         })}
@@ -251,13 +251,20 @@ export function CourseAtlas({
             [0, TOP + 0.7, 0],
             [0, BOTTOM - 0.7, 0],
           ]}
-          color={P.faint}
+          color={P.lineStrong}
           lineWidth={1}
           transparent
-          opacity={0.22}
+          opacity={0.4}
+          dashed
         />
-        <Halo radius={RADIUS + 0.5} thickness={0.004} color={P.teal} opacity={0.12} position={[0, TOP, 0]} />
-        <Halo radius={RADIUS + 0.5} thickness={0.004} color={P.paper} opacity={0.1} position={[0, BOTTOM, 0]} />
+        <Halo radius={RADIUS + 0.5} thickness={0.004} color={P.teal} opacity={0.22} position={[0, TOP, 0]} />
+        <Halo radius={RADIUS + 0.5} thickness={0.004} color={P.violet} opacity={0.16} position={[0, BOTTOM, 0]} />
+        {/* A faint base disc grounds the helix on the paper (shadow planes
+            render as solid slabs on a transparent canvas — don't use them). */}
+        <mesh position={[0, BOTTOM - 0.75, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[RADIUS + 0.9, 48]} />
+          <meshBasicMaterial color={P.sunken} transparent opacity={0.55} depthWrite={false} />
+        </mesh>
         <Motes count={280} radius={9} color={P.violet} size={0.028} opacity={0.3} speed={0.008} />
       </group>
     </Stage>

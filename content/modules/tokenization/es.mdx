@@ -1,10 +1,8 @@
 ## El tokenizador es parte del modelo
 
-El <Term id="token">tokenizador</Term> no es un extra. Es el dialecto con el que se entrenaron los pesos. Cámbialo y tienes otro modelo, aunque los tensores te suenen. El inglés suele caer cerca de un token por palabra; el código, las URLs y otros alfabetos se desvían. Cuenta tokens, no caracteres.
+El <Term id="tokenizer">tokenizador</Term> no es un extra. Es el dialecto con el que se entrenaron los pesos. Cámbialo y tienes otro modelo, aunque los tensores te suenen idénticos. El inglés suele caer cerca de un token por palabra; el código, las URLs, los lenguajes con tildes y otros alfabetos se desvían. **Cuenta tokens, no caracteres.**
 
-El BPE (y sus primos) cortan por frecuencia, no por lingüística. Por eso `strawberry` puede ser tres piezas y el modelo no «ve» tres erres como tres erres. Preguntarle cuántas r tiene la palabra es un test de tokenización, no de inteligencia.
-
-No hace falta el algoritmo. Hace falta el hábito: cuando un agente falle en contar, recortar o firmar una cadena, mira primero cómo se partió. Luego el bucle.
+ó. Luego el bucle.
 
 <Callout>
 Un GGUF o una carpeta de Hugging Face con el tokenizer.json equivocado se verá «tonto». Arregla el artefacto antes de hacer fine-tune. Antes de subir la temperatura. Antes de culpar al prompt.

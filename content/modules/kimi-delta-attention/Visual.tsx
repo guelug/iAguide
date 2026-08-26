@@ -5,26 +5,45 @@ import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import { Flow, Node3D, Slab, Tag, Turntable, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
+import { useCopy } from "@/lib/useCopy";
 
 type Step = "softmax" | "kda" | "hybrid";
 
-const OPTIONS = [
-  { value: "softmax" as const, label: "softmax", tone: "var(--amber)" },
-  { value: "kda" as const, label: "kda", tone: "var(--teal)" },
-  { value: "hybrid" as const, label: "hybrid", tone: "var(--violet)" },
-];
+
 
 export default function Visual() {
+  const t = useCopy({
+    en: {
+      "step_the_diagram": "step the diagram",
+      "hybrid": "hybrid",
+      "kda_fixed_s": "KDA / fixed S",
+      "softmax_kv": "softmax KV",
+      "hybrid_mix": "hybrid mix"
+    },
+    es: {
+      "step_the_diagram": "recorre el diagrama",
+      "hybrid": "híbrido",
+      "kda_fixed_s": "KDA / S fijo",
+      "softmax_kv": "KV de softmax",
+      "hybrid_mix": "mezcla híbrida"
+    },
+  });
+
+  const OPTIONS = [
+    { value: "softmax" as const, label: "softmax", tone: "var(--amber)" },
+    { value: "kda" as const, label: "kda", tone: "var(--teal)" },
+    { value: "hybrid" as const, label: t.hybrid, tone: "var(--violet)" },
+  ];
   const [step, setStep] = useState<Step>("softmax");
 
   return (
     <Figure
       label="Cache vs state"
-      hint="step the diagram"
+      hint={t.step_the_diagram}
       legend={[
-        { color: P.teal, label: "KDA / fixed S" },
-        { color: P.amber, label: "softmax KV" },
-        { color: P.violet, label: "hybrid mix" },
+        { color: P.teal, label: t.kda_fixed_s },
+        { color: P.amber, label: t.softmax_kv },
+        { color: P.violet, label: t.hybrid_mix },
       ]}
       controls={
         <Switcher
@@ -37,14 +56,14 @@ export default function Visual() {
     >
       <Stage className="h-full w-full" maxDpr={1.75} camera={{ position: [0, 0.4, 7.6], fov: 40 }}>
         <Turntable speed={0.035} tilt={0.1}>
-          <Scene active={step} />
+          <Scene active={step} t={t} />
         </Turntable>
       </Stage>
     </Figure>
   );
 }
 
-function Scene({ active }: { active: Step }) {
+function Scene({ active, t }: { active: Step; t: any }) {
   return (
     <group>
       {active === "softmax" ? <SoftmaxScene /> : null}

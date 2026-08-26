@@ -5,26 +5,49 @@ import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import { Flow, Node3D, Slab, Tag, Turntable, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
+import { useCopy } from "@/lib/useCopy";
 
 type Step = "surfaces" | "methods" | "gguf" | "export";
 
-const OPTIONS = [
-  { value: "surfaces" as const, label: "surfaces", tone: "var(--teal)" },
-  { value: "methods" as const, label: "methods", tone: "var(--amber)" },
-  { value: "gguf" as const, label: "gguf", tone: "var(--violet)" },
-  { value: "export" as const, label: "export", tone: "var(--teal)" },
-];
+
 
 export default function Visual() {
+  const t = useCopy({
+    en: {
+      "train_with_unsloth": "Train with Unsloth",
+      "step_the_diagram": "step the diagram",
+      "export": "export",
+      "studio_artefact": "Studio / artefact",
+      "vram_method": "VRAM / method",
+      "full_ft_4x": "Full FT 4x",
+      "adapters": "adapters"
+    },
+    es: {
+      "train_with_unsloth": "Entrena con Unsloth",
+      "step_the_diagram": "recorre el diagrama",
+      "export": "exporta",
+      "studio_artefact": "Studio / artefacto",
+      "vram_method": "VRAM / método",
+      "full_ft_4x": "FT completo 4x",
+      "adapters": "adaptadores"
+    },
+  });
+
+  const OPTIONS = [
+    { value: "surfaces" as const, label: "surfaces", tone: "var(--teal)" },
+    { value: "methods" as const, label: "methods", tone: "var(--amber)" },
+    { value: "gguf" as const, label: "gguf", tone: "var(--violet)" },
+    { value: "export" as const, label: t.export, tone: "var(--teal)" },
+  ];
   const [step, setStep] = useState<Step>("surfaces");
 
   return (
     <Figure
-      label="Train with Unsloth"
-      hint="step the diagram"
+      label={t.train_with_unsloth}
+      hint={t.step_the_diagram}
       legend={[
-        { color: P.teal, label: "Studio / artefact" },
-        { color: P.amber, label: "VRAM / method" },
+        { color: P.teal, label: t.studio_artefact },
+        { color: P.amber, label: t.vram_method },
         { color: P.violet, label: "inference-only GGUF" },
       ]}
       controls={
@@ -38,20 +61,20 @@ export default function Visual() {
     >
       <Stage className="h-full w-full" maxDpr={1.75} camera={{ position: [0, 0.35, 7.4], fov: 40 }}>
         <Turntable speed={0.035} tilt={0.1}>
-          <Scene active={step} />
+          <Scene active={step} t={t} />
         </Turntable>
       </Stage>
     </Figure>
   );
 }
 
-function Scene({ active }: { active: Step }) {
+function Scene({ active, t }: { active: Step; t: any }) {
   return (
     <group>
       {active === "surfaces" ? <SurfacesScene /> : null}
-      {active === "methods" ? <MethodsScene /> : null}
+      {active === "methods" ? <MethodsScene t={t} /> : null}
       {active === "gguf" ? <GgufScene /> : null}
-      {active === "export" ? <ExportScene /> : null}
+      {active === "export" ? <ExportScene t={t} /> : null}
     </group>
   );
 }
@@ -80,11 +103,11 @@ function SurfacesScene() {
   );
 }
 
-function MethodsScene() {
+function MethodsScene({ t }: { t: any }) {
   const bars = [
     { x: -2.1, h: 0.85, label: "QLoRA", color: P.teal, tone: "teal" as const, fill: 0.55 },
     { x: 0.0, h: 1.35, label: "LoRA 16b", color: P.amber, tone: "amber" as const, fill: 0.5 },
-    { x: 2.1, h: 1.95, label: "Full FT 4x", color: P.violet, tone: "violet" as const, fill: 0.42 },
+    { x: 2.1, h: 1.95, label: t.full_ft_4x, color: P.violet, tone: "violet" as const, fill: 0.42 },
   ];
   return (
     <group>
@@ -130,9 +153,9 @@ function GgufScene() {
   );
 }
 
-function ExportScene() {
+function ExportScene({ t }: { t: any }) {
   const items: { x: number; label: string; tone: "teal" | "amber" | "violet"; color: string }[] = [
-    { x: -2.15, label: "adapters", tone: "teal", color: P.teal },
+    { x: -2.15, label: t.adapters, tone: "teal", color: P.teal },
     { x: 0.0, label: "q4_k_m", tone: "amber", color: P.amber },
     { x: 2.15, label: "merged 16b", tone: "violet", color: P.violet },
   ];

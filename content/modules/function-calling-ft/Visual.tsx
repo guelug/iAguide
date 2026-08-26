@@ -5,30 +5,49 @@ import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import { Node3D, Slab, Tag } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
+import { useCopy } from "@/lib/useCopy";
 
 type Mode = "prompt" | "ft" | "schema";
 
 export default function Visual() {
+  const t = useCopy({
+    en: {
+      "prompted_vs_learned_calls": "prompted vs learned calls",
+      "special_tokens_for_tools": "special tokens for tools",
+      "prompted": "prompted",
+      "fix_schema": "fix schema",
+      "prompted_2": "Prompted",
+      "fix_schema_2": "Fix schema"
+    },
+    es: {
+      "prompted_vs_learned_calls": "llamadas por prompt vs aprendidas",
+      "special_tokens_for_tools": "tokens especiales para tools",
+      "prompted": "por prompt",
+      "fix_schema": "arregla el schema",
+      "prompted_2": "Por prompt",
+      "fix_schema_2": "Arregla el schema"
+    },
+  });
   const [mode, setMode] = useState<Mode>("prompt");
   return (
     <Figure
-      label="prompted vs learned calls"
-      hint="special tokens for tools"
+      label={t.prompted_vs_learned_calls}
+      hint={t.special_tokens_for_tools}
       legend={[
-          { color: P.amber, label: "prompted" },
+          { color: P.amber, label: t.prompted },
           { color: P.teal, label: "fine-tuned" },
-          { color: P.rose, label: "fix schema" }
+          { color: P.rose, label: t.fix_schema }
       ]}
       controls={
         <Switcher
           value={mode}
           onChange={setMode}
           options={[
-            { value: "prompt", label: "Prompted", tone: P.amber },
+            { value: "prompt", label: t.prompted_2, tone: P.amber },
             { value: "ft", label: "Fine-tuned", tone: P.teal },
-            { value: "schema", label: "Fix schema", tone: P.rose }
+            { value: "schema", label: t.fix_schema_2, tone: P.rose }
           ]}
-          ariaLabel="special tokens for tools"
+          ariaLabel={t.special_tokens_for_tools}
         />
       }
     >

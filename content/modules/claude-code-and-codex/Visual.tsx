@@ -5,17 +5,34 @@ import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import { Flow, Node3D, Slab, Tag, Turntable, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
+import { useCopy } from "@/lib/useCopy";
 
 type Step = "two" | "view" | "tree" | "api";
 
-const OPTIONS = [
-  { value: "two" as const, label: "dos productos", tone: "var(--teal)" },
-  { value: "view" as const, label: "agent view", tone: "var(--amber)" },
-  { value: "tree" as const, label: "worktree", tone: "var(--violet)" },
-  { value: "api" as const, label: "API / CLI", tone: "var(--teal)" },
-];
+
 
 export default function Visual() {
+  const t = useCopy({
+    en: {
+      "agent_view": "agent view",
+      "working": "Working",
+      "needs_input": "Needs input",
+      "completed": "Completed"
+    },
+    es: {
+      "agent_view": "vista del agente",
+      "working": "Trabajando",
+      "needs_input": "Pide input",
+      "completed": "Completado"
+    },
+  });
+
+  const OPTIONS = [
+    { value: "two" as const, label: "dos productos", tone: "var(--teal)" },
+    { value: "view" as const, label: t.agent_view, tone: "var(--amber)" },
+    { value: "tree" as const, label: "worktree", tone: "var(--violet)" },
+    { value: "api" as const, label: "API / CLI", tone: "var(--teal)" },
+  ];
   const [step, setStep] = useState<Step>("two");
 
   return (
@@ -38,18 +55,18 @@ export default function Visual() {
     >
       <Stage className="h-full w-full" maxDpr={1.75} camera={{ position: [0, 0.35, 7.4], fov: 40 }}>
         <Turntable speed={0.035} tilt={0.1}>
-          <Scene active={step} />
+          <Scene active={step} t={t} />
         </Turntable>
       </Stage>
     </Figure>
   );
 }
 
-function Scene({ active }: { active: Step }) {
+function Scene({ active, t }: { active: Step; t: any }) {
   return (
     <group>
       {active === "two" ? <TwoScene /> : null}
-      {active === "view" ? <ViewScene /> : null}
+      {active === "view" ? <ViewScene t={t} /> : null}
       {active === "tree" ? <TreeScene /> : null}
       {active === "api" ? <ApiScene /> : null}
     </group>
@@ -80,11 +97,11 @@ function TwoScene() {
   );
 }
 
-function ViewScene() {
+function ViewScene({ t }: { t: any }) {
   const rows = [
-    { x: -2.1, label: "Working", tone: "teal" as const, color: P.teal },
-    { x: 0.0, label: "Needs input", tone: "amber" as const, color: P.amber },
-    { x: 2.1, label: "Completed", tone: "violet" as const, color: P.violet },
+    { x: -2.1, label: t.working, tone: "teal" as const, color: P.teal },
+    { x: 0.0, label: t.needs_input, tone: "amber" as const, color: P.amber },
+    { x: 2.1, label: t.completed, tone: "violet" as const, color: P.violet },
   ];
   return (
     <group>

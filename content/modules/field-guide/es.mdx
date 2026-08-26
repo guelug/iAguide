@@ -2,7 +2,6 @@
 
 Ya tienes el vocabulario. Esta página es un bucle que puedes correr en una máquina real sin inventar cifras. Márcalas en orden; sáltate con un motivo, no con una corazonada.
 
-
 <VisualSlot caption="Nombra primero la capa: modelo, arnés o metal — luego el dialecto si hace falta una segunda palabra." />
 
 ## 1. Elige un modelo
@@ -21,7 +20,7 @@ Ya tienes el vocabulario. Esta página es un bucle que puedes correr en una máq
 ## 3. Cuantiza (solo si hace falta)
 
 - Servicio en llama.cpp / Ollama: empieza por <Term id="q4km">Q4_K_M</Term> salvo que el humo falle.
-- Servidor GPU: sigue los docs actuales de vLLM para AWQ / GPTQ / FP8 — no conviertas a GGUF “porque eso usaba el portátil”.
+- Servidor GPU: sigue los docs actuales de vLLM para AWQ / GPTQ / FP8 — no conviertas a GGUF "porque eso usaba el portátil".
 - Entrenamiento: <Term id="nf4">NF4</Term> es el 4 bits de QLoRA, no una etiqueta GGUF.
 
 ## 4. Ejecuta en local
@@ -32,11 +31,11 @@ Ya tienes el vocabulario. Esta página es un bucle que puedes correr en una máq
 # ollama run <nombre>
 ```
 
-Confirma que se aplica la **plantilla de chat** (Modelfile de Ollama / flags de chat de llama.cpp). Una completion cruda de un instruct se ve “tonta” y el bug es tuyo.
+Confirma que se aplica la **plantilla de chat** (Modelfile de Ollama / flags de chat de llama.cpp). Una completion cruda de un instruct se ve "tonta" y el bug es tuyo.
 
 ## 5. LoRA mínimo (opcional)
 
-Solo si el humo falla de un modo que *el dato puede arreglar* (un formato, una jerga, una política de rechazo que te pertenece). No para “ser más listo”.
+Solo si el humo falla de un modo que *el dato puede arreglar* (un formato, una jerga, una política de rechazo que te pertenece). No para "ser más listo".
 
 - 20 prompts de eval del paso 1.
 - Un stack: Unsloth *o* Axolotl *o* torchtune / MLX — no los tres.
@@ -73,11 +72,34 @@ Corre la lista con *un* modelo esta semana. Anota nombre de archivo, contexto, m
 
 2026 no dura. Si una flag de este esquema da 404, la *estructura* sigue siendo el curso: ficha → memoria → quant → motor → quizá LoRA → arnés con permisos. Parchea el esquema. Quédate con el bucle.
 
+<Myth>
+"Si una flag cambia, todo el curso se queda viejo." El curso es la estructura. Las flags son detalles. La estructura (ficha → memoria → quant → motor → LoRA → arnés) sobrevive a renombres de CLI. Lo que se queda viejo son las cifras concretas — lee la fuente antes de citar un número.
+</Myth>
+
 ## Nombra la capa, luego el dialecto
 
-Cuando algo se rompe en producción, nombra primero la capa: **modelo** (pesos, plantilla, quant), **arnés** (bucle, tools, caché, inyección) o **metal** (VRAM, batching, factura). Luego, si el arnés es una particularidad, nombra el dialecto (Hermes, OpenClaw, smolagents, LangGraph, LlamaIndex) — después de la capa, no en su lugar.
+Cuando algo se rompe en producción, nombra primero la capa:
+
+- **Modelo** (pesos, plantilla, quant).
+- **Arnés** (bucle, tools, caché, inyección).
+- **Metal** (VRAM, batching, factura).
+
+Luego, si el arnés es una particularidad, nombra el dialecto (Hermes, OpenClaw, smolagents, LangGraph, LlamaIndex) — **después** de la capa, no en su lugar.
 
 La Bonus 3 de Hugging Face (agente de combate Pokémon) es un caso trabajado: Showdown es metal+reglas; el LLM es el modelo; `choose_move` es el arnés. En [agentes en juegos](/course/game-agents).
+
+## Prefill y decode, lo que cambia cuando te importa
+
+Una vez que tienes el arnés funcionando, las dos fases se convierten en la palanca de optimización:
+
+- **Prefill** — pagas en cada turno del system prompt cacheable. Invertir en prefijos estables es la palanca de coste más barata.
+- **Decode** — pagas por la respuesta del modelo. Invertir en respuestas concisas es la palanca de latencia por turno.
+
+Si tu eval o tu chat cuesta más de lo esperado, casi siempre es una de las dos. El dashboard del proveedor te dice cuál.
+
+<Callout>
+En un modelo MoE 48B-A3B, el prefill es barato por FLOPs (3B activos por token), pero la atención sobre la KV sigue siendo densa. Hacer el contexto más largo sigue siendo caro incluso en MoE — el ahorro de FLOPs del FFN no abarata la atención.
+</Callout>
 
 ## Qué aprender ahora (sin quinta vía)
 
@@ -87,8 +109,106 @@ El curso de agentes señala MCP y A2A. MCP ya está en [herramientas](/course/to
 Elige un incidente de producción (o invéntalo con honestidad). Nombra la capa: modelo / arnés / metal. Si necesitas una segunda palabra, es un dialecto, no una física nueva.
 </TryThis>
 
-Esta lección reescribe ideas del [curso de agentes de Hugging Face](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.
+## Tres cosas que te ahorras si lees esto antes de comprar
+
+1. **Un modelo "más grande"** cuando lo que necesitas es un contexto más corto o un eval mejor. El tamaño de modelo no compensa un system prompt inflado.
+2. **Una librería de agentes** cuando lo que necesitas es un `while` con `runTool`. La librería es ceremonia hasta que demuestres que el bucle no basta.
+3. **Un plugin de RAG** cuando lo que necesitas es una tool `retrieve(query)` con un índice simple. El RAG no es un producto; es una tool con un índice detrás.
+
+Cada una de esas compras malgastadas cuesta semanas. La regla es: **nombre la capa, después el dialecto, después la herramienta**.
+
+## Tres cosas que compras si lees esto antes de desplegar
+
+1. **Un test unit del bucle** — allow/deny, validación de esquema, stop-and-parse, alternancia de mensajes. Sin GPU. Sub-milisegundo.
+2. **Un eval de 20 filas tuyas** — en tu dominio, con claves exact-match, tools fijadas. Cinco filas son una corazonada; veinte son un eval.
+3. **Una observación mínima** — `cache_hit`, `tokens_in/out`, `tools_called`, `duration_ms` por turno. Si falta una, depurar es adivinar.
+
+Estos tres cuestan un día y ahorran un trimestre.
+
+## Cuando el curso y la realidad divergen
+
+Tres casos donde el mapa no encaja con el territorio:
+
+- **Tu arnés es un producto legacy** — Hermes 1.x, OpenClaw 0.x. Las APIs han cambiado; los nombres siguen. Lee los docs del producto, no el curso.
+- **Tu modelo es un preview** — sin MoE público, sin cuantización pública, sin tool_call estable. El curso aplica en general; los detalles los da la ficha del modelo.
+- **Tu proveedor tiene un comportamiento idiosyncrático** — caché de prompt que cuenta por 256 tokens, KV cache que se descarta tras N generaciones, etc. Lee los docs del proveedor; el curso da los principios.
 
 ## Caso — capa equivocada, dialecto correcto
 
-Una caída parecía “LangGraph está roto.” El grafo estaba bien; la GPU hacía OOM en la KV. Reescribieron el grafo una semana. Nombrar **metal** el primer día habría comprado menos contexto, no otra librería.
+Una caída parecía "LangGraph está roto." El grafo estaba bien; la GPU hacía OOM en la KV. Reescribieron el grafo una semana. Nombrar **metal** el primer día habría comprado menos contexto, no otra librería.
+
+## Caso — dialecto correcto, capa equivocada (otra vez)
+
+Un equipo reportó "Hermes ignora las tools." Cambiaron a OpenClaw. El problema seguía. El perfil no listaba las tools; el runtime no parseaba tool_calls. Depuraban el dialecto. El arnés — esta página — estaba vacío.
+
+## Lista práctica
+
+1. Seis pasos: ficha → memoria → quant → motor → quizá LoRA → arnés con permisos.
+2. Prefill cacheable (invierte en prefijo estable); decode por respuesta (invierte en concisión).
+3. Tres compras que te ahorras: modelo más grande, librería de agentes, plugin de RAG.
+4. Tres compras que te convienen: test unit del bucle, eval de 20 filas, observación mínima.
+5. Nombra la capa, luego el dialecto, luego la herramienta.
+6. Cuando se quede viejo, parch ea el esquema. Quédate con el bucle.
+
+Esta lección reescribe ideas del [curso de agentes de Hugging Face](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.
+
+## Fuentes
+
+- Hugging Face Agents Course, Unit 1-4. https://huggingface.co/learn/agents-course
+- Hermes Agent docs. https://hermes-agent.nousresearch.com/docs
+- OpenClaw docs. https://docs.openclaw.ai/
+- llama.cpp docs. https://github.com/ggerganov/llama.cpp
+- Ollama docs. https://ollama.com/docs
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Cuáles son los seis pasos de la guía de campo, en orden?",
+      options: [
+        { id: "a", text: "Comprar GPU, descargar modelo, fine-tunear, desplegar." },
+        { id: "b", text: "Ficha → memoria → quant → motor → quizá LoRA → arnés con permisos. Cada paso opcional según el caso." },
+        { id: "c", text: "Solo descargar modelo." },
+        { id: "d", text: "Solo LoRA." }
+      ],
+      correct: "b",
+      explanation: "Seis pasos en orden: elegir modelo (ficha), estimar memoria, cuantizar si hace falta, ejecutar en local, quizá LoRA, arnés con permisos. Cada paso es opcional según el caso (no todo el mundo necesita LoRA, no todo el mundo necesita quant). Pero el orden importa: saltarse la memoria antes de elegir lleva a OOM."
+    },
+    {
+      id: "q2",
+      stem: "¿Por qué 'nombre la capa, después el dialecto, después la herramienta'?",
+      options: [
+        { id: "a", text: "Para alargar la conversación." },
+        { id: "b", text: "Porque diagnosticar mal la capa cuesta un trimestre. Si crees que el problema es el dialecto (LangGraph, Hermes) pero el problema es metal (OOM en KV) o modelo (cuantización rota), cambias la herramienta equivocada y el bug sigue." },
+        { id: "c", text: "Porque el dialecto no importa." },
+        { id: "d", text: "Es marketing." }
+      ],
+      correct: "b",
+      explanation: "Diagnosticar mal la capa cuesta semanas. Una caída 'LangGraph está roto' resultó ser OOM en KV (metal). Cambiar de dialecto no arregla metal. La regla: primero la capa (modelo/arnés/metal), después el dialecto (Hermes/OpenClaw/smolagents), después la herramienta específica."
+    },
+    {
+      id: "q3",
+      stem: "¿Qué tres compras son 'compras equivocadas' comunes?",
+      options: [
+        { id: "a", text: "GPU, CPU, RAM." },
+        { id: "b", text: "Modelo más grande cuando basta un contexto más corto; librería de agentes cuando basta un while con runTool; plugin de RAG cuando basta una tool retrieve con índice simple." },
+        { id: "c", text: "Tres librerías de Python." },
+        { id: "d", text: "Tres vendors de cloud." }
+      ],
+      correct: "b",
+      explanation: "Tres compras malgastadas comunes: tamaño de modelo para compensar system prompt inflado; framework de agentes para un bucle que cabe en 20 líneas; plugin de RAG para una tool con un índice simple detrás. Cada una cuesta semanas. La regla: nombre la capa, después el dialecto, después la herramienta."
+    },
+    {
+      id: "q4",
+      stem: "¿Qué tres compras SÍ valen la pena antes de desplegar?",
+      options: [
+        { id: "a", text: "Tres dashboards." },
+        { id: "b", text: "Tests unit del bucle (sin GPU, sub-milisegundo), eval de 20 filas propias (con claves exact-match, tools fijadas), observación mínima por turno (cache_hit, tokens, tools, duration)." },
+        { id: "c", text: "Tres contratos con vendors." },
+        { id: "d", text: "Tres certificaciones." }
+      ],
+      correct: "b",
+      explanation: "Tres compras que valen la pena: test unit del bucle (sub-milisegundo, sin modelo), eval de 20 filas propias (no cinco), observación mínima por turno (cache_hit, tokens, tools_called, duration_ms). Cuestan un día; ahorran un trimestre de debugging a ciegas."
+    }
+  ]}
+/>

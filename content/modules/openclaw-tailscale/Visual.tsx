@@ -5,28 +5,47 @@ import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import { Flow, Node3D, Slab, Tag, Turntable, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
+import { useCopy } from "@/lib/useCopy";
 
 type Step = "a" | "b" | "c" | "d" | "e";
 
-const OPTIONS = [
-  { value: "a" as const, label: "loopback", tone: "var(--teal)" },
-  { value: "b" as const, label: "serve", tone: "var(--teal)" },
-  { value: "c" as const, label: "funnel", tone: "var(--amber)" },
-  { value: "d" as const, label: "bind tailnet", tone: "var(--violet)" },
-  { value: "e" as const, label: "auth", tone: "var(--amber)" },
-];
+
 
 export default function Visual() {
+  const t = useCopy({
+    en: {
+      "step_the_diagram": "step the diagram",
+      "bind_tailnet": "bind tailnet",
+      "core_path": "core path",
+      "cost_volatile": "cost / volatile",
+      "extension": "extension"
+    },
+    es: {
+      "step_the_diagram": "recorre el diagrama",
+      "bind_tailnet": "bindea el tailnet",
+      "core_path": "ruta núcleo",
+      "cost_volatile": "coste / volátil",
+      "extension": "extensión"
+    },
+  });
+
+  const OPTIONS = [
+    { value: "a" as const, label: "loopback", tone: "var(--teal)" },
+    { value: "b" as const, label: "serve", tone: "var(--teal)" },
+    { value: "c" as const, label: "funnel", tone: "var(--amber)" },
+    { value: "d" as const, label: t.bind_tailnet, tone: "var(--violet)" },
+    { value: "e" as const, label: "auth", tone: "var(--amber)" },
+  ];
   const [step, setStep] = useState<Step>("a");
 
   return (
     <Figure
       label="OpenClaw: Tailscale Serve and Funnel"
-      hint="step the diagram"
+      hint={t.step_the_diagram}
       legend={[
-        { color: P.teal, label: "core path" },
-        { color: P.amber, label: "cost / volatile" },
-        { color: P.violet, label: "extension" },
+        { color: P.teal, label: t.core_path },
+        { color: P.amber, label: t.cost_volatile },
+        { color: P.violet, label: t.extension },
       ]}
       controls={
         <Switcher
@@ -39,14 +58,14 @@ export default function Visual() {
     >
       <Stage className="h-full w-full" maxDpr={1.75} camera={{ position: [0, 0.35, 7.4], fov: 40 }}>
         <Turntable speed={0.035} tilt={0.1}>
-          <Scene active={step} />
+          <Scene active={step} t={t} />
         </Turntable>
       </Stage>
     </Figure>
   );
 }
 
-function Scene({ active }: { active: Step }) {
+function Scene({ active, t }: { active: Step; t: any }) {
   return (
     <group>
       <Wire points={[[-2.6, 0.2, 0], [2.6, 0.2, 0]]} color={P.line} opacity={0.5} />
@@ -89,9 +108,7 @@ function Scene({ active }: { active: Step }) {
         color={active === "d" ? P.teal : P.lineStrong}
         fill={active === "d" ? 0.55 : 0.14}
       />
-      <Tag position={[2.3, 1.4500000000000002, 0.0]} tone="teal" center>
-        bind tailnet
-      </Tag>
+      <Tag position={[2.3, 1.4500000000000002, 0.0]} tone="teal" center>{t.bind_tailnet}</Tag>
 
       <Slab
         position={[0.0, -1.05, 0.0]}

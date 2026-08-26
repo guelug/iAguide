@@ -5,28 +5,47 @@ import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import { Flow, Node3D, Slab, Tag, Turntable, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
+import { useCopy } from "@/lib/useCopy";
 
 type Step = "two" | "oauth" | "key" | "sink" | "pool";
 
-const OPTIONS = [
-  { value: "two" as const, label: "two paths", tone: "var(--teal)" },
-  { value: "oauth" as const, label: "OAuth / sub", tone: "var(--amber)" },
-  { value: "key" as const, label: "API key", tone: "var(--violet)" },
-  { value: "sink" as const, label: "token sink", tone: "var(--amber)" },
-  { value: "pool" as const, label: "pool", tone: "var(--teal)" },
-];
+
 
 export default function Visual() {
+  const t = useCopy({
+    en: {
+      "step_the_diagram": "step the diagram",
+      "pay_per_token_key": "pay-per-token key",
+      "key_a": "key A",
+      "key_b": "key B",
+      "key_c": "key C"
+    },
+    es: {
+      "step_the_diagram": "recorre el diagrama",
+      "pay_per_token_key": "clave de pago por token",
+      "key_a": "clave A",
+      "key_b": "clave B",
+      "key_c": "clave C"
+    },
+  });
+
+  const OPTIONS = [
+    { value: "two" as const, label: "two paths", tone: "var(--teal)" },
+    { value: "oauth" as const, label: "OAuth / sub", tone: "var(--amber)" },
+    { value: "key" as const, label: "API key", tone: "var(--violet)" },
+    { value: "sink" as const, label: "token sink", tone: "var(--amber)" },
+    { value: "pool" as const, label: "pool", tone: "var(--teal)" },
+  ];
   const [step, setStep] = useState<Step>("two");
 
   return (
     <Figure
       label="OAuth versus API key"
-      hint="step the diagram"
+      hint={t.step_the_diagram}
       legend={[
         { color: P.teal, label: "harness / store" },
         { color: P.amber, label: "subscription OAuth" },
-        { color: P.violet, label: "pay-per-token key" },
+        { color: P.violet, label: t.pay_per_token_key },
       ]}
       controls={
         <Switcher
@@ -39,21 +58,21 @@ export default function Visual() {
     >
       <Stage className="h-full w-full" maxDpr={1.75} camera={{ position: [0, 0.35, 7.4], fov: 40 }}>
         <Turntable speed={0.035} tilt={0.1}>
-          <Scene active={step} />
+          <Scene active={step} t={t} />
         </Turntable>
       </Stage>
     </Figure>
   );
 }
 
-function Scene({ active }: { active: Step }) {
+function Scene({ active, t }: { active: Step; t: any }) {
   return (
     <group>
       {active === "two" ? <TwoScene /> : null}
       {active === "oauth" ? <OauthScene /> : null}
       {active === "key" ? <KeyScene /> : null}
       {active === "sink" ? <SinkScene /> : null}
-      {active === "pool" ? <PoolScene /> : null}
+      {active === "pool" ? <PoolScene t={t} /> : null}
     </group>
   );
 }
@@ -147,11 +166,11 @@ function SinkScene() {
   );
 }
 
-function PoolScene() {
+function PoolScene({ t }: { t: any }) {
   const keys = [
-    { x: -2.0, label: "key A", tone: "teal" as const, color: P.teal },
-    { x: 0.0, label: "key B", tone: "amber" as const, color: P.amber },
-    { x: 2.0, label: "key C", tone: "violet" as const, color: P.violet },
+    { x: -2.0, label: t.key_a, tone: "teal" as const, color: P.teal },
+    { x: 0.0, label: t.key_b, tone: "amber" as const, color: P.amber },
+    { x: 2.0, label: t.key_c, tone: "violet" as const, color: P.violet },
   ];
   return (
     <group>

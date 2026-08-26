@@ -5,30 +5,51 @@ import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import { Flow, Slab, Tag } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
+import { useCopy } from "@/lib/useCopy";
 
 type Mode = "trace" | "spans" | "errors";
 
 export default function Visual() {
+  const t = useCopy({
+    en: {
+      "trace_spans": "trace · spans",
+      "one_turn_many_clocks": "one turn, many clocks",
+      "trace": "trace",
+      "tool_errors": "tool errors",
+      "trace_2": "Trace",
+      "spans": "Spans",
+      "tool_errors_2": "Tool errors"
+    },
+    es: {
+      "trace_spans": "traza · spans",
+      "one_turn_many_clocks": "un turno, muchos relojes",
+      "trace": "traza",
+      "tool_errors": "errores de tool",
+      "trace_2": "Traza",
+      "spans": "Spans",
+      "tool_errors_2": "Errores de tool"
+    },
+  });
   const [mode, setMode] = useState<Mode>("trace");
   return (
     <Figure
-      label="trace · spans"
-      hint="one turn, many clocks"
+      label={t.trace_spans}
+      hint={t.one_turn_many_clocks}
       legend={[
-          { color: P.teal, label: "trace" },
+          { color: P.teal, label: t.trace },
           { color: P.amber, label: "spans" },
-          { color: P.rose, label: "tool errors" }
+          { color: P.rose, label: t.tool_errors }
       ]}
       controls={
         <Switcher
           value={mode}
           onChange={setMode}
           options={[
-            { value: "trace", label: "Trace", tone: P.teal },
-            { value: "spans", label: "Spans", tone: P.amber },
-            { value: "errors", label: "Tool errors", tone: P.rose }
+            { value: "trace", label: t.trace_2, tone: P.teal },
+            { value: "spans", label: t.spans, tone: P.amber },
+            { value: "errors", label: t.tool_errors_2, tone: P.rose }
           ]}
-          ariaLabel="one turn, many clocks"
+          ariaLabel={t.one_turn_many_clocks}
         />
       }
     >

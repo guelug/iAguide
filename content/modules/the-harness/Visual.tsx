@@ -5,30 +5,47 @@ import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import { Flow, Node3D, Tag } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
+import { useCopy } from "@/lib/useCopy";
 
 type Mode = "loop" | "tools" | "sub";
 
 export default function Visual() {
+  const t = useCopy({
+    en: {
+      "the_loop_around_the_weights": "the loop around the weights",
+      "pulse_is_a_turn_not_a_second_brain": "pulse is a turn, not a second brain",
+      "subagent": "subagent",
+      "loop": "Loop",
+      "subagent_2": "Subagent"
+    },
+    es: {
+      "the_loop_around_the_weights": "el bucle alrededor de los pesos",
+      "pulse_is_a_turn_not_a_second_brain": "el pulso es un turno, no un segundo cerebro",
+      "subagent": "subagente",
+      "loop": "Bucle",
+      "subagent_2": "Subagente"
+    },
+  });
   const [mode, setMode] = useState<Mode>("loop");
   return (
     <Figure
-      label="the loop around the weights"
-      hint="pulse is a turn, not a second brain"
+      label={t.the_loop_around_the_weights}
+      hint={t.pulse_is_a_turn_not_a_second_brain}
       legend={[
           { color: P.teal, label: "loop" },
           { color: P.amber, label: "tools" },
-          { color: P.violet, label: "subagent" }
+          { color: P.violet, label: t.subagent }
       ]}
       controls={
         <Switcher
           value={mode}
           onChange={setMode}
           options={[
-            { value: "loop", label: "Loop", tone: P.teal },
+            { value: "loop", label: t.loop, tone: P.teal },
             { value: "tools", label: "Tools", tone: P.amber },
-            { value: "sub", label: "Subagent", tone: P.violet }
+            { value: "sub", label: t.subagent_2, tone: P.violet }
           ]}
-          ariaLabel="pulse is a turn, not a second brain"
+          ariaLabel={t.pulse_is_a_turn_not_a_second_brain}
         />
       }
     >

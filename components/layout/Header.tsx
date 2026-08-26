@@ -9,7 +9,7 @@ export async function Header() {
       <a href="#content" className="skip-link">
         {t("skip")}
       </a>
-      <div className="shell flex items-center justify-between gap-6 py-3.5">
+      <div className="shell flex min-w-0 items-center justify-between gap-3 py-3.5 sm:gap-6">
         <Link
           href="/"
           className="group flex items-baseline gap-2 no-underline"
@@ -23,7 +23,7 @@ export async function Header() {
             iAguide
           </span>
         </Link>
-        <nav className="flex items-center gap-5 text-sm text-muted md:gap-7">
+        <nav className="flex min-w-0 shrink items-center gap-3 text-sm text-muted sm:gap-5 md:gap-7">
           <Link href="/course" className="text-muted no-underline transition-colors hover:text-ink">
             {t("course")}
           </Link>

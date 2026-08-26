@@ -5,30 +5,53 @@ import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import { Flow, Node3D, Tag, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
+import { useCopy } from "@/lib/useCopy";
 
 type Mode = "team" | "retrieve" | "vision";
 
 export default function Visual() {
+  const t = useCopy({
+    en: {
+      "manager_worker_vision": "manager · worker · vision",
+      "nested_loops_narrower_tools": "nested loops, narrower tools",
+      "team": "team",
+      "retrieve": "retrieve",
+      "vision_loop": "vision loop",
+      "team_2": "Team",
+      "retrieve_2": "Retrieve",
+      "vision_loop_2": "Vision loop"
+    },
+    es: {
+      "manager_worker_vision": "manager · worker · visión",
+      "nested_loops_narrower_tools": "bucles anidados, tools más estrechas",
+      "team": "equipo",
+      "retrieve": "recupera",
+      "vision_loop": "bucle de visión",
+      "team_2": "Equipo",
+      "retrieve_2": "Recupera",
+      "vision_loop_2": "Bucle de visión"
+    },
+  });
   const [mode, setMode] = useState<Mode>("team");
   return (
     <Figure
-      label="manager · worker · vision"
-      hint="nested loops, narrower tools"
+      label={t.manager_worker_vision}
+      hint={t.nested_loops_narrower_tools}
       legend={[
-          { color: P.teal, label: "team" },
-          { color: P.amber, label: "retrieve" },
-          { color: P.rose, label: "vision loop" }
+          { color: P.teal, label: t.team },
+          { color: P.amber, label: t.retrieve },
+          { color: P.rose, label: t.vision_loop }
       ]}
       controls={
         <Switcher
           value={mode}
           onChange={setMode}
           options={[
-            { value: "team", label: "Team", tone: P.teal },
-            { value: "retrieve", label: "Retrieve", tone: P.amber },
-            { value: "vision", label: "Vision loop", tone: P.rose }
+            { value: "team", label: t.team_2, tone: P.teal },
+            { value: "retrieve", label: t.retrieve_2, tone: P.amber },
+            { value: "vision", label: t.vision_loop_2, tone: P.rose }
           ]}
-          ariaLabel="nested loops, narrower tools"
+          ariaLabel={t.nested_loops_narrower_tools}
         />
       }
     >

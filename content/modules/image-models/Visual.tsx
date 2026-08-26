@@ -5,28 +5,47 @@ import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import { Flow, Node3D, Slab, Tag, Turntable, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
+import { useCopy } from "@/lib/useCopy";
 
 type Step = "ldm" | "ckpt" | "clip" | "vae" | "files";
 
-const OPTIONS = [
-  { value: "ldm" as const, label: "latent", tone: "var(--teal)" },
-  { value: "ckpt" as const, label: "checkpoint", tone: "var(--amber)" },
-  { value: "clip" as const, label: "CLIP", tone: "var(--violet)" },
-  { value: "vae" as const, label: "VAE", tone: "var(--teal)" },
-  { value: "files" as const, label: "folders", tone: "var(--amber)" },
-];
+
 
 export default function Visual() {
+  const t = useCopy({
+    en: {
+      "step_the_diagram": "step the diagram",
+      "latent": "latent",
+      "folders": "folders",
+      "clip_text": "CLIP text",
+      "text": "text"
+    },
+    es: {
+      "step_the_diagram": "recorre el diagrama",
+      "latent": "latente",
+      "folders": "carpetas",
+      "clip_text": "texto CLIP",
+      "text": "texto"
+    },
+  });
+
+  const OPTIONS = [
+    { value: "ldm" as const, label: t.latent, tone: "var(--teal)" },
+    { value: "ckpt" as const, label: "checkpoint", tone: "var(--amber)" },
+    { value: "clip" as const, label: "CLIP", tone: "var(--violet)" },
+    { value: "vae" as const, label: "VAE", tone: "var(--teal)" },
+    { value: "files" as const, label: t.folders, tone: "var(--amber)" },
+  ];
   const [step, setStep] = useState<Step>("ldm");
 
   return (
     <Figure
       label="Checkpoint, CLIP, VAE"
-      hint="step the diagram"
+      hint={t.step_the_diagram}
       legend={[
         { color: P.teal, label: "latent / VAE" },
         { color: P.amber, label: "checkpoint" },
-        { color: P.violet, label: "CLIP text" },
+        { color: P.violet, label: t.clip_text },
       ]}
       controls={
         <Switcher
@@ -39,34 +58,32 @@ export default function Visual() {
     >
       <Stage className="h-full w-full" maxDpr={1.75} camera={{ position: [0, 0.35, 7.4], fov: 40 }}>
         <Turntable speed={0.035} tilt={0.1}>
-          <Scene active={step} />
+          <Scene active={step} t={t} />
         </Turntable>
       </Stage>
     </Figure>
   );
 }
 
-function Scene({ active }: { active: Step }) {
+function Scene({ active, t }: { active: Step; t: any }) {
   return (
     <group>
-      {active === "ldm" ? <LdmScene /> : null}
+      {active === "ldm" ? <LdmScene t={t} /> : null}
       {active === "ckpt" ? <CkptScene /> : null}
       {active === "clip" ? <ClipScene /> : null}
-      {active === "vae" ? <VaeScene /> : null}
+      {active === "vae" ? <VaeScene t={t} /> : null}
       {active === "files" ? <FilesScene /> : null}
     </group>
   );
 }
 
-function LdmScene() {
+function LdmScene({ t }: { t: any }) {
   return (
     <group>
       <Wire points={[[-2.5, 0.1, 0], [2.5, 0.1, 0]]} color={P.line} opacity={0.5} />
       <Flow points={[[-2.5, 0.1, 0], [2.5, 0.1, 0]]} color={P.teal} count={3} speed={0.3} />
       <Slab position={[-2.0, 0.9, 0]} size={[1.6, 0.7, 0.12]} color={P.violet} fill={0.5} />
-      <Tag position={[-2.0, 1.5, 0]} tone="violet" center>
-        text
-      </Tag>
+      <Tag position={[-2.0, 1.5, 0]} tone="violet" center>{t.text}</Tag>
       <Slab position={[0, 0.9, 0]} size={[1.6, 0.7, 0.12]} color={P.amber} fill={0.5} />
       <Tag position={[0, 1.5, 0]} tone="amber" center>
         denoise
@@ -117,13 +134,11 @@ function ClipScene() {
   );
 }
 
-function VaeScene() {
+function VaeScene({ t }: { t: any }) {
   return (
     <group>
       <Slab position={[-1.7, 0.6, 0]} size={[2.0, 0.9, 0.14]} color={P.teal} fill={0.5} />
-      <Tag position={[-1.7, 1.3, 0]} tone="teal" center>
-        latent
-      </Tag>
+      <Tag position={[-1.7, 1.3, 0]} tone="teal" center>{t.latent}</Tag>
       <Slab position={[1.7, 0.6, 0]} size={[2.0, 0.9, 0.14]} color={P.amber} fill={0.5} />
       <Tag position={[1.7, 1.3, 0]} tone="amber" center>
         RGB

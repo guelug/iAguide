@@ -1,21 +1,206 @@
 ## No es cron de shell
 
-Un job de arnes es un turno de agente con horario. Cada disparo: lock, sesion fresca, skills y prompt autocontenido, entrega, sin espejo en el chat vivo, sin tool cron dentro del job.
+Un job de arnés es un turno de agente con horario. **No** es un cron ejecutando un script. La diferencia importa.
 
-<VisualSlot caption="Store, tick, agente fresco, skills, entregar." />
+- **Cron de shell** — ejecuta un comando, captura stdout/stderr, devuelve exit code. Sin modelo.
+- **Job de arnés** — instancia un turno de agente con su sesión, contexto fresco, skills inyectadas, herramientas limitadas, y entrega por un canal outbound.
+
+Cada disparo: lock distribuido, sesión fresca (sin espejo en el chat vivo), skills y prompt autocontenidos, entrega outbound sin transcript de chat, sin tool `cron` dentro del job (el job no se programa a sí mismo).
+
+<VisualSlot caption="Store → tick → agente fresco → skills → entregar." />
+
+## Las cinco fases
+
+1. **Store** — el job vive en una tabla (SQLite, JSON, lo que sea). Tiene `id`, `cron`, `prompt`, `skills`, `target`, `lock_ttl`.
+2. **Tick** — un scheduler revisa la tabla cada N segundos. Cuando `now >= next_run`, dispara el job. Con lock distribuido para que dos réplicas no lo ejecuten dos veces.
+3. **Fresh agent** — instancia un AIAgent nuevo. Sin contexto heredado de chats vivos. Perfil y system prompt son los del job, no los del usuario que esté chateando ahora.
+4. **Inject skills** — las skills declaradas en el job se cargan. Tools específicas del job se exponen (ej. `inbox_triage` para un job de triage). El resto, no.
+5. **Deliver** — el output del agente sale por el canal declarado en el job (email, webhook, archivo, log). **Nunca** se espeja en el transcript del chat vivo de un usuario.
+
+<Myth>
+"Un cron que escribe 'assistant: ...' en el chat es un job." Es un cron que ensucia el transcript del usuario. La entrega del job debe ser outbound.
+</Myth>
+
+## Por qué sesión fresca
+
+Un job de las 09:00 que hereda el contexto del chat de ayer está mal diseñado por tres motivos:
+
+1. **El usuario no estaba ahí** — el job ejecuta sin que nadie le pida nada. Si contamina el contexto, el siguiente turno del usuario ve contenido raro.
+2. **Privacidad** — el job opera sobre datos que el usuario activo nunca aprobó para este turno (inbox, calendario, etc.).
+3. **Coste de caché** — si el job hereda el system prompt cacheado del chat, el prefill del job es gratis. Si muta algo (turno nuevo, modelo distinto, contexto más largo), invalida la caché del chat del usuario.
+
+La práctica: **el job tiene su propia sesión, su propio perfil, su propio prefijo**. La única continuidad con el usuario es la entrega outbound.
+
+## Lock distribuido: el bug clásico
+
+Dos réplicas del scheduler ven el mismo `next_run` y ejecutan el job dos veces. El usuario recibe el resumen dos veces; el `inbox_triage` envía cada email dos veces. El fix es un lock distribuido antes de ejecutar.
+
+Opciones:
+
+- **Lock en SQLite** — `UPDATE jobs SET locked_by = X, locked_until = now + ttl WHERE id = Y AND (locked_by IS NULL OR locked_until < now)`. Si la fila afectada es 1, ganaste. Si es 0, otro ya tiene el lock.
+- **Lock en Redis** — `SET job:Y X NX EX 300`. Si devuelve OK, ganaste.
+- **Lock por lease en etcd / consul** — overkill para la mayoría.
+
+Hermes y OpenClaw hacen lock en SQLite. El TTL es 5-15 minutos; si el job se cuelga, el lock expira y otro worker lo retoma.
+
+## Cron syntax y zonas horarias
+
+Tres errores comunes:
+
+1. **Zona horaria implícita** — `0 9 * * *` son las 09:00 de qué zona. UTC, hora local del servidor, hora del usuario. Documenta siempre.
+2. **DST / cambios de hora** — un job a las 02:30 puede ejecutarse dos veces o ninguna en el cambio de horario.
+3. **"Cada minuto"** — `* * * * *` ejecuta 1440 veces al día. Útil para tests, devastador en producción.
+
+Hermes y OpenClaw toman la zona del job explícita. El scheduler normaliza a UTC internamente.
+
+<Callout>
+"Un job diario" no significa "cada 24 horas desde la primera ejecución". Significa "a la hora X cada día en la zona Y". Si tu job dice "diario a las 09:00", escríbelo así, no como "86400 segundos desde el último tick".
+</Callout>
+
+## Que NO debe ir en el prompt del job
+
+Cuatro cosas:
+
+1. **El transcript del chat vivo** — el job no hereda nada del usuario actual.
+2. **El contexto completo del workspace** — el job tiene su propio bootstrap (mínimo).
+3. **Tools de comunicación abierta sin scope** — si el job va a enviar emails, la tool `email_send` debe estar limitada a una dirección, no a cualquier dirección.
+4. **La tool `cron`** — el job no se programa a sí mismo. Si necesitas recursión, escribe dos jobs explícitos.
+
+<TryThis>
+Un job diario 09:00 con skill `inbox-triage`. Lista lo que NO debe ir en el prompt: ni el transcript de ayer, ni el workspace completo, ni email_send sin scope, ni cron. Cada exclusión tiene un motivo.
+</TryThis>
 
 ## Hermes frente a OpenClaw
 
-Hermes hace tick en el gateway (o Chronos). OpenClaw corre automations en el Gateway; el destino puede ser isolated a proposito.
+**Hermes** hace tick en el gateway (o Chronos si está desplegado). El gateway ya es el dueño longevo de la entrega, así que el job vive cerca de los adaptadores. Cron syntax estilo Vixie.
+
+**OpenClaw** corre automations en el Gateway; el destino puede ser **isolated** a propósito — un sandbox separado del gateway principal, para que un job pesado no degrade chats interactivos. Cron syntax estilo systemd.
+
+Mismo bucle. Distinto dueño del proceso. El job no debería notar la diferencia.
 
 ## Caso: cron espejado en el chat
 
-**Caso.** El resumen nocturno se pega como assistant en el grupo. Por la manana: dos assistants seguidos.
+**Caso.** El resumen nocturno se pega como assistant en el grupo. Por la mañana: dos assistants seguidos — el del chat humano + el del job espejado. El proveedor devuelve 400 por alternancia rota. El grupo queda con la duda.
 
-**Arreglo.** El cron vive en su sesion; la entrega es solo outbound.
+**Arreglo.** El cron vive en su sesión; la entrega es solo outbound (email, log, archivo). El transcript del grupo nunca ve al job. La próxima vez que el usuario abra el grupo, no hay rastro del job.
 
-<TryThis>
-Un job diario 09:00 con skill inbox-triage. Lista lo que NO debe ir en el prompt.
-</TryThis>
+## El job se equivoca, y eso es un feature
 
-Docs: [cron Hermes](https://hermes-agent.nousresearch.com/docs/developer-guide/cron-internals), [CLI OpenClaw](https://docs.openclaw.ai/cli/cron).
+Un job que se ejecuta a las 03:00 puede fallar a las 03:01 y nadie se entera hasta las 09:00. La práctica:
+
+- **Logging** — cada job loguea inicio, fin, exit status, duración, tokens consumidos. Centralizado.
+- **Retry con backoff** — primer fallo → reintento en 1 min. Segundo → 5 min. Tercero → log y notifica.
+- **Dead letter** — tras N fallos, el job se mueve a una tabla `failed_jobs`. Alguien lo mira.
+- **Métricas** — tasa de éxito, latencia, tokens. Si la tasa cae, lo sabes antes que el usuario.
+
+<Compare a="Job sin observabilidad" b="Job instrumentado">
+
+<Side>
+El job falla a las 03:00. Nadie se entera. A las 09:00 el usuario pregunta "¿por qué no tengo resumen?" y el equipo pasa tres horas mirando logs que no existen.
+
+</Side>
+
+<Side>
+El job falla a las 03:00. Tres reintentos. Después de N fallos, el sistema notifica. A las 09:00 hay un ticket abierto con stack trace.
+
+</Side>
+
+</Compare>
+
+<Steps>
+<Step title="Definir el job">
+Id, cron (con zona), prompt, skills, target, canal de entrega. Lock TTL. Retry policy.
+</Step>
+<Step title="Lock distribuido">
+SQLite o Redis. TTL de 5-15 min. Si el lock vence sin ack, otro worker retoma.
+</Step>
+<Step title="Sesión y prefijo propios">
+Ni el transcript del chat ni el workspace completo. Bootstrap mínimo. Perfil del job.
+</Step>
+<Step title="Outbound, no chat">
+Email, webhook, archivo, log. Nunca espejado en el transcript del usuario.
+</Step>
+<Step title="Observabilidad">
+Logging centralizado, retry con backoff, dead letter, métricas. Si falla a las 03:00, lo sabes a las 03:01.
+</Step>
+</Steps>
+
+## Lista práctica
+
+1. Job de arnés ≠ cron de shell. Tiene sesión, perfil, skills, entrega.
+2. Lock distribuido antes de ejecutar. TTL claro.
+3. Sesión fresca. Sin espejo en el chat del usuario.
+4. Cron con zona horaria explícita. UTC internamente.
+5. Entrega outbound. Nunca espejada en transcript vivo.
+6. Tools con scope (email_send solo a la dirección declarada, etc.).
+7. Retry + backoff + dead letter + métricas.
+
+## Tres métricas de un job sano
+
+Tres números que quieres ver en el dashboard de jobs:
+
+1. **Tasa de éxito** — % de jobs que terminan sin error. Si baja, hay un proveedor roto o un input cambiado.
+2. **Latencia p95** — el percentil 95 de duración. Si sube, el contexto creció o el provider está lento.
+3. **Tokens por job** — input + output. Si sube sin cambio de job, el sistema prompt del job está creciendo.
+
+Sin estas tres, depurar un job que falla a las 03:00 es mirar logs a ciegas.
+
+## Fuentes
+
+- Hermes — *Cron internals*. https://hermes-agent.nousresearch.com/docs/developer-guide/cron-internals
+- OpenClaw — *CLI cron*. https://docs.openclaw.ai/cli/cron
+- cron — *Vixie cron syntax*. https://man7.org/linux/man-pages/man5/crontab.5.html
+- Postgres / SQLite — *Lease patterns*. https://martin.kleppmann.com/2016/02/08/how-to-do-distributed-locking.html
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Por qué un job de arnés debe tener sesión fresca?",
+      options: [
+        { id: "a", text: "Para ahorrar memoria." },
+        { id: "b", text: "Para no contaminar el transcript del usuario activo, para no invalidar la caché de prefijo del chat, y para que el job opere sobre datos que el usuario actual nunca aprobó para este turno." },
+        { id: "c", text: "Para que el modelo no se confunda." },
+        { id: "d", text: "Es un requisito del proveedor." }
+      ],
+      correct: "b",
+      explanation: "Sesión fresca evita tres bugs: (1) el siguiente turno del usuario ve contenido del job, (2) el job muta el prefijo y rompe la caché del chat vivo, (3) el job opera sobre datos que el usuario actual no aprobó. La práctica es: el job tiene su propia sesión, perfil y prefijo."
+    },
+    {
+      id: "q2",
+      stem: "Dos réplicas del scheduler ejecutan el mismo job porque no hay lock. ¿Qué pasa?",
+      options: [
+        { id: "a", text: "Nada — el job es idempotente." },
+        { id: "b", text: "El usuario recibe el resumen dos veces, inbox_triage envía cada email dos veces. El lock distribuido (SQLite/Redis) con TTL es el fix." },
+        { id: "c", text: "El modelo decide." },
+        { id: "d", text: "Se nota inmediatamente." }
+      ],
+      correct: "b",
+      explanation: "Sin lock distribuido, dos workers ven el mismo next_run y ejecutan el job dos veces. El usuario recibe duplicados, las tools idempotentes se invocan dos veces (y las que no lo son rompen). El fix es un lock con TTL — SQLite (UPDATE ... WHERE locked_until < now) o Redis (SET NX EX)."
+    },
+    {
+      id: "q3",
+      stem: "Un job diario '0 9 * * *' en hora local del servidor se ejecuta una hora más tarde de lo que el usuario espera. ¿Por qué?",
+      options: [
+        { id: "a", text: "Bug del scheduler." },
+        { id: "b", text: "Zona horaria implícita. El servidor está en UTC; el usuario espera hora local. Documentar la zona siempre y normalizar a UTC internamente." },
+        { id: "c", text: "El job se atrasó." },
+        { id: "d", text: "El usuario se equivocó." }
+      ],
+      correct: "b",
+      explanation: "'0 9 * * *' significa 09:00 en alguna zona. Si el server es UTC y el usuario es CET, hay una hora de diferencia. La práctica: declarar la zona explícita por job (campo tz), normalizar a UTC internamente, y mostrarla en logs."
+    },
+    {
+      id: "q4",
+      stem: "¿Por qué la entrega del job debe ser outbound, no espejada en el chat del usuario?",
+      options: [
+        { id: "a", text: "Es más bonito." },
+        { id: "b", text: "Porque espejada, contamina el transcript del usuario (alternancia rota, contenido raro), invalida la caché de prefijo del chat vivo, y confunde al siguiente turno. La entrega correcta es email / webhook / archivo." },
+        { id: "c", text: "Porque el chat no soporta mensajes largos." },
+        { id: "d", text: "Es un requisito legal." }
+      ],
+      correct: "b",
+      explanation: "Espejar el output del job en el chat del usuario rompe alternancia (400 del proveedor), invalida la caché de prefijo (el job muta el contexto), y confunde al usuario. La entrega correcta es outbound: email, webhook, archivo en una ruta conocida, log centralizado."
+    }
+  ]}
+/>

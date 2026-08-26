@@ -5,30 +5,53 @@ import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import { Flow, Node3D, Tag, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
+import { useCopy } from "@/lib/useCopy";
 
 type Mode = "loop" | "graph" | "cycle";
 
 export default function Visual() {
+  const t = useCopy({
+    en: {
+      "graph_vs_loop": "graph vs loop",
+      "nodes_edges_a_reducer_on_state": "nodes, edges, a reducer on state",
+      "plain_loop": "plain loop",
+      "graph": "graph",
+      "no_exit": "no exit",
+      "plain_loop_2": "Plain loop",
+      "graph_2": "Graph",
+      "no_exit_2": "No exit"
+    },
+    es: {
+      "graph_vs_loop": "grafo vs bucle",
+      "nodes_edges_a_reducer_on_state": "nodos, aristas, un reducer sobre el estado",
+      "plain_loop": "bucle plano",
+      "graph": "grafo",
+      "no_exit": "sin salida",
+      "plain_loop_2": "Bucle plano",
+      "graph_2": "Grafo",
+      "no_exit_2": "Sin salida"
+    },
+  });
   const [mode, setMode] = useState<Mode>("loop");
   return (
     <Figure
-      label="graph vs loop"
-      hint="nodes, edges, a reducer on state"
+      label={t.graph_vs_loop}
+      hint={t.nodes_edges_a_reducer_on_state}
       legend={[
-          { color: P.teal, label: "plain loop" },
-          { color: P.violet, label: "graph" },
-          { color: P.rose, label: "no exit" }
+          { color: P.teal, label: t.plain_loop },
+          { color: P.violet, label: t.graph },
+          { color: P.rose, label: t.no_exit }
       ]}
       controls={
         <Switcher
           value={mode}
           onChange={setMode}
           options={[
-            { value: "loop", label: "Plain loop", tone: P.teal },
-            { value: "graph", label: "Graph", tone: P.violet },
-            { value: "cycle", label: "No exit", tone: P.rose }
+            { value: "loop", label: t.plain_loop_2, tone: P.teal },
+            { value: "graph", label: t.graph_2, tone: P.violet },
+            { value: "cycle", label: t.no_exit_2, tone: P.rose }
           ]}
-          ariaLabel="nodes, edges, a reducer on state"
+          ariaLabel={t.nodes_edges_a_reducer_on_state}
         />
       }
     >

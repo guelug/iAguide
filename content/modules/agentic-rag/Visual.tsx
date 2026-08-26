@@ -5,30 +5,53 @@ import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import { Flow, Slab, Tag } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
+import { useCopy } from "@/lib/useCopy";
 
 type Mode = "naive" | "agent" | "inject";
 
 export default function Visual() {
+  const t = useCopy({
+    en: {
+      "retrieve_then_read_vs_choose": "retrieve-then-read vs choose",
+      "the_agent_may_skip_the_index": "the agent may skip the index",
+      "naive_rag": "naive rag",
+      "chooses_tools": "chooses tools",
+      "injected_bio": "injected bio",
+      "naive_rag_2": "Naive RAG",
+      "chooses_tools_2": "Chooses tools",
+      "injected_bio_2": "Injected bio"
+    },
+    es: {
+      "retrieve_then_read_vs_choose": "recuperar-y-leer vs elegir",
+      "the_agent_may_skip_the_index": "el agente puede saltarse el índice",
+      "naive_rag": "rag ingenuo",
+      "chooses_tools": "elige herramientas",
+      "injected_bio": "bio inyectada",
+      "naive_rag_2": "RAG ingenuo",
+      "chooses_tools_2": "Elige herramientas",
+      "injected_bio_2": "Bio inyectada"
+    },
+  });
   const [mode, setMode] = useState<Mode>("naive");
   return (
     <Figure
-      label="retrieve-then-read vs choose"
-      hint="the agent may skip the index"
+      label={t.retrieve_then_read_vs_choose}
+      hint={t.the_agent_may_skip_the_index}
       legend={[
-          { color: P.amber, label: "naive rag" },
-          { color: P.violet, label: "chooses tools" },
-          { color: P.rose, label: "injected bio" }
+          { color: P.amber, label: t.naive_rag },
+          { color: P.violet, label: t.chooses_tools },
+          { color: P.rose, label: t.injected_bio }
       ]}
       controls={
         <Switcher
           value={mode}
           onChange={setMode}
           options={[
-            { value: "naive", label: "Naive RAG", tone: P.amber },
-            { value: "agent", label: "Chooses tools", tone: P.violet },
-            { value: "inject", label: "Injected bio", tone: P.rose }
+            { value: "naive", label: t.naive_rag_2, tone: P.amber },
+            { value: "agent", label: t.chooses_tools_2, tone: P.violet },
+            { value: "inject", label: t.injected_bio_2, tone: P.rose }
           ]}
-          ariaLabel="the agent may skip the index"
+          ariaLabel={t.the_agent_may_skip_the_index}
         />
       }
     >

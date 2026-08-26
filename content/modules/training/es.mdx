@@ -8,18 +8,137 @@ La mayoría de modelos chat no nacen en una sola pasada. Una pila típica:
 
 Puedes parar tras el SFT. Muchos modelos locales lo hacen.
 
-
 <VisualSlot caption="Pretrain, luego SFT, luego preferencia. Un portátil a menudo puede LoRA; no puede preentrenar de verdad un base frontera." />
+
+## El preentrenamiento es compresión
+
+La idea más potente sobre el preentrenamiento: el modelo aprende una **compresión con pérdida del lenguaje humano**. No memoriza textos; aprende reglas estadísticas que le permiten predecir el siguiente token mejor que cualquier modelo más pequeño. El resultado es una distribución de probabilidad entrenada sobre el lenguaje.
+
+Esto explica por qué los modelos grandes *generalizan*: han visto tantas regularidades que pueden extrapolarlas a textos nuevos. Y por qué "más datos + más parámetros" sigue dando ganancias, aunque con rendimientos decrecientes.
 
 ## El preentrenamiento no es deporte de portátil
 
-El preentrenamiento lee cantidades brutales de texto y actualiza todos los pesos, durante mucho tiempo, en un clúster. Un portátil puede *ejecutar* un 7B–8B. No puede preentrenar uno de verdad. Si un README dice “preentrena en tu Mac”, hablan de un juguete, de un preentrenamiento continuado sobre un corpus minúsculo, o de marketing.
+El preentrenamiento lee cantidades brutales de texto y actualiza todos los pesos, durante mucho tiempo, en un clúster. Un portátil puede *ejecutar* un 7B–8B. No puede preentrenar uno de verdad. Si un README dice "preentrena en tu Mac", hablan de un juguete, de un preentrenamiento continuado sobre un corpus minúsculo, o de marketing.
 
 El preentrenamiento continuado (más siguiente-token en texto de dominio) es una técnica real. Sigue queriendo GPU en serio cuando el modelo no es pequeño, y puede machacar los modales de chat si no tienes cuidado.
+
+<Compare>
+<Side title="Pretrain desde cero">
+Meses en clúster de cientos de GPUs. Coste de cinco a seis cifras (o más). Solo justificado para laboratorios o productos frontera.
+</Side>
+<Side title="Continued pretrain">
+Horas a días en GPUs serias. Para adaptar el modelo a un dominio (médico, legal, código de una empresa). Riesgo de "catastrophic forgetting" de los modales chat.
+</Side>
+<Side title="No pretrains">
+Usas el base que publicó alguien. Es donde vive el 95% de los proyectos. Y está bien.
+</Side>
+</Compare>
+
+## La curva de pérdida: lo que significa
+
+Durante el preentrenamiento verás una gráfica de pérdida contra pasos. Tres tramos:
+
+<Steps>
+<Step>
+**Caída rápida inicial.** El modelo pasa de predecir tokens al azar a predecir tokens probables. La pérdida cae en órdenes de magnitud en los primeros miles de pasos.
+</Step>
+<Step>
+**Meseta larga.** La mejora es logarítmica: cada duplicación de cómputo quita un porcentaje fijo de pérdida. Esto es lo que predicen las <Term id="scaling-laws">leyes de escala</Term>.
+</Step>
+<Step>
+**Ruido, picos, recuperaciones.** Un batch patológico o un learning rate mal ajustado causa picos. Si el modelo se recupera, está sano. Si no, hay un bug.
+</Step>
+</Steps>
+
+<Myth>
+"Si la pérdida baja, el modelo es bueno." La pérdida mide predicción de tokens en el corpus de entrenamiento, no calidad en tu tarea. Un modelo puede tener pérdida baja y ser pésimo en tu producto (corpus fuera de distribución, formato distinto, etc.).
+</Myth>
+
+## Leyes de escala (Chinchilla)
+
+<Term id="chinchilla">Chinchilla</Term> (Hoffmann et al., 2022) demostró que la mayoría de modelos estaban "subentrenados": para un número dado de parámetros, se podía usar más tokens y obtener un modelo mejor. La regla práctica:
+
+$$
+L \approx 20 \cdot N
+$$
+
+Donde N es el número de parámetros y L los tokens de entrenamiento. Un modelo de 7B "compute-optimal" debería entrenarse con ~140 mil millones de tokens. La práctica real usa *más* tokens (ratio 50–200×) y modelos más pequeños porque las GPUs escasean y los datos son más baratos.
+
+<Term id="scaling-laws">Scaling laws</Term> es el área que estudia cómo varían pérdida y capacidad con N, datos y cómputo. Las conclusiones generales:
+
+- Más parámetros + más datos siempre ganan (con rendimientos decrecientes).
+- Entrenar más rato a un modelo más pequeño es mejor que entrenar menos a uno más grande (para un presupuesto fijo).
+- La predicción es sorprendentemente precisa en 4–5 órdenes de magnitud.
+
+## Optimizadores: AdamW y familia
+
+El optimizador dominante en LLM training es **AdamW** (Adam con weight decay desacoplado):
+
+<Compare>
+<Side title="SGD">
+Simple, estable, mal con funciones de pérdida no convexas a esta escala. Casi nadie lo usa para entrenar LLMs.
+</Side>
+<Side title="Adam">
+Adaptativo por parámetro. Convergencia más rápida, pero overfitting de pesos si no se desacopla el weight decay.
+</Side>
+<Side title="AdamW">
+Adam + weight decay desacoplado. El estándar de facto. Mantiene la velocidad de Adam sin penalizar todos los pesos por igual.
+</Side>
+<Side title="Lion, Sophia, Shampoo">
+Optimizadores de segunda generación. Lion usa solo el signo del momento (más rápido en memoria); Shampoo aproxima precondicionadores de Kronecker. Aún experimental en producción a gran escala.
+</Side>
+</Compare>
+
+Para LoRA y fine-tuning pequeño, AdamW con learning rates 1e-5 a 5e-5 es un buen punto de partida. Para preentrenamiento, learning rates 1e-4 a 6e-4 con cosine schedule hasta 10% del LR pico.
+
+## Prefill y decode: la división que importa
+
+Cuando sirves un modelo, hay dos fases muy distintas:
+
+<Steps>
+<Step>
+**Prefill.** El modelo procesa el prompt entero en paralelo. Todas las queries, keys y values para todos los tokens del prompt se calculan a la vez. Esto es **compute-bound**: depende de los FLOPs del modelo y se aprovecha el paralelismo masivo de la GPU.
+</Step>
+<Step>
+**Decode.** El modelo genera un token a la vez. Para cada nuevo token, atendemos sobre las keys/values cacheadas. Esto es **memory-bandwidth-bound**: el cuello de botella es leer los pesos del modelo de VRAM, no calcular.
+</Step>
+</Steps>
+
+<Callout>
+Prefill es paralelo y rápido por token. Decode es secuencial y limitado por el ancho de banda de la memoria. Las optimizaciones para cada fase son distintas.
+</Callout>
+
+<Compare>
+<Side title="Prefill">
+- Coste por token bajo (paralelo).
+- Throughput alto (miles de tokens/s en GPU fuerte).
+- Sensible a la longitud del prompt.
+- Optimizaciones: FlashAttention, kernels de prefill, speculative decoding.
+</Side>
+<Side title="Decode">
+- Coste por token alto (secuencial).
+- Throughput bajo (decenas a cientos de tokens/s).
+- Memoria dominada por pesos + caché KV.
+- Optimizaciones: cuantización, KV cache compresión, batching continuo, speculative decoding.
+</Side>
+</Compare>
+
+Cómo afecta al entrenamiento: el paralelismo del entrenamiento es **distinto** del paralelismo de inferencia. En entrenamiento:
+
+- **Forward y backward son mayoritariamente paralelos** sobre el batch (similar al prefill).
+- **El paso del optimizador es secuencial** (similar al decode): AdamW lee estado, aplica actualización, escribe estado.
+
+Por eso las GPUs de entrenamiento (A100/H100 con HBM de alta capacidad) son las mismas que las de inferencia: ambas fases ocurren en el mismo hardware.
 
 ## SFT
 
 El ajuste supervisado es imitación. Pares basura → un modelo que imita basura con seguridad. El formato tiene que coincidir con la plantilla de chat que usarás al inferir. Mezcla un poco de dato general si no quieres que olvide decir hola.
+
+<Term id="chat-template">Chat templates</Term> (ChatML, Alpaca, Llama-3, etc.) definen cómo se serializa un turno (system + user + assistant). El SFT debe usar exactamente la plantilla que verás en producción. Si entrenas con Alpaca y sirves con Llama-3, el modelo se confunde.
+
+<Callout>
+Para SFT pequeño (cientos a miles de pares), LoRA es la opción por defecto: ahorra memoria, evita sobreajuste, y se puede entrenar en una sola GPU.
+</Callout>
 
 ## RLHF, DPO, RLAIF
 
@@ -27,7 +146,9 @@ El ajuste supervisado es imitación. Pares basura → un modelo que imita basura
 - **DPO** — sin modelo de recompensa aparte. Los pares de preferencia empujan la política. Menos tubería; siguen haciendo falta buenos pares.
 - **RLAIF** — las etiquetas vienen de un juez de IA. Más barato, sesgado como el juez.
 
-Nada de esto “añade un módulo de verdad”. Cambian qué continuaciones son probables.
+Nada de esto "añade un módulo de verdad". Cambian qué continuaciones son probables.
+
+(Para más detalle, mira el módulo de [reinforcement-learning](/course/reinforcement-learning).)
 
 ## RL para herramientas (intuición PPO / GRPO)
 
@@ -35,7 +156,7 @@ Cuando la tarea es una *traza* — pensar, llamar una herramienta, leer el resul
 
 **Intuición PPO:** muestrear rollouts, puntuarlos, empujar un poco la política hacia los mejores, recortar para que un lote suertudo no mande.
 
-**Intuición <Term id="grpo">GRPO</Term>:** muestrear un *grupo* de trazas para el mismo prompt, puntuarlas entre sí, ahorrarse un crítico pesado. Aparece en varias recetas de razonamiento/herramientas de 2025–2026. Los detalles cambian de repo; la idea es “aprender del hermano mejor del grupo”.
+**Intuición <Term id="grpo">GRPO</Term>:** muestrear un *grupo* de trazas para el mismo prompt, puntuarlas entre sí, ahorrarse un crítico pesado. Aparece en varias recetas de razonamiento/herramientas de 2025–2026. Los detalles cambian de repo; la idea es "aprender del hermano mejor del grupo".
 
 <Callout>
 No citamos aquí las ecuaciones de un paper de GRPO. Si lo implementas, lee el trainer que uses de verdad (TRL, Axolotl, una receta de proveedor): nombres y pérdidas se mueven.
@@ -54,6 +175,111 @@ No citamos aquí las ecuaciones de un paper de GRPO. Si lo implementas, lee el t
 Escribe tu meta como una de: inferencia, LoRA, ajuste completo, preentrenamiento. Si es de las dos últimas, buscas un clúster o un proveedor, no un ventilador nuevo.
 </TryThis>
 
-## Caso — “pretrain en mi Mac”
+## Checkpointing: qué es un "checkpoint"
+
+Un checkpoint no es solo los pesos. Lo que guardas depende del caso:
+
+<Steps>
+<Step>
+**Pesos** (`model.safetensors` o `.bin`). Obligatorio.
+</Step>
+<Step>
+**Estado del optimizador** (momentos, learning rate, paso). Necesario si vas a *reanudar* el entrenamiento.
+</Step>
+<Step>
+**Tokenizer y configuración** (`tokenizer.json`, `config.json`). Para reconstruir el modelo.
+</Step>
+<Step>
+**Datos de curriculum / RNG state** (opcional). Para reproducibilidad exacta.
+</Step>
+<Step>
+**Métricas de WandB / TensorBoard.** Lo que vigilas mientras entrenas.
+</Step>
+</Steps>
+
+<Myth>
+"Un checkpoint es solo el modelo." Si guardas solo los pesos, no puedes reanudar el entrenamiento sin un warm-up que puede desintonizar el LR schedule.
+</Myth>
+
+## Caso — "pretrain en mi Mac"
 
 Un README prometía preentrenar un 7B en un portátil en una noche. Era continued pretrain sobre un corpus de juguete que borró los modales de chat. La pila de arriba sigue valiendo; el marketing no.
+
+## Caso — el LR schedule mal elegido
+
+Un equipo entrenó un 7B con LR constante 2e-4 durante todo el preentrenamiento. La pérdida bajó bien durante los primeros 80% de los tokens. En los últimos 20%, la pérdida empezó a oscilar y diverger. El LR era demasiado alto para la fase tardía.
+
+La solución estándar: cosine schedule desde 6e-4 hasta ~6e-5 en los últimos 10% de los pasos. O warmup → plateau → cosine decay.
+
+## Caso — la optimización que pasó por encima del batch
+
+Un equipo tenía un cluster de 64 GPUs y un dataset pequeño. Subieron el batch global a 8192 tokens pensando "más datos, mejor". El modelo divergió en 200 pasos. La learning rate scaling rule (Goyal et al.) sugiere escalar LR con el batch; con batch 8× más grande y LR sin tocar, las actualizaciones eran demasiado grandes.
+
+Arreglo: LR × 8 (linear scaling rule) o usar sqrt scaling para más robustez. La lección: cambia batch y LR juntos, no uno solo.
+
+## Quiz rápido
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué predice Chinchilla sobre el tamaño del modelo y los datos de entrenamiento?",
+      options: [
+        { id: "a", text: "Que entrenar un modelo 10× más grande compensa entrenarlo 10× menos rato." },
+        { id: "b", text: "Que para un cómputo dado, el modelo y los datos deben escalarse aproximadamente igual (regla ≈ 20 tokens por parámetro es 'compute-optimal'). Muchos modelos modernos usan *más* tokens que eso para ahorrar GPUs." },
+        { id: "c", text: "Que solo importa el número de parámetros." },
+        { id: "d", text: "Que la pérdida no escala con nada." }
+      ],
+      correct: "b",
+      explanation: "Chinchilla (Hoffmann et al., 2022) demostró que la mayoría de modelos grandes estaban subentrenados: para N parámetros, se necesitaban ~20N tokens para uso compute-optimal. La práctica moderna usa ratios más altos (50–200×) porque los datos son más baratos que las GPUs."
+    },
+    {
+      id: "q2",
+      stem: "¿Cuál es la diferencia entre prefill y decode?",
+      options: [
+        { id: "a", text: "Prefill es paralelo y compute-bound (procesa todos los tokens del prompt a la vez); decode es secuencial y memory-bandwidth-bound (genera un token a la vez, dominado por el coste de leer los pesos)." },
+        { id: "b", text: "Prefill ocurre en CPU; decode en GPU." },
+        { id: "c", text: "Prefill es solo para fine-tuning; decode para preentrenamiento." },
+        { id: "d", text: "Son sinónimos." }
+      ],
+      correct: "a",
+      explanation: "Prefill procesa el prompt entero en paralelo (todos los tokens a la vez),Aprovechando los FLOPs de la GPU. Decode genera un token a la vez, leyendo los pesos y la caché KV; el cuello de botella es el ancho de banda de la memoria, no el cómputo. Las optimizaciones son distintas: FlashAttention para prefill, cuantización y batching para decode."
+    },
+    {
+      id: "q3",
+      stem: "¿Por qué es importante usar exactamente la misma plantilla de chat durante el SFT y en inferencia?",
+      options: [
+        { id: "a", text: "El modelo es indiferente; lo que importa son los tokens." },
+        { id: "b", text: "El modelo aprende la estructura de turnos durante el SFT (especialmente los tokens especiales como <|user|>, <|assistant|>). Si la plantilla en inferencia es distinta, el modelo no reconoce el formato y degrada mucho." },
+        { id: "c", text: "Es un requisito legal." },
+        { id: "d", text: "Es solo una optimización de rendimiento." }
+      ],
+      correct: "b",
+      explanation: "Los modelos instruct se entrenan con tokens especiales que delimitan los turnos (system, user, assistant). Si entrenas con Alpaca y sirves con ChatML, el modelo ve tokens que no aprendió y no sabe dónde empieza su respuesta. La degradación es severa. La plantilla debe coincidir exactamente."
+    },
+    {
+      id: "q4",
+      stem: "Tu modelo entrenado con LR constante diverge en los últimos pasos. ¿Cuál es la causa más probable?",
+      options: [
+        { id: "a", text: "El dataset tiene errores." },
+        { id: "b", text: "El learning rate es demasiado alto para la fase tardía; debería haberse usado un cosine decay (LR alto al principio, decay al final) o LR scheduling similar." },
+        { id: "c", text: "Falta preentrenamiento." },
+        { id: "d", text: "La GPU está rota." }
+      ],
+      correct: "b",
+      explanation: "Durante el entrenamiento, los gradientes temprano son grandes y variados; el LR alto ayuda a moverse. En la fase tardía, queremos pasos finos para converger. LR constante suele ser demasiado alto al final. La práctica estándar es cosine schedule o LR decay con warmup corto."
+    }
+  ]}
+/>
+
+## Fuentes
+
+- Vaswani, A., et al. (2017). *Attention Is All You Need*. https://arxiv.org/abs/1706.03762
+- Hoffmann, J., et al. (2022). *Training Compute-Optimal Large Language Models* (Chinchilla). https://arxiv.org/abs/2203.15556
+- Kaplan, J., et al. (2020). *Scaling Laws for Neural Language Models*. https://arxiv.org/abs/2001.08361
+- Loshchilov, I., Hutter, F. (2019). *Decoupled Weight Decay Regularization* (AdamW). https://arxiv.org/abs/1711.05101
+- Schulman, J., et al. (2017). *Proximal Policy Optimization Algorithms* (PPO). https://arxiv.org/abs/1707.06347
+- Rafailov, R., et al. (2023). *Direct Preference Optimization*. https://arxiv.org/abs/2305.18290
+- Shao, Z., et al. (2024). *DeepSeekMath* (GRPO). https://arxiv.org/abs/2402.03300
+- Karpathy — *Let's build GPT* y *Let's reproduce GPT-2*: https://www.youtube.com/@karpathy
+- Hugging Face Transformers — Trainer docs: https://huggingface.co/docs/transformers/main_classes/trainer

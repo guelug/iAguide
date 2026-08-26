@@ -1,15 +1,170 @@
 ## Los tokens son la unidad de la factura
 
-Aritmética de cabeza: coste ≈ (tokens de entrada × precio) + (salida × precio), más APIs de tools, más las máquinas encendidas. La **caché de prefijo** descuenta el frente estable — sigues pagando lo nuevo. Local es “gratis” hasta amortizar caja, luz y tu tiempo.
+Aritmética de cabeza: **coste ≈ (tokens de entrada × precio_entrada) + (tokens de salida × precio_salida)**, más APIs de tools por llamada, más las máquinas encendidas 24/7 si son tuyas. La **caché de prefijo** descuenta el frente estable — sigues pagando lo nuevo. Local es "gratis" hasta que amortizas caja, luz y tu tiempo.
 
-El punto de equilibrio es una hoja, no un tuit. Mide tu mezcla real y el hit rate antes de jurar lealtad.
+El punto de equilibrio es una hoja de cálculo, no un tuit. Mide tu mezcla real y el hit rate antes de jurar lealtad a un proveedor.
 
-<VisualSlot caption="Factura de entrada frente a de salida. El modo caché atenúa el prefijo que ya computaste." />
+<VisualSlot caption="Factura de entrada frente a salida. La caché de prefijo atenúa lo que ya computaste." />
+
+## Por qué el precio importa en dos planos
+
+El precio por token no es un único número. Casi todas las APIs separan:
+
+- **Entrada cacheada** — prefijo que el servidor ya tenía. Barata, a veces 1/10 del precio normal. Es el *premio* por estructurar prompts estables.
+- **Entrada nueva** — lo que el servidor lee por primera vez. Precio estándar.
+- **Salida** — tokens que el modelo emite. Precio más alto que la entrada, porque generan FLOPs y memoria KV por cada paso.
+
+Si tu arnés concatena herramientas, system prompts, historiales largos y salidas previas, **una parte enorme de la factura puede ser entrada repetida**. Optimizar la salida sin mirar la entrada es mirar el coche cuando el grifo gotea.
+
+<Callout>
+Tres números para tener a mano: precio entrada cacheada, precio entrada nueva, precio salida. Si la tabla de tu proveedor no los separa, mira la versión *enterprise* — el precio público suele esconder el descuento por caché.
+</Callout>
+
+## Caché de prefijo: cómo se gana y cómo se pierde
+
+La caché funciona así: el servidor guarda los **embeddings y la KV** del prefijo común entre peticiones. Si tu system prompt, tus definiciones de tools y los primeros N tokens son estables, el servidor los lee una vez y los reutiliza. Por eso el precio "cacheado" es una fracción del normal.
+
+Pero hay trampas que revientan los hits:
+
+- **Un timestamp que cambia cada petición** en el system prompt. El servidor ve un prefijo distinto y no acierta. Caso real: añadir `Hoy es 2026-08-27` arriba de todo. Mueve esa fecha al final, o quítala.
+- **Tools con descripciones que cambian** entre despliegues. Mismo efecto: prefijo distinto, cero hit.
+- **Orden distinto de los mensajes** del historial. Si pones system → user → assistant, pero en otro cliente pones user → system → assistant, los prefijos no encajan.
+- **Inserciones al principio** del prompt aunque el resto sea estable. Cualquier cosa al *frente* invalida todo lo que viene detrás (los cachés son prefijos, no subsecuencias).
+
+<Callout>
+**Mueve lo dinámico al final.** System prompt y herramientas al principio, datos del usuario al final. Si no puedes, factura caché caída.
+</Callout>
+
+## El modelo A3B cambia la cuenta
+
+La familia A3B (Mixtral, Qwen MoE, etc.) tiene dos números:
+
+- **Parámetros totales** — el archivo entero. Es lo que ves en `ls -lh`. Un A3B 48B son ~48B de pesos en disco. La **memoria debe sostener todo**, porque un experto concreto puede activarse en cualquier token.
+- **Parámetros activos por token** — lo que se computa de verdad. A3B es ~3B activos. Es lo que importa para FLOPs y para velocidad de inference.
+
+Para *memoria y para coste de hardware local*, **dimensiona con los totales**: necesitas cargar los 48B, no los 3B. Si los divides por dos con Q4, sigues con ~24 GB de archivo más la KV. Es un MoE de 48 GB, no un dense de 3 GB.
+
+Para *velocidad*, dimensiona con los activos: a 3B activos por token, el decode va casi tan rápido como un dense de 3B. Aquí es donde A3B *sí* compite con modelos mucho más grandes.
+
+<Compare>
+<Side title="Dense 8B">
+~16 GB de pesos en FP16. Mismos bytes en memoria, en disco, y como cómputo. Predecible: lo que ves es lo que pagas.
+</Side>
+<Side title="A3B (48B totales / 3B activos)">
+~96 GB en FP16, ~24 GB en Q4. En memoria: pagas los 48B. En cómputo y velocidad de decode: pagas 3B por token. La trampa de marketing es mirar solo el número pequeño.
+</Side>
+</Compare>
+
+<Myth>
+"A3B cabe en una GPU de 12 GB porque solo activa 3B." Falso. Los expertos que pueden activarse tienen que estar todos en memoria. Un A3B 48B en Q4 sigue pidiendo ~24 GB solo de pesos, más la KV, más el runtime. La cifra de activos es para *velocidad*, no para *capacidad*.
+</Myth>
+
+## Latencia y TTFT también cuestan
+
+No todo es el precio por token. Coste real incluye:
+
+- **<Term id="ttft">TTFT</Term>** — tiempo hasta el primer token. Si tu usuario ve una rueda girando 4 segundos, da igual que el precio sea de medio céntimo: la experiencia mata el producto. Caché de prefijo reduce TTFT porque el prefill del prefijo ya está hecho.
+- **Tiempo de cola** — en horas pico la cola crece. O pagas más capacidad, o aceptas degradación.
+- **Coste de las tools** — cada tool_call es round-trip, latencia y, en muchos proveedores, un cargo extra. Una tool que se llama 20 veces por turno cuesta más que el modelo.
+
+## Cuándo local gana (honestamente)
+
+Local gana cuando se cumple **alguna** de estas:
+
+- **Volumen alto y sostenido** — el coste mensual de la API superaría la amortización de hardware + luz en menos de 12-18 meses.
+- **Datos sensibles** — no puedes enviarlos fuera por contrato o por regulación. El cloud queda fuera por construcción.
+- **Latencia dura** — necesitas p99 < 200 ms en local, y el cloud más cercano te da 400 ms.
+- **Personalización profunda** — fine-tune, adapters, system prompts custom que el proveedor no soporta.
+
+Local **no** gana cuando el uso es bajo, esporádico o impredecible. Comprar una H100 para 200 tokens al día es tirar dinero.
+
+## Punto de equilibrio: una fórmula simple
+
+```text
+coste_API   = tokens_totales_mes × precio_medio_ponderado
+coste_local = (amortización_hw / 36) + luz_mes + tu_tiempo_mes
+```
+
+Si `coste_local < coste_API` durante 24 meses seguidos, local gana en TCO. Si no, quédate en la API y guarda el dinero. Las hojas de cálculo con la mezcla real ganan a las corazonadas. Mide *tu* hit rate de caché, *tu* distribución de longitudes de prompt, *tu* porcentaje de salida.
 
 <TryThis>
-Toma el uso de la semana (o cifras honestas): 2M entrada, 500k salida, 40% hit de prefijo. Precia con cualquier tarjeta pública. Suma €/mes de una GPU 24GB. ¿Qué historia gana a tu volumen?
+Toma el uso de la semana (o cifras honestas): 2M entrada, 500k salida, 40% hit de prefijo. Precia con cualquier tarjeta pública. Suma €/mes de una GPU 24 GB. ¿Qué historia gana a tu volumen? Anota los tres números en una hoja y mira el número, no la opinión.
 </TryThis>
 
 ## Caso — CacheMiss Co.
 
-CacheMiss Co. pagaba la entrada completa porque un timestamp en el system prompt cambiaba cada petición. “Optimizaron” el modelo. Quitar el timestamp restauró los hits y partió la factura. Los pesos eran inocentes.
+CacheMiss Co. pagaba la entrada completa porque un timestamp en el system prompt cambiaba cada petición. "Optimizaron" el modelo. Quitar el timestamp restauró los hits y partió la factura. Los pesos eran inocentes: el 40% que pagaban de más era caché tirada a la basura por una línea de system prompt.
+
+## Quiz
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "Tienes una API con precio entrada cacheada $0.01/M, entrada nueva $0.10/M, salida $0.30/M. Tu sistema hace 2M tokens de entrada y 500k de salida al mes, con 40% de hit rate de caché. ¿Cuánto pagas de entrada al mes, aproximadamente?",
+      options: [
+        { id: "a", text: "$200 — todo a precio cacheado." },
+        { id: "b", text: "$140 — 800k tokens cacheados × $0.01 + 1.2M nuevos × $0.10 = $8 + $120 = $128." },
+        { id: "c", text: "$20 — solo el 40% que entra como nuevo." },
+        { id: "d", text: "$2000 — todo a precio nuevo." }
+      ],
+      correct: "b",
+      explanation: "40% de 2M = 800k cacheados a $0.01/M = $8. 60% de 2M = 1.2M nuevos a $0.10/M = $120. Total entrada: ~$128. Añade salida: 500k × $0.30/M = $150. Total: ~$278. Si crees que el hit rate sube a 80%, recalcula: 1.6M cacheados + 400k nuevos = $16 + $40 = $56 de entrada. La caché es el knob dominante."
+    },
+    {
+      id: "q2",
+      stem: "¿Por qué un MoE A3B 48B/3B NO cabe en una GPU de 12 GB?",
+      options: [
+        { id: "a", text: "Sí cabe, porque solo activa 3B por token." },
+        { id: "b", text: "No cabe: la memoria debe sostener los 48B de expertos. A 12 GB no entran ni en Q4 (~24 GB solo de pesos) ni en Q2 (~12 GB, al límite, sin KV). Los activos son para cómputo, no para capacidad." },
+        { id: "c", text: "Cabe si usas FP16." },
+        { id: "d", text: "Cabe si desactivas todos los expertos menos uno." }
+      ],
+      correct: "b",
+      explanation: "Los expertos que pueden activarse tienen que estar todos en memoria. Si el archivo es de 48B, necesitas 48 GB en FP16, ~24 GB en Q4, ~12 GB en Q2. Activar solo unos pocos reduce FLOPs (velocidad), no memoria (carga). Es la trampa de marketing más repetida en MoE."
+    },
+    {
+      id: "q3",
+      stem: "Tu hit rate de caché cae del 80% al 5% tras un deploy. ¿Qué suele haber pasado?",
+      options: [
+        { id: "a", text: "El modelo cambió de versión." },
+        { id: "b", text: "Algo al principio del prompt cambia entre peticiones: timestamp, orden de mensajes, descripción de tool, o una variable al frente. Mueve lo dinámico al final." },
+        { id: "c", text: "El proveedor subió los precios." },
+        { id: "d", text: "El modelo se entrenó con nuevos datos." }
+      ],
+      correct: "b",
+      explanation: "La caché es por prefijo: si los primeros N tokens cambian, todo lo de detrás se invalida. La receta es mover lo dinámico (timestamps, IDs de sesión, fechas) al final del prompt. Lo estable (system prompt, descripciones de tools, ejemplos) al principio."
+    },
+    {
+      id: "q4",
+      stem: "¿Cuándo *sí* tiene sentido correr un modelo en local en vez de en la API?",
+      options: [
+        { id: "a", text: "Cuando quieres ahorrar sin importar el volumen." },
+        { id: "b", text: "Cuando el coste mensual proyectado de la API supera la amortización de hardware + luz + tu tiempo en menos de 12-18 meses, o cuando los datos no pueden salir (regulación), o cuando necesitas latencia dura que el cloud más cercano no da." },
+        { id: "c", text: "Nunca: la API siempre es más barata." },
+        { id: "d", text: "Siempre que el modelo sea open-weights." }
+      ],
+      correct: "b",
+      explanation: "Local no es dogma. La API gana en uso bajo y esporádico porque amortizas hardware cero. Local gana en volumen sostenido, datos sensibles o latencia dura. Open-weights es necesario pero no suficiente: hay que mirar la cuenta."
+    },
+    {
+      id: "q5",
+      stem: "Quieres ahorrar en salida. ¿Qué optimización tiene más impacto primero?",
+      options: [
+        { id: "a", text: "Bajar la temperatura." },
+        { id: "b", text: "Recortar el system prompt y las tool descriptions — porque viven en *entrada*, que es donde está la masa del coste si tu arnés concatena cosas en cada turno. La salida se optimiza con guardrails, no con parámetros de sampling." },
+        { id: "c", text: "Cambiar el modelo a uno más chico." },
+        { id: "d", text: "Subir max_tokens." }
+      ],
+      correct: "b",
+      explanation: "En la mayoría de arneses con tools e historial, la entrada domina la factura. Recortar system prompts, fusionar descripciones de tools, deduplicar historial reduce tokens de entrada (que se facturan más veces por caché) antes de tocar nada de sampling. La salida se acorta con instrucciones claras, no con sampling parameters."
+    }
+  ]}
+/>
+
+## Fuentes
+
+- Anthropic pricing — *prompt caching examples*. https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
+- OpenAI pricing — *cached input tokens*. https://openai.com/api/pricing/
+- Mistral AI — *Mixtral 8x7B technical overview* (referencia temprana de MoE). https://arxiv.org/abs/2401.04088
+- Pope, R., et al. (2023). *Efficiently Scaling Transformer Inference* — cost-of-inference analysis con Google. https://arxiv.org/abs/2211.05102

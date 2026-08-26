@@ -5,17 +5,32 @@ import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import { Slab, Tag } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
+import { useCopy } from "@/lib/useCopy";
 
 type Mode = "model" | "harness" | "metal";
 
 export default function Visual() {
+  const t = useCopy({
+    en: {
+      "which_layer_failed": "which layer failed",
+      "model_harness_metal": "model · harness · metal",
+      "model": "model",
+      "model_2": "Model"
+    },
+    es: {
+      "which_layer_failed": "qué capa falló",
+      "model_harness_metal": "modelo · harness · metal",
+      "model": "modelo",
+      "model_2": "Modelo"
+    },
+  });
   const [mode, setMode] = useState<Mode>("model");
   return (
     <Figure
-      label="which layer failed"
-      hint="model · harness · metal"
+      label={t.which_layer_failed}
+      hint={t.model_harness_metal}
       legend={[
-          { color: P.teal, label: "model" },
+          { color: P.teal, label: t.model },
           { color: P.amber, label: "harness" },
           { color: P.violet, label: "metal" }
       ]}
@@ -24,11 +39,11 @@ export default function Visual() {
           value={mode}
           onChange={setMode}
           options={[
-            { value: "model", label: "Model", tone: P.teal },
+            { value: "model", label: t.model_2, tone: P.teal },
             { value: "harness", label: "Harness", tone: P.amber },
             { value: "metal", label: "Metal", tone: P.violet }
           ]}
-          ariaLabel="model · harness · metal"
+          ariaLabel={t.model_harness_metal}
         />
       }
     >

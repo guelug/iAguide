@@ -5,27 +5,44 @@ import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import { Flow, Node3D, Slab, Tag, Turntable, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
+import { useCopy } from "@/lib/useCopy";
 
 type Step = "load" | "clip" | "sample" | "vae" | "queue";
 
-const OPTIONS = [
-  { value: "load" as const, label: "checkpoint", tone: "var(--teal)" },
-  { value: "clip" as const, label: "CLIP +/-", tone: "var(--amber)" },
-  { value: "sample" as const, label: "KSampler", tone: "var(--violet)" },
-  { value: "vae" as const, label: "VAE save", tone: "var(--teal)" },
-  { value: "queue" as const, label: "Queue", tone: "var(--amber)" },
-];
+
 
 export default function Visual() {
+  const t = useCopy({
+    en: {
+      "step_the_diagram": "step the diagram",
+      "vae_save": "VAE save",
+      "queue": "Queue",
+      "text_encode": "text encode"
+    },
+    es: {
+      "step_the_diagram": "recorre el diagrama",
+      "vae_save": "VAE guarda",
+      "queue": "Cola",
+      "text_encode": "codifica texto"
+    },
+  });
+
+  const OPTIONS = [
+    { value: "load" as const, label: "checkpoint", tone: "var(--teal)" },
+    { value: "clip" as const, label: "CLIP +/-", tone: "var(--amber)" },
+    { value: "sample" as const, label: "KSampler", tone: "var(--violet)" },
+    { value: "vae" as const, label: t.vae_save, tone: "var(--teal)" },
+    { value: "queue" as const, label: t.queue, tone: "var(--amber)" },
+  ];
   const [step, setStep] = useState<Step>("load");
 
   return (
     <Figure
       label="First ComfyUI graph"
-      hint="step the diagram"
+      hint={t.step_the_diagram}
       legend={[
         { color: P.teal, label: "weights / VAE" },
-        { color: P.amber, label: "text encode" },
+        { color: P.amber, label: t.text_encode },
         { color: P.violet, label: "sampler" },
       ]}
       controls={
@@ -39,14 +56,14 @@ export default function Visual() {
     >
       <Stage className="h-full w-full" maxDpr={1.75} camera={{ position: [0, 0.35, 7.4], fov: 40 }}>
         <Turntable speed={0.035} tilt={0.1}>
-          <Scene active={step} />
+          <Scene active={step} t={t} />
         </Turntable>
       </Stage>
     </Figure>
   );
 }
 
-function Scene({ active }: { active: Step }) {
+function Scene({ active, t }: { active: Step; t: any }) {
   return (
     <group>
       {active === "load" ? <LoadScene /> : null}

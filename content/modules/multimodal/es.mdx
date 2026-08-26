@@ -1,23 +1,249 @@
 ## Al flujo residual no le importa cómo llamaste al token
 
-Los modelos de visión, voz y vídeo siguen prediciendo la siguiente unidad. Un encoder de visión convierte parches de imagen en vectores que aterrizan en el mismo flujo que los tokens de texto. Difusión y flow matching generan píxeles iterando ruido: otra ropa, el mismo hábito de “dar un paso dado el estado”.
+Los modelos de visión, voz y vídeo siguen prediciendo la siguiente unidad. Un encoder de visión convierte parches de imagen en vectores que aterrizan en el mismo flujo que los tokens de texto. Difusión y flow matching generan píxeles iterando ruido: otra ropa, el mismo hábito de "dar un paso dado el estado".
 
-Para **agentes**, el caso interesante no es “describe esta foto”. Es: la observación *es* una imagen (captura, página, frame de juego) y la acción puede ser “clic”, “recortar” o “mirar otra vez”.
+La idea unificadora: cualquier entrada se convierte en una secuencia de vectores que el transformer procesa como si fueran tokens. El modelo no distingue "esto vino de una palabra" de "esto vino de un parche de imagen".
 
 <VisualSlot caption="Tokens de texto, parches de imagen y una captura de navegador alimentando un flujo. El arnés sigue teniendo que parar, parsear y actuar." />
+
+## Cómo una imagen se vuelve tokens
+
+El truco no es nuevo. Vision Transformers (ViT) lo demostraron en 2020: parte la imagen en una cuadrícula de parches (por ejemplo, 14×14 píxeles), aplana cada parche, proyéctalo con una capa lineal, y dale al transformer una secuencia de esos vectores.
+
+<Steps>
+<Step>
+**Particionar.** Una imagen de 224×224 con parches de 16×16 produce 196 tokens (14×14). Una de 336×336 con parches de 14×14 produce 576 tokens.
+</Step>
+<Step>
+**Proyectar.** Cada parche se aplana y se multiplica por una matriz aprendida. La salida es un vector de dimensión d_model (768, 1024, 4096…).
+</Step>
+<Step>
+**Posicionar.** Se añade un positional embedding (aprendido o sinusoidal) para que el modelo sepa qué parche es cuál.
+</Step>
+<Step>
+**Concatenar con texto.** Los tokens de imagen y los tokens de texto se unen en una sola secuencia. El transformer procesa todo junto.
+</Step>
+<Step>
+**Atención cruzada o self-attention.** El texto atiende a la imagen (cross-attention) o la atención es self-attention pura entre todos los tokens (más común en LLMs modernos).
+</Step>
+</Steps>
+
+<Compare>
+<Side title="Encoder dedicado (CLIP, SigLIP)">
+Una red entrenada para que texto e imagen vivan en el mismo espacio. Útil para retrieval y zero-shot, no para generación.
+</Side>
+<Side title="Vision encoder en un LLM (LLaVA, Qwen-VL, GPT-4V)">
+Un encoder de visión (ViT o SigLIP) produce embeddings; un proyector lineal los mete en el espacio del LLM. El LLM recibe la imagen como prefijo de tokens.
+</Side>
+</Compare>
+
+## CLIP y compañía: el espacio compartido
+
+<Term id="clip">CLIP</Term> (Contrastive Language-Image Pre-training, OpenAI 2021) entrenó dos torres — una de imagen, una de texto — con un objetivo contrastivo: hacer que el embedding de la imagen correcta esté cerca del embedding de su caption, y lejos de los demás. Resultado: un espacio donde puedes buscar imágenes con texto o clasificar zero-shot.
+
+- **Usos típicos:** retrieval imagen↔texto, filtrado de datasets, etiqueta zero-shot.
+- **Limitaciones:** CLIP no genera descripciones; solo *alinea*. Para "describe esta imagen" necesitas un modelo generativo.
+- **Sucesores:** SigLIP (Google), DFN (Apple), EVA-CLIP. Variantes que mejoran en eficiencia y robustez.
+
+<Callout>
+Para un agente, CLIP sirve para decidir *qué imagen mirar* (recuperar una página relevante) o *cómo etiquetar una captura* (qué categoría). No es lo que produce la descripción larga.
+</Callout>
+
+## VAE, difusión y flow matching
+
+La generación de imágenes se ha movido del GAN al VAE + diffusion y, más recientemente, al flow matching. La idea de fondo: modelar la distribución de imágenes aprendiendo a invertir un proceso de ruido.
+
+<Steps>
+<Step>
+**VAE (Variational AutoEncoder).** Un encoder mapea imagen → latente de baja dimensión; un decoder mapea latente → imagen. El modelo de difusión trabaja en el espacio latente, no en píxeles: más barato y más estable.
+</Step>
+<Step>
+**Difusión (DDPM, Stable Diffusion).** Añade ruido gaussiano progresivamente durante el entrenamiento; aprende a predecir el ruido añadido en cada paso. En inferencia, parte de ruido puro y lo va quitando iterativamente.
+</Step>
+<Step>
+**Flow matching (Stable Diffusion 3, Flux).** Aprende un campo vectorial entre la distribución de ruido y la distribución de datos. Más estable que la difusión clásica; menos pasos para converger.
+</Step>
+</Steps>
+
+<Compare>
+<Side title="Difusión clásica (DDPM)">
+50–1000 pasos de denoising. Lento pero probado. U-Net como backbone (original); los modelos nuevos usan transformers de difusión.
+</Side>
+<Side title="Flow matching">
+Pocos pasos (4–20 con buenos solvers). Más estable, más fácil de entrenar. Estándar en 2025–2026.
+</Side>
+</Compare>
+
+<Myth>
+"Flow matching es lo mismo que difusión." Es un marco general que incluye la difusión como caso particular. En la práctica: misma intuición (ruido → datos), distinto objetivo de entrenamiento (campo vectorial vs. predicción de ruido). Permite solvers más rápidos.
+
+## El LLM multimodal: el truco está en el embedding
+
+Modelos como LLaVA, Qwen-VL, InternVL, GPT-4V y Claude 3/4 con visión usan todos el mismo patrón:
+
+<Steps>
+<Step>
+**Vision encoder.** ViT o SigLIP entrenado (a veces congelado, a veces fine-tuneado).
+</Step>
+<Step>
+**Proyector.** Una o dos capas lineales (o un MLP pequeño) que mapean los embeddings de imagen al espacio del LLM.
+</Step>
+<Step>
+**LLM.** El modelo de texto existente, con el flujo residual intacto. Recibe la imagen como prefijo de tokens "virtuales".
+</Step>
+</Steps>
+
+El truco elegante: el LLM no cambia. Solo le das embeddings que sabe leer. Por eso un Qwen2.5-7B-Instruct se convierte en Qwen2.5-VL-7B sin reentrenar el language model desde cero.
+
+<Callout>
+Para afinar visión sobre un LLM base, basta entrenar el *proyector* (ligero) y, opcionalmente, hacer LoRA sobre el LLM. No necesitas reentrenar el transformer entero.
+</Callout>
+
+## Voces y audio
+
+<Term id="whisper">Whisper</Term> (OpenAI) es el ejemplo canónico: el audio se trocea en segmentos de 30 segundos, se convierten a espectrogramas log-mel, y se procesan con un encoder-decoder transformer. El decoder genera transcripción.
+
+Para generación de voz (TTS):
+
+<Compare>
+<Side title="Codec-based (Vall-E, SoundStorm)">
+Discretiza el audio en tokens de un codec neural (EnCodec, DAC). El modelo genera esos tokens; un decoder los convierte en waveform. Permite a un LLM "hablar".
+</Side>
+<Side title="Diffusion TTS (StyleTTS 2, Tortoise)">
+Genera espectrogramas mel con difusión; un vocoder (HiFi-GAN) los convierte en audio. Calidad alta; más lento.
+</Side>
+<Side title="Flow matching TTS (F5, Matcha)">
+Lo más reciente. Pocos pasos, alta calidad, alineamiento temporal más fácil.
+</Side>
+</Compare>
+
+## Vídeo: la tercera dimensión (y el doble de problemas)
+
+El vídeo es una secuencia de imágenes con sonido y movimiento. Las técnicas son las mismas pero el presupuesto de tokens se multiplica:
+
+- Un clip de 8 segundos a 24 fps = 192 frames.
+- Cada frame como ViT son 196–576 tokens.
+- Total: ~37k–110k tokens por clip.
+
+Por eso los modelos de vídeo (Sora, Veo, Kling, Wan2.1) usan:
+
+<Steps>
+<Step>
+**Compresión espacio-temporal.** VAE 3D o codecs de vídeo que reducen los frames a un número manejable de tokens.
+</Step>
+<Step>
+**Arquitecturas de "diagonal attention".** Alternan atención espacial (dentro de un frame) y atención temporal (entre frames) para evitar el coste cuadrático completo.
+</Step>
+<Step>
+**Diffusion / flow matching con conditioning temporal.** El modelo predice el siguiente chunk de frames condicionado en los anteriores.
+</Step>
+</Steps>
+
+<Myth>
+"Un modelo de vídeo es solo un modelo de imagen + tiempo." Sí y no. La parte fácil: el conditioning temporal se aprende. La parte difícil: el movimiento coherente (los objetos deben moverse como objetos, no como píxeles). Por eso vídeo sigue siendo más caro y más lento.
 
 ## Agentes de visión y de navegador
 
 smolagents puede pasar imágenes al empezar, o capturar pantallas durante un bucle web y guardarlas en el paso de acción. Un agente de navegador que no *olvida* capturas viejas llena la ventana de píxeles y luego bucla.
 
-La particularidad de esa librería está en [smolagents: recuperación, equipos, visión](/course/smolagents-multi). La regla general está aquí: **una imagen es una observación, no una personalidad.**
+La regla práctica: **una imagen es una observación, no una personalidad.** El agente tiene que mirar, decidir, y soltar la imagen si ya no la necesita.
 
 <TryThis>
-En papel, lista las observaciones de un agente “verifica a este invitado contra Wikipedia” en tres pasos (buscar, abrir, captura). Marca cuáles deben quedarse en contexto y cuáles tirar para que la ventana sobreviva.
+En papel, lista las observaciones de un agente "verifica a este invitado contra Wikipedia" en tres pasos (buscar, abrir, captura). Marca cuáles deben quedarse en contexto y cuáles tirar para que la ventana sobreviva.
 </TryThis>
+
+## Coste de los embeddings de imagen
+
+Un error común: pensar que añadir visión es "gratis" porque "el LLM ya estaba entrenado". La realidad:
+
+<Compare>
+<Side title="Encoder de visión">
+~300M–2B parámetros (ViT-L/14, SigLIP-L, EVA-02-L). Memoria y FLOPs por imagen: comparables a un pase forward pequeño.
+</Side>
+<Side title="Proyector">
+Una capa lineal o MLP de 50M–200M parámetros. Barato.
+</Side>
+<Side title="Tokens de imagen en el LLM">
+Cada imagen genera 196–2880 tokens. Esos tokens ocupan caché KV, atención, y contexto del LLM. Una sola imagen puede consumir el equivalente a media página de texto.
+</Side>
+</Compare>
 
 ## Caso — las capturas eternas de AtlasBrowse
 
-AtlasBrowse dio a un agente de visión `max_steps=20` y un callback que guardaba cada captura de Selenium. En el paso 8 el prompt eran cuatro imágenes casi iguales de un banner de cookies que no podía cerrar. Siguió “mirando”. Añadieron `close_popups`. También debían tirar imágenes de más de dos pasos.
+AtlasBrowse dio a un agente de visión `max_steps=20` y un callback que guardaba cada captura de Selenium. En el paso 8 el prompt eran cuatro imágenes casi iguales de un banner de cookies que no podía cerrar. Siguió "mirando". Añadieron `close_popups`. También debían tirar imágenes de más de dos pasos.
+
+## Caso — el agente que no sabía qué foto mirar
+
+Un equipo de OCR construyó un agente que recibía un PDF multipágina como imágenes. El agente intentaba "leer" todas las páginas al principio, llenaba la ventana, y luego no podía razonar sobre nada. La solución: streaming por páginas (procesa una página, extrae, decide si la siguiente), con un resumen comprimido en lugar de la imagen completa en pasos posteriores.
+
+## Caso — el modelo multimodal que "alucinaba" texto
+
+Un modelo visión-lenguaje veía una captura de pantalla y describía un botón que no estaba ahí. El problema: el vision encoder producía embeddings con alta varianza para regiones vacías; el LLM, en cross-attention, llenaba los huecos. Solución: entrenar el modelo con un *objetivo de grounding* (predecir las coordenadas exactas del elemento descrito) además de la descripción libre.
+
+## Quiz rápido
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Cómo convierte un Vision Transformer (ViT) una imagen en tokens?",
+      options: [
+        { id: "a", text: "Usa un LSTM capa por capa sobre los píxeles." },
+        { id: "b", text: "Divide la imagen en parches (por ejemplo 16×16), aplana cada uno, los proyecta con una capa lineal a vectores de dimensión d_model, y los trata como secuencia." },
+        { id: "c", text: "Genera una descripción en texto y la tokeniza." },
+        { id: "d", text: "Aplica convolución 1×1 sobre toda la imagen." }
+      ],
+      correct: "b",
+      explanation: "ViT parte la imagen en una cuadrícula de parches de tamaño fijo, aplana cada parche y lo proyecta linealmente al espacio del transformer. El resultado es una secuencia de vectores que el transformer procesa con self-attention, igual que si fueran tokens de texto."
+    },
+    {
+      id: "q2",
+      stem: "¿Para qué sirve CLIP en un pipeline multimodal?",
+      options: [
+        { id: "a", text: "Genera imágenes nuevas a partir de texto." },
+        { id: "b", text: "Aprende un espacio compartido donde texto e imagen están alineados: útil para retrieval, filtrado de datasets y clasificación zero-shot, pero NO para generar descripciones largas." },
+        { id: "c", text: "Comprime audio." },
+        { id: "d", text: "Tokeniza texto en sub-palabras." }
+      ],
+      correct: "b",
+      explanation: "CLIP entrena dos torres (imagen y texto) con objetivo contrastivo: el embedding de la imagen correcta se acerca al embedding de su caption. Sirve para buscar imágenes con texto o clasificar zero-shot. No genera texto a partir de imágenes; para eso necesitas un modelo generativo."
+    },
+    {
+      id: "q3",
+      stem: "¿Qué es un flow matching y en qué se diferencia de la difusión clásica?",
+      options: [
+        { id: "a", text: "Es lo mismo que la difusión, con distinto nombre." },
+        { id: "b", text: "Es un marco general que aprende un campo vectorial entre ruido y datos; permite solvers con menos pasos y es más estable de entrenar que la difusión clásica (DDPM). SD3 y Flux lo usan." },
+        { id: "c", text: "Es una técnica solo para vídeo." },
+        { id: "d", text: "Es un tipo de RNN." }
+      ],
+      correct: "b",
+      explanation: "Flow matching es un marco que incluye la difusión como caso particular. Aprende directamente el campo vectorial entre la distribución de ruido y la distribución de datos, lo que permite solvers más rápidos (4–20 pasos en vez de 50–1000) y un entrenamiento más estable. SD3, Flux y otros modelos recientes lo adoptan."
+    },
+    {
+      id: "q4",
+      stem: "Tu agente de navegador guarda cada captura de pantalla en el contexto. ¿Por qué es un problema?",
+      options: [
+        { id: "a", text: "Las imágenes no se pueden comprimir." },
+        { id: "b", text: "Las imágenes consumen muchos tokens (196–2880 cada una) y llenan la ventana de contexto rápido; el agente pierde capacidad de razonar y puede entrar en bucles mirando capturas irrelevantes." },
+        { id: "c", text: "El navegador prohíbe guardar capturas." },
+        { id: "d", text: "Las imágenes se ven mal." }
+      ],
+      correct: "b",
+      explanation: "Cada imagen convertida en tokens visuales consume 196–2880 tokens del LLM. Si guardas todas las capturas, en pocos pasos el contexto se llena, el agente pierde la ventana para razonar, y suele entrar en bucles re-observando pantallas irrelevantes. La práctica es descartar capturas viejas o reemplazarlas por resúmenes comprimidos."
+    }
+  ]}
+/>
+
+## Fuentes
+
+- Dosovitskiy, A., et al. (2020). *An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale* (ViT). https://arxiv.org/abs/2010.11929
+- Radford, A., et al. (2021). *Learning Transferable Visual Models From Natural Language Supervision* (CLIP). https://arxiv.org/abs/2103.00020
+- Rombach, R., et al. (2022). *High-Resolution Image Synthesis with Latent Diffusion Models* (Stable Diffusion). https://arxiv.org/abs/2112.10752
+- Liu, H., et al. (2023). *Visual Instruction Tuning* (LLaVA). https://arxiv.org/abs/2304.08485
+- Esser, P., et al. (2024). *Scaling Rectified Flow Transformers for High-Resolution Image Synthesis* (SD3). https://arxiv.org/abs/2403.03206
+- Lipman, Y., et al. (2023). *Flow Matching for Generative Modeling*. https://arxiv.org/abs/2210.02747
+- Radford, A., et al. (2023). *Robust Speech Recognition via Large-Scale Weak Supervision* (Whisper). https://arxiv.org/abs/2212.04356
+- Brooks, T., et al. (2024). *Video Generation Models as World Simulators* (Sora technical report). https://openai.com/index/video-generation-models-as-world-simulators/
 
 Esta lección reescribe ideas del [curso de agentes de Hugging Face](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.

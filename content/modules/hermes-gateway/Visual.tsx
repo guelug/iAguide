@@ -5,28 +5,49 @@ import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import { Flow, Node3D, Slab, Tag, Turntable, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
+import { useCopy } from "@/lib/useCopy";
 
 type Step = "runner" | "key" | "guard" | "pair" | "lock";
 
-const OPTIONS = [
-  { value: "runner" as const, label: "GatewayRunner", tone: "var(--teal)" },
-  { value: "key" as const, label: "session key", tone: "var(--teal)" },
-  { value: "guard" as const, label: "two-level guard", tone: "var(--amber)" },
-  { value: "pair" as const, label: "/pair", tone: "var(--violet)" },
-  { value: "lock" as const, label: "token lock", tone: "var(--amber)" },
-];
+
 
 export default function Visual() {
+  const t = useCopy({
+    en: {
+      "step_the_diagram": "step the diagram",
+      "session_key": "session key",
+      "token_lock": "token lock",
+      "core_path": "core path",
+      "cost_volatile": "cost / volatile",
+      "extension": "extension"
+    },
+    es: {
+      "step_the_diagram": "recorre el diagrama",
+      "session_key": "clave de sesión",
+      "token_lock": "candado de token",
+      "core_path": "ruta núcleo",
+      "cost_volatile": "coste / volátil",
+      "extension": "extensión"
+    },
+  });
+
+  const OPTIONS = [
+    { value: "runner" as const, label: "GatewayRunner", tone: "var(--teal)" },
+    { value: "key" as const, label: t.session_key, tone: "var(--teal)" },
+    { value: "guard" as const, label: "two-level guard", tone: "var(--amber)" },
+    { value: "pair" as const, label: "/pair", tone: "var(--violet)" },
+    { value: "lock" as const, label: t.token_lock, tone: "var(--amber)" },
+  ];
   const [step, setStep] = useState<Step>("runner");
 
   return (
     <Figure
       label="Hermes: gateway pairing and guards"
-      hint="step the diagram"
+      hint={t.step_the_diagram}
       legend={[
-        { color: P.teal, label: "core path" },
-        { color: P.amber, label: "cost / volatile" },
-        { color: P.violet, label: "extension" },
+        { color: P.teal, label: t.core_path },
+        { color: P.amber, label: t.cost_volatile },
+        { color: P.violet, label: t.extension },
       ]}
       controls={
         <Switcher
@@ -39,14 +60,14 @@ export default function Visual() {
     >
       <Stage className="h-full w-full" maxDpr={1.75} camera={{ position: [0, 0.35, 7.4], fov: 40 }}>
         <Turntable speed={0.035} tilt={0.1}>
-          <Scene active={step} />
+          <Scene active={step} t={t} />
         </Turntable>
       </Stage>
     </Figure>
   );
 }
 
-function Scene({ active }: { active: Step }) {
+function Scene({ active, t }: { active: Step; t: any }) {
   return (
     <group>
       <Wire points={[[-2.6, 0.2, 0], [2.6, 0.2, 0]]} color={P.line} opacity={0.5} />
@@ -69,9 +90,7 @@ function Scene({ active }: { active: Step }) {
         color={active === "key" ? P.amber : P.lineStrong}
         fill={active === "key" ? 0.55 : 0.14}
       />
-      <Tag position={[-0.75, 1.4500000000000002, 0.0]} tone="amber" center>
-        session key
-      </Tag>
+      <Tag position={[-0.75, 1.4500000000000002, 0.0]} tone="amber" center>{t.session_key}</Tag>
 
       <Slab
         position={[0.75, 0.9, 0.0]}
@@ -99,9 +118,7 @@ function Scene({ active }: { active: Step }) {
         color={active === "lock" ? P.amber : P.lineStrong}
         fill={active === "lock" ? 0.55 : 0.14}
       />
-      <Tag position={[0.0, -0.5, 0.0]} tone="amber" center>
-        token lock
-      </Tag>
+      <Tag position={[0.0, -0.5, 0.0]} tone="amber" center>{t.token_lock}</Tag>
     </group>
   );
 }

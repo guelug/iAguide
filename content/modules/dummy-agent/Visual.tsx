@@ -5,30 +5,53 @@ import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import { Flow, Slab, Tag } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
+import { useCopy } from "@/lib/useCopy";
 
 type Mode = "hallucinate" | "stop" | "real";
 
 export default function Visual() {
+  const t = useCopy({
+    en: {
+      "stop_run_append": "stop · run · append",
+      "do_not_let_the_model_invent_the_observation": "do not let the model invent the Observation",
+      "hallucinated_obs": "hallucinated obs",
+      "stop_token": "stop token",
+      "real_tool": "real tool",
+      "hallucinated_obs_2": "Hallucinated obs",
+      "stop_token_2": "Stop token",
+      "real_tool_2": "Real tool"
+    },
+    es: {
+      "stop_run_append": "stop · run · append",
+      "do_not_let_the_model_invent_the_observation": "no dejes que el modelo invente la Observation",
+      "hallucinated_obs": "obs alucinada",
+      "stop_token": "token de stop",
+      "real_tool": "tool real",
+      "hallucinated_obs_2": "Obs alucinada",
+      "stop_token_2": "Token de stop",
+      "real_tool_2": "Tool real"
+    },
+  });
   const [mode, setMode] = useState<Mode>("hallucinate");
   return (
     <Figure
-      label="stop · run · append"
-      hint="do not let the model invent the Observation"
+      label={t.stop_run_append}
+      hint={t.do_not_let_the_model_invent_the_observation}
       legend={[
-          { color: P.rose, label: "hallucinated obs" },
-          { color: P.amber, label: "stop token" },
-          { color: P.teal, label: "real tool" }
+          { color: P.rose, label: t.hallucinated_obs },
+          { color: P.amber, label: t.stop_token },
+          { color: P.teal, label: t.real_tool }
       ]}
       controls={
         <Switcher
           value={mode}
           onChange={setMode}
           options={[
-            { value: "hallucinate", label: "Hallucinated obs", tone: P.rose },
-            { value: "stop", label: "Stop token", tone: P.amber },
-            { value: "real", label: "Real tool", tone: P.teal }
+            { value: "hallucinate", label: t.hallucinated_obs_2, tone: P.rose },
+            { value: "stop", label: t.stop_token_2, tone: P.amber },
+            { value: "real", label: t.real_tool_2, tone: P.teal }
           ]}
-          ariaLabel="do not let the model invent the Observation"
+          ariaLabel={t.do_not_let_the_model_invent_the_observation}
         />
       }
     >

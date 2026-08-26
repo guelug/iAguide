@@ -5,28 +5,49 @@ import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import { Flow, Node3D, Slab, Tag, Turntable, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
+import { useCopy } from "@/lib/useCopy";
 
 type Step = "a" | "b" | "c" | "d" | "e";
 
-const OPTIONS = [
-  { value: "a" as const, label: "openclaw", tone: "var(--teal)" },
-  { value: "b" as const, label: "user", tone: "var(--amber)" },
-  { value: "c" as const, label: "chrome ext", tone: "var(--violet)" },
-  { value: "d" as const, label: "SSRF", tone: "var(--amber)" },
-  { value: "e" as const, label: "node proxy", tone: "var(--teal)" },
-];
+
 
 export default function Visual() {
+  const t = useCopy({
+    en: {
+      "step_the_diagram": "step the diagram",
+      "chrome_ext": "chrome ext",
+      "node_proxy": "node proxy",
+      "core_path": "core path",
+      "cost_volatile": "cost / volatile",
+      "extension": "extension"
+    },
+    es: {
+      "step_the_diagram": "recorre el diagrama",
+      "chrome_ext": "ext de chrome",
+      "node_proxy": "proxy de nodo",
+      "core_path": "ruta núcleo",
+      "cost_volatile": "coste / volátil",
+      "extension": "extensión"
+    },
+  });
+
+  const OPTIONS = [
+    { value: "a" as const, label: "openclaw", tone: "var(--teal)" },
+    { value: "b" as const, label: "user", tone: "var(--amber)" },
+    { value: "c" as const, label: t.chrome_ext, tone: "var(--violet)" },
+    { value: "d" as const, label: "SSRF", tone: "var(--amber)" },
+    { value: "e" as const, label: t.node_proxy, tone: "var(--teal)" },
+  ];
   const [step, setStep] = useState<Step>("a");
 
   return (
     <Figure
       label="OpenClaw: managed browser profiles"
-      hint="step the diagram"
+      hint={t.step_the_diagram}
       legend={[
-        { color: P.teal, label: "core path" },
-        { color: P.amber, label: "cost / volatile" },
-        { color: P.violet, label: "extension" },
+        { color: P.teal, label: t.core_path },
+        { color: P.amber, label: t.cost_volatile },
+        { color: P.violet, label: t.extension },
       ]}
       controls={
         <Switcher
@@ -39,14 +60,14 @@ export default function Visual() {
     >
       <Stage className="h-full w-full" maxDpr={1.75} camera={{ position: [0, 0.35, 7.4], fov: 40 }}>
         <Turntable speed={0.035} tilt={0.1}>
-          <Scene active={step} />
+          <Scene active={step} t={t} />
         </Turntable>
       </Stage>
     </Figure>
   );
 }
 
-function Scene({ active }: { active: Step }) {
+function Scene({ active, t }: { active: Step; t: any }) {
   return (
     <group>
       <Wire points={[[-2.6, 0.2, 0], [2.6, 0.2, 0]]} color={P.line} opacity={0.5} />
@@ -79,9 +100,7 @@ function Scene({ active }: { active: Step }) {
         color={active === "c" ? P.violet : P.lineStrong}
         fill={active === "c" ? 0.55 : 0.14}
       />
-      <Tag position={[0.75, 1.4500000000000002, 0.0]} tone="violet" center>
-        chrome ext
-      </Tag>
+      <Tag position={[0.75, 1.4500000000000002, 0.0]} tone="violet" center>{t.chrome_ext}</Tag>
 
       <Slab
         position={[2.3, 0.9, 0.0]}
@@ -99,9 +118,7 @@ function Scene({ active }: { active: Step }) {
         color={active === "e" ? P.amber : P.lineStrong}
         fill={active === "e" ? 0.55 : 0.14}
       />
-      <Tag position={[0.0, -0.5, 0.0]} tone="amber" center>
-        node proxy
-      </Tag>
+      <Tag position={[0.0, -0.5, 0.0]} tone="amber" center>{t.node_proxy}</Tag>
     </group>
   );
 }

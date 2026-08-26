@@ -1,21 +1,207 @@
-## Una pagina no es web_extract
+## Una página no es browser
 
-Fetch extrae HTML. Las browser tools conducen un motor real via CDP.
+Dos herramientas, dos oficios.
 
-Hermes mantiene un supervisor CDP por tarea. OpenClaw elige target sandbox/host/node; el Gateway hace de proxy.
+- **`web_extract`** — trae HTML de una URL y lo resume o devuelve. Sin JS, sin cookies, sin login.
+- **Browser tools** — conduce un motor real (Chromium) via **CDP** (Chrome DevTools Protocol). Ejecuta JS, llena formularios, espera diálogos, navega en frames.
 
-<VisualSlot caption="Tool call, socket CDP, dialogos y frames." />
+Si basta una página estática, usa `web_extract`. Si necesitas JS, login, o comportamiento de SPA, necesitas el browser. Mezclar ambos en una sola tool es la forma más rápida de escribir un parser HTML que debería ser un click.
 
-Browser para login y apps JS. Extract cuando basta una pagina estatica.
+<VisualSlot caption="Tool call → socket CDP → dialogs y frames → modelo." />
+
+## El supervisor CDP
+
+Un browser real no es una llamada a una URL. Es un proceso de Chromium que vive minutos (o más), con un socket CDP abierto. Tu arnés tiene un **supervisor** que mantiene ese proceso.
+
+- **Lifecycle** — el supervisor arranca el browser, espera a que CDP esté listo, expone el WebSocket, y lo cierra cuando el arnés termina (o cuando un TTL expira).
+- **Targets** — un browser tiene tabs y contexts. Cada tool abre un target, opera, cierra. Targets huérfanos consumen RAM.
+- **Sockets** — CDP habla WebSocket. El arnés traduce tool_calls a mensajes CDP (`Page.navigate`, `Runtime.evaluate`, `Input.dispatchKeyEvent`).
+
+Hermes mantiene un supervisor por tarea. OpenClaw mantiene uno por sesión (con Tailscale Serve si el browser está en un node remoto).
+
+<Myth>
+"El browser tool es un wrapper sobre curl." No. CDP te da DOM renderizado, ejecución JS, accesibilidad tree, frames, dialogs, y estado de cookies. Curl te da bytes. Para páginas que dependen de JS (auth flows, SPAs), curl devuelve un shell vacío.
+</Myth>
+
+## Cuándo browser, cuándo extract
+
+| Caso | Herramienta | Por qué |
+| --- | --- | --- |
+| Wikipedia | `web_extract` | Sin JS, sin login. |
+| Settings React con auth | Browser | SPA, requiere login, state en cliente. |
+| Dashboard autenticado | Browser | Cookies de sesión, contenido dinámico. |
+| Página estática doc | `web_extract` | Más rápido, sin CDP. |
+| Búsqueda en Google y parse | Browser + extract | Browser para el search; extract para el snippet. |
+
+<TryThis>
+Tres filas: Wikipedia, settings React, dashboard autenticado. ¿Browser o extract? La respuesta cambia con la página, no con el modelo.
+</TryThis>
+
+## Login, cookies, perfiles — el problema persistente
+
+Un browser de arnés tiene un problema: el **login**. Si abres un Chrome fresco cada turno, no hay cookies. Tienes que:
+
+1. tener un perfil persistente (cookies sobreviven entre turnos),
+2. tener un nodo con login manual previo (cookies sembradas),
+3. o usar el browser del **operador humano** (computer-use en el host) y dejar que el operador loguee.
+
+Hermes Browser supervisor acepta `--user-data-dir` para persistir cookies entre runs. OpenClaw envía el browser a un **node** (otro host Tailscale) que tiene el perfil sembrado. La tercera opción es computer-use en el escritorio del usuario, con sus propios trade-offs de atención.
+
+<Callout>
+Si tu arnés hace login cada turno, no estás diseñando un agente. Estás pagando un CAPTCHA. Diseña para que el browser *ya esté* logueado cuando el arnés lo necesita.
+</Callout>
+
+## Dialogs, frames, y popups: las tres pesadillas
+
+Un browser real tiene tres superficies que rompen parsers ingenuos.
+
+1. **Dialogs** — `alert`, `confirm`, `prompt`, OAuth popups. El arnés necesita un handler explícito (auto-accept, deny, prompt-human). Sin handler, el browser queda esperando y el turno nunca termina.
+2. **Frames** — iframes, shadow DOM, cross-origin. CDP te da frames por id; el arnés tiene que trackear cuál está activo para cada tool call.
+3. **Popups** — `window.open`, nuevas tabs. El supervisor necesita saber si aceptarlas, cerrarlas, o usarlas.
+
+El patrón: handler explícito por tipo, con default razonable (auto-dismiss popups, auto-deny alerts no esperados, mantener frames con id).
+
+## Sandbox, host, node — dónde corre el browser
+
+Tres lugares donde puede vivir el browser, y la decisión importa.
+
+- **Sandbox** — un container o VM efímero. Aislado, barato de tirar. Bueno para tareas no autenticadas.
+- **Host** — el browser corre en la misma máquina que el gateway. Más rápido, pero comparte filesystem y red con el gateway.
+- **Node** — un host remoto (Tailscale, SSH) que expone CDP. Bueno para perfiles sembrados y para no quemar RAM del gateway.
+
+OpenClaw elige explícitamente por tool call: `target: "sandbox" | "host" | "node:lan-xyz"`. Hermes decide por configuración del supervisor. La elección cambia latencia, aislamiento, y qué cookies están disponibles.
+
+<Compare a="Sandbox" b="Node con perfil sembrado">
+
+<Side>
+Container efímero, sin estado entre turnos. Bueno para `web_extract`-like con JS, malo para auth flows porque cada turno es login fresco.
+
+</Side>
+
+<Side>
+Host dedicado con cookies persistidas. Login manual una vez por sesión larga. El gateway habla CDP sobre Tailscale. Más caro, pero el agente puede operar un dashboard autenticado.
+
+</Side>
+
+</Compare>
 
 ## Caso: browser con UI en el host del gateway
 
-**Caso.** Tras depurar, queda un browser headed toda la noche.
+**Caso.** Tras depurar, queda un browser headed toda la noche. El operador ve una ventana Chrome del gateway ocupando media pantalla.
 
-**Practica.** Headless; teardown; browser en el node del portatil.
+**Práctica.** Headless por defecto. `--headless=new` en el flag del supervisor. Teardown al cerrar el turno. Si necesitas un browser con UI, que viva en el node del portátil, no en el gateway. El gateway es un servicio.
 
-<TryThis>
-Tres filas: browser o extract? Wikipedia, settings React, dashboard autenticado.
-</TryThis>
+## El coste del browser
 
-Docs: [supervisor Hermes](https://hermes-agent.nousresearch.com/docs/developer-guide/browser-supervisor), [browser OpenClaw](https://docs.openclaw.ai/tools/browser).
+Un browser tool es la tool más cara del catálogo por varios motivos:
+
+- **Latencia** — navegar, esperar a que cargue JS, esperar a que un dialog aparezca. Segundos a minutos, no milisegundos.
+- **Prefill** — cada tool call (especialmente con `screenshot` o `extract_text`) mete contenido grande al contexto. Acota la salida (4k caracteres por defecto; 64k para `extract_text`).
+- **Cleanup** — un browser no cerrado consume RAM. TTL agresivo en el supervisor (5 min sin actividad → teardown).
+
+<Myth>
+"El browser tool hace al agente más listo." No, le da más superficie de fallo. Es una herramienta cuando hace falta, no un upgrade general.
+</Myth>
+
+## Tres errores comunes
+
+1. **Browser headed por defecto** — debug visual está bien en tu portátil. En producción, headless siempre.
+2. **Cerrar el browser después de cada tool call** — pierde cookies, pierde estado. Reutiliza el contexto donde puedas.
+3. **Meter el HTML completo al contexto** — un `dump_html` puede ser 500k caracteres. Devuelve el accessibility tree, no el DOM.
+
+<Steps>
+<Step title="Inventariar páginas">
+Lista qué páginas necesita el agente. Estáticas → extract. JS / auth → browser. Mezcla: extract cuando basta, browser cuando hace falta.
+</Step>
+<Step title="Decidir target">
+Sandbox para no autenticado, host si necesitas velocidad, node si el browser tiene cookies sembradas.
+</Step>
+<Step title="Acotar salida">
+Screenshots a 800x600. Texto extraído a 4k por defecto. HTML al filesystem, no al contexto.
+</Step>
+<Step title="Handler de dialogs">
+Auto-dismiss popups. Auto-deny alerts no esperados. Frames por id. Popups a un handler explícito.
+</Step>
+</Steps>
+
+## Cinco tests del browser supervisor
+
+Cinco tests unitarios sin lanzar un browser real:
+
+1. **Connect / disconnect** — el lifecycle abre y cierra el socket CDP sin leak.
+2. **Tool dispatch** — `browser.navigate(url)` se traduce a `Page.navigate` con los argumentos correctos.
+3. **Dialog handler** — un `alert` se cierra con el default configurado, no se cuelga.
+4. **Target cleanup** — un context abierto sin uso se cierra tras el TTL.
+5. **Screenshot bounds** — `browser.screenshot({width: 800})` no devuelve imágenes de 4000px por bug.
+
+Estos tests corren en milisegundos. Sin red. Sin chromium.
+
+## Lista práctica
+
+1. `web_extract` para páginas estáticas. Browser para JS, login, SPA.
+2. Supervisor CDP por tarea. TTL agresivo, teardown limpio.
+3. Cookies persistidas si necesitas auth. Login manual en el node, no en el gateway.
+4. Headless por defecto. Browser con UI solo en debug local.
+5. Acotar salida al contexto (4k chars, 64k para texto). HTML al filesystem.
+6. Dialogs, frames, popups: handlers explícitos, no defaults silenciosos.
+7. Browser supervisor se testea sin chromium. Connect, dispatch, dialog, target, bounds.
+
+## Fuentes
+
+- Hermes — *Browser supervisor*. https://hermes-agent.nousresearch.com/docs/developer-guide/browser-supervisor
+- OpenClaw — *Browser tool*. https://docs.openclaw.ai/tools/browser
+- Chrome DevTools Protocol. https://chromedevtools.github.io/devtools-protocol/
+- Anthropic — *Computer use* (background-first model). https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/computer-use
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "Una página con un dashboard autenticado. ¿Qué herramienta?",
+      options: [
+        { id: "a", text: "web_extract, porque es lo más rápido." },
+        { id: "b", text: "Browser con un node que tiene cookies sembradas, porque el dashboard requiere sesión y JS." },
+        { id: "c", text: "curl con la cookie pegada." },
+        { id: "d", text: "In-process HTTP sin estado." }
+      ],
+      correct: "b",
+      explanation: "Un dashboard autenticado necesita cookies de sesión y ejecución JS. web_extract falla en auth y JS. Curl pegando cookies no maneja tokens expirados, CSRF, ni contenido dinámico. Browser + node con perfil sembrado es la elección correcta."
+    },
+    {
+      id: "q2",
+      stem: "Tu arnés abre un dialog `alert('confirm')` y nunca termina. ¿Por qué?",
+      options: [
+        { id: "a", text: "El browser colgó." },
+        { id: "b", text: "El arnés no tiene un handler explícito para dialogs. El browser queda esperando a que alguien (humano o código) acepte/deniegue. Sin handler, el turno se cuelga." },
+        { id: "c", text: "El modelo no sabe qué hacer." },
+        { id: "d", text: "El timeout no está configurado." }
+      ],
+      correct: "b",
+      explanation: "CDP necesita que el arnés registre un handler para Page.javascriptDialogOpening. Sin él, el browser espera eternamente. La solución es handler explícito con default razonable (auto-dismiss popups, deny alerts no esperados)."
+    },
+    {
+      id: "q3",
+      stem: "¿Por qué un browser tool es la tool más cara del catálogo?",
+      options: [
+        { id: "a", text: "Porque cobra por uso." },
+        { id: "b", text: "Porque combina latencia alta (navegar + JS), prefill caro (screenshots / HTML), y cleanup costoso (browser no cerrado consume RAM). Tres líneas de coste en cada llamada." },
+        { id: "c", text: "Porque usa GPU." },
+        { id: "d", text: "Porque requiere JavaScript." }
+      ],
+      correct: "b",
+      explanation: "Browser tool paga latencia (segundos a minutos), prefill (screenshots grandes, HTML completo), y memoria (browser no cerrado consume RAM). Las tres líneas juntas hacen del browser la tool más cara. Por eso acotar salida, TTL agresivo, y headless por defecto no son detalles."
+    },
+    {
+      id: "q4",
+      stem: "Un dump_html devuelve 500k caracteres al contexto. ¿Qué pasa?",
+      options: [
+        { id: "a", text: "El modelo lo lee y contesta bien." },
+        { id: "b", text: "El prefill de esa tool_call cuesta más que el prefill del system prompt. La atención se diluye en 500k caracteres de HTML, y el modelo ignora el 95%." },
+        { id: "c", text: "El modelo decide solo." },
+        { id: "d", text: "Es lo esperado, los modelos manejan HTML." }
+      ],
+      correct: "b",
+      explanation: "500k caracteres de HTML al contexto es un budget bomb. El prefill de esa tool_call solo domina la factura. La atención se diluye y el modelo ignora casi todo. Devuelve el accessibility tree (pequeño, semántico) o el HTML al filesystem con un id, no al contexto."
+    }
+  ]}
+/>
