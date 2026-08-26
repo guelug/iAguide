@@ -1,108 +1,170 @@
 ## Una herramienta es una función tipada que tú ejecutas
 
-se le da al modelo. El modelo no puede llamarla. Solo puede emitir texto que *parece* una llamada. El arnés lee ese texto, ejecuta el callable y devuelve el resultado.
-
-*Fuente nombrada: Hugging Face Agents Course, Unidad 1, [What are Tools?](https://huggingface.co/learn/agents-course/unit1/tools) y [Actions](https://huggingface.co/learn/agents-course/unit1/actions) (Burtenshaw, Thomas, Simonini y Paniego, Apache-2.0).*
-
-Una buena tool complementa al modelo. La aritmética vive en una calculadora, no en los logits. El tiempo de hoy vive en una API, no en la fecha de corte del entrenamiento. Generar imágenes, recuperar documentos, un cliente de GitHub: la misma forma.
-
-El LLM solo recibe texto y solo emite texto. «Dar tools a un agente» es enseñarle que existen e instruirle a generar invocaciones en texto. El arnés hace el resto, fuera de cámara. El usuario ve una respuesta natural. Tú ves un despacho.
-
-<VisualSlot caption="Esquema → registro → pulso de despacho → puerta de política → backend." />
-
-Tu runtime, en un turno:
+El modelo no «tiene bash». Emite un <Term id="tool-call">tool_call</Term>. Tu arnés:
 
 1. Expone **esquemas** visibles este turno.
 2. Busca el nombre en un **registro** (registry).
 3. Aplica **política** (allow/deny, aprobaciones, sandbox).
+4. Ejecuta un **handler** (o un **backend**: terminal local, Docker, SSH, CDP…).
+5. Añade el resultado como mensaje y sigue el bucle.
 
-Cinco cajas. Si saltas la puerta de política, el modelo «tiene bash» de verdad. Si saltas el registro, ejecutas un nombre alucinado. Si saltas el esquema, el modelo no sabe qué pedir.
+<VisualSlot caption="Esquema → registro → pulso de despacho → puerta de política → backend. Los permisos están entre el modelo y el host." />
 
-Otros ejemplos que el curso pone en la misma tabla: búsqueda web, generar imagen, retrieval, un cliente de API (GitHub, YouTube, Spotify). La forma no cambia. Cambia el backend. Un retrieval es un handler que consulta un índice; no es un segundo decoder. Si el esquema dice search y el handler abre bash, la puerta de política ha fallado en silencio.
+*Fuente nombrada: Hugging Face Agents Course, Unidad 1, [What are Tools?](https://huggingface.co/learn/agents-course/unit1/tools) (Burtenshaw, Thomas, Simonini y Paniego, Apache-2.0).*
 
+Una buena tool complementa al modelo. La aritmética vive en una calculadora, no en los logits. El tiempo de hoy vive en una API, no en la fecha de corte del entrenamiento. Generar imágenes, recuperar documentos, un cliente de GitHub: la misma forma.
 
-## Qué tiene que llevar una tool
+El LLM solo maneja texto. Describe la acción que quiere y los parámetros. Tú haces el resto. El usuario ve una respuesta natural. Tú ves un despacho.
 
-El curso pide cuatro piezas, siempre:
+## Las cinco cajas del runtime
 
-- un **nombre**
-- una **descripción textual** del objetivo
-- **argumentos** con tipos
-- opcionalmente **salidas** con tipos
+### Esquema
 
-Más el **callable**: algo que de verdad corre. Sin callable tienes un diccionario de marketing. Sin descripción tienes un modelo que inventa argumentos.
+Lo que el modelo ve este turno. Una tool sin esquema visible es una tool que no existe para el modelo. El esquema es un JSON Schema (o equivalente): nombre, descripción, parámetros con tipos. Si pones herramientas con nombres ambiguos, el modelo pedirá la equivocada. Si la descripción es vaga, inventará argumentos.
 
-El ejemplo de calculadora de la Unidad 1 es una función de una línea que multiplica dos enteros:
+El curso de Hugging Face recomienda cuatro piezas siempre:
+- Un **nombre** único
+- Una **descripción textual** del objetivo
+- **Argumentos** con tipos
+- Opcionalmente **salidas** con tipos
 
-    def calculator(a: int, b: int) -> int:
-        # Multiply two integers.
-        return a * b
+Y un **callable**: algo que de verdad corre. Sin callable tienes un diccionario de marketing. Sin descripción tienes un modelo que adivina.
 
-La forma textual que el modelo necesita ver — exactamente la cadena del curso — es:
+### Registro
 
-    Tool Name: calculator, Description: Multiply two integers., Arguments: a: int, b: int, Outputs: int
+Nombre → handler. Hermes descubre el registro a nivel de módulo; sombrear un nombre exige `override=True` más consentimiento. OpenClaw filtra tools por perfil, allow/deny, restricciones de proveedor y políticas de sandbox. Si el registro no tiene el nombre, no se ejecuta, aunque el modelo lo pida.
 
-Eso va al system prompt. No un objeto Python. No un plugin invisible. Texto. Si añades otra tool, el mismo formato, siempre. El proceso es frágil: un detalle omitido y el modelo improvisa.
+### Despacho
 
-smolagents (y el decorador que el curso bosqueja) extraen nombre, docstring y type hints para no escribir esa cadena a mano. Hasta entonces, el prompt dummy **ya contiene** la lista. Nada se descubre en runtime. Si la descripción es vaga, el modelo inventará argumentos. Si dos tools se solapan, elegirá la equivocada. La precisión del system prompt es el producto.
+El pulso: parsear, validar tipos, llamar al handler. Aquí vive el stop-and-parse del ciclo ReAct. El curso llama a esto «el Agent ejecuta». Internamente es: leer el tool_call, sacar el nombre y los argumentos, comprobar que el nombre está en el registro, llamar.
 
-Cómo se le **dan** las tools al modelo, en una frase: el system prompt lleva descripciones textuales, precisas. JSON o un mini-lenguaje sirven porque son coherentes, no porque el decoder «entienda JSON». Cualquier formato preciso vale; mezclar dos en el mismo prompt no.
+### Política
 
-El curso bosqueja una clase Tool con name, description, func, arguments, outputs, un to_string que pinta la cadena de arriba, y un call que invoca el callable. No copies esa clase aquí con literales. La idea: el prompt ve to_string; el runtime ve call. Si solo tienes una de las dos, no tienes una tool.
+Allow/deny, aprobaciones humanas, sandbox. Si la política quita una tool, el modelo no ve su esquema. Esa es la puerta. No un «por favor» en el system prompt.
 
-<Callout>
-El LLM solo maneja texto. Describe la acción que quiere y los parámetros. Para que el agente funcione, la generación debe **parar** después de una Action completa para que un parser la lea. Tokens de más después de la Action no son creatividad. Son un contrato roto.
-</Callout>
+<Myth>
+«El modelo tiene bash.» No. Emite un tool_call. Si tu política y tu backend le dan un shell, *tú* le diste bash. El decoder sigue prediciendo tokens. La seguridad no está en el modelo; está en las cinco cajas.
+</Myth>
 
-## Stop-and-parse
+### Backend
 
-Actions de la Unidad 1: el decoder emite una Action en un formato pactado y **para**. Un parser externo lee el nombre y los argumentos. Sin parada, el modelo sigue y el parser recibe basura. Sin parser, la parada es un cuelgue.
+Dónde corre de verdad. Hermes terminal backends incluyen local, Docker, SSH, Daytona, Modal, Singularity, Vercel Sandbox. OpenClaw browser puede targetizar sandbox, host o un node emparejado con Chrome; Gateway hace de proxy, no hace falta exponer el puerto del browser.
 
-Tres grafías del mismo hueco:
+Terminal y browser no son segundos cerebros. Son backends detrás de tools.
 
-- **Agente JSON** — el dummy. Un objeto con action y action_input. Un parser mapea el nombre a la función.
-- **Agente de código** — un bloque Python que un intérprete ejecuta. Bucles, varias llamadas, variables. Más expresivo. Más peligroso. El default de [smolagents](/es/m/smolagents).
-- **Agente de function-calling** — un JSON cuya plantilla de chat creció roles especiales: un mensaje assistant que es una llamada, un mensaje tool que es la Observation. Aprendido, no solo inducido. Ver [function-calling](/es/m/function-calling-ft).
-
-Los tres siguen haciendo stop-and-parse. Los de código delimitan un bloque y tratan un print de respuesta final como fin de paso. Los de function-calling paran porque la API devuelve tool_calls en vez de contenido. El dummy deja la cadena de stop a la vista.
-
-<Compare a="JSON / function-calling" b="Agente de código">
+<Compare a="Plugin" b="Builtin">
 <Side>
-Una llamada por Action. El parser es un mapa nombre → función. El sandbox puede ser más estrecho. El dummy cabe en veinte líneas.
+Se registra sin tocar el núcleo: hooks, herramientas nuevas, plataformas. Preferible para tools personales o de proveedor.
 </Side>
 <Side>
-Un bloque con lógica. Más potencia, más superficie. Ejecutar código generado por un LLM es un riesgo (inyección, daños). El curso recomienda un framework con salvaguardas — smolagents las trae por defecto. No las apagues para «ir más rápido».
+Viene en el árbol principal. Útil para el núcleo del arnés. Cada builtin adicional es una rama que pagas en cada llamada.
 </Side>
 </Compare>
 
-Un code agent que llama al tiempo no emite action=get_weather. Escribe Python, importa un cliente, imprime. Tú interpretas en un sandbox, no en el kernel del host. Si no hay sandbox, no tienes un agente de código. Tienes un shell con un system prompt educado.
+## Plugins vs builtins vs skills
 
-El while de veinte líneas, el stop y el parser estricto: [agente dummy](/es/m/dummy-agent). Esta lección es el despacho alrededor de ese hueco.
+- **Builtin** — vive en el árbol del núcleo. Hermes los auto-descubre con `registry.register()`.
+- **Plugin** — se registra por API de contexto sin forkear el núcleo. Preferible para tools personales.
+- **Skill** — instrucciones + tools existentes (`SKILL.md`), no un callable nuevo, cuando un flujo de trabajo basta.
 
-## De la cadena al backend
+Un skill no es una tool. Es una receta que usa tools. Si lo que necesitas es «busca en la web y resume», un skill con instrucciones y `web_search` puede bastar. Si necesitas un callable nuevo, es un plugin o un builtin.
 
-El curso se queda en «el Agent ejecuta». iAguide nombra las cajas, porque ahí se pudre el producto:
+## El stop-and-parse en detalle
 
-**Esquema.** Lo que el modelo ve este turno. Si la política quita una tool, el esquema no se pinta. El modelo no puede pedir lo que no ha leído.
+El curso hace hincapié en que el modelo **pare** después de emitir la Action. Si no paras, el modelo escribe la Observation y tienes una alucinación con datos falsos. El truco es una secuencia de stop.
 
-**Registro.** Nombre → handler. Hermes descubre el registro a nivel de módulo; sombrear un nombre exige override y consentimiento. Un nombre que no está no se ejecuta. El modelo lo intentará.
+Tres grafías del mismo hueco:
 
-**Despacho.** El pulso: parsear, validar tipos, llamar. Aquí vive el stop-and-parse.
+- **Agente JSON** — el modelo emite un objeto JSON con `action` y `action_input`. El parser lo mapea a la función.
+- **Agente de código** — un bloque Python que se ejecuta en sandbox. Más expresivo. El default de [smolagents](/es/m/smolagents).
+- **Agente de function-calling** — el modelo emite un `tool_calls` nativo del API de chat. El proveedor lo parsea por ti.
 
-**Política.** Allow/deny, aprobaciones humanas, sandbox. OpenClaw filtra por perfil, allow/deny, sandbox y plugins. Si la política quita una tool, el modelo no ve su esquema. Esa es la puerta. No un «por favor» en el system prompt.
+Los tres hacen stop-and-parse. Los de código delimitan un bloque. Los de function-calling paran porque el API devuelve `tool_calls` en vez de `content`. El dummy deja la cadena de stop a la vista.
 
-**Backend.** Dónde corre de verdad: proceso local, contenedor, SSH, un node con Chrome. Terminal y browser no son segundos cerebros. Hermes tiene varios backends de terminal; OpenClaw puede mandar browser a sandbox, host o un node con Chrome vía el Gateway.
+## El while de veinte líneas
+
+El curso implementa el ciclo en la [Dummy Agent Library](https://huggingface.co/learn/agents-course/unit1/dummy-agent-library). La forma del bucle, sin copiar literales que rompan el MDX:
+
+1. El arnés construye los mensajes: system prompt + historial + nueva pregunta.
+2. Llama al modelo con `stop=["Observation:"]`.
+3. El modelo devuelve Thought + Action JSON.
+4. Parseas el Action: ¿es un nombre conocido? ¿tiene los argumentos correctos?
+5. Ejecutas la función (o devuelves error).
+6. Añades la Observation real al mensaje.
+7. Repites hasta `Final Answer:` o tope de pasos.
+
+Ese while cabe en veinte líneas. Esa es la herramienta más importante del curso.
+
+<Callout>
+`stop=["Observation:"]` no es adorno. Sin él, el modelo escribe la Observation y tienes un chatbot que hace teatro de tools. Con él y sin `runTool`, tienes un cuelgue. Ambos bugs parecen agentes en una demo. Ninguno lo es.
+</Callout>
+
+## Prefill, decode y A3B en el runtime de tools
+
+Cuando el modelo decide llamar a una tool, el flujo es:
+
+1. **Generate** (decode): el modelo emite el tool_call token a token. Es decode: memory-bandwidth-bound, un token cada vez.
+2. **Ejecución**: tu código corre la tool. Esto puede ser rápido (una calculadora) o lento (una API HTTP, un browser). El modelo no espera; el arnés espera.
+3. **Append**: añades el resultado como mensaje de tool.
+4. **Nuevo prefill**: el arnés llama al modelo otra vez. Prefill procesa el contexto actualizado (TOOOOODOS los tokens) en paralelo.
+
+Aquí hay un detalle importante con modelos **A3B/MoE** (como Kimi Linear 48B-A3B): durante el prefill, aunque solo ~3B parámetros estén activos por token, la atención sigue siendo *dense* sobre toda la caché KV. Eso significa que el **prefill escala con la longitud del contexto**, no con los parámetros activos. Un modelo A3B con 100k tokens de contexto va a tener un prefill pesado igual que uno dense de 3B. La ventaja del A3B está en el **decode** (menos FLOPs por token porque solo activas 3B de los 48B), pero la **memoria** sigue teniendo que cargar los 48B completos.
+
+Por eso una tool que devuelve mucho texto (una página web entera, un PDF parseado) encarece el siguiente prefill. La compactación no es opcional; es económica.
 
 <Myth>
-«El modelo tiene bash.» No. Emite un tool_call. Si tu política y tu backend le dan un shell, *tú* le diste bash. El decoder sigue prediciendo tokens.
+«Un modelo A3B necesita menos VRAM porque solo usa 3B parámetros.» Falso. Necesita VRAM para los **48B parámetros totales**. Los 3B activos afectan a los FLOPs por token, no al tamaño en memoria.
 </Myth>
 
-Consejo práctico: nombra las cinco cajas en el código como las nombra el diagrama. Si el log dice solo «LLM», no sabrás si falló el esquema, la puerta o el backend.
+## Anatomía de un tool_call (en crudo)
 
-## Anatomía de un tool_call
+Un tool_call es un mensaje estructurado. El API devuelve algo como:
 
-ca la quita, el esquema no se pinta" c="Un Thought que dice «no tengo permiso»" answer="b" why="OpenClaw y un runtime serio filtran el esquema. Lo que no se pinta no se pide. Pedir y fallar gasta un turno y enseña un rito inútil." missA="Eso es un allow que miente. La puerta está después del generate: caro y ruidoso." missC="El Thought no es un canal de permisos. La política es anterior al prompt de tools." />
-</Quiz>
+| Campo | Valor |
+|---|---|
+| `id` | `call_abc123` |
+| `type` | `function` |
+| `function.name` | `get_weather` |
+| `function.arguments` | `{"location": "Madrid"}` |
+
+El arnés busca `get_weather` en el registro, valida que `location` es string, ejecuta el handler y devuelve un tool_result con el mismo `id` para que el modelo pueda correlacionarlo.
+
+Si el JSON de arguments viene mal formado (comillas rotas, tipos equivocados), el handler no debe ejecutarse. Rechazar y devolver un error de parseo es más seguro que ejecutar con argumentos basura.
+
+## Caso — el plugin que editaba el núcleo
+
+**Caso.** Un contribuidor parchea `run_agent.py` para añadir su SaaS en lugar de usar `ctx.register_tool(...)`.
+
+**Olor.** El núcleo es una cintura estrecha; cada rama especial afecta a todas las llamadas API. Ensancha la superficie de plugins; mantén el bucle aburrido. Una tool nueva no debería tocar el loop; debería registrarse como plugin.
+
+## Caso — GooSearch y el solapamiento de nombres
+
+**Caso.** Dos plugins registran `web_search` con distinta implementación. Sin un sistema de override, el último en cargar gana y el primero deja de funcionar sin aviso.
+
+**Lección.** Nombres únicos, override explícito con consentimiento, log del ganador. Hermes rechaza sombrear sin `override=True`. OpenClaw filtra por perfil. No asumas que «el último que se registra es el mejor».
+
+<Quiz
+ questions={[
+  { id: "t1", stem: "¿Cuál es la diferencia entre un skill y un plugin en el runtime de tools?", options: [
+   { id: "a", text: "Un skill son instrucciones que usan tools existentes; un plugin registra un callable nuevo" },
+   { id: "b", text: "Son lo mismo" },
+   { id: "c", text: "Un plugin es más rápido que un skill" },
+   { id: "d", text: "Un skill necesita compilarse, un plugin no" }
+  ], correct: "a", explanation: "Un skill es una receta (SKILL.md) que usa herramientas que ya existen. Un plugin registra código nuevo (un callable) a través de la API de contexto." },
+  { id: "t2", stem: "¿Por qué un modelo A3B (48B total, ~3B activos) necesita tanta VRAM como uno dense de 48B?", options: [
+   { id: "a", text: "Porque la memoria debe cargar los 48B parámetros totales, aunque solo 3B se activen por token" },
+   { id: "b", text: "Porque el A3B es menos eficiente" },
+   { id: "c", text: "No necesita tanta VRAM, solo carga 3B" },
+   { id: "d", text: "Porque la atención siempre es dense sobre la caché KV" }
+  ], correct: "a", explanation: "La VRAM almacena TODOS los parámetros del modelo, activos o no. Un MoE 48B-A3B ocupa ~96 GB en BF16 como cualquier dense de 48B. La ventaja del A3B está en los FLOPs por token, no en el footprint de memoria." },
+  { id: "t3", stem: "¿Qué pasa si omites el paso de política (allow/deny) en el runtime de tools?", options: [
+   { id: "a", text: "El modelo puede ejecutar cualquier tool que nombre, incluyendo las peligrosas" },
+   { id: "b", text: "Nada, el modelo ya es seguro por defecto" },
+   { id: "c", text: "Las tools simplemente no funcionan" },
+   { id: "d", text: "El runtime lanza un error" }
+  ], correct: "a", explanation: "Sin política, el registro y el despacho ejecutan lo que sea. Si el modelo nombra `run_shell` y está en el registro, se ejecuta. La política es la puerta que separa «puedo nombrarlo» de «puedo ejecutarlo»." },
+ ]}
+/>
 
 ## Fuentes
 

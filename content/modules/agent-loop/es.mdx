@@ -12,7 +12,6 @@ El modelo se cambia. El bucle es el producto.
 
 <VisualSlot caption="Recorre los cinco verbos de un turno. El pulso es trabajo moviéndose por el arnés, no un segundo cerebro." />
 
-
 Los cinco verbos son el mapa iAguide. El curso de Hugging Face nombra el mismo pulso por dentro: Thought, Action, Observation, en un `while` hasta que el objetivo está cumplido. No son dos bucles. El while del curso **es** el paso 4 (y un trozo del 3). Intake, armar y persistir los pone el arnés alrededor.
 
 ## Thought, Action, Observation: el while
@@ -26,7 +25,6 @@ Un agente, en la Unidad 1, es un sistema que usa un modelo de lenguaje para inte
 En analogía de programación: un `while`. Sigue hasta el objetivo, o hasta un presupuesto de pasos. Los frameworks meten las reglas en el <Term id="system-prompt">system prompt</Term>. El dummy las deja a la vista. El parseo de veinte líneas vive en [agente dummy](/es/m/dummy-agent): esta lección no lo reescribe.
 
 El curso lista tipos de Thought que caben en ese párrafo: planear, analizar, decidir, resolver, integrar memoria del hilo, auto-corregirse, fijar un objetivo, priorizar. Siguen siendo tokens. Un «plan en tres pasos» no es un planner aparte; es prosa que el siguiente Action puede cumplir o ignorar. Si ignoras el parseo, el plan es teatro.
-
 
 <Callout>
 La Observation no es el siguiente Thought «más honesto». Es un log del entorno. Si el modelo la escribe, tienes una alucinación con formato de meteorología. Si tú la escribes después de ejecutar, tienes un agente.
@@ -57,7 +55,6 @@ Cómo se **añade** la Observation, en el orden del curso: parsear la Action (no
 
 Las Observations pueden ser un error HTTP, un cambio en un fichero, un número de calculadora, un timeout. El curso las llama logs de la tool. Trátalas como logs: textuales, completas, fuente de verdad *porque tú las pegaste*.
 
-
 ## ReAct frente a Chain-of-Thought
 
 **Chain-of-thought** es un truco de prompting: «vamos paso a paso», para trabajo que se queda **dentro** del modelo (mates, lógica). No hay tools. Si el hecho no está en los pesos, CoT lo inventa con fluidez.
@@ -81,17 +78,25 @@ El curso lo dice en Thoughts y lo retoma en Actions: si el modelo se afinó para
 
 Esa distinción es toda la lección de [fine-tuning para function calling](/es/m/function-calling-ft). Aquí basta: no exijas un monólogo a un modelo que ya emite tool_calls. Exige el while, el parseo y la Observation honesta.
 
-Forma del hueco dummy, en prosa de aula — el código con literales está en [dummy-agent](/es/m/dummy-agent):
+## Prefill y decode en el bucle
 
-    output = client.chat.completions.create(messages, max_tokens=150, stop=Observation:)
-    text = output.choices[0].message.content
-    # parsear Action, ejecutar get_weather tú
-    observation = get_weather(location)
-    # concatenar Observation: + el resultado real
-    # muestrear otra vez hasta Final Answer:
+Cada llamada al modelo dentro del bucle tiene dos fases, y entenderlas explica por qué los arneses se sienten lentos en ciertos momentos:
 
-`stop=Observation:` no es adorno. Sin él, el modelo escribe la Observation. Con él, y sin runTool, tienes un cuelgue. Los dos bugs parecen agentes en una demo. Ninguno lo es.
+<Compare a="Prefill" b="Decode">
+<Side>
+El arnés arma el contexto completo (system prompt + historial + tools + nueva pregunta) y se lo pasa al modelo. **Todo el prompt se procesa en paralelo** por capa: todas las posiciones de atención se computan a la vez. Esto es intensivo en cómputo (FLOPs), no tanto en ancho de banda. Por eso el prefill escala con el tamaño del prompt. Un arnés que mete 20k tokens de historial va a sentir el primer token lento.
+</Side>
+<Side>
+El modelo genera un token cada vez, autoregresivamente: usa la caché KV que construyó durante el prefill y solo computa atención para el nuevo token. Esto es intensivo en **ancho de banda de memoria**: hay que leer los pesos enteros para producir un solo token. Por eso el decode se vuelve más lento a medida que la caché KV crece (más tokens en contexto = más memoria que leer cada paso).
+</Side>
+</Compare>
 
+En un bucle de agente típico:
+- **Paso 3 (llamar al modelo):** prefill pesado porque armaste contexto. Más lento cuanto más historial tengas.
+- **Paso 4 (tools):** si el modelo llama a una tool, el arnés ejecuta y luego vuelve al paso 3 con la Observation añadida. Eso es otro prefill completo (o un cache hit parcial si el proveedor soporta prefix caching).
+- **Turnos largos:** con muchas rondas de tools, cada prefill es más caro porque el contexto crece. Ahí entra la [compactación](/es/m/compression-caching) y el [cacheado de prefijo](/es/m/calls-cache-threads).
+
+El detalle de cómo los distintos motores gestionan esta diferencia está en [inferencia local](/es/m/local-inference). Lo que importa aquí: **el bucle no es gratis**. Cada vuelta paga un prefill. Si tienes un agente que da 10 vueltas, multiplica el coste de la primera llamada por 10.
 
 ## Interrupción, presupuesto, fallback
 
@@ -104,19 +109,13 @@ Alrededor del while, el arnés pone tres ideas que el curso de Unidad 1 apenas n
 <Compare a="Chat" b="Bucle de arnés">
 <Side>
 Mandar mensaje → imprimir respuesta. Sin rondas de tools, sin modelo de interrupción, sin claim de escritura durable.
-
 </Side>
 <Side>
 Serializar por sesión, armar un prefijo estable, ejecutar tools con permisos, compactar cuando la ventana se llena, entregar por un adaptador.
-
 </Side>
 </Compare>
 
 El pulso que pinta el diagrama no es «el modelo pensando más». Es trabajo moviéndose: intake → assemble → generate → tools → persist. Si una flecha se atasca, no subas la temperatura. Mira el verbo.
-
-
-Los cinco verbos no son un framework. Son la lista contra la que testear el tuyo. El while de Alfred cabe en una hoja. El producto es no mentir en ninguna flecha.
-
 
 ## Hermes frente a OpenClaw
 
@@ -142,7 +141,38 @@ Tres tests que no necesitan un modelo real:
 
 Estos tests corren en milisegundos. Sin API key. Son el grueso de tu cobertura.
 
-<TryThis>
-Dibuja los cinco verbos. Marca (a) el evento de interrupción, (b) un presupuesto de 500 iteraciones, (c) un cambio de proveedor fallback. Sin GPU: el arnés se testea como máquina de estados. Luego abre [agente dummy](/es/m/dummy-agent) y escribe el while de veinte líneas: parar, parsear, ejecutar, añadir Observation.
-</TryThis>
+<Quiz
+ questions={[
+  { id: "a1", stem: "¿Cuál es la diferencia clave entre prefill y decode en el bucle del agente?", options: [
+   { id: "a", text: "Prefill es secuencial, decode es paralelo" },
+   { id: "b", text: "Prefill procesa todo el prompt en paralelo (compute-bound); decode genera un token a la vez (memory-bandwidth-bound)" },
+   { id: "c", text: "No hay diferencia, son lo mismo" },
+   { id: "d", text: "Prefill usa menos memoria que decode" }
+  ], correct: "b", explanation: "El prefill es intensivo en cómputo y procesa todo el prompt en paralelo por capa. El decode es autoregresivo: un token cada vez, limitado por ancho de banda de memoria porque hay que leer los pesos enteros por cada token." },
+  { id: "a2", stem: "¿Por qué un bucle de agente con 10 rondas de tools multiplica el coste?", options: [
+   { id: "a", text: "Porque cada ronda paga un prefill nuevo (o un cache hit parcial)" },
+   { id: "b", text: "Porque el modelo se cansa" },
+   { id: "c", text: "Porque las tools son caras" },
+   { id: "d", text: "Porque el decode se acelera con cada ronda" }
+  ], correct: "a", explanation: "Cada vuelta en el bucle vuelve a llamar al modelo con el contexto actualizado. Eso significa otro prefill. Si el proveedor soporta prefix caching, el coste se reduce, pero sigue siendo una llamada nueva." },
+  { id: "a3", stem: "¿Qué diferencia a ReAct de Chain-of-Thought?", options: [
+   { id: "a", text: "ReAct usa tools y observaciones del entorno; CoT se queda dentro del modelo" },
+   { id: "b", text: "CoT usa tools, ReAct no" },
+   { id: "c", text: "Son exactamente lo mismo" },
+   { id: "d", text: "ReAct es más lento porque usa más tokens" }
+  ], correct: "a", explanation: "Chain-of-Thought es paso a paso interno (mates, lógica) sin herramientas. ReAct intercala Thought, Action y Observation, permitiendo que el modelo salga al entorno y vuelva con evidencia." },
+ ]}
+/>
+
+## Fuentes
+
+Burtenshaw, B., Thomas, J., Simonini, T. y Paniego, S. (s. f.). *Hugging Face Agents Course* (Apache-2.0). https://huggingface.co/learn/agents-course · repositorio https://github.com/huggingface/agents-course
+
+- Dummy Agent Library: https://huggingface.co/learn/agents-course/unit1/dummy-agent-library
+- Thoughts: https://huggingface.co/learn/agents-course/unit1/thoughts
+- Actions: https://huggingface.co/learn/agents-course/unit1/actions
+- Observations: https://huggingface.co/learn/agents-course/unit1/observations
+- Agent steps and structure: https://huggingface.co/learn/agents-course/unit1/agent-steps-and-structure
+- Bucle Hermes Agent: https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop
+- Bucle OpenClaw: https://docs.openclaw.ai/concepts/agent-loop
 
