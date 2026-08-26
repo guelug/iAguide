@@ -1,0 +1,18 @@
+{
+  "id": "claude-code-and-codex",
+  "order": 6.191,
+  "slug": "claude-code-and-codex",
+  "track": "harness",
+  "title": {
+    "en": "Claude Code and Codex: official coding agents",
+    "es": "Claude Code y Codex: agentes de codigo oficiales"
+  },
+  "summary": {
+    "en": "Two vendor coding agents from their own docs: Anthropic Claude Code Agent View versus OpenAI Codex plus the Responses API with gpt-5.6.",
+    "es": "Dos agentes de codigo de sus propias docs: Agent View de Claude Code frente a Codex de OpenAI y la Responses API con gpt-5.6."
+  },
+  "status": "complete",
+  "prereqs": ["agent-loop", "tools-runtime", "programmatic-access"],
+  "durationMin": 40,
+  "tags": ["claude-code", "codex", "agent-view", "openai", "anthropic"]
+}

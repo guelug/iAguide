@@ -50,6 +50,7 @@ import pluginsAndSkills from "./plugins-and-skills/meta.json";
 import scheduledJobs from "./scheduled-jobs/meta.json";
 import browserTools from "./browser-tools/meta.json";
 import programmaticAccess from "./programmatic-access/meta.json";
+import claudeCodeAndCodex from "./claude-code-and-codex/meta.json";
 import hermesOwnership from "./hermes-ownership/meta.json";
 import hermesAiagent from "./hermes-aiagent/meta.json";
 import hermesProviders from "./hermes-providers/meta.json";
@@ -137,6 +138,7 @@ const RAW = [
   scheduledJobs,
   browserTools,
   programmaticAccess,
+  claudeCodeAndCodex,
   hermesOwnership,
   hermesAiagent,
   hermesProviders,
@@ -271,6 +273,7 @@ export const VISUALS: Record<string, () => Promise<{ default: ComponentType }>> 
   "scheduled-jobs": () => import("./scheduled-jobs/Visual"),
   "browser-tools": () => import("./browser-tools/Visual"),
   "programmatic-access": () => import("./programmatic-access/Visual"),
+  "claude-code-and-codex": () => import("./claude-code-and-codex/Visual"),
   "hermes-ownership": () => import("./hermes-ownership/Visual"),
   "hermes-aiagent": () => import("./hermes-aiagent/Visual"),
   "hermes-providers": () => import("./hermes-providers/Visual"),

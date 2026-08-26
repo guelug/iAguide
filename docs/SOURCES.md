@@ -242,3 +242,15 @@ Additional URLs used in those lessons (append to the list above):
 - Radford et al. (2021) CLIP arXiv:2103.00020
 - Kingma & Welling (2013) VAE arXiv:1312.6114
 - Hu et al. (2022) LoRA arXiv:2106.09685
+
+## Claude Code + Codex (2026-08-26)
+
+Harness module `claude-code-and-codex` (track harness, order 6.191, after `programmatic-access`). Spanish-first `es.mdx`; `en.mdx` is a real twin, not a stub. Do not paste installer one-liners; cite the Quickstart pages.
+
+- Anthropic Claude Code overview: https://code.claude.com/docs/en/overview
+- Anthropic Claude Code quickstart: https://code.claude.com/docs/en/quickstart
+- Anthropic Agent view: https://code.claude.com/docs/en/agent-view#manage-multiple-agents-with-agent-view
+- Anthropic Agents (subagents, agent view, teams, dynamic workflows): https://code.claude.com/docs/en/agents
+- OpenAI code generation (Responses API, gpt-5.6, gpt-5.3-codex): https://developers.openai.com/api/docs/guides/code-generation
+- OpenAI Codex CLI: https://developers.openai.com/codex/cli
+- OpenAI openai/codex repo: https://github.com/openai/codex

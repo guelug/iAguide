@@ -1,0 +1,180 @@
+## Two vendor coding agents, from their own docs
+
+A model does not edit your repo. A <Term id="harness">harness</Term> does. As of August 2026 there are **two** vendor products that are end-to-end software-engineering agents: **Claude Code** (Anthropic) and **Codex** (OpenAI). This lesson follows *their* recipes, not a vibe comparison.
+
+**Claude Code** reads a codebase, edits files, runs commands, and wires your tools. It lives in the terminal, IDE, desktop, and browser ([Anthropic, Overview](https://code.claude.com/docs/en/overview); [Quickstart](https://code.claude.com/docs/en/quickstart)). The cut here is **Agent View**: a screen to dispatch and watch many background sessions, opened with `claude agents` ([Anthropic, Agent view](https://code.claude.com/docs/en/agent-view#manage-multiple-agents-with-agent-view)). Anthropic marks it *research preview*.
+
+**Codex** is OpenAI's coding agent. The official guide splits two paths: use the Codex product (IDE, CLI, web, mobile, SDK in CI/CD), or fold GPT-5 models into *your* app with the **Responses API**. The documented default for most API code work is `gpt-5.6`. `gpt-5.3-codex` exists for coding agents; OpenAI still recommends the latest general-purpose model for most generation ([OpenAI, Code generation](https://developers.openai.com/api/docs/guides/code-generation)).
+
+<VisualSlot caption="Four slides: the two products, the Agent View table, worktree isolation, and the Responses API versus the CLI." />
+
+<Callout>
+This is not Hermes and not OpenClaw. Those harnesses **call** Claude or GPT. Claude Code and Codex **are** the vendor harness. Mixing «I already have Claude OAuth in Hermes» with «I know `claude agents`» is a layer error. See `oauth-and-keys` for the first; this lesson is the second.
+</Callout>
+
+## Start from the official Quickstarts
+
+### Claude Code
+
+Follow Step 1 of Anthropic's [Quickstart](https://code.claude.com/docs/en/quickstart) on your OS. This lesson does not paste that page's one-liner. After it lands:
+
+    claude --version
+
+It should print the version and `(Claude Code)`. Then, in the project directory:
+
+    cd /path/to/your/project
+    claude
+
+First launch asks for a browser login. Inside the session, `/login` switches accounts and `/help` lists commands. `Shift+Tab` cycles permission modes (Anthropic Quickstart).
+
+### Codex CLI
+
+Follow [Codex CLI](https://developers.openai.com/codex/cli) and the [`openai/codex`](https://github.com/openai/codex) README. In a project directory:
+
+    codex
+
+Sign in with ChatGPT. Documented first prompt: *Tell me about this project.* Non-interactive `codex exec` is for scripts and CI. `/permissions` shows the sandbox and writable roots. Codex also documents MCP, cloud, subagents, and a *review* mode that does not modify the working tree.
+
+<TryThis>
+On a toy repo (not production), follow **one** of the two linked Quickstarts. Launch. Ask what the project does. Do not ask for edits until you have read the permission mode (`Shift+Tab` in Claude Code; `/permissions` in Codex).
+</TryThis>
+
+## Agent View: dispatch, do not chat
+
+`claude agents` opens Agent View. Before it opens, Claude Code shows a **workspace trust** dialog. Decline and the process exits. That is not a bug: Anthropic will not leave a background supervisor on a tree you did not accept ([Agent view](https://code.claude.com/docs/en/agent-view#manage-multiple-agents-with-agent-view)).
+
+The dispatch input **is not a chat**. Each `Enter` starts a **new** background session. It is not a follow-up to the selected row. To continue a task, **attach** to that session and type there.
+
+Each session spends subscription quota **on its own**. Ten agents in parallel cost on the order of ten times one. This lesson invents no dollar price: the multiplier is Anthropic's, not a tariff.
+
+### States and the icon
+
+| State | Meaning |
+| --- | --- |
+| Working | Generating or running tools |
+| Needs input | Waiting on you (permission, question) |
+| Idle | Alive, nothing queued |
+| Completed | Finished successfully |
+| Failed | Finished with an error |
+| Stopped | You stopped it |
+
+Icon **shape** is not decoration: it tells live process from exited process from a sleeping `/loop`. A quiet icon is not «done» until you read the state.
+
+### Keyboard and supervisor
+
+| Key | Documented action |
+| --- | --- |
+| `Space` | *Peek* without attaching |
+| `Enter` or `→` | *Attach* |
+| `←` | *Detach*; the session keeps running |
+| `Esc` | Leave the Agent View TUI |
+
+Leaving the TUI **does not** kill sessions. They stay under a **per-user supervisor**. They survive laptop sleep. Host shutdown stops them. `attach`, peek, or a reply restarts them.
+
+From a shell, no TUI:
+
+    claude --bg "write the coverage report"
+    claude agents --json
+
+`--bg` is incompatible with `-p` / `--print`. Do not mix a printed one-shot with a background agent. The verbs `attach`, `logs`, and `stop` operate on those sessions.
+
+<Callout>
+`/agents` is **not** `claude agents`. As of August 2026 (Claude Code v2.1.198 in Anthropic's note) the in-session slash command does not open Agent View.
+</Callout>
+
+## Worktrees: the isolation people turn off
+
+Before it edits, an Agent View session moves to a **git worktree** under `.claude/worktrees/`. That way ten agents do not share one working copy. Anthropic **skips** the worktree if:
+
+1. you are already inside a worktree,
+2. the directory is not a git repo and there is no `WorktreeCreate` hook,
+3. the write lands **outside** the cwd.
+
+To edit the working copy on purpose, `.claude/settings.json` accepts `worktree.bgIsolation` set to `"none"`. Outside git, Anthropic is explicit: **do not parallel-edit the same files**. Deleting a row in Agent View removes the Claude-created worktree, **including uncommitted changes**. It is not a trash can.
+
+## Four ways to parallelize in Claude Code
+
+The [Agents](https://code.claude.com/docs/en/agents) page names four approaches. They are not synonyms.
+
+| Approach | What it is | When |
+| --- | --- | --- |
+| Subagents | Children of **one** session; the parent coordinates | One plan, several tools |
+| Agent View | Several **top-level** sessions, own supervisor | Independent tickets |
+| Agent teams | Experimental, **off by default** | Multi-agent protocol |
+| Dynamic workflows | Declarative orchestration, not a TUI | Pipelines you do not want to type |
+
+<Compare a="Agent View (many sessions)" b="Subagents (one session)">
+<Side>
+Each `Enter` is a new process, independent quota, own worktree. Use it when tickets do not share dirty files. The supervisor survives `Esc` and laptop sleep.
+</Side>
+<Side>
+The parent keeps the thread. Useful for «investigate, then patch, then test» without ten checkouts. No git isolation: a child that edits the same tree stomps its sibling.
+</Side>
+</Compare>
+
+## Codex: the CLI that edits, the API that does not
+
+### The Codex product
+
+After `codex` and ChatGPT sign-in, the CLI is a sandboxed agent. OpenAI documents `codex exec` (non-interactive, CI), `resume`, `/permissions`, MCP, cloud, subagents, and a *review* mode that **does not** modify the working tree ([Codex CLI](https://developers.openai.com/codex/cli)). That **is** a harness: it reads the tree, proposes diffs, runs.
+
+### The Responses API
+
+[Code generation](https://developers.openai.com/api/docs/guides/code-generation) is the other path: **your** app calls the model. Documented default: `gpt-5.6`. `gpt-5.3-codex` exists for coding agents; OpenAI still recommends the latest general-purpose model for most generation. A `responses.create` with `reasoning.effort: "high"` and `output_text` **does not edit a repo**. It returns text. If you want an agent, you build the loop (or use the Codex CLI / SDK).
+
+Minimal recipe, adapted from that guide (the key lives in the process environment, not in chat):
+
+    from openai import OpenAI
+    client = OpenAI()
+    response = client.responses.create(
+        model="gpt-5.6",
+        input="Write a Python function that takes a path and returns its SHA-256.",
+        reasoning={"effort": "high"},
+    )
+    print(response.output_text)
+
+Documented HTTP endpoint: `https://api.openai.com/v1/responses`. This lesson invents no per-million-token price.
+
+<Compare a="Codex CLI / product" b="Responses API with gpt-5.6">
+<Side>
+OpenAI harness. ChatGPT login. Reads the tree, sandbox, MCP, `codex exec` in CI. May modify files if permissions allow. Homologue of `claude` / `claude agents`.
+</Side>
+<Side>
+One HTTP call. Returns `output_text`. No worktree, no supervisor, no git. You are the harness. `gpt-5.3-codex` is a **model**, not the Codex product.
+</Side>
+</Compare>
+
+## Case: three bugs, one working copy
+
+**Case.** A team dispatches three tickets on the same checkout: «fix the flaky test», «rename the auth module», «raise parser coverage». Without git isolation, all three touch `package.json`, the same test, and a shared import. The first passes. The second rewrites the import. The third merges a tree that no longer compiles. The human says «the agent hallucinated».
+
+With Agent View and default worktrees, each session lives under `.claude/worktrees/`. Diffs do not collide until **you** merge. If someone set `bgIsolation` to `"none"` «because the worktree got in the way», they are back in the case. Outside git, Anthropic has no magic: do not parallel-write the same file.
+
+The Codex analogue is three `codex exec` runs on one working tree with no branches. *Review* mode (no modify) is the valve: read first, apply yourself.
+
+## Myths the docs kill
+
+**Myth.** `/agents` opens Agent View. **No.** The slash command is not `claude agents` (v2.1.198 in Anthropic's note).
+
+**Myth.** Closing the TUI (`Esc`) kills the agents. **No.** The per-user supervisor keeps them. Laptop sleep, same. Host shutdown does stop them.
+
+**Myth.** `gpt-5.3-codex` *is* Codex. **No.** It is a model for coding agents. The Codex product is the CLI / IDE / cloud. Generation API default is `gpt-5.6`.
+
+**Myth.** Ten agents in parallel are «the same quota, faster». **No.** Each session bills the subscription on its own. Ten in parallel ≈ ten times one. No invented dollars: the multiplier is Anthropic's.
+
+**Myth.** A `responses.create` will patch the repo like `claude --bg`. **No.** It returns text. Apply is yours.
+
+<TryThis>
+On a toy git repo: (1) open `claude agents`, accept the workspace, dispatch **two** tasks that touch different files, *peek* one and *attach* the other, `Esc`, confirm they are still alive; (2) find `.claude/worktrees/` and run `git worktree list`; (3) in another folder, run `codex` or a `responses.create` to `gpt-5.6` — write one sentence on which side touched disk. Do not use a work repo with uncommitted changes.
+</TryThis>
+
+## Sources
+
+- Anthropic. (n.d.). *Claude Code overview*. https://code.claude.com/docs/en/overview
+- Anthropic. (n.d.). *Claude Code quickstart*. https://code.claude.com/docs/en/quickstart
+- Anthropic. (n.d.). *Manage multiple agents with Agent view*. https://code.claude.com/docs/en/agent-view#manage-multiple-agents-with-agent-view
+- Anthropic. (n.d.). *Agents* (subagents, agent view, agent teams, dynamic workflows). https://code.claude.com/docs/en/agents
+- OpenAI. (n.d.). *Code generation*. https://developers.openai.com/api/docs/guides/code-generation
+- OpenAI. (n.d.). *Codex CLI*. https://developers.openai.com/codex/cli
+- OpenAI. (n.d.). *openai/codex* (repository). https://github.com/openai/codex
+
