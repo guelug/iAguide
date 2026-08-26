@@ -129,7 +129,7 @@ Minimal recipe, adapted from that guide (the key lives in the process environmen
     response = client.responses.create(
         model="gpt-5.6",
         input="Write a Python function that takes a path and returns its SHA-256.",
-        reasoning={"effort": "high"},
+        reasoning=\{"effort": "high"\},
     )
     print(response.output_text)
 
