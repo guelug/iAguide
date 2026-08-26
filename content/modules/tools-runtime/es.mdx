@@ -1,35 +1,180 @@
 ## Una herramienta es una función tipada que tú ejecutas
 
-El modelo no “tiene bash.” Emite un **tool_call**. Tu arnés:
+Una <Term id="tool">herramienta</Term> es una función que se le da al modelo. El modelo no puede llamarla. Solo puede emitir texto que *parece* una llamada. El arnés lee ese texto, ejecuta el callable y devuelve el resultado.
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 1, [What are Tools?](https://huggingface.co/learn/agents-course/unit1/tools) y [Actions](https://huggingface.co/learn/agents-course/unit1/actions) (Burtenshaw, Thomas, Simonini y Paniego, Apache-2.0).*
+
+Una buena tool complementa al modelo. La aritmética vive en una calculadora, no en los logits. El tiempo de hoy vive en una API, no en la fecha de corte del entrenamiento. Generar imágenes, recuperar documentos, un cliente de GitHub: la misma forma.
+
+El LLM solo recibe texto y solo emite texto. «Dar tools a un agente» es enseñarle que existen e instruirle a generar invocaciones en texto. El arnés hace el resto, fuera de cámara. El usuario ve una respuesta natural. Tú ves un despacho.
+
+<VisualSlot caption="Esquema → registro → pulso de despacho → puerta de política → backend." />
+
+Tu runtime, en un turno:
 
 1. Expone **esquemas** visibles este turno.
 2. Busca el nombre en un **registro**.
 3. Aplica **política** (allow/deny, aprobaciones, sandbox).
-4. Ejecuta un **handler** (o un **backend**: terminal local, Docker, SSH, CDP…).
+4. Ejecuta un **handler** (o un **backend**: terminal local, Docker, SSH, CDP).
 5. Añade el resultado y sigue el bucle.
 
-<VisualSlot caption="Esquema → registro → pulso de despacho → puerta de política → backend." />
+Cinco cajas. Si saltas la puerta de política, el modelo «tiene bash» de verdad. Si saltas el registro, ejecutas un nombre alucinado. Si saltas el esquema, el modelo no sabe qué pedir.
+
+Otros ejemplos que el curso pone en la misma tabla: búsqueda web, generar imagen, retrieval, un cliente de API (GitHub, YouTube, Spotify). La forma no cambia. Cambia el backend. Un retrieval es un handler que consulta un índice; no es un segundo decoder. Si el esquema dice search y el handler abre bash, la puerta de política ha fallado en silencio.
+
+
+## Qué tiene que llevar una tool
+
+El curso pide cuatro piezas, siempre:
+
+- un **nombre**
+- una **descripción textual** del objetivo
+- **argumentos** con tipos
+- opcionalmente **salidas** con tipos
+
+Más el **callable**: algo que de verdad corre. Sin callable tienes un diccionario de marketing. Sin descripción tienes un modelo que inventa argumentos.
+
+El ejemplo de calculadora de la Unidad 1 es una función de una línea que multiplica dos enteros:
+
+    def calculator(a: int, b: int) -> int:
+        # Multiply two integers.
+        return a * b
+
+La forma textual que el modelo necesita ver — exactamente la cadena del curso — es:
+
+    Tool Name: calculator, Description: Multiply two integers., Arguments: a: int, b: int, Outputs: int
+
+Eso va al system prompt. No un objeto Python. No un plugin invisible. Texto. Si añades otra tool, el mismo formato, siempre. El proceso es frágil: un detalle omitido y el modelo improvisa.
+
+smolagents (y el decorador que el curso bosqueja) extraen nombre, docstring y type hints para no escribir esa cadena a mano. Hasta entonces, el prompt dummy **ya contiene** la lista. Nada se descubre en runtime. Si la descripción es vaga, el modelo inventará argumentos. Si dos tools se solapan, elegirá la equivocada. La precisión del system prompt es el producto.
+
+Cómo se le **dan** las tools al modelo, en una frase: el system prompt lleva descripciones textuales, precisas. JSON o un mini-lenguaje sirven porque son coherentes, no porque el decoder «entienda JSON». Cualquier formato preciso vale; mezclar dos en el mismo prompt no.
+
+El curso bosqueja una clase Tool con name, description, func, arguments, outputs, un to_string que pinta la cadena de arriba, y un call que invoca el callable. No copies esa clase aquí con literales. La idea: el prompt ve to_string; el runtime ve call. Si solo tienes una de las dos, no tienes una tool.
+
+<Callout>
+El LLM solo maneja texto. Describe la acción que quiere y los parámetros. Para que el agente funcione, la generación debe **parar** después de una Action completa para que un parser la lea. Tokens de más después de la Action no son creatividad. Son un contrato roto.
+</Callout>
+
+## Stop-and-parse
+
+Actions de la Unidad 1: el decoder emite una Action en un formato pactado y **para**. Un parser externo lee el nombre y los argumentos. Sin parada, el modelo sigue y el parser recibe basura. Sin parser, la parada es un cuelgue.
+
+Tres grafías del mismo hueco:
+
+- **Agente JSON** — el dummy. Un objeto con action y action_input. Un parser mapea el nombre a la función.
+- **Agente de código** — un bloque Python que un intérprete ejecuta. Bucles, varias llamadas, variables. Más expresivo. Más peligroso. El default de [smolagents](/es/m/smolagents).
+- **Agente de function-calling** — un JSON cuya plantilla de chat creció roles especiales: un mensaje assistant que es una llamada, un mensaje tool que es la Observation. Aprendido, no solo inducido. Ver [function-calling](/es/m/function-calling-ft).
+
+Los tres siguen haciendo stop-and-parse. Los de código delimitan un bloque y tratan un print de respuesta final como fin de paso. Los de function-calling paran porque la API devuelve tool_calls en vez de contenido. El dummy deja la cadena de stop a la vista.
+
+<Compare a="JSON / function-calling" b="Agente de código">
+<Side>
+Una llamada por Action. El parser es un mapa nombre → función. El sandbox puede ser más estrecho. El dummy cabe en veinte líneas.
+</Side>
+<Side>
+Un bloque con lógica. Más potencia, más superficie. Ejecutar código generado por un LLM es un riesgo (inyección, daños). El curso recomienda un framework con salvaguardas — smolagents las trae por defecto. No las apagues para «ir más rápido».
+</Side>
+</Compare>
+
+Un code agent que llama al tiempo no emite action=get_weather. Escribe Python, importa un cliente, imprime. Tú interpretas en un sandbox, no en el kernel del host. Si no hay sandbox, no tienes un agente de código. Tienes un shell con un system prompt educado.
+
+El while de veinte líneas, el stop y el parser estricto: [agente dummy](/es/m/dummy-agent). Esta lección es el despacho alrededor de ese hueco.
+
+## De la cadena al backend
+
+El curso se queda en «el Agent ejecuta». iAguide nombra las cajas, porque ahí se pudre el producto:
+
+**Esquema.** Lo que el modelo ve este turno. Si la política quita una tool, el esquema no se pinta. El modelo no puede pedir lo que no ha leído.
+
+**Registro.** Nombre → handler. Hermes descubre el registro a nivel de módulo; sombrear un nombre exige override y consentimiento. Un nombre que no está no se ejecuta. El modelo lo intentará.
+
+**Despacho.** El pulso: parsear, validar tipos, llamar. Aquí vive el stop-and-parse.
+
+**Política.** Allow/deny, aprobaciones humanas, sandbox. OpenClaw filtra por perfil, allow/deny, sandbox y plugins. Si la política quita una tool, el modelo no ve su esquema. Esa es la puerta. No un «por favor» en el system prompt.
+
+**Backend.** Dónde corre de verdad: proceso local, contenedor, SSH, un node con Chrome. Terminal y browser no son segundos cerebros. Hermes tiene varios backends de terminal; OpenClaw puede mandar browser a sandbox, host o un node con Chrome vía el Gateway.
+
+<Myth>
+«El modelo tiene bash.» No. Emite un tool_call. Si tu política y tu backend le dan un shell, *tú* le diste bash. El decoder sigue prediciendo tokens.
+</Myth>
+
+Consejo práctico: nombra las cinco cajas en el código como las nombra el diagrama. Si el log dice solo «LLM», no sabrás si falló el esquema, la puerta o el backend.
 
 ## Plugin frente a builtin
 
 - **Builtin** — en el árbol core.
 - **Plugin** — se registra por API de contexto sin forkear el núcleo.
-- **Skill** — instrucciones + tools existentes cuando basta un flujo.
+- **Skill** — instrucciones más tools existentes cuando basta un flujo.
 
-Hermes descubre `registry.register()` a nivel de módulo; sombrear un nombre exige override + consentimiento. OpenClaw filtra por perfil, allow/deny, sandbox y plugins — si la política quita una tool, el modelo no ve su esquema.
-
-## Terminal / browser como backends
-
-No son segundos cerebros. Hermes tiene varios backends de terminal; OpenClaw puede mandar `browser` a sandbox, host o un **node** con Chrome vía el Gateway.
-
-## Caso: el plugin que edita el bucle
-
-**Caso.** Alguien parchea el loop core en vez de registrar una tool.
-
-**Olor.** El núcleo es cintura estrecha. Ensancha el plugin; deja el bucle aburrido.
-
-<TryThis>
-En papel, un esquema `weather` falso y un handler que siempre devuelve `{"error":"..."}` como **string JSON**. Anota dónde la política lo ocultaría sin API key.
-</TryThis>
+Hermes descubre el registro a nivel de módulo. OpenClaw filtra por perfil. En los dos, el núcleo del bucle es cintura estrecha: intake, armar, generate, despachar, persistir. Una tool nueva es un plugin (o un builtin consciente), no un parche al while.
 
 Docs: [tools runtime Hermes](https://hermes-agent.nousresearch.com/docs/developer-guide/tools-runtime), [tools OpenClaw](https://docs.openclaw.ai/tools).
+
+El curso nombra de paso MCP como interfaz unificada de tools. iAguide no lo desarrolla aquí. Si te hace falta el protocolo, no lo inventes en este runtime: trátalo como otro backend de esquemas, no como un segundo bucle.
+
+Weather, calculator, search, un cliente de tickets: la misma forma. El nombre distinto no justifica un if en el generate. El if es el olor del caso de más abajo.
+
+## Caso — el plugin que edita el bucle
+
+**Caso.** Alguien parchea el loop core para «tener weather». Añade un if en el while: si el texto contiene la palabra weather, llama a una API y pega el resultado. Funciona en la demo. El siguiente plugin copia el if. A la tercera, el while es un árbol de Navidad y nadie se atreve a tocarlo.
+
+**Olor.** El núcleo es cintura estrecha. Ensancha el plugin; deja el bucle aburrido. Weather es un esquema, un handler, una puerta (¿hay API key?), un backend HTTP. Cinco cajas. Cero parches al generate.
+
+El arreglo pedagógico: registra weather como registra calculator. Misma cadena de descripción, mismo despacho, misma Observation añadida. El while no sabe de meteorología. No tiene que saber.
+
+<TryThis>
+En papel, un esquema weather falso y un handler que siempre devuelve error=missing-key como cadena. Anota dónde la política lo ocultaría sin API key: no pintes el esquema, o píntalo y deniega en la puerta. Las dos son válidas; mezcla sin documentar es un bug. Sin GPU.
+</TryThis>
+
+Consejo práctico: un handler que falla debe devolver un log parseable, no un traceback al modelo y otro al usuario. La Observation es textual. El decoder la completará si le das un stack a medias.
+
+La calculadora del curso no consulta una red. Weather sí. La puerta de política no es la misma: una no tiene secreto, la otra sí. El diagrama no cambia. Cambia qué caja deniega.
+
+Alfred otra vez, ahora desde el runtime: el esquema de get_weather se pinta; el registro apunta a un handler HTTP; la política exige una clave; el backend es la API. El decoder solo ve la cadena Tool Name: get_weather y unos argumentos location: str. El 15 °C nace detrás de la puerta. Si omites la puerta, la clave viaja al prompt. Si omites el registro, el JSON de Alfred es un poema.
+
+## Qué recordar
+
+Tool = descripción + callable + argumentos tipados. El modelo emite texto; el arnés ejecuta. La calculadora del curso es una cadena: Tool Name: calculator, Description: Multiply two integers., Arguments: a: int, b: int, Outputs: int. Stop-and-parse. JSON, código o function-calling son grafías. El código pide sandbox. Esquema, registro, despacho, política, backend: cinco cajas, un pulso. Plugins, no ifs en el while.
+
+Siguiente: el while desnudo en [dummy-agent](/es/m/dummy-agent), el bucle de producto en [agent-loop](/es/m/agent-loop), smolagents cuando el Action sea código.
+
+Los tipos de Action que el curso lista — recoger información, usar tools, tocar un entorno, comunicar — no son tipos de runtime distintos. Son intenciones que caen en el mismo despacho. Un mensaje al usuario es persistir; un giro de un brazo robot es un backend. No abras un while paralelo por cada tipo. Abre un handler.
+
+Si el parseo falla (JSON malformado, nombre desconocido, tipos que no coinciden), no ejecutes. Rechaza, añade una Observation de error, o aborta. Tratar None como «no hacía falta tool» es el bug de MeteoLite en [dummy-agent](/es/m/dummy-agent): el parser falló cerrado hacia la alucinación.
+
+Hermes y OpenClaw documentan esta cintura. Léelos cuando implementes, no cuando el while ya tenga tres ifs de weather. El diagrama de esta lección es el mismo pulso: esquema, registro, despacho, puerta, backend.
+
+Una skill no es una tool. Es prosa más tools que ya existen. Si para «el tiempo» basta un párrafo que diga cuándo llamar a weather, no registres un segundo handler. Si el párrafo pide un callable nuevo, entonces sí: esquema, registro, puerta, backend. Mezclar skill y plugin en el mismo PR es cómo el while gana ifs.
+
+El coste de una tool extra no es un precio en dólares. Es un esquema más en el prefill, un despacho más, una Observation más en la ventana. Cinco llamadas al modelo por un margen mínimo es el ejemplo de [observabilidad](/es/m/observability). Cuenta el bucle, no la factura inventada.
+
+Prueba el TryThis de weather antes del quiz. Si no sabes en qué caja muere la API key, las preguntas de política te van a pillar.
+
+Cuatro preguntas. El progreso se guarda en este navegador. No es un Space de Hugging Face.
+
+Lee el miss de la calculadora: el código fuente no es el contrato.
+
+## Cuestionario
+
+Cuatro preguntas de la Unidad 1 (Burtenshaw, Thomas, Simonini, Paniego). El progreso se guarda en este navegador.
+
+Falla a propósito la del sandbox: si crees que el code agent es «más rápido» y por eso se aísla, esta lección no ha terminado.
+
+<Quiz id="tools-runtime">
+  <Q id="q1" prompt="¿Puede un LLM llamar a una herramienta por sí mismo?" a="Sí: si está en el system prompt, la ejecuta" b="No: emite texto; el arnés parsea, aplica política y ejecuta" c="Solo si es un code agent" answer="b" why="El curso es literal: los LLM no tienen forma de llamar tools. Generan invocaciones en texto. El Agent (el arnés) ejecuta fuera de cámara." missA="Estar en el prompt es ser visible, no ser un callable. Sin runtime, la llamada es prosa." missC="Un code agent también emite texto (un bloque). Alguien lo interpreta en un sandbox. Sigue sin ser el decoder quien corre." />
+  <Q id="q2" prompt="¿Qué cadena quiere el curso que vea el modelo para la calculadora?" a="El código fuente Python entero, con imports" b="Tool Name: calculator, Description: Multiply two integers., Arguments: a: int, b: int, Outputs: int" c="Un iframe del panel de Langfuse" answer="b" why="Esa es la descripción textual de la Unidad 1. Nombre, descripción, argumentos tipados, salida. El callable queda en tu proceso, no en el prompt." missA="Al modelo le importa el contrato, no la implementación. El curso lo dice: how it is implemented does not matter." missC="Langfuse es observabilidad, otra lección, y esta no lo embebe." />
+  <Q id="q3" prompt="¿Por qué un code agent necesita sandbox?" a="Para ir más rápido que JSON" b="Porque ejecutar código generado por un LLM es un riesgo; smolagents trae salvaguardas" c="Porque el decoder no entiende Python" answer="b" why="Actions avisa: inyección y código dañino. El curso recomienda frameworks como smolagents con safeguards por defecto. Sin sandbox, el backend es el host." missA="La expresividad no es la razón del sandbox. Es la superficie de daño." missC="El decoder emite Python como tokens. Entender no es ejecutar." />
+  <Q id="q4" prompt="Si la política deniega una tool, ¿qué debe ver el modelo?" a="El esquema igual, para que pida y falle con estilo" b="Nada de esa tool: si la política la quita, el esquema no se pinta" c="Un Thought que dice «no tengo permiso»" answer="b" why="OpenClaw y un runtime serio filtran el esquema. Lo que no se pinta no se pide. Pedir y fallar gasta un turno y enseña un rito inútil." missA="Eso es un allow que miente. La puerta está después del generate: caro y ruidoso." missC="El Thought no es un canal de permisos. La política es anterior al prompt de tools." />
+</Quiz>
+
+## Fuentes
+
+Burtenshaw, B., Thomas, J., Simonini, T. y Paniego, S. (s. f.). *Hugging Face Agents Course* (Apache-2.0). https://huggingface.co/learn/agents-course · repositorio https://github.com/huggingface/agents-course
+
+- What are Tools: https://huggingface.co/learn/agents-course/unit1/tools
+- Actions: https://huggingface.co/learn/agents-course/unit1/actions
+- Dummy Agent Library: https://huggingface.co/learn/agents-course/unit1/dummy-agent-library
+- smolagents (código como acción): https://huggingface.co/learn/agents-course/unit2/smolagents/code_agents
+- Tools runtime Hermes: https://hermes-agent.nousresearch.com/docs/developer-guide/tools-runtime
+- Tools OpenClaw: https://docs.openclaw.ai/tools

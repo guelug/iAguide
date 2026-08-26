@@ -2,16 +2,179 @@
 
 Un ranking mide lo que fue construido para medir. Sets contaminados, suites que premian la verborrea y agentes que lucen en quizzes mienten de formas distintas. Tu defensa es un **eval pequeño y tuyo**: veinte casos que te importan, corregidos por script o humano, en cada cambio.
 
-En agentes, evalúa el **bucle**, no solo la frase final: ¿llamó a una tool que no debía? ¿Paró? ¿Parseó el esquema? Offline primero. Online después ([observabilidad](/course/observability)). [GAIA](/course/gaia) es un metro público duro; sigue sin ser tus clientes.
+*Fuente nombrada: Hugging Face Agents Course, Bonus Unit 2, [What is agent observability and evaluation?](https://huggingface.co/learn/agents-course/bonus-unit2/what-is-agent-observability-and-evaluation) y Unit 4, [What is GAIA?](https://huggingface.co/learn/agents-course/unit4/what-is-gaia) (Burtenshaw, Thomas, Simonini y Paniego, Apache-2.0).*
+
+En agentes, evalúa el **bucle**, no solo la frase final: ¿llamó a una tool que no debía? ¿Paró? ¿Parseó el esquema? Offline primero. Online después. [GAIA](/es/m/gaia) es un metro público duro; sigue sin ser tus clientes. La traza del turno vive en [observabilidad](/es/m/observability). Esta lección es la alfabetización: qué es un número, qué no, y cómo no confundir un quiz con un agente.
 
 <VisualSlot caption="Tres tests unitarios de un bucle de tools — allow, parse, stop — frente a lucir en un quiz y fallar GAIA." />
+
+## Observabilidad no es evaluación
+
+Observabilidad es entender qué pasa **dentro** mirando señales de fuera: logs, métricas, trazas. En un agente: acciones, uso de tools, llamadas al modelo, respuestas. Sin eso, el agente es una caja negra que a veces escribe al cliente.
+
+**Trazas** — una tarea de usuario de punta a punta (un turno, un ticket).
+**Spans** — los pasos de dentro: prefill, decode, tool, retrieve, subagente.
+
+OpenTelemetry es el cable habitual. Langfuse, Arize, Phoenix son paneles que lo hablan. Esta lección **no** embebe un iframe de Langfuse. smolagents se puede instrumentar por la vía OpenTelemetry que documenta la librería. Mira la documentación de la herramienta esa semana. El detalle de paneles está en [observabilidad](/es/m/observability).
+
+El curso lista por qué importa: coste frente a acierto; latencia; lenguaje dañino e inyección; feedback del usuario. En sus palabras, convierte un demo en algo listo para producción. iAguide añade: no puedes alertar un span que no nombraste. El while dummy sigue siendo el reloj interno; la observabilidad es cómo lo ves después de desplegar.
+
+Consejo práctico: nombra spans según los verbos del arnés: apply_template, model.generate, tool.search, compact. Si registras solo «LLM» como un blob, no aprenderás nada.
+
+El curso avisa que los agentes son no deterministas y que evolucionan (updates, drift). Sin evaluación periódica no sabes si el «agente listo» sigue haciéndolo o ha regresado. Eso no es un ranking. Es higiene. Un 88 de hace un trimestre no cubre el prompt que cambiaste el lunes.
+
+Observabilidad sin evaluación es un panel bonito. Evaluación sin observabilidad es un número huérfano: no sabes qué span falló. Las dos lecciones se necesitan. Esta corta la alfabetización; aquella enseña a nombrar la traza.
+
+## Métricas que la unidad nombra de verdad
+
+**Latencia.** Tarea y paso. Las esperas largas duelen. Traza ambas. Un agente que gasta veinte segundos en llamadas al modelo puede necesitar un modelo más rápido o llamadas en paralelo — el ejemplo es de la unidad, no un SLA inventado.
+
+**Coste.** Por ejecución: tokens y APIs externas. Tools frecuentes o muchos prompts suben la factura. Cinco llamadas al modelo por un margen mínimo puede no justificarse. Vigila bucles de bug. iAguide cuenta ese coste como **bucle de tokens**, no como un precio en dólares. Esta lección no inventa una tarifa.
+
+**Errores de petición.** APIs o tools fallidas. Fallbacks y reintentos: si el proveedor A cae, pasa al B. Eso ya lo viste en [agent-loop](/es/m/agent-loop).
+
+**Feedback del usuario.** Explícito: pulgares, estrellas, comentarios. Negativos consistentes deben alertar.
+
+**Feedback implícito.** Reformular, repetir la pregunta, clics de reintento. La misma pregunta dos veces es una señal.
+
+**Acierto.** **Tú** defines el éxito: corrección, retrieval, satisfacción. Marca trazas succeeded o failed. No copies la definición de un ranking.
+
+**Evaluación automática.** Un juez LLM; librerías como RAGAS para RAG y LLM Guard para daño e inyección, tal como las nombra la página. No son un sustituto de tus veinte casos.
+
+<Callout>
+La unidad recomienda combinar estas métricas. Un gráfico verde de latencia es cómo un equipo envía un cuarenta por ciento de error de tools con p95 impecable.
+
+Acierto no se hereda de un blog. Para un agente de facturas, éxito puede ser el id de factura y nada más. Para soporte, un ticket cerrado sin reabrir en siete días. Para un tutor, que la cifra coincida. Si no escribes esa frase, tus métricas medirán fluidez. QuizAgent midió fluidez.
+
+El coste, otra vez: cinco generates por turno es cinco prefills y cinco decodes. Cuéntalos. Si el quinto no mueve el acierto que definiste, córtalo. No hace falta un precio de lista. Hace falta el recuento.
+</Callout>
+
+<Myth>
+El p95 de latencia es salud. No. La unidad separa latencia, errores, coste y calidad. Una disculpa rápida es latencia exitosa y un span de tool fallido.
+</Myth>
+
+## Primero offline, después online
+
+**Offline.** Set controlado, salidas esperadas conocidas, a menudo CI. Ejemplo de la unidad: un agente de mates sobre GSM8K. Acierto repetible. El reto es que el set siga siendo representativo. Mezcla **smoke tests** pequeños y **sets más grandes**. Empieza aquí antes de desplegar — la unidad lo llama el paso mínimo.
+
+Un agente de soporte no se examina con problemas de enunciado de primaria. Necesita timeouts al CRM, no GSM8K. El ejemplo del curso no es un examen universal.
+
+**Online.** Tráfico real. Tasas de éxito, satisfacción, drift, consultas inesperadas. Feedback implícito y explícito; quizá shadow o A/B. Más difícil de etiquetar. Captura lo que el laboratorio no imaginó.
+
+<Compare a="Offline" b="Online">
+<Side>
+Repetible, ground truth, CI. Ciego a nuevas clases de consulta. Mínimo antes de producción, según la unidad.
+</Side>
+<Side>
+Distribución real, drift, sorpresa. Etiquetas débiles. Complementa el offline; no lo sustituye.
+</Side>
+</Compare>
+
+**Combinar.** El bucle de la unidad: eval offline → desplegar → monitorear → recoger fallos nuevos → añadirlos al set offline → iterar. Los fallos de producción se vuelven filas. Un set congelado de cien ítems de la semana de lanzamiento es un trofeo, no un test.
+
+Consejo práctico: diez turnos de oro en CI, un job más largo de noche, y cada incidente como fila candidata. Los números son de aula, no una cuota secreta. No hagas A/B de un prompt y un modelo y una lista de tools de un golpe. Un cambio por experimento, o no sabrás qué span se movió.
+
+Un set trofeo de cien ítems de la semana de lanzamiento es repetible y ciego. Los timeouts de CRM nunca entran. Un set vivo duele más de presumir y es la única forma de que un cuarenta por ciento de error de tools se vuelva un test de regresión. La unidad quiere esa mezcla: smoke rápido, set grande, filas nuevas desde producción.
+
+GSM8K vale si tu agente hace mates de enunciado. Si hace tickets, tus veinte casos son tickets. Copia la *disciplina*, no el dataset.
+
+## Alfabetización Unit 4: GAIA no es tu cliente
+
+GAIA es un benchmark de cientos de preguntas **conceptualmente simples para personas** y duras para asistentes. El curso cita una brecha amplia entre humanos y GPT-4 con plugins. Esos números son suyos. No son la nota de tu producto.
+
+Cuatro pilares que la Unit 4 toma prestados: dificultad del mundo real (multi-hop, tools), interpretabilidad humana, no se puede trucar con vocabulario, evaluación simple (respuestas cortas, exact match). Un quiz de opción múltiple sobre el system prompt no cumple ninguno.
+
+iAguide **no** hospeda el certificado de Hugging Face. Un quiz de este curso no es GAIA. Quédate con la forma: preguntas duras, con tools, multi-hop, de *tu* dominio. El detalle del ranking, los niveles y el subconjunto de estudiantes está en [gaia](/es/m/gaia).
+
+Si tu examen interno es opción múltiple sobre el agente, eres QuizAgent. Si necesita una hoja más un calendario más una calculadora, has tomado prestada la forma de GAIA. Sigue sin ser el leaderboard. Es tu set de veinte.
+
+Unit 4 pide un agente evaluado en un subconjunto de GAIA para *su* certificado. iAguide no es ese trámite. El robo pedagógico es la forma: exact match, tools, multi-hop, respuestas que una persona encuentra obvias. Si tu set interno se puede aprobar leyendo el system prompt, todavía es un quiz. Si exige el bucle, ya no.
+
+Niveles de GAIA, en una línea — el detalle está en la lección dedicada: nivel 1 pocos pasos y pocas tools; nivel 2 coordina varias; nivel 3 planifica largo. Empieza tu set interno con forma de nivel 1. Un 9 de 10 de vocabulario con un 0 en tres tareas de nivel 1 es QuizAgent otra vez.
+
+No uses el leaderboard de estudiantes como KPI de producto. No copies las 466 preguntas. Escribe veinte que tu cliente firmaría. Cuando una de producción falle, entra como la veintiuna y alguien sale. El set tiene que caber en la cabeza del equipo.
+
+<Compare a="Un quiz del curso" b="Una tarea con forma GAIA">
+<Side>
+Opciones cerradas. Sin tools. Mide si el equipo memorizó el glosario. Media alta, el producto sigue roto.
+</Side>
+<Side>
+Respuesta fáctica corta. Necesita el bucle: retrieve, calcular, leer un archivo. Exact match. A las personas les parece obvio; al agente no.
+</Side>
+</Compare>
+
+## Tres tests unitarios, sin GPU
+
+Antes de un juez LLM, antes de GAIA, antes de un panel: tres asserts sobre el bucle. Fixtures. Mensajes. Cero pesos.
+
+1. **Allow.** Un nombre desconocido se deniega. No se ejecuta. No se trata como «no hacía falta tool».
+2. **Parse.** JSON malformado no se ejecuta. El parser falla abierto hacia un error, no cerrado hacia la alucinación.
+3. **Stop.** Se respeta la secuencia de stop. La Observation no sale del modelo; la añade el arnés.
+
+Eso es el diagrama de esta lección: tres tests a la izquierda, un quiz brillante y un GAIA a cero a la derecha. El producto vive a la izquierda.
 
 <TryThis>
 Escribe tres tests unitarios de un bucle de tools **sin modelo**: (1) nombre desconocido denegado, (2) JSON malformado no se ejecuta, (3) se respeta el stop y la Observation no sale del modelo. Fixtures. Asserts sobre mensajes. Sin GPU.
 </TryThis>
 
+
+Los tres tests cubren el gozne de [tools-runtime](/es/m/tools-runtime) y el while de [dummy-agent](/es/m/dummy-agent). No sustituyen un eval de dominio. Lo hacen posible: si el despacho miente, tus veinte casos mienten con él. Corre los unitarios en cada commit. Corre los veinte en cada cambio de prompt. Corre una muestra con forma GAIA cuando quieras un examen que no se falsea con vocabulario.
+Luego, y solo luego, tus **veinte casos**. No cien. Veinte que te importan: el ticket que llegó el martes, el PDF del cliente, la tool que no debe llamarse. Corrígelos por script o por humano. Corre el set en cada cambio de prompt, de modelo, de catálogo. Offline. Cuando producción falle de una forma nueva, esa traza entra al set. Ese es el bucle de la Bonus Unit 2, aplicado a tu dominio, no al leaderboard.
+
 ## Caso — las notas bonitas de QuizAgent
 
-QuizAgent sacó 88% en un quiz interno de “seguridad del agente.” En tres tareas estilo GAIA (hoja de cálculo + calendario) falló las tres y seguía escribiendo con seguridad. El quiz nunca llamó a una tool. Habían medido comprensión lectora del system prompt.
+**Caso.** QuizAgent sacó 88 por ciento en un quiz interno de «seguridad del agente». En tres tareas estilo GAIA (hoja de cálculo más calendario) falló las tres y seguía escribiendo con seguridad. El quiz nunca llamó a una tool. Habían medido comprensión lectora del system prompt.
 
-Esta lección reescribe ideas del [curso de agentes de Hugging Face](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.
+El arreglo no es un quiz más difícil de vocabulario. Es: (a) los tres unit tests del despacho, (b) veinte casos con tools de verdad, (c) no llamar GAIA a un formulario. El 88 por ciento era una métrica de lectura. El bucle no se había examinado.
+
+Si publicas el 88 en un slide y el error de tools en producción es el cuarenta por ciento, eres el gráfico verde de más arriba. Combina. Offline primero. Los fallos vivos vuelven al set. GAIA, si te sirve de forma, se queda en [gaia](/es/m/gaia). Tus clientes no viven allí.
+
+El 88 por ciento se lee bien en un quarterly. Las tres tareas rotas no caben en el mismo slide a menos que alguien las ponga. Ponlas. La alfabetización de esta lección es esa disciplina: un número sin el bucle al lado es sospechoso.
+
+Enlaces en este curso: el while interno en [dummy-agent](/es/m/dummy-agent); el despacho en [tools-runtime](/es/m/tools-runtime); las trazas en [observabilidad](/es/m/observability); el ranking en [gaia](/es/m/gaia). No son cuatro productos. Son cuatro lentes sobre el mismo while.
+
+## Qué recordar
+
+Observabilidad = trazas, spans, métricas (latencia, bucle de tokens, errores, feedback, acierto que **tú** defines). Evaluación = juzgar esas señales y tests. Offline primero, smoke más set grande, luego online. Los fallos vivos alimentan el offline. Veinte casos tuyos. Tres unit tests sin GPU. GAIA no es tu cliente. Un quiz sin tools es QuizAgent.
+
+Esta lección reescribe la alfabetización de Bonus Unit 2 y la Unit 4. El panel, los spans y SignalOps están en [observabilidad](/es/m/observability). El ranking público, en [gaia](/es/m/gaia).
+
+Jueces LLM: la unidad los nombra. Úsalos como señal, no como veredicto. Un juez que puntúa «utilidad» sobre un quiz de glosario volverá a darte 88. Un juez que exige el id de factura y nada más se parece más a GAIA. Define el rubro antes de invocar al juez.
+
+Inyección y lenguaje dañino: la unidad los pone bajo observabilidad (detectar) y bajo eval automático (LLM Guard, tal como lo nombra). iAguide no desarrolla aquí un red team. Si tu agente traga el system prompt del usuario, eso es un caso de los veinte, no un slide de «seguridad 88».
+
+Shadow y A/B: la unidad los menciona como opciones online. Un cambio por experimento. Si mueves modelo, prompt y catálogo el mismo martes, el span que se movió es un misterio. El misterio no es profundidad. Es un experimento mal diseñado.
+
+Si solo tienes tiempo para una cosa esta semana: los tres unit tests. Si tienes una tarde: los veinte casos. Si tienes un trimestre: el bucle offline-online con filas que vuelven. GAIA espera. El quiz interno, no.
+
+## Cuestionario
+
+Cuatro preguntas (Burtenshaw, Thomas, Simonini, Paniego). El progreso se guarda en este navegador.
+
+Falla a propósito la de GAIA: si crees que un 88 en un quiz interno es la nota de tus usuarios, esta lección no ha terminado.
+
+Cuatro preguntas. El progreso se guarda en este navegador. No sustituye el Space de la Unit 4 ni el notebook de Bonus 2.
+
+El miss de observabilidad existe porque la gente llama «eval» a un panel. El miss de orden existe porque producción parece más real que un set. Ninguno de los dos sustituye al otro.
+
+Lee también el miss de QuizAgent: un 88 sin tools es lectura. El bucle no se había examinado.
+
+<Quiz id="evaluation">
+  <Q id="q1" prompt="¿Qué es observabilidad, frente a evaluación, en un agente?" a="Un ranking público tipo GAIA" b="Trazas, spans y métricas para ver el bucle; la evaluación juzga esa evidencia con tests" c="Un iframe de Langfuse en la lección" answer="b" why="Bonus Unit 2: observabilidad mira señales (logs, métricas, trazas). Evaluación es analizar esa evidencia y testar. No son sinónimos y no son un panel embebido." missA="GAIA es un benchmark (Unit 4). Puede alimentar un eval. No es observabilidad." missC="Esta lección no embebe Langfuse. Los paneles viven en observabilidad, y aun allí son herramientas, no religión." />
+  <Q id="q2" prompt="¿En qué orden quiere la unidad que evalúes?" a="Online primero, porque el tráfico real no miente" b="Offline primero (smoke más set grande), luego online, y los fallos vivos vuelven al offline" c="Solo un juez LLM en producción" answer="b" why="La unidad llama al offline el paso mínimo antes de desplegar. Luego online. El bucle combina: los fallos nuevos se unen al set." missA="Online sin offline es producción como laboratorio. La unidad empieza en el set controlado." missC="Un juez LLM es una métrica más. No sustituye ground truth ni tus veinte casos." />
+  <Q id="q3" prompt="¿Qué miden tres tests unitarios allow / parse / stop sin GPU?" a="Si el modelo es veraz a temperatura 0" b="El despacho del bucle: nombre desconocido, JSON roto, Observation que no escribe el decoder" c="La nota en el subconjunto de GAIA" answer="b" why="Son asserts sobre mensajes y política. Cero pesos. El diagrama de esta lección: esos tres tests frente a lucir en un quiz y fallar GAIA." missA="Temperatura 0 no es veracidad; además estos tests ni siquiera llaman al modelo." missC="GAIA es Unit 4 y no es tu cliente. Los unit tests son anteriores y más baratos." />
+  <Q id="q4" prompt="QuizAgent sacó un 88 por ciento en un quiz interno. ¿Qué había medido?" a="Que el bucle de tools era seguro en producción" b="Comprensión lectora del system prompt: el quiz nunca llamó a una tool" c="Que GAIA ya no hace falta" answer="b" why="El caso: tres tareas con forma GAIA fallaron. El quiz no despachó tools. Habían medido lectura, no el agente. Tus veinte casos sí despachan." missA="Producción no se examina con opción múltiple sobre el glosario." missC="GAIA sigue siendo un metro público. No es un permiso para dejar de testear el bucle." />
+</Quiz>
+
+## Fuentes
+
+Burtenshaw, B., Thomas, J., Simonini, T. y Paniego, S. (s. f.). *Hugging Face Agents Course* (Apache-2.0). https://huggingface.co/learn/agents-course · repositorio https://github.com/huggingface/agents-course
+
+- What is agent observability and evaluation: https://huggingface.co/learn/agents-course/bonus-unit2/what-is-agent-observability-and-evaluation
+- Introducción Bonus Unit 2: https://huggingface.co/learn/agents-course/bonus-unit2/introduction
+- Notebook de monitoring: https://huggingface.co/learn/agents-course/bonus-unit2/monitoring-and-evaluating-agents-notebook
+- What is GAIA: https://huggingface.co/learn/agents-course/unit4/what-is-gaia
+- Unit 4 introduction: https://huggingface.co/learn/agents-course/unit4/introduction
+- GSM8K (ejemplo offline de la unidad): https://huggingface.co/datasets/gsm8k
+- OpenTelemetry: https://opentelemetry.io/docs/
+- Docs de smolagents (instrumentación): https://huggingface.co/docs/smolagents

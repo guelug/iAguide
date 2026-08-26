@@ -2,32 +2,179 @@
 
 El <Term id="token">tokenizador</Term> no es un extra. Es el dialecto con el que se entrenaron los pesos. Cámbialo y tienes otro modelo, aunque los tensores te suenen. El inglés suele caer cerca de un token por palabra; el código, las URLs y otros alfabetos se desvían. Cuenta tokens, no caracteres.
 
-El BPE (y sus primos) cortan por frecuencia, no por lingüística. Por eso `strawberry` puede ser tres piezas y el modelo no “ve” tres erres como tres erres.
+El BPE (y sus primos) cortan por frecuencia, no por lingüística. Por eso `strawberry` puede ser tres piezas y el modelo no «ve» tres erres como tres erres. Preguntarle cuántas r tiene la palabra es un test de tokenización, no de inteligencia.
+
+No hace falta el algoritmo. Hace falta el hábito: cuando un agente falle en contar, recortar o firmar una cadena, mira primero cómo se partió. Luego el bucle.
 
 <Callout>
-Un GGUF o una carpeta de Hugging Face con el `tokenizer.json` equivocado se verá “tonto”. Arregla el artefacto antes de hacer fine-tune.
+Un GGUF o una carpeta de Hugging Face con el tokenizer.json equivocado se verá «tonto». Arregla el artefacto antes de hacer fine-tune. Antes de subir la temperatura. Antes de culpar al prompt.
 </Callout>
+
+*Fuente nombrada: Hugging Face Agents Course, Unidad 1, [Messages and Special Tokens](https://huggingface.co/learn/agents-course/unit1/messages-and-special-tokens) (Burtenshaw, Thomas, Simonini y Paniego, Apache-2.0).*
 
 ## Los mensajes son la UI. El modelo ve una cadena
 
-Los chats intercambian **mensajes**: `system`, `user`, `assistant` y luego `tool`. Antes del forward, una **plantilla de chat** los concatena en un solo prompt, envolviendo cada turno en **tokens especiales** que *este* modelo esperaba.
+Cuando hablas con ChatGPT o HuggingChat **intercambias mensajes**. Eso es una abstracción de interfaz. Antes del forward, todos los turnos se **concatenan** en un solo prompt. El modelo no «recuerda» la conversación: la lee entera cada vez.
 
-SmolLM2 habla `<|im_start|>role … <|im_end|>`. Llama 3 habla `<|eot_id|>`. Gemma habla `<end_of_turn>`. No memorices el zoo. Llama a `tokenizer.apply_chat_template(...)` (o el equivalente en llama.cpp / Ollama) y no inventes los delimitadores a mano.
+Los roles que muestra la UI — `system`, `user`, `assistant`, y luego `tool` — no viajan como objetos mágicos. Viajan como texto envuelto en **tokens especiales** que *este* modelo esperaba. La plantilla de chat es el puente.
 
 <VisualSlot caption="Tres dimensiones del mismo prompt: roles que muestra la UI, tokens especiales que el modelo necesita, la cadena renderizada a la que atiende." />
 
-Los modelos base completan texto. Los instruct se ajustaron a una plantilla. Si le das a un instruct una completion cruda, se pierde: el bug es tuyo.
+Tres dimensiones, un forward:
+
+1. **Roles** — lo que el producto enseña: sistema, usuario, asistente.
+2. **Delimitadores** — `<|im_start|>`, `<|eot_id|>`, `<end_of_turn>`, el dialecto de la familia.
+3. **Cadena renderizada** — lo único que atiende el decoder.
+
+Si esas tres no coinciden, el modelo no está «despistado». Está leyendo otro idioma.
+
+El curso insiste en esto con una pregunta retórica: «pero si yo hablo por mensajes, no por un prompt». Correcto en la UI. Falso en el forward. Cada llamada vuelve a pintar system + historial + el turno nuevo. Compactar, resumir o cortar el hilo es trabajo del arnés, no una facultad oculta del decoder.
+
+Si el historial incluye un tool call, también se pinta. Un usuario que «solo ve» la respuesta final no ve la cadena. Tú sí tienes que verla cuando algo falla.
+
+
+## System, user, assistant
+
+El mensaje de **sistema** fija el comportamiento. Es persistente: viaja en cada llamada. En un agente, además, lista tools, el formato de la Action y cómo segmentar el Thought. Alfred educado o Alfred rebelde es, en el curso, un cambio de system prompt. El mismo decoder. Distinta continuación.
+
+Los turnos **user** y **assistant** se alternan. La plantilla guarda el historial concatenándolo, no porque el modelo tenga un cajón. Una conversación de tres mensajes es una sola secuencia larga. El prefill la vuelve a ingerir. Por eso un hilo gordo duele en el primer token: no es amnesia, es ventana.
+
+Consejo práctico: el system prompt de un agente que «tiene» diez tools es diez descripciones más el rito Thought / Action / Observation. Cada línea extra es contexto. Recorta lo que el turno no va a usar.
+
+Un system «rebelde» no hackea los pesos. Cambia la continuación. Un system que lista tools que el runtime no tiene produce llamadas huérfanas: el modelo cumple el rito, nadie ejecuta. Eso es contenido de [tools-runtime](/es/m/tools-runtime), pero nace aquí: la lista viaja como prosa delimitada, no como un plugin mágico.
+
+En papel, un system de agente suele llevar tres bloques: quién eres, qué tools existen (nombre, descripción, argumentos tipados), cómo se escribe una Action. El dummy de la Unidad 1 es ese papel hecho prompt. Si omites el tercer bloque, el modelo improvisará un formato y el parser morirá.
+
+
+## Base frente a instruct
+
+Un **modelo base** se entrenó a completar texto crudo. `SmolLM2-135M` es el ejemplo del curso. Un **instruct** se ajustó a seguir instrucciones y a una plantilla de conversación: `SmolLM2-135M-Instruct`.
+
+Si le das a un instruct una completion cruda, se pierde: el bug es tuyo. Si le das a un base un ChatML de SmolLM2 y esperas un mayordomo, también. El instruct no es «más listo». Ha visto un rito. La plantilla **es** ese rito.
+
+ChatML — roles system / user / assistant envueltos en `<|im_start|>` y `<|im_end|>` — es una plantilla, no la ley universal. Un mismo base se puede ajustar a plantillas distintas. Cuando corres un instruct, usa **la suya**.
+
+## Familias distintas, delimitadores distintos
+
+SmolLM2 habla así, más o menos (el curso lo enseña con un pedido de ayuda):
+
+    <|im_start|>system
+    You are a helpful AI assistant named SmolLM, trained by Hugging Face<|im_end|>
+    <|im_start|>user
+    I need help with my order<|im_end|>
+    <|im_start|>assistant
+
+Llama 3.2, la misma conversación, no se parece:
+
+    <|begin_of_text|><|start_header_id|>system<|end_header_id|>
+    ...fecha de corte y fecha de hoy...
+    <|eot_id|><|start_header_id|>user<|end_header_id|>
+    I need help with my order<|eot_id|>
+
+Gemma cierra el turno con `<end_of_turn>`. Llama 3 cierra con `<|eot_id|>`. SmolLM2 cierra con `<|im_end|>`. No memorices el zoo. Llama a `tokenizer.apply_chat_template` (o al equivalente del runtime) y no inventes los delimitadores a mano.
+
+<Compare a="Lo que ves en la UI" b="Lo que atiende el modelo">
+<Side>
+Tres burbujas: sistema invisible, usuario, asistente. Parece memoria. Parece turnos.
+</Side>
+<Side>
+Una cadena con tokens de cabecera. El decoder puntúa el siguiente id. Si la cabecera es de otra familia, la continuación es de otra familia.
+</Side>
+</Compare>
+
+## apply_chat_template, no Jinja a mano
+
+En `transformers`, la plantilla es código Jinja que describe cómo pintar la lista de mensajes. No la copies a un fichero y la edites «un poquito». El tokenizer ya la trae. El camino corto del curso:
+
+    from transformers import AutoTokenizer
+
+    tokenizer = AutoTokenizer.from_pretrained("HuggingFaceTB/SmolLM2-1.7B-Instruct")
+    rendered_prompt = tokenizer.apply_chat_template(
+        messages, tokenize=False, add_generation_prompt=True
+    )
+
+`messages` es una lista de turnos con role=system, role=user, role=assistant. **No** construyas el diccionario a ojo en el prompt del modelo: constrúyelo en Python (o en el arnés) y deja que la plantilla pinte. `tokenize=False` te devuelve la cadena para inspeccionarla. `add_generation_prompt=True` deja el cursor en el turno assistant, que es lo que quieres para generar.
+
+Esa función vive en el backend de cualquier API que acepte ChatML. Hermes y OpenClaw no te piden que pegues `<|im_start|>` a mano: aplican la plantilla del modelo que configuraste. Si el modelo es Llama y el wrapper sigue siendo ChatML de Qwen, el bug es el de NovaDesk.
+
+`add_generation_prompt=True` no es un adorno. Sin él, la cadena puede terminar en el último `<|im_end|>` del usuario y el modelo no sabe que le toca escribir. Con él, la plantilla deja abierto el turno assistant. El síntoma de olvidarlo: completions que repiten al usuario, o que emiten un rol a medias.
+
+No pases tokenize=True si lo que quieres es **leer** el prompt. Primero la cadena, luego los ids. NovaDesk habría visto ChatML de Qwen sobre un Llama en la cadena, antes de gastar un día en temperatura.
+
+El Space del curso deja pintar la misma conversación con plantillas distintas. Hazlo una vez. El ojo aprende más que un párrafo.
+
+
+<TryThis>
+Elige un instruct que de verdad corras. Imprime tokenizer.chat_template (o la plantilla del Modelfile). Escribe a mano la misma conversación de tres turnos como la plantilla la haría. Llama a apply_chat_template y compara. Los desajustes son los bugs de producción.
+</TryThis>
 
 ## Los turnos de herramienta viven en la misma cadena
 
-Cuando el arnés ejecuta una tool, la observación es otro mensaje, delimitado como los demás. El modelo no tiene un canal paralelo. Si olvidas la plantilla de los resultados, tratará el JSON como prosa.
+Cuando el arnés ejecuta una tool, la observación es otro mensaje, delimitado como los demás. El modelo no tiene un canal paralelo. Si olvidas la plantilla de los resultados, tratará el JSON como prosa: lo completará, lo citará, lo inventará.
 
-<TryThis>
-Elige un instruct que de verdad corras. Imprime `tokenizer.chat_template` (o la plantilla del Modelfile). Escribe a mano la misma conversación de tres turnos como la plantilla la haría. Llama a `apply_chat_template` y compara. Los desajustes son los bugs de producción.
-</TryThis>
+En un agente de function-calling el rol se llama `tool` (o el nombre que la familia haya aprendido). En el dummy de la Unidad 1, a menudo concatenas `Observation:` sobre el turno assistant. Distinta grafía, misma regla: **entra en la cadena**. El siguiente prefill la ve. Si no está, el modelo no «se enteró» de que llovía en Nueva York; predice como si no hubiera llovido.
 
-## Caso — el 8B “tonto” de NovaDesk
+Consejo práctico: un tool call mal plantillado se parece a un modelo tonto. Mira primero los delimitadores. Luego la temperatura.
 
-NovaDesk cambió un GGUF instruct de Qwen por un quant “más rápido” de Llama 3 y dejó el wrapper ChatML de Qwen. El modelo contestaba a trozos e inventaba `<|im_end|>` a mitad de frase. Perdieron un día con la temperatura. El tokenizador y la plantilla eran de otra familia.
+Los modelos de function-calling afinados introducen roles extra (assistant con tool_calls, tool con el resultado). Sigue siendo la misma cadena. El bonus de [function-calling](/es/m/function-calling-ft) enseña a *entrenar* ese rito. Aquí basta no olvidar pintarlo.
 
-Esta lección reescribe ideas del [curso de agentes de Hugging Face](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.
+
+<Myth>
+«El chat recuerda los turnos; el tokenizador es un detalle.» No. Recuerda porque tú le vuelves a pegar la cadena. El tokenizador decide cómo se corta esa cadena. Un detalle que, cambiado, es otro modelo.
+</Myth>
+
+## Caso — el 8B «tonto» de NovaDesk
+
+**Caso.** NovaDesk cambió un GGUF instruct de Qwen por un quant «más rápido» de Llama 3 y dejó el wrapper ChatML de Qwen. El modelo contestaba a trozos e inventaba `<|im_end|>` a mitad de frase. Perdieron un día con la temperatura. El tokenizador y la plantilla eran de otra familia.
+
+El arreglo no fue un prompt más educado. Fue emparejar pesos, tokenizer.json y chat_template. Tres piezas, un artefacto. Cuando Hermes o OpenClaw te dejan elegir modelo, eligen también — si está bien hecho — la plantilla que viaja con él. Si montas el runtime a mano, esa disciplina es tuya.
+
+La lección del curso es la misma con SmolLM2 y Llama 3.2: la conversación idéntica en la UI produce cadenas distintas. NovaDesk las mezcló. El 8B no era tonto. Hablaba ChatML con una boca de Llama.
+
+Tres comprobaciones, sin GPU:
+
+1. El tokenizer.json viaja con los pesos, no con «el que teníamos del modelo anterior».
+2. chat_template es el del instruct que corres, no un ChatML genérico.
+3. apply_chat_template sobre un hilo de tres turnos produce una cadena que *tú* reconoces.
+
+Si (1) o (2) fallan, (3) te lo enseña. Si no imprimes (3), depuras a ciegas.
+
+
+
+strawberry, otra vez: el tokenizer parte por estadística. Un agente que «cuenta letras» sobre tokens partidos alucinará con fluidez. No es un fallo de ReAct. Es pedir lingüística a un BPE. Si la tarea es contar, usa una tool. El cerebro predice ids, no grafemas.
+
+La misma disciplina vale para JSON de tools. Si la plantilla no marca el resultado como turno tool (o como Observation:), el BPE lo come como prosa y el siguiente Thought mezcla el tiempo de Nueva York con la receta de la Action. Delimita. Luego parsea.
+
+## Qué recordar
+
+La UI muestra roles. El modelo atiende una cadena. `apply_chat_template` es el puente; los delimitadores no se copian de un blog. Base completa texto; instruct espera su plantilla. `SmolLM2-135M` no es `SmolLM2-135M-Instruct`. Las Observations de tools entran en la misma cadena. strawberry se parte como BPE quiera, no como el diccionario quiera.
+
+
+Hermes y OpenClaw aplican la plantilla del modelo configurado. No las trates como un ChatML universal. Si cambias de familia, cambia el artefacto entero: pesos, tokenizer, template. El bucle de cinco verbos no arregla un delimitador ajeno.
+
+Siguiente hueco: [el bucle](/es/m/agent-loop) y el parseo en veinte líneas de [agente dummy](/es/m/dummy-agent). El cerebro ya lo tienes en [el idioma de los modelos](/es/m/language-of-models).
+
+## Cuestionario
+
+Cuatro preguntas de la Unidad 1 (Burtenshaw, Thomas, Simonini, Paniego). El progreso se guarda en este navegador. No es el quiz del Space de Hugging Face; es una comprobación local.
+
+Falla a propósito una vez y lee el miss: el delimitador ajeno y el canal paralelo son los dos errores que esta lección existe para cortar.
+
+
+<Quiz id="tokenization">
+  <Q id="q1" prompt="¿Qué ve de verdad el modelo cuando «hay un chat»?" a="Objetos mensaje con memoria entre llamadas" b="Una sola cadena concatenada, con tokens especiales de su familia" c="Un canal de tools aparte del prompt" answer="b" why="La UI es una abstracción. Antes del forward, system, user y assistant se pintan en un prompt. El modelo lee esa cadena cada vez." missA="No hay cajón de memoria en los pesos del turno. Hay ventana: lo que cabe en la cadena." missC="Las tools también entran como texto delimitado. No hay canal paralelo." />
+  <Q id="q2" prompt="¿Cuál es la diferencia entre SmolLM2-135M y SmolLM2-135M-Instruct?" a="Ninguna: es el mismo checkpoint con otro nombre" b="El Instruct es más grande" c="Base completa texto; Instruct se ajustó a una plantilla de chat" answer="c" why="El curso usa exactamente ese par. El instruct espera su rito. Darle completion cruda, o darle a un base un ChatML, es un bug de plantilla." missA="El sufijo Instruct señala un ajuste y una plantilla. No es marketing." missB="135M es el mismo tamaño. Cambia el entrenamiento y el chat_template, no los miles de millones." />
+  <Q id="q3" prompt="¿Cómo se pinta una conversación para un instruct sin inventar delimitadores?" a="Copiando ChatML de SmolLM2 a todos los modelos" b="Con tokenizer.apply_chat_template sobre una lista role=system / user / assistant" c="Pegando los tokens EOS de memoria" answer="b" why="transformers ya trae la plantilla Jinja del artefacto. apply_chat_template es el puente. Copiar delimitadores de otra familia es NovaDesk." missA="Llama 3 no habla im_start. Gemma no habla eot_id. El zoo no se unifica a mano." missC="Los EOS se miran en el tokenizer_config, no se recitan. Y pintar un turno no es solo el EOS." />
+  <Q id="q4" prompt="Cuando el arnés ejecuta una tool, ¿dónde vive la Observation?" a="En un canal paralelo que el decoder atiende aparte" b="En la misma cadena, delimitada como los demás turnos" c="Solo en los logs del panel de observabilidad" answer="b" why="El modelo no tiene un segundo ojo. Si la plantilla del resultado se olvida, el JSON se lee como prosa y el siguiente token no ha «visto» el tiempo." missA="Esa es la fantasía que esta lección corta. Un solo forward, una cadena." missC="Los paneles ayudan después. En el turno, la Observation tiene que estar en el prompt." />
+</Quiz>
+
+## Fuentes
+
+Burtenshaw, B., Thomas, J., Simonini, T. y Paniego, S. (s. f.). *Hugging Face Agents Course* (Apache-2.0). https://huggingface.co/learn/agents-course · repositorio https://github.com/huggingface/agents-course
+
+- Messages and Special Tokens: https://huggingface.co/learn/agents-course/unit1/messages-and-special-tokens
+- What are LLMs: https://huggingface.co/learn/agents-course/unit1/what-are-llms
+- Dummy Agent Library: https://huggingface.co/learn/agents-course/unit1/dummy-agent-library
+- Chat templating (transformers): https://huggingface.co/docs/transformers/chat_templating
+- Curso: https://huggingface.co/learn/agents-course
+- Repositorio: https://github.com/huggingface/agents-course

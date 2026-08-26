@@ -8,21 +8,58 @@ El tokenizador forma parte del artefacto. Un GGUF o una carpeta de Hugging Face 
 Regla práctica, no ley: una página de prosa suele ser unos cientos de tokens; un volcado JSON o un stack trace gordo puede gastar miles sin parecer “largo”.
 </Callout>
 
-## El contexto es una ventana, no un archivador
+*Fuente nombrada: Hugging Face Agents Course, Unidad 1, [What are LLMs?](https://huggingface.co/learn/agents-course/unit1/what-are-llms) (Burtenshaw, Thomas, Simonini y Paniego, Apache-2.0).*
 
-La <Term id="context-window">ventana de contexto</Term> es cuántos tokens el modelo puede atender **ahora**: system prompt, herramientas, el hilo hasta aquí y lo que va a escribir. No es memoria a largo plazo. Cuando se llena, algo tiene que salir: compactas, recuperas o abres otro hilo.
-
-Las ventanas grandes no son gratis. Cuestan memoria de <Term id="kv-cache">caché KV</Term> y suelen frenar el <Term id="prefill">prefill</Term>.
-
-## Embeddings, en breve
-
-Un <Term id="embedding">embedding</Term> es una lista de números. Las listas cercanas suelen significar cosas afines. Los embeddings de token son la primera mirada del modelo; las capas posteriores los mezclan. Los embeddings de pasaje son lo que guardan la mayoría de búsquedas vectoriales. No hace falta la geometría. Hace falta: **la similitud es una puntuación, no una prueba**.
+Llama 2, por ejemplo, trabaja con un vocabulario de unos 32 mil tokens, no con las seiscientas mil palabras del inglés. El recorte es por eficiencia: piezas que se combinan. «interest» más «ing» da «interesting». El modelo no ve diccionario; ve ids.
 
 ## El siguiente token, siempre
 
-La <Term id="next-token">predicción del siguiente token</Term> es el trabajo: dada la secuencia, producir <Term id="logits">logits</Term> — una puntuación por ítem del vocabulario —, pasarlos a probabilidades (softmax en el módulo de mates) y elegir.
+La <Term id="next-token">predicción del siguiente token</Term> es el trabajo: dada la secuencia, producir <Term id="logits">logits</Term> — una puntuación por ítem del vocabulario —, pasarlos a probabilidades y elegir.
 
-Eso es toda la generación. Planes, herramientas, trazas de “razonamiento”: más tokens, más bucles, más entrenamiento. El modelo sigue emitiendo un token cada vez.
+Eso es toda la generación. Planes, herramientas, trazas de «razonamiento»: más tokens, más bucles, más entrenamiento. El modelo sigue emitiendo un token cada vez.
+
+## Tres familias, un motor de agente
+
+El curso de Hugging Face dibuja tres familias de transformer. Los agentes casi siempre se sientan en una.
+
+**Encoder** (BERT y primos). Entra texto; sale una representación densa, un <Term id="embedding">embedding</Term>. Clasificar, buscar, extraer entidades. Tamaño típico: millones de parámetros. No escribe el siguiente turno de un chat. La similitud entre vectores es una puntuación, no una prueba.
+
+**Decoder** (Llama, SmolLM2, Gemma, Mistral, clase GPT, DeepSeek). Genera tokens nuevos, uno a uno, para completar una secuencia. Miles de millones de parámetros. Chat, código, el cerebro de un agente.
+
+**Seq2Seq** (T5, BART). Encoder más decoder. Traducir, resumir, parafrasear. El encoder comprime; el decoder escribe. Un agente de tools no vive aquí por defecto.
+
+<Compare a="Encoder (BERT)" b="Decoder chat / instruct">
+<Side>
+Sale un vector. Sirve para buscar y clasificar. No emite «llama a get_weather». Un agente no se sienta aquí.
+</Side>
+<Side>
+Sale el siguiente token. Con plantilla de chat e instrucciones, esos tokens pueden significar una tool. El arnés parsea. El motor sigue siendo next-token.
+</Side>
+</Compare>
+
+Los nombres que el curso pone sobre la mesa — GPT-4, Llama 3, SmolLM2, Gemma, Mistral, DeepSeek-R1 — son decoders. El LLM de un agente es un decoder **chat / instruct**, no un BERT con un system prompt pegado.
+
+
+Si eliges un encoder para un chatbot, el síntoma no es «se equivoca»: es que no hay generación autoregresiva que parsear. Si eliges un T5 y esperas ReAct, estás en el mapa equivocado. La pregunta de compra no es «¿es un LLM?». Es «¿emite el siguiente token de un chat con plantilla?».
+
+## Tokens especiales: diversidad, no memorización
+
+Cada familia abre y cierra turnos con tokens distintos. El más importante es el de fin de secuencia (EOS): la generación **para** cuando el modelo lo predice.
+
+No memorices el zoo. Mira el tokenizer_config.json del repo. Ejemplos del curso, solo para ver que no se parecen:
+
+- GPT-4: `<|endoftext|>`
+- Llama 3: `<|eot_id|>`
+- SmolLM2: `<|im_end|>`
+- Gemma: `<end_of_turn>`
+
+DeepSeek-R1 usa `<|end_of_sentence|>`. Otro más. El punto no es la tabla; es que un delimitador copiado de otra familia es un bug. Lo abrimos en [tokenización](/es/m/tokenization).
+
+## Autoregresivo hasta el EOS
+
+Un LLM es **autoregresivo**: la salida de un paso entra como entrada del siguiente. El bucle sigue hasta el EOS, o hasta un tope de tokens que pones tú.
+
+Dentro de un paso: tokenizas, el modelo arma una representación de significado y posición, y puntúa todo el vocabulario. Luego eliges. El curso te deja jugar con SmolLM2 hasta que emite `<|im_end|>`. Esa es la parada. No un segundo cerebro que «ya ha terminado de pensar».
 
 ## Palancas de muestreo
 
@@ -31,8 +68,10 @@ Eso es toda la generación. Planes, herramientas, trazas de “razonamiento”: 
 - **<Term id="top-p">Top-p</Term>**: quédate con el conjunto más pequeño cuya masa sume p, y muestrea.
 - **<Term id="top-k">Top-k</Term>**: quédate con k tokens y muestrea.
 
+El curso nombra también beam search: explorar varias secuencias candidatas. Un chat de agente casi nunca lo usa como default. Greedy o muestreo, y un EOS.
+
 <Myth>
-“Temperatura 0 significa que el modelo es veraz.” No. Significa que es menos aleatorio. Un token equivocado y seguro sigue equivocado.
+«Temperatura 0 significa que el modelo es veraz.» No. Significa que es menos aleatorio. Un token equivocado y seguro sigue equivocado.
 </Myth>
 
 ## Prefill frente a decode
@@ -41,33 +80,102 @@ Eso es toda la generación. Planes, herramientas, trazas de “razonamiento”: 
 
 Dos fases, una petición:
 
-1. **Prefill** — ingerir el prompt (casi siempre en paralelo). Construir la caché KV. Suele ser pesado en cómputo.
+1. **Prefill** — ingerir el prompt (casi siempre en paralelo). Construir la caché <Term id="kv-cache">KV</Term>. Suele ser pesado en cómputo.
 2. **Decode** — emitir un token, añadir sus keys/values, repetir. Suele estar limitado por **ancho de banda de memoria**: recorres los pesos para muy poco trabajo nuevo.
 
-Por eso un system prompt largo duele en el primer token, y una *generación* larga duele en tokens por segundo a medida que crece la caché.
+Por eso un system prompt largo duele en el primer token, y una generación larga duele en tokens por segundo a medida que crece la caché. El curso habla de «un paso de decode». iAguide añade las dos facturas: prefill y decode no duelen igual.
 
 <TryThis>
-En cualquier UI local que muestre conteos (llama.cpp server, Ollama, LM Studio), manda la misma pregunta corta dos veces: sola, y detrás de un archivo grande. Mira tiempo hasta el primer token frente a tokens/segundo. Estás viendo prefill frente a decode, no “al modelo confundiéndose”.
+En cualquier UI local que muestre conteos (llama.cpp server, Ollama, LM Studio), manda la misma pregunta corta dos veces: sola, y detrás de un archivo grande. Mira tiempo hasta el primer token frente a tokens/segundo. Estás viendo prefill frente a decode, no «al modelo confundiéndose».
+</TryThis>
+
+## Atención y ventana
+
+La atención decide qué tokens importan para predecir el siguiente. En «The capital of France is …» pesan «France» y «capital». El principio next-token no ha cambiado desde GPT-2; lo que ha crecido es la escala y la longitud que la atención puede cubrir.
+
+La <Term id="context-window">ventana de contexto</Term> es cuántos tokens el modelo puede atender **ahora**: system prompt, herramientas, el hilo hasta aquí y lo que va a escribir. No es memoria a largo plazo. Cuando se llena, algo tiene que salir: compactas, recuperas o abres otro hilo.
+
+Las ventanas grandes no son gratis. Cuestan memoria de caché KV y suelen frenar el <Term id="prefill">prefill</Term>.
+
+
+Consejo práctico: la ventana se come system + tools + hilo + lo que vas a escribir. Un catálogo de veinte tools no es «más capaz». Es más prefill y menos sitio para la Observation que de verdad importa. Recorta el catálogo; no pidas una ventana mágica.
+
+
+
+## El wording del prompt es el trabajo
+
+El único oficio del modelo es mirar cada token de entrada y elegir el siguiente. Por eso **cómo escribes** la secuencia importa. El prompt no es magia; es el contexto que la atención va a ponderar. Una instrucción vaga produce una continuación vaga. Una lista de tools precisa produce llamadas parseables — o no, si el arnés no las espera.
+
+
+Un prompt de agente no es un género distinto. Es el mismo next-token, con más ruido en la ventana: política de sistema, catálogo de tools, historial, a veces un skill. Cada párrafo extra es prefill extra. Si no cabe, no «recuerda peor»: atiende peor, o recortas.
+
+Consejo práctico: si el system prompt nombra una función que el runtime no registra, el modelo escribirá la llamada y nadie la ejecutará. Eso es Alfred sin bucle, más abajo. El wording importa porque el arnés también lee.
+
+## Cómo se usa, sin receta
+
+El curso ofrece dos caminos: correr el modelo en local si hay hardware, o llamarlo por API (Inference en el Hub es el ejemplo que ellos usan en la dummy library). iAguide no receta un binario ni un precio. Lo que no cambia: el cerebro sigue prediciendo el siguiente token. Cambia quién factura el bucle y quién posee la caché KV.
+
+Los agentes del curso — y Hermes o OpenClaw, más adelante — no sustituyen este motor. Lo llaman. Un turno de agente puede ser varias llamadas al modelo: una para la Action, otra después de la Observation. Cada una paga prefill y decode. El coste es un bucle de tokens, no un número en dólares que esta lección no va a inventar.
+
+## Preentrenar, luego quizá ajustar
+
+El preentrenamiento es predecir el siguiente token (o un objetivo enmascarado) sobre texto masivo. De ahí sale la estructura del idioma. Después, un **ajuste supervisado** puede enseñar conversación, uso de tools, clasificación o código. Un modelo base completa texto. Un instruct ha visto plantillas. Mezclarlos es el bug de [tokenización](/es/m/tokenization).
+
+El curso te deja dos caminos de uso: local, si hay hardware, o una API (Inference en el Hub, u otra). Esta lección no receta un binario. El motor es el mismo.
+
+## El LLM es el cerebro, no el agente
+
+Interpretar instrucciones, guardar contexto en la ventana, bosquejar un plan, decidir una tool: todo eso son tokens. El LLM es el **cerebro** del agente. El agente es el cerebro **más** el bucle, las tools, la política y la persistencia. Sin arnés, HuggingChat hablando de una cafetera no es un mayordomo. Es un decoder.
+
+<Callout>
+El curso lo dice sin adorno: el LLM es el cerebro, no el agente. Si tu demo «planifica» y nadie ejecuta, tienes un chatbot con vocabulario de mayordomo. El bucle está en [el arnés](/es/m/the-harness) y en [agente dummy](/es/m/dummy-agent).
+</Callout>
+
+<TryThis>
+Toma una pregunta del tiempo. Escribe (1) los tokens que un chat debe emitir para *llamar* a get_weather, y (2) los que emite *después* de que el arnés añada «15 °C, nubes». Estás viendo el motor dentro del bucle, no un segundo cerebro.
 </TryThis>
 
 ## Determinismo
 
-Greedy + un kernel determinista + un prompt fijo puede repetirse. El muestreo no. Algunos kernels de GPU no son estables bit a bit entre ejecuciones. Si necesitas repetir — eval, tests — fija semilla, temperatura 0, y aun así trata la deriva de GPU como posible.
+Greedy más un kernel determinista más un prompt fijo puede repetirse. El muestreo no. Algunos kernels de GPU no son estables bit a bit. Si necesitas repetir — eval, tests — fija semilla, temperatura 0, y aun así trata la deriva de GPU como posible.
 
-## Los modelos chat son el motor dentro del agente
 
-El curso de agentes de Hugging Face lo dice claro: el LLM es el **cerebro** del agente, no el agente. Los transformers decoder (Llama, Gemma, SmolLM, clase GPT) predicen el siguiente token. Los encoder (clase BERT) emiten embeddings. Los encoder–decoder (T5, BART) mapean secuencias. Los agentes casi siempre se sientan sobre un decoder **chat / instruct**: consumen una conversación con plantilla y emiten más tokens — incluidos los que significan “llama a esta tool.”
+## Qué recordar
 
-Es el mismo trabajo de siguiente-token. La agencia es bucle extra, tools extra, entrenamiento extra. El motor no cambia.
+Un decoder chat predice el siguiente token hasta un EOS que **no** tienes que memorizar. Encoder y seq2seq existen; el agente casi nunca vive ahí. Prefill construye la caché KV; decode la alarga un token cada vez. Temperatura 0 no es veracidad. El LLM es el cerebro. El agente es el cerebro más el arnés.
 
-Los tokens especiales (`<|im_end|>`, `<|eot_id|>`, `<end_of_turn>`) dicen cuándo acabó un turno. Van con el tokenizador; los abrimos en [tokenización](/course/tokenization).
-
-Esta lección reescribe ideas del [curso de agentes de Hugging Face](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.
-
-<TryThis>
-Toma una pregunta del tiempo. Escribe (1) los tokens que un chat debe emitir para *llamar* a `get_weather`, y (2) los que emite *después* de que el arnés añada “15°C, nubes.” Estás viendo el motor dentro del bucle, no un segundo cerebro.
-</TryThis>
+Esta lección reescribe la página [What are LLMs?](https://huggingface.co/learn/agents-course/unit1/what-are-llms) del Curso de Agentes de Hugging Face y guarda el vocabulario iAguide (tokens, KV, prefill/decode) para que la Unidad 1 no flote sin metal.
 
 ## Caso — Alfred sin bucle
 
-Un estudiante cableó HuggingChat a una API de cafetera y lo llamó agente. El modelo escribía planes (“ve a la cocina…”) y nunca emitía un tool call: nada en el prompt nombraba una función y nada en el runtime la parseaba. Tenían motor. No tenían arnés. El bucle vive en [el arnés](/course/the-harness) y la codificación dummy en [agente dummy](/course/dummy-agent).
+**Caso.** Un estudiante cableó HuggingChat a una API de cafetera y lo llamó agente. El modelo escribía planes («ve a la cocina…») y nunca emitía un tool call: nada en el prompt nombraba una función y nada en el runtime la parseaba. Tenían motor. No tenían arnés. El bucle vive en [el arnés](/es/m/the-harness) y la codificación dummy en [agente dummy](/es/m/dummy-agent).
+
+
+La tentación es añadir un system prompt más largo («eres un agente, llama tools»). Sigue siendo next-token. Sin registro, sin parseo, sin Observation añadida por ti, el modelo completará una receta de cocina o un JSON de mentira. El curso te pide el cerebro aquí y el while en la lección del bucle.
+
+No hace falta GPU para verlo. Escribe en papel los tokens de salida que *tendrían* que ser la Action, y los que *tendrían* que ser la respuesta al usuario. Si no hay un hueco en el medio donde el runtime escribe «15 °C», no hay agente.
+
+
+
+Consejo práctico: si tu demo «planifica» en prosa y nunca emite un nombre de función que el runtime conozca, no subas la temperatura. Sube el arnés.
+
+## Cuestionario
+
+Cuatro preguntas de la Unidad 1 (Burtenshaw, Thomas, Simonini, Paniego). El progreso se guarda en este navegador.
+
+<Quiz id="language-of-models">
+  <Q id="q1" prompt="¿Qué predice un LLM decoder en cada paso?" a="El siguiente token, siempre" b="Un plan de herramientas en un canal paralelo" c="Un embedding de la frase entera, y ya" answer="a" why="El trabajo del decoder es next-token. Planes y tools son más tokens, más bucle, más entrenamiento. El motor no cambia." missB="El modelo no tiene un canal paralelo. Una tool call es texto que el arnés parsea." missC="Eso sería un encoder. Los agentes se sientan sobre un decoder chat." />
+  <Q id="q2" prompt="¿Sobre qué familia se sienta casi siempre un agente?" a="Un encoder tipo BERT, porque entiende mejor" b="Un decoder chat / instruct (Llama, SmolLM2, clase GPT)" c="Un seq2seq tipo T5, porque traduce planes a acciones" answer="b" why="Los agentes consumen una conversación con plantilla y emiten más tokens, incluidos los que significan una tool. Eso es un decoder instruct, no un BERT ni un T5." missA="BERT emite embeddings. No escribe el siguiente turno ni una Action." missC="T5 y BART mapean secuencias (traducir, resumir). No son el default de un bucle de tools." />
+  <Q id="q3" prompt="¿Qué hay que hacer con los tokens EOS de GPT-4, Llama 3, SmolLM2 y Gemma?" a="Memorizarlos: sin la tabla no arranca el agente" b="Ignorarlos: el modelo para solo" c="No memorizarlos: sirven para ver que cada familia delimita distinto" answer="c" why="El curso enseña diversidad, no una lista de examen. El EOS para la generación. El tokenizer_config.json del artefacto es la fuente, no tu memoria." missA="Copiar delimitadores de otra familia es el bug de NovaDesk, no una habilidad." missB="Sin EOS (o un tope que pongas tú) el decode sigue. El modelo no «se cansa»." />
+  <Q id="q4" prompt="¿Qué significa temperatura 0?" a="Que el modelo es veraz" b="Que es menos aleatorio: greedy / argmax si el runtime coopera" c="Que el prefill es gratis" answer="b" why="Temperatura 0 afila hacia el token de mayor puntuación. Un error seguro sigue siendo un error. Veracidad no entra en la palanca." missA="Ese es el mito de esta lección. Menos aleatorio no es más cierto." missC="El prefill duele por la longitud del prompt y la caché KV, no por la temperatura." />
+</Quiz>
+
+## Fuentes
+
+Burtenshaw, B., Thomas, J., Simonini, T. y Paniego, S. (s. f.). *Hugging Face Agents Course* (Apache-2.0). https://huggingface.co/learn/agents-course · repositorio https://github.com/huggingface/agents-course
+
+- What are LLMs: https://huggingface.co/learn/agents-course/unit1/what-are-llms
+- Messages and Special Tokens: https://huggingface.co/learn/agents-course/unit1/messages-and-special-tokens
+- What are Agents: https://huggingface.co/learn/agents-course/unit1/what-are-agents
+- Curso: https://huggingface.co/learn/agents-course
+- Repositorio: https://github.com/huggingface/agents-course

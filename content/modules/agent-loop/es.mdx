@@ -12,11 +12,95 @@ El modelo se cambia. El bucle es el producto.
 
 <VisualSlot caption="Recorre los cinco verbos de un turno. El pulso es trabajo moviéndose por el arnés, no un segundo cerebro." />
 
-## Interrupción, presupuesto, fallback (ideas generales)
+*Fuente nombrada: Hugging Face Agents Course, Unidad 1, [ciclo Thought-Action-Observation](https://huggingface.co/learn/agents-course/unit1/agent-steps-and-structure), [Thoughts](https://huggingface.co/learn/agents-course/unit1/thoughts) y [Observations](https://huggingface.co/learn/agents-course/unit1/observations) (Burtenshaw, Thomas, Simonini y Paniego, Apache-2.0).*
 
-- **Interrumpible** — una llamada HTTP o un lote de tools se puede abandonar con `/stop` o un mensaje nuevo. El texto parcial no debe ensuciar el transcript.
-- **Presupuesto** — techo de iteraciones o de reloj para que un bucle no queme un fin de semana de tokens.
-- **Fallback** — si el proveedor primario falla (429/5xx/auth), prueba una cadena. Los subagentes a menudo **no** heredan esa cadena.
+Los cinco verbos son el mapa iAguide. El curso de Hugging Face nombra el mismo pulso por dentro: Thought, Action, Observation, en un `while` hasta que el objetivo está cumplido. No son dos bucles. El while del curso **es** el paso 4 (y un trozo del 3). Intake, armar y persistir los pone el arnés alrededor.
+
+## Thought, Action, Observation: el while
+
+Un agente, en la Unidad 1, es un sistema que usa un modelo de lenguaje para interactuar con un entorno y alcanzar un objetivo. El modelo razona. El <Term id="harness">arnés</Term> ejecuta. El ciclo:
+
+1. **Thought** — el modelo decide el siguiente paso. Plan, análisis, un rechazo, una autocorrección. Texto.
+2. **Action** — el modelo emite una petición estructurada: qué herramienta, con qué argumentos. Sigue siendo texto.
+3. **Observation** — el entorno responde. Un cuerpo de API, un error, un número. El arnés **añade** esa cadena. No se muestrea.
+
+En analogía de programación: un `while`. Sigue hasta el objetivo, o hasta un presupuesto de pasos. Los frameworks meten las reglas en el <Term id="system-prompt">system prompt</Term>. El dummy las deja a la vista. El parseo de veinte líneas vive en [agente dummy](/es/m/dummy-agent): esta lección no lo reescribe.
+
+El curso lista tipos de Thought que caben en ese párrafo: planear, analizar, decidir, resolver, integrar memoria del hilo, auto-corregirse, fijar un objetivo, priorizar. Siguen siendo tokens. Un «plan en tres pasos» no es un planner aparte; es prosa que el siguiente Action puede cumplir o ignorar. Si ignoras el parseo, el plan es teatro.
+
+
+<Callout>
+La Observation no es el siguiente Thought «más honesto». Es un log del entorno. Si el modelo la escribe, tienes una alucinación con formato de meteorología. Si tú la escribes después de ejecutar, tienes un agente.
+</Callout>
+
+## Alfred y el tiempo en Nueva York
+
+El curso trabaja el ciclo con Alfred. Un usuario pregunta el tiempo en Nueva York. Alfred no lo tiene en los pesos. Tiene `get_weather`.
+
+**Thought.** «El usuario necesita el tiempo actual. Hay una tool. Primero la llamo.»
+
+**Action.** Una petición estructurada, no prosa suelta. En el dummy es un blob JSON; aquí, en voz de aula, sin literales que rompan el MDX:
+
+    Thought: I need to check the current weather for New York.
+    Action:
+      action = get_weather
+      action_input location = New York
+
+**Observation.** El arnés ejecuta, recibe algo como: «Current weather in New York: partly cloudy, 15 °C, 60% humidity.» Esa cadena se **añade** al prompt. No la genera el decoder.
+
+**Thought otra vez.** «Ya tengo los datos. Puedo contestar.»
+
+**Final.** `Final Answer:` con el tiempo. El bucle cierra porque el objetivo está cumplido, no porque el modelo se haya cansado.
+
+Si la Observation hubiera sido un error de API, Alfred reentra: otro Thought, quizá la misma tool con otro argumento, quizá un fallback. Eso es adaptación. No es un segundo cerebro. Es el while con evidencia nueva en la ventana.
+
+Cómo se **añade** la Observation, en el orden del curso: parsear la Action (nombre y argumentos), ejecutar el callable, concatenar el resultado. Tres pasos. Si saltas el primero, ejecutas basura. Si saltas el segundo, el modelo se observa a sí mismo. Si saltas el tercero, el siguiente generate no ha visto el mundo.
+
+Las Observations pueden ser un error HTTP, un cambio en un fichero, un número de calculadora, un timeout. El curso las llama logs de la tool. Trátalas como logs: textuales, completas, fuente de verdad *porque tú las pegaste*.
+
+
+## ReAct frente a Chain-of-Thought
+
+**Chain-of-thought** es un truco de prompting: «vamos paso a paso», para trabajo que se queda **dentro** del modelo (mates, lógica). No hay tools. Si el hecho no está en los pesos, CoT lo inventa con fluidez.
+
+**ReAct** entrelaza Thought, Action y Observation. El modelo sale del prompt, el arnés ejecuta, vuelve evidencia. Sirve para el tiempo, la búsqueda, cualquier verdad que viva fuera de la ventana.
+
+<Compare a="Chain-of-thought" b="ReAct">
+<Side>
+Lógica paso a paso, sin herramientas. El modelo se habla a sí mismo y luego responde. Sirve para aritmética y puzzles cerrados. Fuera de los pesos, alucina con estilo.
+</Side>
+<Side>
+Lógica paso a paso más Actions y Observations. El modelo puede ir a buscar. Sigue haciendo falta stop-and-parse, o ReAct se derrumba otra vez en CoT con una observación falsa.
+</Side>
+</Compare>
+
+Los modelos de razonamiento recientes (el curso nombra DeepSeek-R1 y la familia o1) entrenan una separación think-then-answer con tokens especiales. Eso es **entrenamiento**, no un prompt. No lo confundas con el while dummy. El dummy es un prompt más una secuencia de stop más tu Python.
+
+## El Thought es opcional en function-calling
+
+El curso lo dice en Thoughts y lo retoma en Actions: si el modelo se afinó para function-calling, el monólogo visible **puede omitirse**. Su «pensamiento» está en los pesos y en un mensaje de tool, no en un párrafo Thought:. El dummy sigue pidiendo Thought: porque induce el ciclo a un chat genérico, no a un especialista entrenado.
+
+Esa distinción es toda la lección de [fine-tuning para function calling](/es/m/function-calling-ft). Aquí basta: no exijas un monólogo a un modelo que ya emite tool_calls. Exige el while, el parseo y la Observation honesta.
+
+Forma del hueco dummy, en prosa de aula — el código con literales está en [dummy-agent](/es/m/dummy-agent):
+
+    output = client.chat.completions.create(messages, max_tokens=150, stop=Observation:)
+    text = output.choices[0].message.content
+    # parsear Action, ejecutar get_weather tú
+    observation = get_weather(location)
+    # concatenar Observation: + el resultado real
+    # muestrear otra vez hasta Final Answer:
+
+`stop=Observation:` no es adorno. Sin él, el modelo escribe la Observation. Con él, y sin runTool, tienes un cuelgue. Los dos bugs parecen agentes en una demo. Ninguno lo es.
+
+
+## Interrupción, presupuesto, fallback
+
+Alrededor del while, el arnés pone tres ideas que el curso de Unidad 1 apenas nombra y que un producto sí necesita:
+
+- **Interrumpible** — una llamada HTTP o un lote de tools se puede abandonar con /stop o un mensaje nuevo. El texto parcial no debe ensuciar el transcript.
+- **Presupuesto** — techo de iteraciones o de reloj para que un bucle no queme un fin de semana de tokens. El curso habla de «hasta que el objetivo esté cumplido»; tú pones el tope.
+- **Fallback** — si el proveedor primario falla (429, 5xx, auth), prueba una cadena. Los subagentes a menudo **no** heredan esa cadena.
 
 <Compare a="Chat" b="Bucle de arnés">
 <Side>
@@ -27,18 +111,70 @@ Serializar por sesión, armar un prefijo estable, ejecutar tools con permisos, c
 </Side>
 </Compare>
 
-## Hermes frente a OpenClaw (ligero)
+El pulso que pinta el diagrama no es «el modelo pensando más». Es trabajo moviéndose: intake → assemble → generate → tools → persist. Si una flecha se atasca, no subas la temperatura. Mira el verbo.
 
-Hermes concentra el bucle en `AIAgent` (`run_agent.py`) para CLI, gateway, ACP, cron y librería. OpenClaw posee un **Gateway**: el RPC `agent` acepta al momento y un run embebido emite eventos `assistant` / `tool` / `lifecycle`. Mismos verbos; distinto dueño del proceso.
+Intake sin cola de interrupción es un chat que no escucha. Armar sin política es un catálogo que el modelo ve entero, incluidas las tools que no debería. Llamar al modelo sin tope de tokens es un decode que no acaba. Tools sin presupuesto es un fin de semana de tokens. Persistir sin alternancia válida es el 400 de Telegram.
 
-## Caso: la media respuesta interrumpida
+Los cinco verbos no son un framework. Son la lista contra la que testear el tuyo. El while de Alfred cabe en una hoja. El producto es no mentir en ninguna flecha.
+
+
+## Hermes frente a OpenClaw
+
+Hermes concentra el bucle en `AIAgent` (`run_agent.py`) para CLI, gateway, ACP, cron y librería. OpenClaw posee un **Gateway**: el RPC `agent` acepta al momento y un run embebido emite eventos `assistant` / `tool` / `lifecycle`. Mismos cinco verbos; distinto dueño del proceso. Mapas oficiales: [bucle Hermes](https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop), [bucle OpenClaw](https://docs.openclaw.ai/concepts/agent-loop).
+
+No elijas por el diagrama de marketing. Elige por quién serializa la sesión y quién aborta un generate a mitad de stream. El while de Alfred cabe en los dos; el Telegram de más abajo solo falla si el persistido es mentiroso.
+
+## Caso — la media respuesta interrumpida
 
 **Caso.** Un usuario de Telegram manda otro mensaje a mitad de stream. El arnés interrumpe pero también guarda el fragmento del asistente como turno cerrado. Siguiente llamada: dos mensajes assistant seguidos → 400 del proveedor.
 
-**Patrón de arreglo.** Al interrumpir: abandonar el hilo HTTP, no commitir contenido parcial, encolar o dirigir el texto nuevo, mantener alternancia válida.
+**Patrón de arreglo.** Al interrumpir: abandonar el hilo HTTP, no commitir contenido parcial, encolar o dirigir el texto nuevo, mantener alternancia válida. Eso es el verbo persistir con disciplina, no un modelo «más obediente».
+
+El mismo bug aparece si abortas un tool call a medias y dejas una Action sin Observation. El siguiente Thought lee un rito roto. Cierra el turno o no lo escribas. No dejes un fantasma.
 
 <TryThis>
-Dibuja los cinco verbos. Marca (a) el evento de interrupción, (b) un presupuesto de 500 iteraciones, (c) un cambio de proveedor fallback. Sin GPU: el arnés se testea como máquina de estados.
+Dibuja los cinco verbos. Marca (a) el evento de interrupción, (b) un presupuesto de 500 iteraciones, (c) un cambio de proveedor fallback. Sin GPU: el arnés se testea como máquina de estados. Luego abre [agente dummy](/es/m/dummy-agent) y escribe el while de veinte líneas: parar, parsear, ejecutar, añadir Observation.
 </TryThis>
 
-Mapas oficiales: [bucle Hermes](https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop), [bucle OpenClaw](https://docs.openclaw.ai/concepts/agent-loop).
+<Myth>
+«Si el modelo escribe Observation, el entorno respondió.» No. Completar «Observation:» es next-token. El prompt dummy enseña la forma, así que el modelo es especialmente bueno inventándola. Londres está soleado porque el sol en Londres es una continuación frecuente.
+</Myth>
+
+## Qué recordar
+
+Cinco verbos alrededor; Thought-Action-Observation dentro. Alfred llama get_weather, el arnés añade 15 °C, entonces contesta. CoT no sale del prompt. ReAct sí, si el parseo es honesto. Los function-calling FT pueden callar el Thought. Interrupción, presupuesto y fallback son el producto. El parseo de veinte líneas: [dummy-agent](/es/m/dummy-agent).
+
+Esta lección reescribe el ciclo de la Unidad 1 y guarda el mapa iAguide del arnés. No sustituye la dummy library: la señala.
+
+
+Las Actions del curso no son solo «llama al tiempo». Recoger información, usar una API, tocar un entorno, hablar con un usuario u otro agente: el dummy implementa una. Basta para aprender el gozne. El runtime de [tools](/es/m/tools-runtime) es dónde esa Action se despacha de verdad.
+
+Un segundo mensaje de usuario en el mismo hilo es una tarea nueva. Limpia las trazas de tools si la pregunta nueva no las necesita, o responderás Madrid con el sol de Londres todavía en contexto. Eso aún no es compactación. Es higiene del verbo armar.
+
+
+## Cuestionario
+
+Cuatro preguntas de la Unidad 1 (Burtenshaw, Thomas, Simonini, Paniego). El progreso se guarda en este navegador.
+
+Falla el item de Observation a propósito: si contestas que la escribe el modelo, esta lección no ha terminado.
+
+
+<Quiz id="agent-loop">
+  <Q id="q1" prompt="¿Qué hace el bucle de un agente en un turno?" a="Entrena los pesos del modelo" b="Intake, armar, llamar, tools, persistir — hasta texto o presupuesto" c="Compila kernels CUDA" answer="b" why="El modelo se cambia. El bucle es el producto. Los cinco verbos son el mapa iAguide; el while Thought-Action-Observation vive dentro del verbo tools." missA="Nadie entrena en un turno de chat. Eso es otra vía." missC="El metal importa, pero no es el bucle del agente." />
+  <Q id="q2" prompt="En el ejemplo de Alfred, ¿quién escribe la Observation del tiempo en Nueva York?" a="El modelo, como siguiente Thought más honesto" b="El usuario, en el siguiente mensaje" c="El arnés, después de ejecutar get_weather" answer="c" why="Observation es un log del entorno. El decoder no sale de la GPU. Si él la escribe, Londres está soleado por estadística, no por una estación." missA="Eso sería otro Thought. El dummy se come su propio texto." missB="El usuario preguntó. No pega el JSON de la API." />
+  <Q id="q3" prompt="¿En qué se diferencia ReAct de Chain-of-thought?" a="ReAct entrelaza tools; CoT se queda dentro del modelo" b="CoT llama tools; ReAct es solo un prompt simpático" c="No hay diferencia: son sinónimos de 2026" answer="a" why="CoT es paso a paso sin entorno. ReAct alterna Thought, Action y Observation. Sin stop-and-parse, ReAct se pudre otra vez en CoT." missB="Al revés. CoT no sale. ReAct sí, si el arnés es honesto." missC="El curso los compara en una tabla a propósito. Mezclarlos es el fallo de MeteoLite." />
+  <Q id="q4" prompt="Un modelo afinado para function-calling, ¿necesita un Thought visible?" a="Siempre: sin monólogo no hay agente" b="No necesariamente: el curso marca el Thought como opcional en esos modelos" c="Nunca: el while también es opcional" answer="b" why="Thoughts lo dice: en function-calling FT el pensamiento visible puede omitirse. El while, el parseo y la Observation honesta siguen haciendo falta." missA="Exigir Thought: a un modelo de tool_calls es teatro. El rito está en los pesos." missC="Sin while no hay agente. Lo opcional es el párrafo Thought, no el bucle." />
+</Quiz>
+
+## Fuentes
+
+Burtenshaw, B., Thomas, J., Simonini, T. y Paniego, S. (s. f.). *Hugging Face Agents Course* (Apache-2.0). https://huggingface.co/learn/agents-course · repositorio https://github.com/huggingface/agents-course
+
+- Ciclo Thought-Action-Observation: https://huggingface.co/learn/agents-course/unit1/agent-steps-and-structure
+- Thoughts: https://huggingface.co/learn/agents-course/unit1/thoughts
+- Actions: https://huggingface.co/learn/agents-course/unit1/actions
+- Observations: https://huggingface.co/learn/agents-course/unit1/observations
+- Dummy Agent Library: https://huggingface.co/learn/agents-course/unit1/dummy-agent-library
+- What are Agents: https://huggingface.co/learn/agents-course/unit1/what-are-agents
+- Bucle Hermes: https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop
+- Bucle OpenClaw: https://docs.openclaw.ai/concepts/agent-loop
