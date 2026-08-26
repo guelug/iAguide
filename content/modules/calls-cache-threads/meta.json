@@ -1,0 +1,24 @@
+{
+  "id": "calls-cache-threads",
+  "order": 7,
+  "slug": "calls-cache-threads",
+  "track": "harness",
+  "title": {
+    "en": "Calls, caches, threads",
+    "es": "Llamadas, cachés, hilos"
+  },
+  "summary": {
+    "en": "What actually leaves your machine on one turn, which of the four caches you just hit, and how a thread survives it.",
+    "es": "Qué sale realmente de tu máquina en un turno, cuál de las cuatro cachés acabas de tocar y cómo sobrevive un hilo."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness"
+  ],
+  "durationMin": 18,
+  "tags": [
+    "api",
+    "streaming",
+    "cache"
+  ]
+}

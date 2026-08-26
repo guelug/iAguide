@@ -1,0 +1,24 @@
+{
+  "id": "tools-and-mcp",
+  "order": 9,
+  "slug": "tools-and-mcp",
+  "track": "harness",
+  "title": {
+    "en": "Tools and MCP",
+    "es": "Herramientas y MCP"
+  },
+  "summary": {
+    "en": "Designing a tool a model can actually use: schemas, errors, idempotence, sandboxes, and what MCP standardises.",
+    "es": "Diseñar una herramienta que un modelo sepa usar: esquemas, errores, idempotencia, sandboxes y qué estandariza MCP."
+  },
+  "status": "wip",
+  "prereqs": [
+    "the-harness"
+  ],
+  "durationMin": 20,
+  "tags": [
+    "mcp",
+    "schemas",
+    "sandbox"
+  ]
+}

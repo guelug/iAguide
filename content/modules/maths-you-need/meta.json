@@ -1,0 +1,24 @@
+{
+  "id": "maths-you-need",
+  "order": 4,
+  "slug": "maths-you-need",
+  "track": "foundations",
+  "title": {
+    "en": "The maths you actually need",
+    "es": "Las matemáticas que sí necesitas"
+  },
+  "summary": {
+    "en": "Dot products, matrices, softmax, log-likelihood, gradients. Enough to read a paper figure without lying to yourself.",
+    "es": "Productos escalares, matrices, softmax, log-verosimilitud, gradientes. Lo justo para leer una figura sin engañarte."
+  },
+  "status": "complete",
+  "prereqs": [
+    "attention"
+  ],
+  "durationMin": 20,
+  "tags": [
+    "linear-algebra",
+    "softmax",
+    "gradients"
+  ]
+}

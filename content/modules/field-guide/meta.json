@@ -1,0 +1,24 @@
+{
+  "id": "field-guide",
+  "order": 26,
+  "slug": "field-guide",
+  "track": "metal",
+  "title": {
+    "en": "Field guide",
+    "es": "Guía de campo"
+  },
+  "summary": {
+    "en": "The whole course compressed into decisions: which model, which knob, which failure you are looking at.",
+    "es": "Todo el curso comprimido en decisiones: qué modelo, qué mando, qué fallo estás mirando."
+  },
+  "status": "complete",
+  "prereqs": [
+    "cost-and-economics"
+  ],
+  "durationMin": 18,
+  "tags": [
+    "playbook",
+    "recipes",
+    "debugging"
+  ]
+}

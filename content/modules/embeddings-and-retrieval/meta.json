@@ -1,0 +1,24 @@
+{
+  "id": "embeddings-and-retrieval",
+  "order": 5,
+  "slug": "embeddings-and-retrieval",
+  "track": "foundations",
+  "title": {
+    "en": "Embeddings and retrieval",
+    "es": "Embeddings y recuperación"
+  },
+  "summary": {
+    "en": "Vector space, cosine similarity, chunking, hybrid search, rerankers — and why naive RAG disappoints.",
+    "es": "Espacio vectorial, similitud coseno, troceado, búsqueda híbrida, rerankers — y por qué el RAG ingenuo decepciona."
+  },
+  "status": "wip",
+  "prereqs": [
+    "maths-you-need"
+  ],
+  "durationMin": 20,
+  "tags": [
+    "rag",
+    "vectors",
+    "chunking"
+  ]
+}

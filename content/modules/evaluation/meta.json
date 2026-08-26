@@ -1,0 +1,24 @@
+{
+  "id": "evaluation",
+  "order": 11,
+  "slug": "evaluation",
+  "track": "harness",
+  "title": {
+    "en": "Evaluation",
+    "es": "Evaluación"
+  },
+  "summary": {
+    "en": "How to read a benchmark without being fooled, and how to build the twenty-case eval that actually protects you.",
+    "es": "Cómo leer un benchmark sin tragártelo, y cómo montar el eval de veinte casos que de verdad te protege."
+  },
+  "status": "wip",
+  "prereqs": [
+    "agent-patterns"
+  ],
+  "durationMin": 20,
+  "tags": [
+    "evals",
+    "benchmarks",
+    "llm-judge"
+  ]
+}

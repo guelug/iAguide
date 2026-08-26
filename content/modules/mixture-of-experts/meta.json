@@ -1,0 +1,24 @@
+{
+  "id": "mixture-of-experts",
+  "order": 18,
+  "slug": "mixture-of-experts",
+  "track": "training",
+  "title": {
+    "en": "Mixture of experts",
+    "es": "Mezcla de expertos"
+  },
+  "summary": {
+    "en": "Why a 400B model can run like a 30B one: routing, active parameters, load balancing, and what MoE costs you in VRAM.",
+    "es": "Por qué un modelo de 400B puede correr como uno de 30B: enrutado, parámetros activos, balanceo y qué te cuesta en VRAM."
+  },
+  "status": "wip",
+  "prereqs": [
+    "attention"
+  ],
+  "durationMin": 16,
+  "tags": [
+    "moe",
+    "routing",
+    "active-params"
+  ]
+}

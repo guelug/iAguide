@@ -4,33 +4,59 @@ import { useParams } from "next/navigation";
 import { useEffect, useState, type ComponentType } from "react";
 import { getVisualLoader } from "@/content/modules";
 
-export function VisualSlot({ caption }: { caption?: string }) {
+/**
+ * Drops a module's diagram into the prose. Defaults to the visual
+ * registered under the current slug; pass `id` to pull a second diagram
+ * registered under any other key.
+ */
+export function VisualSlot({
+  caption,
+  id,
+  wide = true,
+}: {
+  caption?: string;
+  id?: string;
+  wide?: boolean;
+}) {
   const params = useParams<{ slug?: string }>();
-  const slug = params.slug;
+  const key = id ?? params.slug;
   const [Visual, setVisual] = useState<ComponentType | null>(null);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    if (!slug) return;
-    const load = getVisualLoader(slug);
-    if (!load) return;
+    if (!key) return;
+    const load = getVisualLoader(key);
+    if (!load) {
+      setFailed(true);
+      return;
+    }
     let cancelled = false;
-    load().then((mod) => {
-      if (!cancelled) setVisual(() => mod.default);
-    });
+    load()
+      .then((mod) => {
+        if (!cancelled) setVisual(() => mod.default);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
     return () => {
       cancelled = true;
     };
-  }, [slug]);
+  }, [key]);
 
-  if (!Visual) return null;
+  if (failed) return null;
 
   return (
-    <figure className="my-8">
-      <div className="overflow-hidden rounded-xl border border-line">
+    <figure className={wide ? "bleed-wide" : undefined}>
+      {Visual ? (
         <Visual />
-      </div>
+      ) : (
+        <div
+          aria-hidden
+          className="h-[360px] w-full animate-pulse rounded-2xl border border-line bg-ink/60"
+        />
+      )}
       {caption ? (
-        <figcaption className="mt-2 font-mono text-xs tracking-wide text-faint">
+        <figcaption className="mt-2.5 font-mono text-[0.68rem] leading-relaxed tracking-wide text-faint">
           {caption}
         </figcaption>
       ) : null}

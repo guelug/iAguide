@@ -1,0 +1,24 @@
+{
+  "id": "data",
+  "order": 14,
+  "slug": "data",
+  "track": "training",
+  "title": {
+    "en": "Data",
+    "es": "Datos"
+  },
+  "summary": {
+    "en": "The part that decides quality: sourcing, dedup, filtering, contamination, synthetic data, licences.",
+    "es": "La parte que decide la calidad: fuentes, deduplicación, filtrado, contaminación, datos sintéticos, licencias."
+  },
+  "status": "wip",
+  "prereqs": [
+    "training"
+  ],
+  "durationMin": 18,
+  "tags": [
+    "datasets",
+    "dedup",
+    "synthetic"
+  ]
+}

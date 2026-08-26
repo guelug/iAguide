@@ -1,17 +1,34 @@
 import type { ComponentType } from "react";
 import type { Locale } from "@/i18n/routing";
-import meta00 from "./00-orientation/meta.json";
-import meta01 from "./01-language-of-models/meta.json";
-import meta02 from "./02-the-harness/meta.json";
-import meta03 from "./03-calls-cache-threads/meta.json";
-import meta04 from "./04-model-zoo/meta.json";
-import meta05 from "./05-training/meta.json";
-import meta06 from "./06-fine-tuning/meta.json";
-import meta07 from "./07-local-inference/meta.json";
-import meta08 from "./08-quantization/meta.json";
-import meta09 from "./09-memory-hardware/meta.json";
-import meta10 from "./10-maths-you-need/meta.json";
-import meta11 from "./11-field-guide/meta.json";
+import type { TrackId } from "@/content/tracks";
+
+import agentPatterns from "./agent-patterns/meta.json";
+import attention from "./attention/meta.json";
+import callsCacheThreads from "./calls-cache-threads/meta.json";
+import contextEngineering from "./context-engineering/meta.json";
+import costAndEconomics from "./cost-and-economics/meta.json";
+import data from "./data/meta.json";
+import distributedTraining from "./distributed-training/meta.json";
+import embeddingsAndRetrieval from "./embeddings-and-retrieval/meta.json";
+import evaluation from "./evaluation/meta.json";
+import fieldGuide from "./field-guide/meta.json";
+import fineTuning from "./fine-tuning/meta.json";
+import languageOfModels from "./language-of-models/meta.json";
+import localInference from "./local-inference/meta.json";
+import mathsYouNeed from "./maths-you-need/meta.json";
+import memoryHardware from "./memory-hardware/meta.json";
+import mixtureOfExperts from "./mixture-of-experts/meta.json";
+import modelZoo from "./model-zoo/meta.json";
+import multimodal from "./multimodal/meta.json";
+import orientation from "./orientation/meta.json";
+import quantization from "./quantization/meta.json";
+import reinforcementLearning from "./reinforcement-learning/meta.json";
+import safetyAndInjection from "./safety-and-injection/meta.json";
+import servingAndThroughput from "./serving-and-throughput/meta.json";
+import theHarness from "./the-harness/meta.json";
+import tokenization from "./tokenization/meta.json";
+import tools from "./tools-and-mcp/meta.json";
+import training from "./training/meta.json";
 
 export type ModuleStatus = "complete" | "wip";
 
@@ -19,49 +36,55 @@ export type ModuleMeta = {
   id: string;
   order: number;
   slug: string;
+  track: TrackId;
   title: { en: string; es: string };
   summary: { en: string; es: string };
   status: ModuleStatus;
   prereqs: string[];
   durationMin: number;
   tags: string[];
-  folder: string;
 };
 
+/**
+ * The registry. A module is a folder: meta.json, en.mdx, es.mdx, and an
+ * optional Visual.tsx. Adding one means adding an import here and, if it
+ * ships a diagram, a line in VISUALS. Nothing else in the app changes.
+ */
 const RAW = [
-  meta00,
-  meta01,
-  meta02,
-  meta03,
-  meta04,
-  meta05,
-  meta06,
-  meta07,
-  meta08,
-  meta09,
-  meta10,
-  meta11,
-] as Omit<ModuleMeta, "folder">[];
+  orientation,
+  languageOfModels,
+  tokenization,
+  attention,
+  mathsYouNeed,
+  embeddingsAndRetrieval,
+  theHarness,
+  callsCacheThreads,
+  contextEngineering,
+  tools,
+  agentPatterns,
+  evaluation,
+  safetyAndInjection,
+  training,
+  data,
+  distributedTraining,
+  reinforcementLearning,
+  fineTuning,
+  mixtureOfExperts,
+  multimodal,
+  modelZoo,
+  localInference,
+  quantization,
+  memoryHardware,
+  servingAndThroughput,
+  costAndEconomics,
+  fieldGuide,
+] as ModuleMeta[];
 
-const FOLDERS: Record<string, string> = {
-  orientation: "00-orientation",
-  "language-of-models": "01-language-of-models",
-  "the-harness": "02-the-harness",
-  "calls-cache-threads": "03-calls-cache-threads",
-  "model-zoo": "04-model-zoo",
-  training: "05-training",
-  "fine-tuning": "06-fine-tuning",
-  "local-inference": "07-local-inference",
-  quantization: "08-quantization",
-  "memory-hardware": "09-memory-hardware",
-  "maths-you-need": "10-maths-you-need",
-  "field-guide": "11-field-guide",
-};
+export const MODULES: ModuleMeta[] = [...RAW].sort((a, b) => a.order - b.order);
 
-export const MODULES: ModuleMeta[] = RAW.map((m) => ({
-  ...m,
-  folder: FOLDERS[m.slug] ?? m.slug,
-})).sort((a, b) => a.order - b.order);
+export const READY = MODULES.filter((m) => m.status === "complete");
+
+export const TOTAL_MINUTES = MODULES.reduce((n, m) => n + m.durationMin, 0);
 
 export function getModule(slug: string): ModuleMeta | undefined {
   return MODULES.find((m) => m.slug === slug);
@@ -79,6 +102,10 @@ export function getPrev(slug: string): ModuleMeta | undefined {
   return MODULES[i - 1];
 }
 
+export function modulesByTrack(track: TrackId): ModuleMeta[] {
+  return MODULES.filter((m) => m.track === track);
+}
+
 export function localize(mod: ModuleMeta, locale: Locale) {
   return {
     ...mod,
@@ -87,11 +114,38 @@ export function localize(mod: ModuleMeta, locale: Locale) {
   };
 }
 
+/**
+ * Diagrams are lazily imported so a lesson only pays for its own scene.
+ * The key is the module slug; <VisualSlot /> resolves it from the route.
+ */
 export const VISUALS: Record<string, () => Promise<{ default: ComponentType }>> = {
-  "language-of-models": () => import("./01-language-of-models/Visual"),
-  "the-harness": () => import("./02-the-harness/Visual"),
-  quantization: () => import("./08-quantization/Visual"),
-  "memory-hardware": () => import("./09-memory-hardware/Visual"),
+  orientation: () => import("./orientation/Visual"),
+  "language-of-models": () => import("./language-of-models/Visual"),
+  tokenization: () => import("./tokenization/Visual"),
+  attention: () => import("./attention/Visual"),
+  "maths-you-need": () => import("./maths-you-need/Visual"),
+  "embeddings-and-retrieval": () => import("./embeddings-and-retrieval/Visual"),
+  "the-harness": () => import("./the-harness/Visual"),
+  "calls-cache-threads": () => import("./calls-cache-threads/Visual"),
+  "context-engineering": () => import("./context-engineering/Visual"),
+  "tools-and-mcp": () => import("./tools-and-mcp/Visual"),
+  "agent-patterns": () => import("./agent-patterns/Visual"),
+  evaluation: () => import("./evaluation/Visual"),
+  "safety-and-injection": () => import("./safety-and-injection/Visual"),
+  training: () => import("./training/Visual"),
+  data: () => import("./data/Visual"),
+  "distributed-training": () => import("./distributed-training/Visual"),
+  "reinforcement-learning": () => import("./reinforcement-learning/Visual"),
+  "fine-tuning": () => import("./fine-tuning/Visual"),
+  "mixture-of-experts": () => import("./mixture-of-experts/Visual"),
+  multimodal: () => import("./multimodal/Visual"),
+  "model-zoo": () => import("./model-zoo/Visual"),
+  "local-inference": () => import("./local-inference/Visual"),
+  quantization: () => import("./quantization/Visual"),
+  "memory-hardware": () => import("./memory-hardware/Visual"),
+  "serving-and-throughput": () => import("./serving-and-throughput/Visual"),
+  "cost-and-economics": () => import("./cost-and-economics/Visual"),
+  "field-guide": () => import("./field-guide/Visual"),
 };
 
 export function getVisualLoader(slug: string) {

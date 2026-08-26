@@ -1,0 +1,24 @@
+{
+  "id": "multimodal",
+  "order": 19,
+  "slug": "multimodal",
+  "track": "training",
+  "title": {
+    "en": "Beyond text",
+    "es": "Más allá del texto"
+  },
+  "summary": {
+    "en": "Vision encoders, latent diffusion, flow matching, speech and video — the same maths wearing different clothes.",
+    "es": "Codificadores de visión, difusión latente, flow matching, voz y vídeo: las mismas matemáticas con otra ropa."
+  },
+  "status": "wip",
+  "prereqs": [
+    "attention"
+  ],
+  "durationMin": 22,
+  "tags": [
+    "vision",
+    "diffusion",
+    "audio"
+  ]
+}

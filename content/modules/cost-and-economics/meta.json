@@ -1,0 +1,24 @@
+{
+  "id": "cost-and-economics",
+  "order": 25,
+  "slug": "cost-and-economics",
+  "track": "metal",
+  "title": {
+    "en": "Cost and economics",
+    "es": "Coste y economía"
+  },
+  "summary": {
+    "en": "Token arithmetic you can do in your head, cache economics, and the honest local-vs-API break-even.",
+    "es": "Aritmética de tokens que puedes hacer de cabeza, la economía de la caché y el punto de equilibrio honesto local vs API."
+  },
+  "status": "wip",
+  "prereqs": [
+    "serving-and-throughput"
+  ],
+  "durationMin": 16,
+  "tags": [
+    "pricing",
+    "tco",
+    "budget"
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "id": "tokenization",
+  "order": 2,
+  "slug": "tokenization",
+  "track": "foundations",
+  "title": {
+    "en": "Tokenization",
+    "es": "Tokenización"
+  },
+  "summary": {
+    "en": "Why 'strawberry' has three r's and the model cannot count them. BPE, vocabularies, and the bill you pay per language.",
+    "es": "Por qué «strawberry» tiene tres erres y el modelo no sabe contarlas. BPE, vocabularios y la factura que pagas por idioma."
+  },
+  "status": "wip",
+  "prereqs": [
+    "language-of-models"
+  ],
+  "durationMin": 15,
+  "tags": [
+    "bpe",
+    "vocab",
+    "unicode"
+  ]
+}

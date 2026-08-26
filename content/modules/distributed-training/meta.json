@@ -1,0 +1,24 @@
+{
+  "id": "distributed-training",
+  "order": 15,
+  "slug": "distributed-training",
+  "track": "training",
+  "title": {
+    "en": "Distributed training",
+    "es": "Entrenamiento distribuido"
+  },
+  "summary": {
+    "en": "Why one GPU is never enough: data, tensor, pipeline and expert parallelism, ZeRO/FSDP, and the interconnect wall.",
+    "es": "Por qué una GPU nunca basta: paralelismo de datos, tensor, pipeline y expertos, ZeRO/FSDP y el muro del interconector."
+  },
+  "status": "wip",
+  "prereqs": [
+    "training"
+  ],
+  "durationMin": 20,
+  "tags": [
+    "fsdp",
+    "tensor-parallel",
+    "zero"
+  ]
+}

@@ -1,17 +1,26 @@
 import { Callout } from "@/components/mdx/Callout";
+import { Compare, Side } from "@/components/mdx/Compare";
+import { Formula } from "@/components/mdx/Formula";
 import { Myth } from "@/components/mdx/Myth";
+import { Step, Steps } from "@/components/mdx/Steps";
 import { Term } from "@/components/mdx/Term";
 import { TryThis } from "@/components/mdx/TryThis";
 import { VisualSlot } from "@/components/mdx/VisualSlot";
 
 export const mdxComponents = {
   Callout,
-  TryThis,
+  Compare,
+  Side,
+  Formula,
   Myth,
+  Steps,
+  Step,
   Term,
+  TryThis,
   VisualSlot,
 };
 
-export function lessonPath(folder: string, locale: string) {
-  return `${process.cwd()}/content/modules/${folder}/${locale}.mdx`;
+/** A module folder is its slug. Adding a module means dropping a folder. */
+export function lessonPath(slug: string, locale: string) {
+  return `${process.cwd()}/content/modules/${slug}/${locale}.mdx`;
 }

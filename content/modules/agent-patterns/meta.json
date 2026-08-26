@@ -1,0 +1,24 @@
+{
+  "id": "agent-patterns",
+  "order": 10,
+  "slug": "agent-patterns",
+  "track": "harness",
+  "title": {
+    "en": "Agent patterns",
+    "es": "Patrones de agente"
+  },
+  "summary": {
+    "en": "Orchestrators, subagents, plan-then-act, critics, durable memory — with the failure mode each one buys you.",
+    "es": "Orquestadores, subagentes, planificar-y-actuar, críticos, memoria durable — con el fallo que compra cada patrón."
+  },
+  "status": "wip",
+  "prereqs": [
+    "tools-and-mcp"
+  ],
+  "durationMin": 22,
+  "tags": [
+    "subagents",
+    "planning",
+    "memory"
+  ]
+}

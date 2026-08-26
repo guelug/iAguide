@@ -1,8 +1,13 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
+import { LayersSection } from "@/components/home/LayersSection";
+import { Reveal } from "@/components/ui/Reveal";
+import { HeroStack } from "@/components/visuals/HeroStack";
+import { MODULES, READY, TOTAL_MINUTES, modulesByTrack } from "@/content/modules";
+import { TRACKS } from "@/content/tracks";
 import { Link } from "@/i18n/navigation";
-import { SilkField } from "@/components/visuals/SilkField";
-import { MODULES, localize } from "@/content/modules";
 import type { Locale } from "@/i18n/routing";
+
+const REPO = "https://github.com/guelug/iAguide";
 
 export default async function HomePage({
   params,
@@ -16,52 +21,180 @@ export default async function HomePage({
   const outcomes = t.raw("outcomes") as string[];
   const first = MODULES[0];
 
+  const stats = [
+    { n: String(MODULES.length), label: t("stats.modules") },
+    { n: String(TOTAL_MINUTES), label: t("stats.minutes") },
+    { n: "2", label: t("stats.languages") },
+    { n: "0", label: t("stats.accounts") },
+  ];
+
   return (
     <div className="relative flex flex-1 flex-col">
-      <div className="relative min-h-[88vh] overflow-hidden">
-        <SilkField className="absolute inset-0" />
-        <div className="relative z-10 mx-auto flex min-h-[88vh] max-w-6xl flex-col justify-end px-5 pb-16 pt-28">
-          <p className="font-mono text-[0.7rem] tracking-[0.28em] uppercase text-teal">
-            {t("kicker")}
+      {/* ---------------------------------------------------------- hero */}
+      <section className="relative min-h-[92svh] overflow-hidden">
+        <HeroStack className="absolute inset-0" />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_top,var(--void)_2%,transparent_45%),linear-gradient(to_right,rgba(5,7,10,0.85),transparent_60%)]"
+        />
+        <div className="relative z-10 flex min-h-[92svh] flex-col justify-end">
+          <div className="shell pb-14 pt-32">
+            <p className="kicker bleed">{t("kicker")}</p>
+            <h1 className="display mt-5 text-paper rise">iAguide</h1>
+            <p
+              className="mt-7 max-w-2xl text-lg leading-relaxed text-paper/80 md:text-xl rise"
+              style={{ animationDelay: "120ms" }}
+            >
+              {t("promise")}
+            </p>
+            <div
+              className="mt-10 flex flex-wrap items-center gap-3 rise"
+              style={{ animationDelay: "220ms" }}
+            >
+              <Link
+                href="/course"
+                className="rounded-full bg-teal px-6 py-3 text-sm font-medium text-void no-underline transition-colors hover:bg-amber"
+              >
+                {t("cta")}
+              </Link>
+              <Link
+                href={`/m/${first.slug}`}
+                className="rounded-full border border-line-strong px-6 py-3 text-sm text-paper no-underline transition-colors hover:border-teal hover:text-teal"
+              >
+                {t("ctaAlt")}
+              </Link>
+            </div>
+          </div>
+          <div className="hairline">
+            <dl className="shell grid grid-cols-2 gap-y-6 py-7 md:grid-cols-4">
+              {stats.map((s) => (
+                <div key={s.label}>
+                  <dt className="font-display text-3xl text-paper md:text-4xl">{s.n}</dt>
+                  <dd className="mt-1 font-mono text-[0.6rem] tracking-[0.16em] uppercase text-muted">
+                    {s.label}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        </div>
+      </section>
+
+      {/* ------------------------------------------------------ outcomes */}
+      <section className="shell py-20 md:py-28">
+        <Reveal>
+          <h2 className="display-sm max-w-2xl text-paper">{t("outcomesTitle")}</h2>
+        </Reveal>
+        <ul className="mt-10 grid gap-x-10 gap-y-5 md:grid-cols-2">
+          {outcomes.map((item, i) => (
+            <Reveal as="li" key={item} delay={i * 45}>
+              <div className="flex gap-4 border-t border-line pt-4">
+                <span className="font-mono text-[0.62rem] leading-6 tracking-[0.16em] text-teal">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <p className="text-[1.02rem] leading-relaxed text-paper/85">{item}</p>
+              </div>
+            </Reveal>
+          ))}
+        </ul>
+      </section>
+
+      {/* --------------------------------------------------------- layers */}
+      <section className="shell border-t border-line py-20 md:py-28">
+        <Reveal>
+          <p className="kicker">{t("layersTitle")}</p>
+          <p className="mt-5 max-w-2xl text-lg leading-relaxed text-paper/75">
+            {t("layersLede")}
           </p>
-          <h1 className="mt-4 font-display text-6xl tracking-tight text-paper md:text-8xl">
-            {t("title")}
-          </h1>
-          <p className="mt-6 max-w-xl text-lg leading-relaxed text-paper/80 md:text-xl">
-            {t("promise")}
-          </p>
-          <div className="mt-10 flex flex-wrap gap-4">
+        </Reveal>
+        <Reveal delay={120}>
+          <div className="mt-12">
+            <LayersSection />
+          </div>
+        </Reveal>
+      </section>
+
+      {/* --------------------------------------------------------- tracks */}
+      <section className="shell border-t border-line py-20 md:py-28">
+        <Reveal>
+          <h2 className="display-sm text-paper">{t("tracksTitle")}</h2>
+          <p className="mt-4 max-w-2xl text-paper/70">{t("tracksLede")}</p>
+        </Reveal>
+        <div className="mt-12 grid gap-4 md:grid-cols-2">
+          {TRACKS.map((track, i) => {
+            const mods = modulesByTrack(track.id);
+            return (
+              <Reveal key={track.id} delay={i * 70}>
+                <Link
+                  href={`/course?track=${track.id}`}
+                  className="group block h-full rounded-2xl border border-line bg-ink/60 p-6 no-underline transition-colors hover:border-teal/50"
+                >
+                  <div className="flex items-baseline justify-between gap-4">
+                    <span
+                      className="font-display text-3xl leading-none"
+                      style={{ color: track.color }}
+                    >
+                      {track.numeral}
+                    </span>
+                    <span className="font-mono text-[0.6rem] tracking-[0.16em] uppercase text-faint">
+                      {mods.length} · {mods.reduce((n, m) => n + m.durationMin, 0)} min
+                    </span>
+                  </div>
+                  <h3 className="mt-4 font-display text-2xl text-paper">
+                    {track.name[loc]}
+                  </h3>
+                  <p className="mt-2 text-[0.95rem] leading-relaxed text-paper/70">
+                    {track.blurb[loc]}
+                  </p>
+                  <ul className="mt-5 flex flex-wrap gap-x-3 gap-y-1.5">
+                    {mods.slice(0, 5).map((m) => (
+                      <li
+                        key={m.slug}
+                        className="font-mono text-[0.58rem] tracking-[0.1em] uppercase text-muted"
+                      >
+                        {m.title[loc]}
+                      </li>
+                    ))}
+                    {mods.length > 5 ? (
+                      <li className="font-mono text-[0.58rem] text-faint">
+                        +{mods.length - 5}
+                      </li>
+                    ) : null}
+                  </ul>
+                </Link>
+              </Reveal>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* -------------------------------------------------------- closing */}
+      <section className="shell border-t border-line py-20 md:py-28">
+        <div className="grid gap-10 md:grid-cols-2">
+          <Reveal>
+            <h2 className="display-sm text-paper">{t("startTitle")}</h2>
+            <p className="mt-4 max-w-md text-paper/70">{t("startLede")}</p>
             <Link
               href="/course"
-              className="rounded-full bg-teal px-5 py-2.5 text-sm font-medium text-void no-underline hover:bg-amber"
+              className="mt-7 inline-block rounded-full bg-teal px-6 py-3 text-sm font-medium text-void no-underline transition-colors hover:bg-amber"
             >
               {t("cta")}
             </Link>
-            {first ? (
-              <Link
-                href={`/m/${first.slug}`}
-                className="rounded-full border border-line px-5 py-2.5 text-sm text-paper no-underline hover:border-teal"
-              >
-                {localize(first, loc).title}
-              </Link>
-            ) : null}
-          </div>
-        </div>
-      </div>
-      <section className="mx-auto w-full max-w-6xl px-5 py-16">
-        <h2 className="font-mono text-[0.7rem] tracking-[0.22em] uppercase text-muted">
-          {t("ctaSecondary")}
-        </h2>
-        <ul className="mt-6 grid gap-4 md:grid-cols-2">
-          {outcomes.map((item) => (
-            <li
-              key={item}
-              className="border-l border-teal/50 pl-4 text-paper/85"
+            <p className="mt-4 font-mono text-[0.6rem] tracking-[0.14em] uppercase text-faint">
+              {READY.length}/{MODULES.length} · {t("stats.modules")}
+            </p>
+          </Reveal>
+          <Reveal delay={100}>
+            <h2 className="display-sm text-paper">{t("openTitle")}</h2>
+            <p className="mt-4 max-w-md text-paper/70">{t("openLede")}</p>
+            <a
+              href={REPO}
+              className="mt-7 inline-block rounded-full border border-line-strong px-6 py-3 text-sm text-paper no-underline transition-colors hover:border-teal hover:text-teal"
             >
-              {item}
-            </li>
-          ))}
-        </ul>
+              {t("openCta")}
+            </a>
+          </Reveal>
+        </div>
       </section>
     </div>
   );

@@ -1,70 +1,70 @@
+import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { Link } from "@/i18n/navigation";
-import { CourseConstellation } from "@/components/visuals/CourseConstellation";
-import { MODULES, getModule, localize } from "@/content/modules";
+import { CourseExplorer, type CourseCard } from "@/components/course/CourseExplorer";
+import { MODULES, TOTAL_MINUTES, getModule } from "@/content/modules";
+import { TRACKS, TRACK_BY_ID, type TrackId } from "@/content/tracks";
 import type { Locale } from "@/i18n/routing";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("course");
+  return { title: t("title"), description: t("lede") };
+}
 
 export default async function CoursePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>;
+  searchParams: Promise<{ track?: string }>;
 }) {
   const { locale } = await params;
+  const { track } = await searchParams;
   setRequestLocale(locale as Locale);
   const t = await getTranslations("course");
   const loc = locale as Locale;
-  const stars = MODULES.map((m) => ({
+
+  const cards: CourseCard[] = MODULES.map((m) => ({
     slug: m.slug,
     order: m.order,
     title: m.title[loc],
+    summary: m.summary[loc],
+    track: m.track,
+    color: TRACK_BY_ID[m.track].color,
     status: m.status,
+    prereqs: m.prereqs,
+    prereqTitles: m.prereqs.map((id) => getModule(id)?.title[loc] ?? id),
+    durationLabel: t("min", { n: m.durationMin }),
+    tags: m.tags,
   }));
 
+  const valid = TRACKS.some((x) => x.id === track) ? (track as TrackId) : null;
+
   return (
-    <div className="mx-auto w-full max-w-6xl px-5 py-12">
-      <p className="font-mono text-[0.7rem] tracking-[0.22em] uppercase text-teal">
-        iAguide
+    <div className="shell py-12 md:py-16">
+      <p className="kicker">iAguide</p>
+      <h1 className="display-sm mt-4 text-paper">{t("title")}</h1>
+      <p className="mt-4 max-w-2xl text-lg leading-relaxed text-paper/70">{t("lede")}</p>
+      <p className="mt-3 font-mono text-[0.6rem] tracking-[0.16em] uppercase text-faint">
+        {t("modules", { n: MODULES.length })} · {t("totalTime", { n: TOTAL_MINUTES })}
       </p>
-      <h1 className="mt-3 font-display text-4xl md:text-5xl">{t("title")}</h1>
-      <p className="mt-4 max-w-2xl text-muted">{t("lede")}</p>
-      <div className="mt-10">
-        <CourseConstellation stars={stars} />
-      </div>
-      <ol className="mt-12 grid gap-3 md:grid-cols-2">
-        {MODULES.map((m) => {
-          const L = localize(m, loc);
-          const wip = m.status === "wip";
-          const inner = (
-            <article
-              className={`rounded-xl border border-line px-4 py-4 ${wip ? "opacity-60" : "hover:border-teal/60"}`}
-            >
-              <div className="flex items-baseline justify-between gap-3">
-                <p className="font-mono text-[0.7rem] tracking-[0.18em] uppercase text-faint">
-                  {String(m.order).padStart(2, "0")}
-                </p>
-                <p className="font-mono text-[0.7rem] uppercase text-faint">
-                  {wip ? t("wip") : t("min", { n: m.durationMin })}
-                </p>
-              </div>
-              <h2 className="mt-2 font-display text-2xl text-paper">{L.title}</h2>
-              <p className="mt-2 text-sm leading-relaxed text-muted">{L.summary}</p>
-              {m.prereqs.length > 0 ? (
-                <p className="mt-3 font-mono text-[0.65rem] uppercase tracking-wide text-faint">
-                  {t("prereq")}:{" "}
-                  {m.prereqs
-                    .map((id) => getModule(id)?.title[loc] ?? id)
-                    .join(" · ")}
-                </p>
-              ) : null}
-            </article>
-          );
-          return (
-            <li key={m.slug}>
-              {wip ? inner : <Link href={`/m/${m.slug}`} className="block text-inherit no-underline">{inner}</Link>}
-            </li>
-          );
-        })}
-      </ol>
+
+      <CourseExplorer
+        cards={cards}
+        initialTrack={valid}
+        tracks={TRACKS.map((tr) => ({
+          id: tr.id,
+          label: tr.name[loc],
+          numeral: tr.numeral,
+          color: tr.color,
+        }))}
+        strings={{
+          all: t("all"),
+          hint: t("hint"),
+          wip: t("wip"),
+          prereq: t("prereq"),
+          empty: t("empty"),
+        }}
+      />
     </div>
   );
 }

@@ -1,0 +1,25 @@
+{
+  "id": "attention",
+  "order": 3,
+  "slug": "attention",
+  "track": "foundations",
+  "title": {
+    "en": "Attention and the block",
+    "es": "La atención y el bloque"
+  },
+  "summary": {
+    "en": "Open the transformer. Q, K, V, heads, residual stream, MLP, norms, RoPE, GQA — drawn, not hand-waved.",
+    "es": "Abrimos el transformer. Q, K, V, cabezas, flujo residual, MLP, normalizaciones, RoPE, GQA — dibujado, no insinuado."
+  },
+  "status": "wip",
+  "prereqs": [
+    "tokenization"
+  ],
+  "durationMin": 22,
+  "tags": [
+    "transformer",
+    "qkv",
+    "rope",
+    "gqa"
+  ]
+}

@@ -1,13 +1,15 @@
 {
   "meta": {
     "title": "iAguide",
-    "description": "A visual course on how AI actually works: agent harnesses, models, training, local inference, quantization, and hardware memory."
+    "description": "A visual course on how AI actually works: tokens and attention, agent harnesses, training and reinforcement learning, fine-tuning, quantization, and the memory that holds a thought in flight."
   },
   "nav": {
     "course": "Course",
     "glossary": "Glossary",
     "about": "About",
-    "skip": "Skip to content"
+    "skip": "Skip to content",
+    "menu": "Menu",
+    "close": "Close"
   },
   "locale": {
     "en": "English",
@@ -15,42 +17,93 @@
     "switch": "Language"
   },
   "home": {
-    "kicker": "Night classroom · 2026",
+    "kicker": "Night classroom · 2026 · MIT",
     "title": "iAguide",
-    "promise": "How AI actually works in practice — the harness around the model, the weights, the training loop, and the memory that holds a thought in flight.",
+    "promise": "Twenty-seven modules on how AI actually works — the tokens under the words, the loop around the weights, the arithmetic of training, and the memory bus that decides how fast you think.",
     "cta": "Open the course map",
-    "ctaSecondary": "What you will be able to do",
+    "ctaAlt": "Start at module 00",
+    "scroll": "Scroll",
+    "stats": {
+      "modules": "modules",
+      "minutes": "minutes of reading",
+      "languages": "languages, in parallel",
+      "accounts": "accounts required"
+    },
+    "outcomesTitle": "What you will be able to do",
     "outcomes": [
-      "Pick a model from a card, not a vibe.",
-      "Run open weights locally and read a GGUF name.",
-      "See an agent harness as a loop, not a chat box.",
-      "Know when LoRA is worth it — and when it is not."
-    ]
+      "Pick a model from its card and its numbers, not from a vibe.",
+      "Read Q4_K_M, NF4, MXFP4 and predict what each one costs you.",
+      "See an agent harness as a loop you can debug, not a chat box.",
+      "Size a machine: parameters, KV cache, bandwidth, context.",
+      "Know when LoRA is worth it — and when it is a distraction.",
+      "Tell prefill from decode when something is slow.",
+      "Build a twenty-case eval before you build a demo.",
+      "Spot a prompt injection in text your agent is about to read."
+    ],
+    "layersTitle": "Three layers, one machine",
+    "layersLede": "Almost every confusion about AI is a layer confusion. Somebody blames the model for a harness bug, or the harness for a memory bandwidth wall. The course is built so you always know which floor you are standing on.",
+    "layers": [
+      {
+        "name": "The harness",
+        "blurb": "Prompts, tools, threads, caches, permissions. Written by humans, in ordinary code. Where most bugs live."
+      },
+      {
+        "name": "The model",
+        "blurb": "A few hundred billion numbers and one operation: score every next token. Trained, not programmed."
+      },
+      {
+        "name": "The silicon",
+        "blurb": "Weights must be read to be used. Memory size decides what fits; bandwidth decides how fast it thinks."
+      }
+    ],
+    "tracksTitle": "Four tracks",
+    "tracksLede": "Walk them in order or jump to the one you came for. Every module names its prerequisites.",
+    "startTitle": "Start where you are",
+    "startLede": "No account, no telemetry, no upsell. Both languages are written, not machine-translated — switch at any point and keep your place.",
+    "openTitle": "Open source, on purpose",
+    "openLede": "MIT licensed and built to be forked. A module is a folder: metadata, two lessons, one diagram. Add yours.",
+    "openCta": "Read the repository"
   },
   "course": {
     "title": "Course map",
-    "lede": "Twelve modules. One constellation. Start at orientation, or jump to the star you came for.",
-    "wip": "Coming soon",
+    "lede": "Twenty-seven modules across four tracks. Drag the map. Hover a node to read it. Click to enter.",
+    "wip": "In progress",
     "complete": "Ready",
     "min": "{n} min",
-    "prereq": "Before this"
+    "prereq": "Before this",
+    "all": "All tracks",
+    "map": "Map",
+    "list": "List",
+    "hint": "Drag to orbit · click a node to open",
+    "modules": "{n} modules",
+    "totalTime": "{n} min total",
+    "empty": "Nothing in this track yet."
   },
   "lesson": {
     "prev": "Previous",
     "next": "Next",
     "minutes": "{n} min read",
-    "visual": "Figure",
-    "contents": "In this module"
+    "contents": "In this module",
+    "track": "Track",
+    "prereqs": "Assumes",
+    "top": "Back to top",
+    "wipTitle": "Being written",
+    "wipBody": "This module is scaffolded but not finished. The map shows it so you can see where it goes.",
+    "keyTerms": "Terms introduced here"
   },
   "glossary": {
     "title": "Glossary",
-    "lede": "Terms used in the course. Each one links back to the module that introduced it.",
-    "from": "From"
+    "lede": "Every term the course introduces, in both languages, each linked back to the module that earned it.",
+    "from": "From",
+    "search": "Filter terms",
+    "empty": "No term matches that.",
+    "count": "terms"
   },
   "about": {
     "title": "About",
     "oss": "Open source",
     "add": "How to add a module",
+    "stack": "How it is built",
     "disclaimer": "Education disclaimer"
   },
   "mdx": {
@@ -60,6 +113,7 @@
   },
   "footer": {
     "license": "MIT License",
-    "stale": "This is a 2026 snapshot. The field moves. Treat numbers as rules of thumb unless you measure them."
+    "stale": "This is a 2026 snapshot. The field moves. Treat every number as a rule of thumb until you measure it on your own machine.",
+    "repo": "Source"
   }
 }

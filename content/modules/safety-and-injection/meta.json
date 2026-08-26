@@ -1,0 +1,24 @@
+{
+  "id": "safety-and-injection",
+  "order": 12,
+  "slug": "safety-and-injection",
+  "track": "harness",
+  "title": {
+    "en": "Safety and prompt injection",
+    "es": "Seguridad e inyección de prompts"
+  },
+  "summary": {
+    "en": "Untrusted text is not instructions. Injection, exfiltration, the lethal trifecta, and defences that survive contact.",
+    "es": "El texto no fiable no son instrucciones. Inyección, exfiltración, la tríada letal y defensas que aguantan el contacto."
+  },
+  "status": "wip",
+  "prereqs": [
+    "evaluation"
+  ],
+  "durationMin": 20,
+  "tags": [
+    "prompt-injection",
+    "guardrails",
+    "sandboxing"
+  ]
+}

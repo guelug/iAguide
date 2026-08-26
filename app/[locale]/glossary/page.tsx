@@ -1,8 +1,16 @@
+import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { Link } from "@/i18n/navigation";
-import { GLOSSARY, localizeTerm } from "@/content/glossary";
+import { GlossaryList, type GlossaryEntry } from "@/components/glossary/GlossaryList";
+import { GLOSSARY } from "@/content/glossary";
 import { getModule } from "@/content/modules";
+import { TRACK_BY_ID } from "@/content/tracks";
+import { P } from "@/lib/palette";
 import type { Locale } from "@/i18n/routing";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("glossary");
+  return { title: t("title"), description: t("lede") };
+}
 
 export default async function GlossaryPage({
   params,
@@ -13,31 +21,33 @@ export default async function GlossaryPage({
   setRequestLocale(locale as Locale);
   const t = await getTranslations("glossary");
   const loc = locale as Locale;
-  const terms = [...GLOSSARY]
-    .map((g) => localizeTerm(g, loc))
-    .sort((a, b) => a.term.localeCompare(b.term, loc));
+
+  const entries: GlossaryEntry[] = GLOSSARY.map((g) => {
+    const mod = getModule(g.module);
+    return {
+      id: g.id,
+      term: g.term[loc],
+      def: g.def[loc],
+      moduleSlug: mod?.slug ?? g.module,
+      moduleTitle: mod?.title[loc] ?? g.module,
+      color: mod ? TRACK_BY_ID[mod.track].color : P.teal,
+    };
+  }).sort((a, b) => a.term.localeCompare(b.term, loc));
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-5 py-12">
-      <h1 className="font-display text-4xl md:text-5xl">{t("title")}</h1>
-      <p className="mt-4 text-muted">{t("lede")}</p>
-      <dl className="mt-10 space-y-8">
-        {terms.map((term) => {
-          const mod = getModule(term.module);
-          return (
-            <div key={term.id} id={term.id} className="scroll-mt-24">
-              <dt className="font-display text-2xl text-paper">{term.term}</dt>
-              <dd className="mt-2 text-paper/80">{term.def}</dd>
-              {mod ? (
-                <p className="mt-2 font-mono text-[0.65rem] uppercase tracking-widest text-faint">
-                  {t("from")}{" "}
-                  <Link href={`/m/${mod.slug}`}>{mod.title[loc]}</Link>
-                </p>
-              ) : null}
-            </div>
-          );
-        })}
-      </dl>
+    <div className="shell py-12 md:py-16">
+      <p className="kicker">iAguide</p>
+      <h1 className="display-sm mt-4 text-paper">{t("title")}</h1>
+      <p className="mt-4 max-w-2xl text-lg leading-relaxed text-paper/70">{t("lede")}</p>
+      <GlossaryList
+        entries={entries}
+        strings={{
+          search: t("search"),
+          from: t("from"),
+          empty: t("empty"),
+          count: t("count"),
+        }}
+      />
     </div>
   );
 }

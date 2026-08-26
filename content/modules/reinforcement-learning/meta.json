@@ -1,0 +1,24 @@
+{
+  "id": "reinforcement-learning",
+  "order": 16,
+  "slug": "reinforcement-learning",
+  "track": "training",
+  "title": {
+    "en": "Reinforcement learning",
+    "es": "Aprendizaje por refuerzo"
+  },
+  "summary": {
+    "en": "From a base model to something you want to talk to: reward models, PPO, DPO, GRPO, RLVR, and reward hacking.",
+    "es": "De un modelo base a algo con lo que quieras hablar: modelos de recompensa, PPO, DPO, GRPO, RLVR y el hackeo de la recompensa."
+  },
+  "status": "wip",
+  "prereqs": [
+    "training"
+  ],
+  "durationMin": 24,
+  "tags": [
+    "rlhf",
+    "dpo",
+    "grpo"
+  ]
+}

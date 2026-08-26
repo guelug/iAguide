@@ -1,0 +1,24 @@
+{
+  "id": "the-harness",
+  "order": 6,
+  "slug": "the-harness",
+  "track": "harness",
+  "title": {
+    "en": "The harness",
+    "es": "El arnés"
+  },
+  "summary": {
+    "en": "The loop around the weights: profile, tools, threads, permissions, subagents, compaction. Swap the engine; the loop remains.",
+    "es": "El bucle alrededor de los pesos: perfil, herramientas, hilos, permisos, subagentes, compactación. Cambia el motor; el bucle sigue."
+  },
+  "status": "complete",
+  "prereqs": [
+    "language-of-models"
+  ],
+  "durationMin": 20,
+  "tags": [
+    "agents",
+    "tools",
+    "threads"
+  ]
+}

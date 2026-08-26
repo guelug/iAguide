@@ -2,22 +2,34 @@
 @import "katex/dist/katex.min.css";
 
 :root {
-  --void: #07090b;
-  --ink: #0c1014;
-  --paper: #e8e4d4;
-  --muted: #8a9086;
-  --faint: #5c635c;
-  --teal: #5aa8a0;
-  --teal-dim: #163330;
-  --amber: #c9a35a;
-  --amber-dim: #3a2f14;
-  --line: rgba(232, 228, 212, 0.12);
-  --glow: rgba(90, 168, 160, 0.18);
+  --void: #05070a;
+  --ink: #0a0e13;
+  --slate: #111820;
+  --paper: #e9e5d6;
+  --muted: #8b9189;
+  --faint: #59605a;
+
+  --teal: #5eb8ae;
+  --teal-dim: #1d423f;
+  --amber: #d4a95e;
+  --amber-dim: #3d3117;
+  --violet: #8b7bd8;
+  --violet-dim: #241f45;
+  --rose: #d8697a;
+  --rose-dim: #3a1a22;
+
+  --line: rgba(233, 229, 214, 0.11);
+  --line-strong: rgba(233, 229, 214, 0.2);
+  --glow: rgba(94, 184, 174, 0.18);
+
+  --shell: min(76rem, 100% - 2.5rem);
+  --reading: 44rem;
 }
 
 @theme inline {
   --color-void: var(--void);
   --color-ink: var(--ink);
+  --color-slate: var(--slate);
   --color-paper: var(--paper);
   --color-muted: var(--muted);
   --color-faint: var(--faint);
@@ -25,7 +37,12 @@
   --color-teal-dim: var(--teal-dim);
   --color-amber: var(--amber);
   --color-amber-dim: var(--amber-dim);
+  --color-violet: var(--violet);
+  --color-violet-dim: var(--violet-dim);
+  --color-rose: var(--rose);
+  --color-rose-dim: var(--rose-dim);
   --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
   --font-sans: var(--font-ibm), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-newsreader), ui-serif, Georgia, serif;
   --font-mono: var(--font-ibm-mono), ui-monospace, monospace;
@@ -35,33 +52,38 @@ html {
   background: var(--void);
   color: var(--paper);
   scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
 }
 
-html, body {
+html,
+body {
   min-height: 100%;
 }
 
 body {
   font-family: var(--font-sans);
   background:
-    radial-gradient(1200px 600px at 50% -10%, rgba(90, 168, 160, 0.08), transparent 55%),
-    radial-gradient(800px 400px at 90% 10%, rgba(201, 163, 90, 0.05), transparent 50%),
+    radial-gradient(1400px 700px at 50% -12%, rgba(94, 184, 174, 0.09), transparent 58%),
+    radial-gradient(900px 500px at 88% 8%, rgba(139, 123, 216, 0.07), transparent 52%),
+    radial-gradient(700px 500px at 8% 42%, rgba(212, 169, 94, 0.045), transparent 55%),
     var(--void);
   color: var(--paper);
+  overflow-x: clip;
 }
 
+/* Film grain over everything, including the canvases. */
 body::after {
   content: "";
   pointer-events: none;
   position: fixed;
   inset: 0;
   z-index: 80;
-  opacity: 0.035;
+  opacity: 0.032;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
 }
 
 ::selection {
-  background: rgba(90, 168, 160, 0.35);
+  background: rgba(94, 184, 174, 0.35);
   color: var(--paper);
 }
 
@@ -72,6 +94,12 @@ a {
 
 a:hover {
   color: var(--amber);
+}
+
+:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 3px;
+  border-radius: 2px;
 }
 
 .skip-link {
@@ -88,36 +116,176 @@ a:hover {
   top: 1rem;
 }
 
+/* ------------------------------------------------------------------ shell */
+
+.shell {
+  width: var(--shell);
+  margin-inline: auto;
+}
+
+.hairline {
+  border-top: 1px solid var(--line);
+}
+
+.panel {
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--ink) 72%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+.kicker {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--teal);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* Big display type that scales with the viewport without media queries. */
+.display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.035em;
+  line-height: 0.92;
+  font-size: clamp(3rem, 11vw, 9.5rem);
+}
+
+.display-sm {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.025em;
+  line-height: 1.02;
+  font-size: clamp(2rem, 5vw, 3.4rem);
+}
+
+/* ------------------------------------------------------------- animations */
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(1.25rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes bleed {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes sweep {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(210%);
+  }
+}
+
+.rise {
+  animation: rise 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.bleed {
+  animation: bleed 1.4s ease both;
+}
+
+/* Reveal-on-scroll driven by IntersectionObserver in Reveal.tsx. */
+.reveal {
+  opacity: 0;
+  transform: translateY(1.5rem);
+  transition:
+    opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+.reveal[data-shown="true"] {
+  opacity: 1;
+  transform: none;
+}
+
+/* A thin light that runs along a rule. Used under section headers. */
+.scanline {
+  position: relative;
+  overflow: hidden;
+}
+.scanline::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 28%;
+  background: linear-gradient(90deg, transparent, var(--teal), transparent);
+  opacity: 0.5;
+  animation: sweep 6s linear infinite;
+}
+
+/* --------------------------------------------------------------- lessons */
+
 .prose-lesson {
   --tw-prose-body: var(--paper);
+  max-width: var(--reading);
 }
 
 .prose-lesson h2 {
   font-family: var(--font-display);
   font-weight: 400;
-  font-size: 1.65rem;
-  letter-spacing: -0.02em;
-  margin-top: 2.4rem;
-  margin-bottom: 0.8rem;
+  font-size: clamp(1.5rem, 3vw, 1.95rem);
+  letter-spacing: -0.022em;
+  margin-top: 2.8rem;
+  margin-bottom: 0.7rem;
   color: var(--paper);
+  scroll-margin-top: 6rem;
+}
+
+.prose-lesson h2::before {
+  content: "";
+  display: block;
+  width: 2.2rem;
+  height: 1px;
+  background: linear-gradient(90deg, var(--teal), transparent);
+  margin-bottom: 0.9rem;
 }
 
 .prose-lesson h3 {
   font-family: var(--font-sans);
   font-weight: 500;
-  font-size: 1.05rem;
-  letter-spacing: 0.04em;
+  font-size: 0.98rem;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--teal);
-  margin-top: 1.8rem;
+  margin-top: 2rem;
   margin-bottom: 0.5rem;
+  scroll-margin-top: 6rem;
 }
 
 .prose-lesson p,
 .prose-lesson li {
-  color: rgba(232, 228, 212, 0.86);
-  line-height: 1.7;
-  font-size: 1.05rem;
+  color: rgba(233, 229, 214, 0.87);
+  line-height: 1.72;
+  font-size: 1.045rem;
 }
 
 .prose-lesson p + p {
@@ -129,14 +297,52 @@ a:hover {
   margin: 0.9rem 0 0.9rem 1.2rem;
 }
 
+.prose-lesson ul {
+  list-style: none;
+  margin-left: 0.2rem;
+}
+
+.prose-lesson ul > li {
+  position: relative;
+  padding-left: 1.1rem;
+}
+
+.prose-lesson ul > li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.72em;
+  width: 0.32rem;
+  height: 0.32rem;
+  border-radius: 999px;
+  background: var(--teal);
+  opacity: 0.75;
+}
+
+.prose-lesson ol {
+  list-style: decimal;
+}
+
+.prose-lesson ol::marker,
+.prose-lesson ol > li::marker {
+  color: var(--teal);
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+}
+
 .prose-lesson li + li {
-  margin-top: 0.35rem;
+  margin-top: 0.4rem;
+}
+
+.prose-lesson strong {
+  color: var(--paper);
+  font-weight: 600;
 }
 
 .prose-lesson code {
   font-family: var(--font-mono);
-  font-size: 0.88em;
-  background: rgba(90, 168, 160, 0.08);
+  font-size: 0.87em;
+  background: rgba(94, 184, 174, 0.09);
   border: 1px solid var(--line);
   padding: 0.08em 0.35em;
   border-radius: 0.25rem;
@@ -145,14 +351,14 @@ a:hover {
 
 .prose-lesson pre {
   font-family: var(--font-mono);
-  font-size: 0.82rem;
-  line-height: 1.55;
-  background: #0a0e12;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  background: #070a0e;
   border: 1px solid var(--line);
-  border-radius: 0.6rem;
+  border-radius: 0.75rem;
   padding: 1rem 1.1rem;
   overflow-x: auto;
-  margin: 1.2rem 0;
+  margin: 1.3rem 0;
 }
 
 .prose-lesson pre code {
@@ -166,38 +372,70 @@ a:hover {
   border-left: 2px solid var(--amber);
   padding-left: 1rem;
   color: var(--muted);
-  margin: 1.2rem 0;
+  margin: 1.3rem 0;
   font-style: italic;
 }
 
 .prose-lesson table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.92rem;
-  margin: 1.2rem 0;
+  font-size: 0.9rem;
+  margin: 1.3rem 0;
+  display: block;
+  overflow-x: auto;
 }
 
 .prose-lesson th,
 .prose-lesson td {
   border-bottom: 1px solid var(--line);
-  padding: 0.5rem 0.6rem;
+  padding: 0.55rem 0.65rem;
   text-align: left;
+  vertical-align: top;
 }
 
 .prose-lesson th {
   color: var(--teal);
   font-weight: 500;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.prose-lesson hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 2.5rem 0;
 }
 
 .prose-lesson .katex {
-  font-size: 1.05em;
+  font-size: 1.04em;
+}
+
+.prose-lesson .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.4rem 0;
 }
 
 .prose-lesson a {
   color: var(--teal);
+}
+
+.prose-lesson .not-prose {
+  max-width: none;
+}
+
+/* Figures break out of the reading column on wide screens. */
+.prose-lesson figure {
+  margin: 2rem 0;
+}
+
+@media (min-width: 80rem) {
+  .prose-lesson figure.bleed-wide {
+    width: min(58rem, calc(100vw - 5rem));
+    margin-left: calc((var(--reading) - min(58rem, calc(100vw - 5rem))) / 2);
+  }
 }
 
 .term-link {
@@ -210,7 +448,51 @@ a:hover {
   border-bottom-style: solid;
 }
 
+/* ----------------------------------------------------------- reduced motion */
+
 @media (prefers-reduced-motion: reduce) {
-  html { scroll-behavior: auto; }
-  * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
+  }
+  .scanline::after {
+    display: none;
+  }
+}
+
+/* Range inputs inside figures. */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--line);
+  height: 3px;
+  border-radius: 999px;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: currentColor;
+  border: 0;
+  cursor: pointer;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: currentColor;
+  border: 0;
+  cursor: pointer;
 }

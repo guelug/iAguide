@@ -1,0 +1,24 @@
+{
+  "id": "memory-hardware",
+  "order": 23,
+  "slug": "memory-hardware",
+  "track": "metal",
+  "title": {
+    "en": "Memory and hardware",
+    "es": "Memoria y hardware"
+  },
+  "summary": {
+    "en": "VRAM vs unified memory, bandwidth as the real speed limit, KV cache growth, and how to size a machine.",
+    "es": "VRAM frente a memoria unificada, el ancho de banda como límite real, el crecimiento de la caché KV y cómo dimensionar."
+  },
+  "status": "complete",
+  "prereqs": [
+    "quantization"
+  ],
+  "durationMin": 20,
+  "tags": [
+    "vram",
+    "unified",
+    "bandwidth"
+  ]
+}

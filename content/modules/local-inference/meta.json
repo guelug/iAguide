@@ -1,0 +1,24 @@
+{
+  "id": "local-inference",
+  "order": 21,
+  "slug": "local-inference",
+  "track": "metal",
+  "title": {
+    "en": "Local inference",
+    "es": "Inferencia local"
+  },
+  "summary": {
+    "en": "Runtimes, GGUF vs safetensors, context length vs memory, and the first hour with a model on your own machine.",
+    "es": "Runtimes, GGUF vs safetensors, contexto frente a memoria y la primera hora con un modelo en tu propia máquina."
+  },
+  "status": "complete",
+  "prereqs": [
+    "model-zoo"
+  ],
+  "durationMin": 20,
+  "tags": [
+    "gguf",
+    "runtimes",
+    "servers"
+  ]
+}

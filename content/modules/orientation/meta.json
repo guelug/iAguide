@@ -1,0 +1,21 @@
+{
+  "id": "orientation",
+  "order": 0,
+  "slug": "orientation",
+  "track": "foundations",
+  "title": {
+    "en": "Orientation",
+    "es": "Orientación"
+  },
+  "summary": {
+    "en": "What this course is, how to read the map, and the four tracks you can walk.",
+    "es": "Qué es este curso, cómo leer el mapa y las cuatro pistas que puedes recorrer."
+  },
+  "status": "complete",
+  "prereqs": [],
+  "durationMin": 9,
+  "tags": [
+    "map",
+    "outcomes"
+  ]
+}

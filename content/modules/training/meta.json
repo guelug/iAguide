@@ -1,0 +1,24 @@
+{
+  "id": "training",
+  "order": 13,
+  "slug": "training",
+  "track": "training",
+  "title": {
+    "en": "Training",
+    "es": "Entrenamiento"
+  },
+  "summary": {
+    "en": "Pretraining as compression: the loss curve, batches, learning rates, scaling laws, and what a checkpoint really is.",
+    "es": "El preentrenamiento como compresión: curva de pérdida, lotes, learning rate, leyes de escala y qué es un checkpoint."
+  },
+  "status": "complete",
+  "prereqs": [
+    "maths-you-need"
+  ],
+  "durationMin": 22,
+  "tags": [
+    "pretraining",
+    "loss",
+    "scaling"
+  ]
+}

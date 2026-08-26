@@ -1,0 +1,24 @@
+{
+  "id": "language-of-models",
+  "order": 1,
+  "slug": "language-of-models",
+  "track": "foundations",
+  "title": {
+    "en": "The language of models",
+    "es": "El idioma de los modelos"
+  },
+  "summary": {
+    "en": "Tokens, logits, sampling, prefill and decode — the vocabulary every other module assumes.",
+    "es": "Tokens, logits, muestreo, prefill y decode: el vocabulario que dan por sabido los demás módulos."
+  },
+  "status": "complete",
+  "prereqs": [
+    "orientation"
+  ],
+  "durationMin": 16,
+  "tags": [
+    "tokens",
+    "sampling",
+    "kv-cache"
+  ]
+}

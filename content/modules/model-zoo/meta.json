@@ -1,0 +1,24 @@
+{
+  "id": "model-zoo",
+  "order": 20,
+  "slug": "model-zoo",
+  "track": "metal",
+  "title": {
+    "en": "The model zoo",
+    "es": "El zoo de modelos"
+  },
+  "summary": {
+    "en": "Reading a model card and a model name: base vs instruct, open weights vs open source, sizes, licences, versions.",
+    "es": "Leer una ficha y un nombre de modelo: base vs instruct, pesos abiertos vs código abierto, tamaños, licencias, versiones."
+  },
+  "status": "complete",
+  "prereqs": [
+    "language-of-models"
+  ],
+  "durationMin": 18,
+  "tags": [
+    "open-weights",
+    "licences",
+    "cards"
+  ]
+}

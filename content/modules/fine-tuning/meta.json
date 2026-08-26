@@ -1,0 +1,24 @@
+{
+  "id": "fine-tuning",
+  "order": 17,
+  "slug": "fine-tuning",
+  "track": "training",
+  "title": {
+    "en": "Fine-tuning",
+    "es": "Fine-tuning"
+  },
+  "summary": {
+    "en": "LoRA, QLoRA, full fine-tune, and the honest decision tree that usually ends in 'do not fine-tune yet'.",
+    "es": "LoRA, QLoRA, fine-tune completo y el árbol de decisión honesto que casi siempre acaba en «aún no»."
+  },
+  "status": "complete",
+  "prereqs": [
+    "reinforcement-learning"
+  ],
+  "durationMin": 22,
+  "tags": [
+    "lora",
+    "qlora",
+    "datasets"
+  ]
+}

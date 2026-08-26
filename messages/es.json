@@ -1,13 +1,15 @@
 {
   "meta": {
     "title": "iAguide",
-    "description": "Un curso visual sobre cómo funciona de verdad la IA: arneses de agentes, modelos, entrenamiento, inferencia local, cuantización y memoria de hardware."
+    "description": "Un curso visual sobre cómo funciona de verdad la IA: tokens y atención, arneses de agentes, entrenamiento y aprendizaje por refuerzo, fine-tuning, cuantización y la memoria que sostiene un pensamiento en vuelo."
   },
   "nav": {
     "course": "Curso",
     "glossary": "Glosario",
     "about": "Acerca de",
-    "skip": "Saltar al contenido"
+    "skip": "Saltar al contenido",
+    "menu": "Menú",
+    "close": "Cerrar"
   },
   "locale": {
     "en": "English",
@@ -15,42 +17,93 @@
     "switch": "Idioma"
   },
   "home": {
-    "kicker": "Aula nocturna · 2026",
+    "kicker": "Aula nocturna · 2026 · MIT",
     "title": "iAguide",
-    "promise": "Cómo funciona de verdad la IA en la práctica: el arnés alrededor del modelo, los pesos, el bucle de entrenamiento y la memoria que sostiene un pensamiento en vuelo.",
+    "promise": "Veintisiete módulos sobre cómo funciona de verdad la IA: los tokens bajo las palabras, el bucle alrededor de los pesos, la aritmética del entrenamiento y el bus de memoria que decide a qué velocidad piensas.",
     "cta": "Abrir el mapa del curso",
-    "ctaSecondary": "Lo que sabrás hacer",
+    "ctaAlt": "Empezar por el módulo 00",
+    "scroll": "Baja",
+    "stats": {
+      "modules": "módulos",
+      "minutes": "minutos de lectura",
+      "languages": "idiomas, en paralelo",
+      "accounts": "cuentas necesarias"
+    },
+    "outcomesTitle": "Lo que vas a saber hacer",
     "outcomes": [
-      "Elegir un modelo leyendo su ficha, no por intuición.",
-      "Ejecutar pesos abiertos en local y leer un nombre GGUF.",
-      "Ver un arnés de agente como un bucle, no como un chat.",
-      "Saber cuándo merece la pena un LoRA — y cuándo no."
-    ]
+      "Elegir un modelo por su ficha y sus números, no por la vibra.",
+      "Leer Q4_K_M, NF4, MXFP4 y predecir lo que te cuesta cada uno.",
+      "Ver un arnés de agente como un bucle depurable, no como un chat.",
+      "Dimensionar una máquina: parámetros, caché KV, ancho de banda, contexto.",
+      "Saber cuándo LoRA merece la pena — y cuándo es una distracción.",
+      "Distinguir prefill de decode cuando algo va lento.",
+      "Montar un eval de veinte casos antes de montar una demo.",
+      "Detectar una inyección de prompt en el texto que tu agente va a leer."
+    ],
+    "layersTitle": "Tres capas, una máquina",
+    "layersLede": "Casi toda confusión sobre IA es una confusión de capa. Alguien culpa al modelo de un bug del arnés, o al arnés de un muro de ancho de banda. El curso está montado para que siempre sepas en qué planta estás.",
+    "layers": [
+      {
+        "name": "El arnés",
+        "blurb": "Prompts, herramientas, hilos, cachés, permisos. Lo escriben humanos, en código normal. Ahí viven casi todos los bugs."
+      },
+      {
+        "name": "El modelo",
+        "blurb": "Unos cientos de miles de millones de números y una operación: puntuar cada siguiente token. Se entrena, no se programa."
+      },
+      {
+        "name": "El silicio",
+        "blurb": "Los pesos hay que leerlos para usarlos. El tamaño de memoria decide qué cabe; el ancho de banda, a qué velocidad piensa."
+      }
+    ],
+    "tracksTitle": "Cuatro pistas",
+    "tracksLede": "Recórrelas en orden o salta a la que venías buscando. Cada módulo dice de qué parte.",
+    "startTitle": "Empieza donde estás",
+    "startLede": "Sin cuenta, sin telemetría, sin venta cruzada. Los dos idiomas están escritos, no traducidos a máquina: cambia cuando quieras y sigue donde ibas.",
+    "openTitle": "Código abierto, a propósito",
+    "openLede": "Licencia MIT y pensado para bifurcarse. Un módulo es una carpeta: metadatos, dos lecciones, un diagrama. Añade el tuyo.",
+    "openCta": "Ver el repositorio"
   },
   "course": {
     "title": "Mapa del curso",
-    "lede": "Doce módulos. Una constelación. Empieza por la orientación, o salta a la estrella que buscas.",
-    "wip": "En preparación",
+    "lede": "Veintisiete módulos en cuatro pistas. Arrastra el mapa. Pasa por encima de un nodo para leerlo. Haz clic para entrar.",
+    "wip": "En obras",
     "complete": "Listo",
     "min": "{n} min",
-    "prereq": "Antes de esto"
+    "prereq": "Antes de esto",
+    "all": "Todas las pistas",
+    "map": "Mapa",
+    "list": "Lista",
+    "hint": "Arrastra para orbitar · clic en un nodo para abrir",
+    "modules": "{n} módulos",
+    "totalTime": "{n} min en total",
+    "empty": "Todavía no hay nada en esta pista."
   },
   "lesson": {
     "prev": "Anterior",
     "next": "Siguiente",
     "minutes": "{n} min de lectura",
-    "visual": "Figura",
-    "contents": "En este módulo"
+    "contents": "En este módulo",
+    "track": "Pista",
+    "prereqs": "Da por sabido",
+    "top": "Volver arriba",
+    "wipTitle": "En escritura",
+    "wipBody": "Este módulo está esbozado pero sin terminar. Aparece en el mapa para que veas dónde encaja.",
+    "keyTerms": "Términos que aparecen aquí"
   },
   "glossary": {
     "title": "Glosario",
-    "lede": "Términos del curso. Cada uno enlaza al módulo que lo introduce.",
-    "from": "De"
+    "lede": "Todos los términos que introduce el curso, en los dos idiomas, cada uno enlazado al módulo que se lo ganó.",
+    "from": "De",
+    "search": "Filtrar términos",
+    "empty": "Ningún término coincide.",
+    "count": "términos"
   },
   "about": {
     "title": "Acerca de",
     "oss": "Código abierto",
     "add": "Cómo añadir un módulo",
+    "stack": "Cómo está hecho",
     "disclaimer": "Aviso educativo"
   },
   "mdx": {
@@ -60,6 +113,7 @@
   },
   "footer": {
     "license": "Licencia MIT",
-    "stale": "Instantánea de 2026. El campo se mueve. Trata las cifras como reglas prácticas salvo que las midas tú."
+    "stale": "Esto es una instantánea de 2026. El campo se mueve. Trata cada número como regla práctica hasta que lo midas en tu propia máquina.",
+    "repo": "Código"
   }
 }

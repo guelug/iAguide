@@ -1,0 +1,24 @@
+{
+  "id": "serving-and-throughput",
+  "order": 24,
+  "slug": "serving-and-throughput",
+  "track": "metal",
+  "title": {
+    "en": "Serving and throughput",
+    "es": "Servir y rendimiento"
+  },
+  "summary": {
+    "en": "Continuous batching, paged attention, speculative decoding, and the difference between fast for you and cheap for everyone.",
+    "es": "Batching continuo, paged attention, decodificación especulativa y la diferencia entre rápido para ti y barato para todos."
+  },
+  "status": "wip",
+  "prereqs": [
+    "memory-hardware"
+  ],
+  "durationMin": 20,
+  "tags": [
+    "batching",
+    "vllm",
+    "speculative"
+  ]
+}

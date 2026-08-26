@@ -1,0 +1,24 @@
+{
+  "id": "quantization",
+  "order": 22,
+  "slug": "quantization",
+  "track": "metal",
+  "title": {
+    "en": "Quantization",
+    "es": "Cuantización"
+  },
+  "summary": {
+    "en": "Why we quantize, how to read Q4_K_M / GPTQ / AWQ / NF4 / MXFP4, and where quality actually goes.",
+    "es": "Por qué cuantizamos, cómo leer Q4_K_M / GPTQ / AWQ / NF4 / MXFP4 y por dónde se escapa la calidad."
+  },
+  "status": "complete",
+  "prereqs": [
+    "local-inference"
+  ],
+  "durationMin": 20,
+  "tags": [
+    "gguf",
+    "awq",
+    "nf4"
+  ]
+}
