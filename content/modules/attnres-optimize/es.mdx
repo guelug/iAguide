@@ -79,6 +79,8 @@ Pon el 4% en contexto. Un pipeline que ya está acotado por 1F1B mostrará la co
 No corras Full AttnRes en un trabajo pipeline-parallel de producción. Full sigue necesitando tensores vivos `O(L d)` y `O(L)` de ellos en el cable. Block más caché es el objeto que se puede enviar. Full es la ablación que demuestra el mezclador.
 </Callout>
 
+<VisualSlot id="attnres-optimize:2" caption="Softmax online (running max + running sum), prefill escribiendo resúmenes de bloque y decode leyéndolos, y la comm inter-stage: O(L) por capa contra O(N) por resumen." />
+
 ## Inferencia en dos fases (Algoritmo 1)
 
 La inferencia Block ingenua, en cada capa, puntúa `w_l` contra todos los resúmenes de bloque previos. Eso es `O(L N)` accesos de memoria por token: cada capa relee la misma caché. El truco es que `w_l` es un **parámetro**, no una función de `h`. Las `S = L/N` queries dentro de un bloque se conocen antes de que el bloque corra. Puedes **agruparlas**.

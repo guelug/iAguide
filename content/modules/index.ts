@@ -395,6 +395,10 @@ export const VISUALS_EXTRA: Record<
   "training:2": () => import("./training/Visual2"),
   "image-models:2": () => import("./image-models/Visual2"),
   "function-calling-ft:2": () => import("./function-calling-ft/Visual2"),
+  "kimi-linear-serve:2": () => import("./kimi-linear-serve/Visual2"),
+  "comfyui-first-workflow:2": () => import("./comfyui-first-workflow/Visual2"),
+  "attnres-optimize:2": () => import("./attnres-optimize/Visual2"),
+  "game-agents:2": () => import("./game-agents/Visual2"),
 };
 
 export function getExtraVisualLoader(key: string) {

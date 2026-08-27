@@ -38,6 +38,8 @@ tok = AutoTokenizer.from_pretrained(
 
 Ese es el camino "tengo una caja, quiero una respuesta". No es un servidor multi-usuario. Seguirá intentando colocar **todos los pesos de expertos** en algún sitio. 3B activos es la historia de cómputo, no la de residencia.
 
+<VisualSlot id="kimi-linear-serve:2" caption="Prefill en paralelo, decode secuencial, KV paginada con virtual→física, y batching continuo donde entran y salen requests sin apagar la GPU." />
+
 ## Servidor: vLLM compatible con OpenAI
 
 De la model card y la [receta vLLM](https://docs.vllm.ai/projects/recipes/en/latest/moonshotai/Kimi-Linear.html), la línea exacta de serve es:
