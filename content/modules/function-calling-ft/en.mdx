@@ -14,7 +14,7 @@ Official course: https://huggingface.co/learn/agents-course · repo: https://git
 
 *Named source: Hugging Face Agents Course, Bonus Unit 1, [introduction](https://huggingface.co/learn/agents-course/bonus-unit1/introduction).*
 
-The authors mark it **optional** and more advanced than Unit 1. Revisit when you know fine-tuning better. They still walk the core ideas. Their recommended prep: fine-tune an LLM with Transformers ([NLP Course chapter 3](https://huggingface.co/learn/nlp-course/chapter3/1?fw=pt)) and know `SFTTrainer` ([NLP Course chapter 11](https://huggingface.co/learn/nlp-course/en/chapter11/1)). iAguide places this after [fine-tuning](/course/fine-tuning) for the same reason.
+The authors mark it **optional** and more advanced than Unit 1. Revisit when you know fine-tuning better. They still walk the core ideas. Their recommended prep: fine-tune an LLM with Transformers ([NLP Course chapter 3](https://huggingface.co/learn/nlp-course/chapter3/1?fw=pt)) and know `SFTTrainer` ([NLP Course chapter 11](https://huggingface.co/learn/nlp-course/en/chapter11/1)). iAguide places this after [fine-tuning](/en/m/fine-tuning) for the same reason.
 
 What they say you will learn: how modern LLMs structure conversations that trigger tools; LoRA as a lightweight adapter; the Thought → Act → Observe cycle inside function-calling models; new special tokens that separate internal reasoning, outgoing calls, and tool responses. By the end you should have fine-tuned your own model to do function calling.
 
@@ -45,7 +45,7 @@ Those markers are how the model distinguishes internal reasoning, outgoing calls
 Practical tip: if you add tokens to the tokenizer, reserve them, and train the embedding rows. A special token with a random embedding is a new word the model has never seen. The notebook is the worked example; this page does not paste it.
 
 <Callout>
-The dummy loop in [dummy-agent](/course/dummy-agent) already stops on a sequence and parses JSON. Function-calling fine-tunes move that contract into the weights. The harness still executes. The model still cannot call a function; it can only emit text that looks like a call.
+The dummy loop in [dummy-agent](/en/m/dummy-agent) already stops on a sequence and parses JSON. Function-calling fine-tunes move that contract into the weights. The harness still executes. The model still cannot call a function; it can only emit text that looks like a call.
 </Callout>
 
 ## Start from instruct, not from base
@@ -68,7 +68,7 @@ Practical tip: do not LoRA a base checkpoint “because it is purer.” You will
 
 LoRA inserts a small number of new weights as an adapter. Training is faster, cheaper, and the adapter is a few hundred MB. It adds rank-decomposition matrices to Transformer layers, typically linear layers. The rest of the model is frozen; you update the adapter. At inference you run adapter plus base, or merge for no extra latency.
 
-The unit points to the NLP Course LoRA chapter for the mechanics. iAguide already teaches LoRA in [fine-tuning](/course/fine-tuning). This particularity is *what the data looks like* when the task is tool tokens.
+The unit points to the NLP Course LoRA chapter for the mechanics. iAguide already teaches LoRA in [fine-tuning](/en/m/fine-tuning). This particularity is *what the data looks like* when the task is tool tokens.
 
 Practical tip: LoRA will faithfully learn last Friday’s schema. If Monday’s schema moved a required field, Monday’s adapter is wrong. Freeze the JSON schema for a month, then train once. SchemaPatch did the opposite.
 
@@ -137,9 +137,9 @@ Practical tip: keep arguments schema-valid. One dirty id format in the training 
 
 *Named source: Hugging Face Agents Course, Bonus Unit 1, What You’ll Learn in [introduction](https://huggingface.co/learn/agents-course/bonus-unit1/introduction) and the Think/Act/Observe list in [what-is-function-calling](https://huggingface.co/learn/agents-course/bonus-unit1/what-is-function-calling).*
 
-The introduction promises you will implement and modify the Thought → Act → Observe cycle for maintainable function-calling workflows. The tokens are how the cycle is *written down* after training. The harness in [dummy-agent](/course/dummy-agent) still runs the function. Observation is still not sampled.
+The introduction promises you will implement and modify the Thought → Act → Observe cycle for maintainable function-calling workflows. The tokens are how the cycle is *written down* after training. The harness in [dummy-agent](/en/m/dummy-agent) still runs the function. Observation is still not sampled.
 
-Practical tip: log `[TOOL_CALLS]` text as a span (see [observability](/course/observability)). A LoRA that emits a valid-looking call to a tool you never registered is a data bug you will only see if the parse span fails closed.
+Practical tip: log `[TOOL_CALLS]` text as a span (see [observability](/en/m/observability)). A LoRA that emits a valid-looking call to a tool you never registered is a data bug you will only see if the parse span fails closed.
 
 ## Practical checklist
 
@@ -162,10 +162,10 @@ Prompting lists tools; function-calling fine-tunes teach tokens and roles. Start
 
 *Named source: Hugging Face Agents Course, Bonus Unit 1 (whole unit); iAguide training and harness particularities.*
 
-- Prompted loop you are replacing or complementing: [dummy-agent](/course/dummy-agent)
-- LoRA mechanics: [fine-tuning](/course/fine-tuning)
-- Code-first tools without a custom LoRA: [smolagents](/course/smolagents)
-- When retrieval is the tool: [agentic-rag](/course/agentic-rag)
+- Prompted loop you are replacing or complementing: [dummy-agent](/en/m/dummy-agent)
+- LoRA mechanics: [fine-tuning](/en/m/fine-tuning)
+- Code-first tools without a custom LoRA: [smolagents](/en/m/smolagents)
+- When retrieval is the tool: [agentic-rag](/en/m/agentic-rag)
 
 Course home: https://huggingface.co/learn/agents-course · repo: https://github.com/huggingface/agents-course · docs: https://huggingface.co/docs · NLP Course LoRA: https://huggingface.co/learn/nlp-course/chapter11/4?fw=pt
 

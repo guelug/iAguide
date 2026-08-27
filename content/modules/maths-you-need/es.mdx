@@ -8,7 +8,7 @@ $$
 \mathrm{Attention}(Q, K, V) = \mathrm{softmax}\!\left(\frac{QK^\top}{\sqrt{d}}\right) V
 $$
 
-$d$ es la dimensión de la key; la raíz es un truco de escala para que las puntuaciones no exploten al crecer $d$. Multi-head son varios de estos en paralelo, luego concatenados. GQA / MQA comparten keys y values entre cabezas para achicar la caché KV — mismo dibujo, ingeniería distinta. La profundidad del tema vive en [attention](/course/attention); aquí solo queremos la imagen.
+$d$ es la dimensión de la key; la raíz es un truco de escala para que las puntuaciones no exploten al crecer $d$. Multi-head son varios de estos en paralelo, luego concatenados. GQA / MQA comparten keys y values entre cabezas para achicar la caché KV — mismo dibujo, ingeniería distinta. La profundidad del tema vive en [attention](/es/m/attention); aquí solo queremos la imagen.
 
 <VisualSlot caption="Atención mezcla; softmax convierte puntuaciones en una distribución; LoRA es un delta fino sobre W congelada." />
 
@@ -150,7 +150,7 @@ Para tareas donde necesitas formato estricto (JSON válido, regex, código que c
 
 ## Embeddings y similitud: coseno, no distancia
 
-En [embeddings y retrieval](/course/embeddings-and-retrieval) cubrimos la búsqueda vectorial en detalle. Aquí lo justo para no tenerle miedo a una API.
+En [embeddings y retrieval](/es/m/embeddings-and-retrieval) cubrimos la búsqueda vectorial en detalle. Aquí lo justo para no tenerle miedo a una API.
 
 Un embedding es un vector $v \in \mathbb{R}^d$. Dos formas habituales de medir cercanía:
 

@@ -18,7 +18,7 @@ The official notebook lives at [agents-course/notebooks](https://huggingface.co/
 
 Unit 1 defines an agent as a system that uses a language model to interact with an environment in order to reach a user-defined goal. The model reasons and plans. The **harness** executes. Tools, memory, and control flow sit around the weights — they are not the weights.
 
-That is the same split this course already made in [the harness](/course/the-harness). The Hugging Face unit just makes you write the inner `while` yourself.
+That is the same split this course already made in [the harness](/en/m/the-harness). The Hugging Face unit just makes you write the inner `while` yourself.
 
 Three names, one cycle:
 
@@ -59,7 +59,7 @@ The LLM only handles text. It describes the action it wants and the parameters. 
 
 Thoughts are the agent's inner monologue: plan, analyse, decide, remember, reflect. Chain-of-thought is a prompting trick — "let's think step by step" — for work that stays **inside** the model (math, logic). ReAct is the other trick: interleave Thought, Action, and Observation so the model can leave the prompt and come back with evidence.
 
-Function-calling models, the ones fine-tuned to emit tool messages, can skip the visible thought. Their "thought" is optional. The dummy loop still asks for `Thought:` because the model in front of you is a chat model being *prompted* into a cycle, not a tool-specialist being *trained* into one. That distinction is the whole of [function-calling fine-tuning](/course/function-calling-ft).
+Function-calling models, the ones fine-tuned to emit tool messages, can skip the visible thought. Their "thought" is optional. The dummy loop still asks for `Thought:` because the model in front of you is a chat model being *prompted* into a cycle, not a tool-specialist being *trained* into one. That distinction is the whole of [function-calling fine-tuning](/en/m/function-calling-ft).
 
 <Compare a="Chain-of-thought" b="ReAct">
 <Side>
@@ -177,9 +177,9 @@ Implement a tiny thought-action-observation loop in Python with **fake** tools (
 
 *Named source: Hugging Face Agents Course, Unit 1 [tutorial](https://huggingface.co/learn/agents-course/unit1/tutorial) pointing forward to smolagents, and [github.com/huggingface/agents-course](https://github.com/huggingface/agents-course).*
 
-It is not smolagents. The first "real" agent in that course is the same loop inside `CodeAgent` — [next particularity](/course/smolagents). LlamaIndex and LangGraph come later as other encodings, not as promotions.
+It is not smolagents. The first "real" agent in that course is the same loop inside `CodeAgent` — [next particularity](/en/m/smolagents). LlamaIndex and LangGraph come later as other encodings, not as promotions.
 
-It is not production. No retries with jitter, no allowlist beyond a dict, no sandbox, no tracing. [Observability](/course/observability) is a later bonus for a reason: you cannot trace a loop you have not written.
+It is not production. No retries with jitter, no allowlist beyond a dict, no sandbox, no tracing. [Observability](/en/m/observability) is a later bonus for a reason: you cannot trace a loop you have not written.
 
 It is not a quiz. Unit 1 has quizzes. This lesson does not host them. The skill is: you can point at the stop sequence and say what breaks if you remove it.
 

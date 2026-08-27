@@ -16,9 +16,9 @@ Alfred el mayordomo vuelve. En la Unidad 1 era JSON de meteorología. Aquí plan
 
 El curso lista cuatro ventajas: **simplicidad** (pocas abstracciones), **LLMs intercambiables**, default **code-first**, e **integración con el Hub** (incluso Spaces de Gradio como herramientas). Ideal cuando necesitas un experimento ligero y la lógica es directa.
 
-Recházala cuando el flujo de control *es* el producto (ramificar, juntar, esperar a un humano, persistir estado): eso es [LangGraph](/course/langgraph). Recházala cuando el producto es "pregunta a mis datos" como pipeline: eso es [LlamaIndex](/course/llamaindex). La intro de la Unidad 2 nombra el esqueleto compartido: motor LLM, lista de herramientas, parser, system prompt sincronizado con ese parser, memoria, y logging de errores / reintentos (Hugging Face Agents Course, [unit2/introduction](https://huggingface.co/learn/agents-course/unit2/introduction)).
+Recházala cuando el flujo de control *es* el producto (ramificar, juntar, esperar a un humano, persistir estado): eso es [LangGraph](/es/m/langgraph). Recházala cuando el producto es "pregunta a mis datos" como pipeline: eso es [LlamaIndex](/es/m/llamaindex). La intro de la Unidad 2 nombra el esqueleto compartido: motor LLM, lista de herramientas, parser, system prompt sincronizado con ese parser, memoria, y logging de errores / reintentos (Hugging Face Agents Course, [unit2/introduction](https://huggingface.co/learn/agents-course/unit2/introduction)).
 
-Consejo práctico: si no puedes dibujar el bucle dummy de [la particularidad anterior](/course/dummy-agent) en una pizarra, no importes smolagents todavía. La biblioteca esconderá el stop-and-parse que sigue siendo tuyo.
+Consejo práctico: si no puedes dibujar el bucle dummy de [la particularidad anterior](/es/m/dummy-agent) en una pizarra, no importes smolagents todavía. La biblioteca esconderá el stop-and-parse que sigue siendo tuyo.
 
 ## MultiStepAgent es el bucle dummy con un log
 
@@ -66,7 +66,7 @@ El LLM sigue necesitando una interfaz: **nombre**, **descripción**, **tipos e d
 
 Caja por defecto, del curso y de los docs: `PythonInterpreterTool`, `FinalAnswerTool`, `UserInputTool`, `DuckDuckGoSearchTool` / `WebSearchTool`, más herramientas cargadas del Hub con `load_tool` cuando aceptas `trust_remote_code`. No cargues del Hub lo que no hayas leído.
 
-Consejo práctico: un docstring que dice "usa esto siempre" es RAG ingenuo con pasos de más. Un docstring que lista valores enum es un esquema barato. Empieza ahí antes de hacer fine-tune (véase [function-calling fine-tuning](/course/function-calling-ft)).
+Consejo práctico: un docstring que dice "usa esto siempre" es RAG ingenuo con pasos de más. Un docstring que lista valores enum es un esquema barato. Empieza ahí antes de hacer fine-tune (véase [function-calling fine-tuning](/es/m/function-calling-ft)).
 
 ## Los modelos se intercambian; el bucle no
 
@@ -80,7 +80,7 @@ El curso nombra los wrappers, no un protocolo secreto:
 - `OpenAIServerModel` — cualquier API HTTP con forma OpenAI.
 - `AzureOpenAIServerModel` — despliegues Azure OpenAI.
 
-Cambia el motor; el bucle permanece. Ese es el punto de [el arnés](/course/the-harness). No inventes un quinto wrapper. Si aparece una clase nueva en los docs, lee los docs esa semana.
+Cambia el motor; el bucle permanece. Ese es el punto de [el arnés](/es/m/the-harness). No inventes un quinto wrapper. Si aparece una clase nueva en los docs, lee los docs esa semana.
 
 Consejo práctico: registra `model_id` y proveedor junto a cada traza. "En Colab funcionaba" no es una reproducción. El dummy de la Unidad 1 ya enseñó que las plantillas de chat importan; smolagents sigue aplicando una.
 
@@ -168,7 +168,7 @@ Consejo práctico: guarda un prompt dorado offline ("formal menu for the party")
 6. El wrapper de modelo es una de las clases documentadas. El `model_id` está en el log.
 7. `trust_remote_code` del Hub está apagado salvo que hayas leído el archivo.
 
-Si alguna línea está en blanco, no estás listo para [agentes anidados](/course/smolagents-multi).
+Si alguna línea está en blanco, no estás listo para [agentes anidados](/es/m/smolagents-multi).
 
 ## Caso — el import sin sandbox de PartyKit
 
@@ -182,7 +182,7 @@ Un segundo bug: omitieron `max_steps`. Una herramienta de búsqueda que devolví
 
 *Síntesis de las páginas de la Unidad 2.1 listadas en Fuentes, Hugging Face Agents Course (Burtenshaw, Thomas, Simonini y Paniego, Apache-2.0).*
 
-smolagents codifica el bucle dummy. `MultiStepAgent` escribe memoria, muestrea, parsea, ejecuta, registra un `ActionStep`. CodeAgent es el default porque el código compone; ToolCallingAgent es JSON para sistemas simples. Las herramientas son `@tool` o una subclase `Tool` con nombre, descripción, entradas tipadas y `forward`. Los modelos se cambian. Los imports no. Fija `max_steps`. Lee la página de ejecución segura antes de que el agente vea una URL. Recuperación anidada, equipos y visión son la [siguiente particularidad](/course/smolagents-multi).
+smolagents codifica el bucle dummy. `MultiStepAgent` escribe memoria, muestrea, parsea, ejecuta, registra un `ActionStep`. CodeAgent es el default porque el código compone; ToolCallingAgent es JSON para sistemas simples. Las herramientas son `@tool` o una subclase `Tool` con nombre, descripción, entradas tipadas y `forward`. Los modelos se cambian. Los imports no. Fija `max_steps`. Lee la página de ejecución segura antes de que el agente vea una URL. Recuperación anidada, equipos y visión son la [siguiente particularidad](/es/m/smolagents-multi).
 
 ## Cuestionario (Unidad 2.1)
 

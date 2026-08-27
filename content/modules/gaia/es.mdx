@@ -110,7 +110,7 @@ Crearon una API. Resumen de rutas (mira sus docs en vivo para el detalle interac
 
 Submit compara con el ground truth como **EXACT MATCH**. Promptéalo en consecuencia. El equipo de GAIA compartió un ejemplo de prompting en el [Space del leaderboard de GAIA](https://huggingface.co/spaces/gaia-benchmark/leaderboard). Para el curso, **no incluyas el texto FINAL ANSWER** en el envío; el agente debe responder con la respuesta y nada más.
 
-Consejo práctico: el exact match es una decisión de producto. “apple, banana” frente a “apples, bananas” es un cero. Enseña el contrato de salida en el system prompt y luego registra la cadena cruda en la traza (véase [observability](/course/observability)).
+Consejo práctico: el exact match es una decisión de producto. “apple, banana” frente a “apples, bananas” es un cero. Enseña el contrato de salida en el system prompt y luego registra la cadena cruda en la traza (véase [observability](/es/m/observability)).
 
 El Space plantilla es https://huggingface.co/spaces/agents-course/Final_Assignment_Template. Te animan a cambiarlo. El envío necesita tres cosas: nombre de usuario de Hugging Face, una URL pública `agent_code` (`.../tree/main`) y una lista de respuestas con task id y submitted_answer. Duplica la plantilla en tu perfil si te sientas a *su* examen. iAguide no recogerá esos payloads.
 
@@ -130,7 +130,7 @@ Después escribieron veinte filas con forma de Nivel 1 y claves exact-match, añ
 
 *Fuente nombrada: Hugging Face Agents Course, Unit 4, [conclusion](https://huggingface.co/learn/agents-course/unit4/conclusion); cultura de “qué sigue” en la introducción de Unit 4.*
 
-La conclusión te agradece y apunta a recursos curados, incluidos **MCP** y más allá. iAguide pliega MCP en [herramientas](/course/tools-and-mcp) y el multi-agente en [agent-patterns](/course/agent-patterns) y [smolagents-multi](/course/smolagents-multi). No trates un Space de certificado como la última página de esta particularidad.
+La conclusión te agradece y apunta a recursos curados, incluidos **MCP** y más allá. iAguide pliega MCP en [herramientas](/es/m/tools-and-mcp) y el multi-agente en [agent-patterns](/es/m/agent-patterns) y [smolagents-multi](/es/m/smolagents-multi). No trates un Space de certificado como la última página de esta particularidad.
 
 Consejo práctico: cuando ya existe un set con forma GAIA, el siguiente modo de fallo suele ser una descripción de tool o un envoltorio exact-match, no un framework nuevo. Arréglalos antes de importar LangGraph.
 
@@ -159,27 +159,27 @@ GAIA son 466 preguntas fáciles para personas y duras para asistentes, con tres 
 
 *Fuente nombrada: Hugging Face Agents Course, Unit 4, The process en [hands-on](https://huggingface.co/learn/agents-course/unit4/hands-on); nota de prompting del leaderboard GAIA en https://huggingface.co/spaces/gaia-benchmark/leaderboard.*
 
-La ruta submit es implacable por diseño. Una lista de frutas correcta en el orden equivocado, un singular donde pedían plural, o una frase alrededor del hecho, todo puntúa cero. No es un bug de vendor. Es el pilar que llamaron simplicidad de evaluación. La secuencia de parada `Final Answer:` del bucle dummy en [dummy-agent](/course/dummy-agent) es la misma bisagra: el arnés debe pelar el envoltorio antes del POST.
+La ruta submit es implacable por diseño. Una lista de frutas correcta en el orden equivocado, un singular donde pedían plural, o una frase alrededor del hecho, todo puntúa cero. No es un bug de vendor. Es el pilar que llamaron simplicidad de evaluación. La secuencia de parada `Final Answer:` del bucle dummy en [dummy-agent](/es/m/dummy-agent) es la misma bisagra: el arnés debe pelar el envoltorio antes del POST.
 
-Consejo práctico: añade una fila offline cuya única diferencia sea la puntuación. Si tu agente la falla, tienes un bug de envoltorio, no de razonamiento. Traza esa fila como una clase de span propia (véase [observability](/course/observability)).
+Consejo práctico: añade una fila offline cuya única diferencia sea la puntuación. Si tu agente la falla, tienes un bug de envoltorio, no de razonamiento. Traza esa fila como una clase de span propia (véase [observability](/es/m/observability)).
 
 ## Archivos como observaciones, no como chat
 
 *Fuente nombrada: Hugging Face Agents Course, Unit 4, `GET /files/<task_id>` en [hands-on](https://huggingface.co/learn/agents-course/unit4/hands-on).*
 
-Algunas tareas envían un archivo. La API te da una descarga por task id. Ese archivo es una **observación** que el arnés debe ir a buscar y parsear. Si metes los bytes en el system prompt “por si acaso”, has reinventado el RAG ingenuo y reventarás el contexto en Nivel 2. El RAG agéntico de [agentic-rag](/course/agentic-rag) es la misma geometría: retrieve es una tool, no un default.
+Algunas tareas envían un archivo. La API te da una descarga por task id. Ese archivo es una **observación** que el arnés debe ir a buscar y parsear. Si metes los bytes en el system prompt “por si acaso”, has reinventado el RAG ingenuo y reventarás el contexto en Nivel 2. El RAG agéntico de [agentic-rag](/es/m/agentic-rag) es la misma geometría: retrieve es una tool, no un default.
 
-Consejo práctico: una tool llamada `get_task_file` cuya descripción diga cuándo llamarla. Si el modelo nunca la llama en tareas con archivo, la descripción es el bug. No hagas fine-tune todavía; véase [function-calling-ft](/course/function-calling-ft).
+Consejo práctico: una tool llamada `get_task_file` cuya descripción diga cuándo llamarla. Si el modelo nunca la llama en tareas con archivo, la descripción es el bug. No hagas fine-tune todavía; véase [function-calling-ft](/es/m/function-calling-ft).
 
 ## Enlaces en este curso
 
 *Fuente nombrada: Hugging Face Agents Course, Unit 4 (unidad completa); particularidades iAguide que comparten el bucle.*
 
-- El ciclo interno que enviarás: [dummy-agent](/course/dummy-agent)
-- Agente code-first que usan muchos estudiantes: [smolagents](/course/smolagents)
-- Hops de retrieve: [agentic-rag](/course/agentic-rag)
-- Trazas de fallos exact-match: [observability](/course/observability)
-- Cultura más amplia de eval: [evaluation](/course/evaluation)
+- El ciclo interno que enviarás: [dummy-agent](/es/m/dummy-agent)
+- Agente code-first que usan muchos estudiantes: [smolagents](/es/m/smolagents)
+- Hops de retrieve: [agentic-rag](/es/m/agentic-rag)
+- Trazas de fallos exact-match: [observability](/es/m/observability)
+- Cultura más amplia de eval: [evaluation](/es/m/evaluation)
 
 Inicio del curso: https://huggingface.co/learn/agents-course · repo: https://github.com/huggingface/agents-course · docs: https://huggingface.co/docs
 

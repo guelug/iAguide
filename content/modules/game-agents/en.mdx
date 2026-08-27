@@ -101,7 +101,7 @@ Observation is the formatted battle string. Action must match available moves or
 
 You implement `_get_llm_decision`. They provide complete examples using OpenAI, Mistral, and Gemini in the same `agents.py`. The template’s system prompt is “You are a …” — fill it. The code will not run out of the box; it is a blueprint. Return a decision dict with `name` and `arguments`, or an `error` key so the base class can fall back.
 
-Practical tip: parse tool calls with the same strictness as [dummy-agent](/course/dummy-agent). A Hydro Pump that is not in the PP list must become `None`, not a creative string the engine will reject mid-turn.
+Practical tip: parse tool calls with the same strictness as [dummy-agent](/en/m/dummy-agent). A Hydro Pump that is not in the PP list must become `None`, not a creative string the engine will reject mid-turn.
 
 <TryThis>
 Define for one turn: **state** (your HP, opponent type, available moves), **actions** (`choose_move`, `choose_switch`), **observation** (the formatted battle string). Write one illegal plan a model might emit and how the harness rejects it without crashing the match.
@@ -113,7 +113,7 @@ Define for one turn: **state** (your HP, opponent type, available moves), **acti
 
 RivalAI’s agent planned Hydro Pump because the lore said Water beats Fire. The active Pokémon had not learned it — PP list empty for that id. The base class fell back to random and the stream laughed. They prompted “only use available moves.” They also needed `_find_move_by_name` to fail closed, which it did; the case is the prompt’s optimism versus the state’s law.
 
-They later put the available-move list in the system prompt *and* in the formatted state, and logged fallback_reason as a span (see [observability](/course/observability)). The random branch stopped being a surprise on stream.
+They later put the available-move list in the system prompt *and* in the formatted state, and logged fallback_reason as a span (see [observability](/en/m/observability)). The random branch stopped being a surprise on stream.
 
 ## Launching a battle, as they print it
 
@@ -146,10 +146,10 @@ LLM NPCs talk; agents choose a legal action. 30 FPS does not wait for a 2k-token
 
 *Named source: Hugging Face Agents Course, Bonus Unit 3 (whole unit); iAguide particularities that share the loop.*
 
-- Inner Think-Act-Observe: [dummy-agent](/course/dummy-agent)
-- Learned tool tokens if you train a battler: [function-calling-ft](/course/function-calling-ft)
-- Traces for fallback_reason: [observability](/course/observability)
-- Multi-agent only if you nest planners: [smolagents-multi](/course/smolagents-multi)
+- Inner Think-Act-Observe: [dummy-agent](/en/m/dummy-agent)
+- Learned tool tokens if you train a battler: [function-calling-ft](/en/m/function-calling-ft)
+- Traces for fallback_reason: [observability](/en/m/observability)
+- Multi-agent only if you nest planners: [smolagents-multi](/en/m/smolagents-multi)
 
 Further named by the unit: https://hf.co/learn/ml-games-course · https://thomassimonini.substack.com/ · Claude Plays Pokémon https://www.twitch.tv/claudeplayspokemon
 
@@ -163,7 +163,7 @@ Practical tip: never add a Pokédex tool that lists moves the active Pokémon ha
 
 ## Random fallback is a metric
 
-*Named source: Hugging Face Agents Course, Bonus Unit 3, `choose_move` fallback branch in [building_your_pokemon_agent](https://huggingface.co/learn/agents-course/bonus-unit3/building_your_pokemon_agent); Bonus Unit 2 metrics in [observability](/course/observability).*
+*Named source: Hugging Face Agents Course, Bonus Unit 3, `choose_move` fallback branch in [building_your_pokemon_agent](https://huggingface.co/learn/agents-course/bonus-unit3/building_your_pokemon_agent); Bonus Unit 2 metrics in [observability](/en/m/observability).*
 
 When `action_taken` stays false, the unit’s code prints `fallback_reason` and calls `choose_random_move`. That print is an **error span** in Bonus Unit 2’s language: a request error, not a latency problem. Alert on fallback ratio the way SignalOps should have alerted on CRM timeouts. A 40 percent random rate with a “smart” commentary track is a talking NPC glued onto a coin flip.
 

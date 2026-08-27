@@ -12,7 +12,7 @@ Curso: https://huggingface.co/learn/agents-course · repo: https://github.com/hu
 
 *Fuente nombrada: Hugging Face Agents Course, Bonus Unit 2, [what-is-agent-observability-and-evaluation](https://huggingface.co/learn/agents-course/bonus-unit2/what-is-agent-observability-and-evaluation).*
 
-La unidad lista: entender coste frente a acierto; medir latencia; detectar lenguaje dañino e inyección de prompt; vigilar el feedback del usuario. En sus palabras, convierte un demo en algo listo para producción. iAguide añade: no puedes alertar un span que no nombraste. El `while` del dummy en [dummy-agent](/course/dummy-agent) sigue siendo el reloj interno; la observabilidad es cómo lo ves después de desplegar.
+La unidad lista: entender coste frente a acierto; medir latencia; detectar lenguaje dañino e inyección de prompt; vigilar el feedback del usuario. En sus palabras, convierte un demo en algo listo para producción. iAguide añade: no puedes alertar un span que no nombraste. El `while` del dummy en [dummy-agent](/es/m/dummy-agent) sigue siendo el reloj interno; la observabilidad es cómo lo ves después de desplegar.
 
 Consejo práctico: nombra spans según los pasos del arnés que ya enseñas: apply_template, model.generate, tool.search, tool.ticket_update, compact. Si no puedes señalar el `while` dummy, registrarás “LLM” como un blob y no aprenderás nada.
 
@@ -116,7 +116,7 @@ Un turno es una traza; modelo y tools son spans. La lista de métricas de la uni
 
 *Fuente nombrada: Hugging Face Agents Course, Bonus Unit 2, [introduction](https://huggingface.co/learn/agents-course/bonus-unit2/introduction) (Burtenshaw, Thomas, Simonini y Paniego, Apache-2.0).*
 
-Los autores dicen que este capítulo es para quien ya desarrolla y despliega agentes, quien necesita trazas para diagnosticar una ejecución en vivo, quien quiere bajar el overhead operativo y quien quiere un bucle de feedback de usuario más eval automática. En corto: cualquiera que ponga un agente delante de usuarios. iAguide lo coloca después de [evaluación](/course/evaluation) porque una métrica sin span es una corazonada.
+Los autores dicen que este capítulo es para quien ya desarrolla y despliega agentes, quien necesita trazas para diagnosticar una ejecución en vivo, quien quiere bajar el overhead operativo y quien quiere un bucle de feedback de usuario más eval automática. En corto: cualquiera que ponga un agente delante de usuarios. iAguide lo coloca después de [evaluación](/es/m/evaluation) porque una métrica sin span es una corazonada.
 
 Consejo práctico: haz esta unidad antes de discutir un vendor. Si no puedes nombrar cinco spans de un turno de soporte, un panel solo te mostrará una caja negra más bonita.
 
@@ -142,7 +142,7 @@ La introducción promete OpenTelemetry con el framework smolagents. La página d
 
 Consejo práctico: un exportador en staging. Confirma que aparece un span de tool cuando llamas `get_weather` en el Alfred dummy. Si el exportador solo ve `generate`, instrumentaste el modelo y no el arnés.
 
-Enlace: el bucle interno que trazas es el que se escribe a la vista en [dummy-agent](/course/dummy-agent). Los workers anidados de [smolagents-multi](/course/smolagents-multi) se vuelven spans anidados o pierdes al manager.
+Enlace: el bucle interno que trazas es el que se escribe a la vista en [dummy-agent](/es/m/dummy-agent). Los workers anidados de [smolagents-multi](/es/m/smolagents-multi) se vuelven spans anidados o pierdes al manager.
 
 ## Latencia frente a errores, dos gráficos
 
@@ -197,11 +197,11 @@ El bucle de la unidad: los fallos nuevos se unen al set offline. Más difícil d
 
 *Fuente nombrada: Hugging Face Agents Course, Bonus Unit 2 (unidad completa); particularidades iAguide que implementan el bucle interno.*
 
-- El `while` interno: [dummy-agent](/course/dummy-agent)
-- Framework code-first que instrumentas: [smolagents](/course/smolagents)
-- Workers anidados como spans anidados: [smolagents-multi](/course/smolagents-multi)
-- Retrieve como span de tool: [agentic-rag](/course/agentic-rag)
-- Cultura de eval offline: [evaluation](/course/evaluation) y [gaia](/course/gaia)
+- El `while` interno: [dummy-agent](/es/m/dummy-agent)
+- Framework code-first que instrumentas: [smolagents](/es/m/smolagents)
+- Workers anidados como spans anidados: [smolagents-multi](/es/m/smolagents-multi)
+- Retrieve como span de tool: [agentic-rag](/es/m/agentic-rag)
+- Cultura de eval offline: [evaluation](/es/m/evaluation) y [gaia](/es/m/gaia)
 
 Consejo práctico: si un worker anidado no tiene span, depurarás al manager y publicarás el bug del worker. Nombra al worker.
 

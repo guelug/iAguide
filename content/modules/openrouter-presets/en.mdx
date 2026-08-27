@@ -1,0 +1,596 @@
+## OpenRouter is not a model
+
+OpenRouter is an access and routing layer. It gives you an endpoint that speaks familiar APIs, a model catalog, and a network of providers behind it. You send a request; OpenRouter decides which endpoint can serve it, applies your restrictions, tries fallbacks, and returns the response.
+
+That changes the question. You are not just configuring "which model I want." You are defining a reproducible policy for every call:
+
+- which models it may use;
+- which providers it may touch;
+- what data may be retained;
+- how much money it may spend;
+- what latency and throughput you prefer;
+- which parameters, tools, and reasoning are active;
+- what traceability you want afterwards.
+
+<VisualSlot caption="A request crosses the preset, the routing, and the guardrails before reaching the model. If a gate blocks it, the model never even sees the prompt." />
+
+The official OpenRouter docs separate three ways to integrate:
+
+1. **HTTP API**: full control, zero SDK dependency.
+2. **SDKs**: typed calls, less glue.
+3. **Agent SDK**: loops, tools, and state for agents.
+
+This lesson focuses on the mental object they all share: the preset. The screen is comfortable, but in the end everything becomes fields of a request.
+
+## The preset: saved configuration, not magic
+
+A preset is a template applied to the requests that use it. It is not a new model, it trains nothing, and it does not automatically freeze OpenRouter's infrastructure. If the catalog changes, resolution can change unless you pin models and providers explicitly.
+
+The preset exists so you do not copy a delicate configuration into every application. A team might have, for example:
+
+- `prod-agent`: reliable models, allowed providers, ZDR, a price cap, and minimal tools;
+- `cheap-analysis`: sorted by price, reasonable context, no writing tools;
+- `fast-code`: routed by throughput, a coder model, and a bounded p90 latency.
+
+<Myth>
+A preset is not a guarantee that you will always get the same server. It is a selection policy. For reproducibility, pin the models, restrict providers, log the `model` and routing info, and keep your evals.
+</Myth>
+
+## Basic Info
+
+### Name
+
+The name identifies the preset in the panel. The UI requires at least three characters. Write something a teammate can understand six months later: `prod-support-zdr` says a lot more than `test-2`.
+
+### Slug
+
+The slug is the stable identifier used in URLs, references, or integrations. Treat it like an API: lowercase, short, and not changed on a whim. Changing the visible name is cosmetic; changing the slug can break references.
+
+### Description
+
+The description is for human organization. Include purpose, expected cost, privacy, and limits. A good description answers "why does this preset exist" without forcing anyone to open every checkbox:
+
+> Production support. Claude/Gemini fallback, ZDR, max 2 USD/M prompt tokens, web search on, no shell.
+
+### System Prompt
+
+This is an instruction OpenRouter includes with every request that uses the preset. Use it for stable behavior rules: output format, language, safety limits, or the application's role.
+
+Do not put user data, secrets, credentials, or per-request context here. Do not assume the system prompt can replace a permission policy. "Do not delete files" is an instruction; `shell` disabled or a guardrail is a control.
+
+The system prompt consumes tokens on every call. In an agent, it also grows the prefill and can affect cost. Keep a stable prefix to help caching, and avoid rewriting it dynamically without reason.
+
+## Models: selection and fallbacks
+
+The screen lets you select up to three models. If you leave the selection empty, the preset can be used with any model allowed by the request and the account policies. That flexibility is convenient, but less reproducible.
+
+When you select several models, they work as a fallback list. The idea is:
+
+1. try the first model;
+2. if it is unavailable or fails the restrictions, try the next;
+3. keep going until a valid route is found, or return an error.
+
+A model fallback is not exactly the same as a provider fallback. The model can change from `provider/model-a` to `provider/model-b`; within a single model, OpenRouter can also pick another compatible provider. Log both levels in observability.
+
+<Callout>
+Do not pick three models that share the same down provider and call it high availability. Diversify the model and, when it makes sense, the provider. Then test real failures with a small eval.
+</Callout>
+
+The newest model alias can point to a new version without redeploy. That is useful for exploring and dangerous for comparing historical results. In production, decide between a moving alias and a fixed slug/version.
+
+## Provider Routing
+
+OpenRouter keeps several endpoints for the same model. By default it tries to balance load and prioritize an economical route, but the preset can change the policy.
+
+### Include Provider Preferences
+
+This toggle includes the `provider` object in the saved configuration. If it is off, the request keeps the default routing behavior. If you turn it on, you can define the preferences that follow.
+
+A preference is not always an obligation. `preferred_min_throughput` and `preferred_max_latency` are for ordering and deprioritizing. `max_price`, `data_collection`, ZDR, and certain allow/deny lists can make the request impossible and produce an error.
+
+### sort
+
+`sort` decides how available endpoints are ordered. The practical strategies are:
+
+- **price**: prioritize cost;
+- **throughput**: prioritize tokens per second;
+- **latency**: prioritize fast responses;
+- **order**: respect the explicit provider order when that mode is used.
+
+The docs also allow an object with `by` and `partition`. Partitioning avoids mixing endpoints from different categories without control. If you choose `order`, there is no load balancing between those entries: the first valid one is tried, then the second.
+
+Do not confuse "sort by throughput" with "guarantee throughput." The provider can degrade after selection. If you have an SLO, measure p50/p90/p99 of your traffic.
+
+### data_collection
+
+Controls whether providers that may store data non-transiently or use it per their policies are allowed. `allow` opens more routes. `deny` restricts the set to providers that meet a compatible no-collection policy.
+
+The final behavior also depends on account, workspace, and guardrail configuration. Read the routing result and the effective policy; do not assume a lone checkbox overrides a higher restriction.
+
+### order
+
+`order` is an ordered list of provider slugs. OpenRouter looks for the first provider in that list that supports the model and the requested parameters. If it cannot use it, it moves to the next.
+
+The slug must be the provider identifier, not the brand name you see on a card. If the UI shows a dynamic list, search and select the catalog entry. Do not invent `openai` when the endpoint you need belongs to another integration.
+
+<Steps>
+1. Define the model and required capabilities first.
+2. Add only providers that actually support that model.
+3. Decide whether the order means preference, compliance, or contingency.
+4. Enable fallbacks and test a down provider.
+</Steps>
+
+### only
+
+`only` is a per-request allowlist. If you select `only: ["anthropic", "openai"]`, OpenRouter should not use other providers for that call, on top of account restrictions.
+
+Use it when you need a trusted route, a region, or a contractual policy. The narrower the list, the higher the risk of a "no provider available" error.
+
+### ignore
+
+`ignore` is a per-request denylist. It exists to exclude a specific provider that is degraded, fails a policy, or has a known incompatibility.
+
+`only` and `ignore` combine with account configuration. They are not a way to bypass a guardrail: intersections and upper limits still win.
+
+### require_parameters
+
+When `true`, OpenRouter should only select providers that support every parameter sent. With `false`, it can make a best effort and pick an endpoint that ignores unsupported parameters.
+
+For a demo, best effort may be acceptable. For strict JSON, reasoning, tools, or an important SLO, requiring parameters avoids a false sense of applied configuration.
+
+### allow_fallbacks
+
+With `true`, the router can use backup providers when the primary is unavailable. With `false`, a failure or incompatibility of the preferred endpoint ends the request.
+
+Disabling fallbacks gives more control and less resilience. Enabling them gives availability, but can change cost, latency, retention, or behavior. That is a product decision, not an innocent checkbox.
+
+### ZDR
+
+ZDR means Zero Data Retention. When required, only endpoints that do not retain prompts per OpenRouter's and the provider's policy are considered. It can reduce the available routes.
+
+ZDR does not mean your application can stop caring about sensitive data. The prompt can appear in your logs, in the client queue, or in an observability system. Privacy is a full chain.
+
+### enforce_distillable_text
+
+Restricts routing to models/providers that allow text distillation under their terms. Relevant when an organization has an explicit policy about using outputs to train or distill other models.
+
+## Provider list: how to read it
+
+The list in the modal is the provider catalog available at that moment. It includes infrastructure integrations, model labs, clouds, and specialized endpoints: Anthropic, OpenAI, Google, DeepSeek, Mistral, Meta, Minimax, Moonshot AI, Alibaba, NVIDIA, Groq, Cerebras, Fireworks, Together, xAI, Z.AI, and many more.
+
+Do not memorize the list or copy it into documentation as if it were permanent. It can change. What matters is distinguishing:
+
+- **provider**: who serves the model;
+- **model**: which weights or API are requested;
+- **endpoint**: a concrete combination of both with capabilities, price, region, and latency;
+- **slug**: the identifier the API uses.
+
+If you need a stable allowlist, select the slugs your policy approves and periodically verify they are still available. The visual list is a selector, not a guarantee of universal support.
+
+## quantizations
+
+This filter restricts endpoints by quantization level. The list includes:
+
+`int4`, `int8`, `fp4`, `mxfp4`, `nvfp4`, `fp6`, `fp8`, `mxfp8`, `fp16`, `bf16`, `fp32`, and `unknown`.
+
+It does not mean OpenRouter will quantize the model for you. It filters providers that offer an artifact with that declared precision. `unknown` means the precision is not declared or cannot be classified safely.
+
+Remember the difference between format and method: `Q4_K_M` is a GGUF quantization scheme; `AWQ` and `GPTQ` are common GPU methods/artifacts; `NF4` shows up a lot in QLoRA; `nvfp4` depends on hardware and runtime.
+
+For a service with JSON and code, a cheap quantization can degrade exactly the tokens you need most. Use the filter to narrow candidates and an eval to decide.
+
+## max_price
+
+`max_price` is an object with the maximum price you accept for that request. The unit is USD per million tokens and it separates, at minimum, prompt and completion price:
+
+```json
+{
+  "max_price": {
+    "prompt": 0.5,
+    "completion": 2.0
+  }
+}
+```
+
+The semantics are a hard limit: unlike latency and throughput preferences, an endpoint above the allowed price should not be used. If no provider qualifies, the call fails.
+
+Set a realistic limit. A budget that is too low does not save money if it turns every request into an error. A limit that is too high is not cost control either. Calculate per use case and remember that one agent turn can make many calls.
+
+## Performance thresholds
+
+### preferred_min_throughput
+
+The preferred minimum throughput in tokens per second. It can be a number, applied to p50, or an object with per-percentile thresholds:
+
+```json
+{
+  "preferred_min_throughput": {
+    "p50": 100,
+    "p75": 80,
+    "p90": 50,
+    "p99": 25
+  }
+}
+```
+
+An endpoint below the threshold can still be used; it just loses priority. In fallbacks, an alternative model that meets the threshold can beat the primary model that does not.
+
+### preferred_max_latency
+
+The preferred maximum latency in seconds, also as a number or percentiles:
+
+```json
+{
+  "preferred_max_latency": {
+    "p50": 1,
+    "p75": 2,
+    "p90": 3,
+    "p99": 5
+  }
+}
+```
+
+It is not a timeout or a promise. A slow endpoint can still be chosen if no better one exists. If you need to cut the request, set the timeout in your client and design the retry.
+
+<Compare a="max_price" b="thresholds">
+<Side>
+`max_price` is a cost constraint. If no route exists within the limit, the request fails.
+</Side>
+<Side>
+Throughput and latency are preferences. They order candidates, but do not guarantee the endpoint meets the number on every request.
+</Side>
+</Compare>
+
+## Parameters
+
+The preset can fix generation parameters. Each **Include** checkbox decides whether that field is sent; if you do not include it, the model/provider default is kept.
+
+### Temperature
+
+Controls sampling randomness. Low values concentrate the distribution; high values explore more. `1.00` is a starting point, not a law. For structured extraction, low usually works; for ideation, a bit higher.
+
+### Top P
+
+Nucleus sampling keeps the minimum set of tokens whose cumulative probability reaches `p`. `1.00` lets the whole distribution through. Changing temperature and top-p at the same time makes it harder to know what caused the change.
+
+### Top K
+
+Limits the choice to the `K` most probable tokens. `40` is a common example. Some providers or models may ignore it. If you enable `require_parameters`, the endpoint must support it.
+
+### Frequency Penalty
+
+Penalizes tokens by how often they have appeared. It helps reduce mechanical repetition, but can hurt code, proper names, or formats where repeating is correct.
+
+### Presence Penalty
+
+Penalizes the mere presence of already-used tokens, regardless of how many times. It pushes the model to introduce new vocabulary. Too high produces responses that change topic like a squirrel with Wi-Fi.
+
+### Repetition Penalty
+
+Another penalty family. `1.00` is usually neutral; values above one discourage repetition and below may encourage it. Not every engine interprets it the same way.
+
+### Max Tokens
+
+The cap on generated tokens. It cannot exceed the space left in the context window after the prompt. Remember that in reasoning models, the visible budget and the reasoning budget can compete for that limit.
+
+### Seed
+
+Requests a seed to repeat sampling when the provider supports it. It does not guarantee universal determinism: kernels, routing, backends, and distributed models can introduce variation. Use it for tests, not to promise bit-for-bit identity.
+
+### Verbosity
+
+Controls detail level in models that implement it. The UI indicates support for OpenAI and Anthropic; other models may ignore it. If the result matters, measure real behavior, not just the presence of the field.
+
+### Service Tier
+
+Selects a service class when the provider supports it. `priority` usually seeks fast paid capacity; `flex` may seek cheaper, slower capacity; `default` leaves the normal choice. On providers without tiers, the field is ignored.
+
+## Server tools
+
+Server tools are tools that run inside the service when the preset activates them. They are not the same as registering a local function in your application.
+
+### Web Search
+
+Searches for current information. `Auto · Medium` usually means automatic activation and an intermediate depth level. The model can decide when to use it based on the tool and its rules.
+
+### Web Fetch
+
+Retrieves content from a URL. Search finds; fetch opens. Control URLs, redirects, and sensitive data. The retrieved text returns to the context and grows the prefill.
+
+### Image Generation
+
+Allows requesting images from the flow. It can involve another model, another provider, and another cost. Define what should happen with URLs, errors, and generated content.
+
+### Datetime
+
+Provides the current date and time. Preferable to asking the model to guess the time from its weights.
+
+### Fusion
+
+Coordinates analysis across several models. The screen shows `3 models`. That raises cost and latency, but can improve consensus in tasks where a single answer is not enough. Do not use it by reflex: first test whether one model and an eval solve the case.
+
+### Advisor
+
+Consults a stronger model for guidance. Useful for complex decisions, but it adds a second call and a second data policy.
+
+### Subagent
+
+Delegates tasks to smaller or cheaper models. Set limits on steps, tools, and tokens. A subagent is not free: it can multiply calls and transfer context.
+
+### Shell
+
+Runs commands in an OpenRouter sandbox container. Treat it as a dangerous capability even though it is isolated: filter arguments, limit network and time, and do not put secrets in. If the task does not need shell, do not enable it.
+
+<Callout>
+Every enabled tool is a new surface: permissions, cost, latency, data, and the possibility of prompt injection. A chat preset does not need to become a Swiss army knife.
+</Callout>
+
+## Caching
+
+### Response Caching
+
+When enabled, identical requests can be served from cache. Useful for repeated responses, tests, and stable content. Do not confuse response caching with the model's KV cache or the provider's prefix cache:
+
+- **response cache**: returns an already-computed response for an identical request;
+- **prefix cache**: reuses a prompt prefix when reprocessing;
+- **KV cache**: internal attention states during a session/generation.
+
+### Cache TTL
+
+Defines how long the cached response lives. `300` seconds is five minutes. A short TTL reduces stale responses; a long one can save cost. Decide which fields form the key: user, locale, tools, model, and permissions should avoid collisions.
+
+Do not cache personalized responses as if they were public. The model identity, the preset, the parameters, and the tool content are part of a request's logical identity.
+
+## Reasoning
+
+### Enable Reasoning
+
+Enables extended reasoning on models that support it. It can improve hard problems, but consumes tokens and money. Not all models interpret this field.
+
+### Reasoning Effort
+
+Controls effort with levels like `minimal`, `low`, `medium`, `high`, or `xhigh`, depending on the API and model. More effort is not always better: for a trivial classification it only buys latency.
+
+### Reasoning Max Tokens
+
+Sets a specific budget for internal reasoning tokens. It should not be mixed with an incompatible effort level. The exact configuration depends on the reasoning shape the model supports.
+
+### Exclude Reasoning from Response
+
+Keeps reasoning tokens out of the visible output. That does not mean the model did not generate them or that they are free. Billing and the output limit still follow the provider's rules.
+
+<Compare a="effort" b="max_tokens">
+<Side>
+`reasoning.effort` expresses a qualitative intensity. The model decides how much to spend within its rules.
+</Side>
+<Side>
+`reasoning.max_tokens` sets a quantitative ceiling. Some APIs do not allow sending both at once.
+</Side>
+</Compare>
+
+## Classifiers beta: what they are
+
+An OpenRouter classifier is automatic classification of a workspace's generations. It does not decide which model responds in real time. After a request finishes, another model analyzes a serialized version of the prompt and writes labels to the record.
+
+The flow is asynchronous:
+
+1. the original request finishes and the application receives its response;
+2. a classification job is queued;
+3. the classifier model evaluates the taxonomy with structured output;
+4. the labels are stored on the generation;
+5. Activity shows aggregates and trends.
+
+That is why classification adds zero latency to the original response, though it does consume resources and can have administrative cost. If it fails by timeout, model error, or invalid output, the generation continues without labels.
+
+Only workspace admins can create and manage classifiers. The UI lets you use presets or create your own, select a sampling rate, and enable/disable the classifier. The UI indicates up to 10 classifiers per workspace.
+
+### Classifier presets
+
+The presets are ready-made taxonomies:
+
+- **Department**: Engineering, Sales, Marketing, Legal, HR, Finance, or Operations;
+- **Audience**: internal, customer, regulator, or public;
+- **Engineering work**: feature, bug fixing, documentation, refactor, code review;
+- **Agent complexity**: difficulty and task family;
+- **Capitalizable software expense**: an accounting classification that requires additional information and human review.
+
+You can use them as-is or customize them. An automatic label does not replace a fiscal, legal, or compliance decision.
+
+### Your own classifier
+
+A classifier can have up to eight individual dimensions. Each dimension must have names and values a person can audit. "Important" is not a taxonomy; `task_family: coding | analysis | planning` is a checkable structure.
+
+The classifier receives a serialized transcript. Roles and relevant content are included, but not necessarily every full tool schema; the docs say tool names are preserved. Long turns are truncated to the classifier's limit.
+
+Two consequences:
+
+- it classifies what the serialized text actually sees, not all the private state of your application;
+- if a distinction depends on an omitted field or truncated context, the label can be uncertain.
+
+Pick a large, cheap classifier model recommended by OpenRouter, but validate a sample manually. Automatic classifications are telemetry, not divine truth delivered in JSON.
+
+### Sampling rate and billing
+
+You do not have to classify 100% of traffic. A 10% sampling rate can be enough to spot trends and reduces cost. Do stratified sampling if you need to represent rare departments or task types.
+
+Classification calls are billed to the admin user who configured the classifier, not to a specific API key. Document that cost so the usage chart does not look like black magic.
+
+## Guardrails
+
+Guardrails are organizational controls for spend, models, providers, and data. A preset expresses a request's preferences; a guardrail can impose upper limits.
+
+They are configured in Settings → Privacy → Guardrails. In an organization, admin rights are usually required.
+
+A guardrail can include:
+
+- daily, weekly, or monthly budget;
+- model allowlist;
+- provider allowlist;
+- Zero Data Retention by model groups;
+- prompt injection and jailbreak detection;
+- sensitive information detection and redaction/blocking;
+- custom content filters via patterns.
+
+Creating a guardrail is not enough: it has to be assigned. It can be assigned to members or API keys, and also configured as the workspace default guardrail.
+
+### Hierarchy and conflicts
+
+Account restrictions still apply. With several guardrails:
+
+- provider allowlists intersect;
+- model allowlists intersect;
+- ZDR applies with restrictive per-group logic;
+- the lowest budgets win;
+- an API key budget and a member budget can accumulate to block when either is exceeded.
+
+A guardrail assigned to a member affects their API keys by default. A key guardrail can add restrictions, not open a door the member or organization closed.
+
+### Security and Sensitive Info
+
+Security detection looks for prompt injection and jailbreak patterns. Sensitive Info detects PII or other data per the available presets, and can redact or block. Custom filters allow regex for your own patterns.
+
+Do not confuse a guardrail with perfect sanitization. A pattern can have false positives and negatives. Test with normal cases, attacks, and texts that contain quoted instructions.
+
+### Guardrails vs provider preferences
+
+`provider.only`, `provider.ignore`, and `provider.data_collection` are preferences or restrictions for that request. An organization guardrail can reduce the set further. The effective intersection is what matters.
+
+If the preset allows OpenAI and Anthropic, but the guardrail only allows Anthropic, OpenAI disappears. If `max_price` allows 2 USD but the daily budget is exhausted, the request fails anyway.
+
+## A complete preset, in JSON
+
+This example brings together the main fields. Exact model and provider names must be verified against the current catalog:
+
+```json
+{
+  "model": "anthropic/claude-sonnet-4.5",
+  "models": [
+    "anthropic/claude-sonnet-4.5",
+    "openai/gpt-5-mini"
+  ],
+  "messages": [
+    { "role": "user", "content": "Summarize this report in five points." }
+  ],
+  "provider": {
+    "order": ["anthropic", "openai"],
+    "allow_fallbacks": true,
+    "require_parameters": true,
+    "data_collection": "deny",
+    "quantizations": ["bf16", "fp16"],
+    "preferred_min_throughput": { "p90": 40 },
+    "preferred_max_latency": { "p90": 5 },
+    "max_price": { "prompt": 1, "completion": 4 }
+  },
+  "temperature": 0.2,
+  "top_p": 0.9,
+  "max_tokens": 1200,
+  "reasoning": {
+    "enabled": true,
+    "effort": "medium",
+    "exclude": true
+  }
+}
+```
+
+Do not copy this JSON without checking compatibility. `models` and `model` can have different rules per endpoint; reasoning, top-k, verbosity, service tier, and tools depend on the provider. `require_parameters: true` is your safety net when you need the fields respected.
+
+## How to debug a failing request
+
+- **400**: invalid parameters, incompatible field, or malformed body.
+- **401**: invalid or expired credentials.
+- **402**: insufficient credits or exhausted budget.
+- **403**: insufficient permission, moderation, or a guardrail blocking.
+- **408**: timeout.
+- **429**: rate limit.
+- **502**: provider/model down or invalid response.
+- **503**: no provider meets the routing restrictions.
+
+If you enable experimental router metadata, you can inspect stages like provider selection, compression, guardrails, tools, and retries. The docs warn that the shape of `openrouter_metadata` is unstable: use it for diagnosis, not as a production contract without tolerance for change.
+
+A guardrail error can include detected patterns, provider, and model. Do not print full sensitive prompts in logs. The error is for debugging, not for creating another leak.
+
+## Production recipe
+
+<Steps>
+1. Create a name and slug that describe the use case.
+2. Write a short, stable system prompt.
+3. Select up to three models with deliberate fallback order.
+4. Enable `provider` only with restrictions you decided to measure.
+5. Separate `max_price` from latency and throughput preferences.
+6. Use `require_parameters` when format or tools are critical.
+7. Enable ZDR and guardrails if policy requires it.
+8. Add only the server tools you need.
+9. Define cache and TTL by sensitivity and freshness.
+10. Configure reasoning only when the eval shows it pays for itself.
+11. Enable classifiers with a sampling rate and an auditable taxonomy.
+12. Test 400, 403, 429, and 503 before sending real traffic.
+</Steps>
+
+<Callout>
+The good preset is not the one with every switch on. It is the one that makes the decisions that matter explicit and leaves out capabilities nobody can justify.
+</Callout>
+
+<Quiz
+  questions={[
+    {
+      id: "or1",
+      stem: "What is the difference between max_price and preferred_max_latency?",
+      options: [
+        { id: "a", text: "Both are identical hard limits." },
+        { id: "b", text: "max_price prevents using routes above the price; latency is a routing preference and does not guarantee the SLO." },
+        { id: "c", text: "max_price measures tokens per second." },
+        { id: "d", text: "preferred_max_latency only applies to quantization." }
+      ],
+      correct: "b",
+      explanation: "The maximum price works as a cost constraint. Latency and throughput thresholds prioritize endpoints, but one that misses them can still be used if no valid alternative exists."
+    },
+    {
+      id: "or2",
+      stem: "What happens when you select several models in a preset?",
+      options: [
+        { id: "a", text: "Their weights are merged into a new model." },
+        { id: "b", text: "They are used as fallback models based on availability and restrictions." },
+        { id: "c", text: "All three are always called in parallel." },
+        { id: "d", text: "They automatically become a classifier." }
+      ],
+      correct: "b",
+      explanation: "Multiple selection is for model fallbacks. It does not create an ensemble or imply three parallel calls by default."
+    },
+    {
+      id: "or3",
+      stem: "What does a beta classifier do?",
+      options: [
+        { id: "a", text: "It changes the provider before the request responds." },
+        { id: "b", text: "It classifies generations asynchronously and adds labels to the record for analysis." },
+        { id: "c", text: "It always blocks sensitive prompts." },
+        { id: "d", text: "It quantizes the workspace models." }
+      ],
+      correct: "b",
+      explanation: "The classifier runs after generation. It adds no latency to the original response and, if it fails, the generation continues without labels."
+    },
+    {
+      id: "or4",
+      stem: "What does require_parameters: true mean?",
+      options: [
+        { id: "a", text: "It forces OpenRouter to use the most expensive model." },
+        { id: "b", text: "It only allows endpoints that support every parameter sent." },
+        { id: "c", text: "It enables reasoning on any model." },
+        { id: "d", text: "It disables fallbacks." }
+      ],
+      correct: "b",
+      explanation: "With require_parameters, a provider that does not implement a requested parameter should not be chosen. This reduces surprises with tools, reasoning, or specific formats."
+    }
+  ]}
+/>
+
+## Sources
+
+- OpenRouter, *Quickstart*: https://openrouter.ai/docs/quickstart
+- OpenRouter, *Provider Routing*: https://openrouter.ai/docs/guides/routing/provider-selection
+- OpenRouter, *API Parameters*: https://openrouter.ai/docs/api_reference/parameters
+- OpenRouter, *Reasoning Tokens*: https://openrouter.ai/docs/guides/best-practices/reasoning-tokens
+- OpenRouter, *Custom Classifiers*: https://openrouter.ai/docs/guides/features/classifiers
+- OpenRouter, *Guardrails*: https://openrouter.ai/docs/guides/features/guardrails
+- OpenRouter, *Router Metadata*: https://openrouter.ai/docs/guides/features/router-metadata
+- OpenRouter, *Errors and Debugging*: https://openrouter.ai/docs/api_reference/errors-and-debugging
+- OpenRouter, *Server Tools*: https://openrouter.ai/docs/guides/features/server-tools

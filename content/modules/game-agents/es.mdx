@@ -101,7 +101,7 @@ La observación es el string de batalla formateado. La acción debe coincidir co
 
 Implementas `_get_llm_decision`. Dan ejemplos completos con OpenAI, Mistral y Gemini en el mismo `agents.py`. El system prompt de la plantilla es “You are a …” — rellénalo. El código no corre tal cual; es un plano. Devuelve un dict de decisión con `name` y `arguments`, o una clave `error` para que la clase base pueda caer atrás.
 
-Consejo práctico: parsea las llamadas a tools con el mismo rigor que [dummy-agent](/course/dummy-agent). Un Hydro Pump que no está en la lista de PP debe volverse `None`, no un string creativo que el motor rechazará a mitad de turno.
+Consejo práctico: parsea las llamadas a tools con el mismo rigor que [dummy-agent](/es/m/dummy-agent). Un Hydro Pump que no está en la lista de PP debe volverse `None`, no un string creativo que el motor rechazará a mitad de turno.
 
 <TryThis>
 Define un turno: **estado** (tu HP, tipo rival, movimientos disponibles), **acciones** (`choose_move`, `choose_switch`), **observación** (el string de batalla formateado). Escribe un plan ilegal que el modelo podría emitir y cómo el arnés lo rechaza sin tumbar el combate.
@@ -113,7 +113,7 @@ Define un turno: **estado** (tu HP, tipo rival, movimientos disponibles), **acci
 
 El agente de RivalAI planeó Hydro Pump porque el lore decía que Agua gana a Fuego. El Pokémon activo no lo había aprendido — la lista de PP vacía para ese id. La clase base cayó a aleatorio y el stream se rió. Promptearon “solo movimientos disponibles.” También hacía falta que `_find_move_by_name` fallara cerrado, que ya lo hacía; el caso es el optimismo del prompt frente a la ley del estado.
 
-Luego pusieron la lista de movimientos disponibles en el system prompt *y* en el estado formateado, y registraron fallback_reason como span (véase [observability](/course/observability)). La rama aleatoria dejó de ser una sorpresa en el stream.
+Luego pusieron la lista de movimientos disponibles en el system prompt *y* en el estado formateado, y registraron fallback_reason como span (véase [observability](/es/m/observability)). La rama aleatoria dejó de ser una sorpresa en el stream.
 
 ## Lanzar un combate, como lo imprimen
 
@@ -146,10 +146,10 @@ Los NPC con LLM hablan; los agentes eligen una acción legal. 30 FPS no espera u
 
 *Fuente nombrada: Hugging Face Agents Course, Bonus Unit 3 (unidad completa); particularidades iAguide que comparten el bucle.*
 
-- Think-Act-Observe interno: [dummy-agent](/course/dummy-agent)
-- Tokens de tools aprendidos si entrenas un luchador: [function-calling-ft](/course/function-calling-ft)
-- Trazas de fallback_reason: [observability](/course/observability)
-- Multi-agente solo si anidas planificadores: [smolagents-multi](/course/smolagents-multi)
+- Think-Act-Observe interno: [dummy-agent](/es/m/dummy-agent)
+- Tokens de tools aprendidos si entrenas un luchador: [function-calling-ft](/es/m/function-calling-ft)
+- Trazas de fallback_reason: [observability](/es/m/observability)
+- Multi-agente solo si anidas planificadores: [smolagents-multi](/es/m/smolagents-multi)
 
 Más nombres de la unidad: https://hf.co/learn/ml-games-course · https://thomassimonini.substack.com/ · Claude Plays Pokémon https://www.twitch.tv/claudeplayspokemon
 
@@ -163,7 +163,7 @@ Consejo práctico: nunca añadas una tool Pokédex que liste movimientos que el 
 
 ## El fallback aleatorio es una métrica
 
-*Fuente nombrada: Hugging Face Agents Course, Bonus Unit 3, rama de fallback de `choose_move` en [building_your_pokemon_agent](https://huggingface.co/learn/agents-course/bonus-unit3/building_your_pokemon_agent); métricas de Bonus Unit 2 en [observability](/course/observability).*
+*Fuente nombrada: Hugging Face Agents Course, Bonus Unit 3, rama de fallback de `choose_move` en [building_your_pokemon_agent](https://huggingface.co/learn/agents-course/bonus-unit3/building_your_pokemon_agent); métricas de Bonus Unit 2 en [observability](/es/m/observability).*
 
 Cuando `action_taken` sigue en falso, el código de la unidad imprime `fallback_reason` y llama a `choose_random_move`. Ese print es un **span de error** en el lenguaje de Bonus Unit 2: un error de petición, no un problema de latencia. Alerta el ratio de fallback como SignalOps debería haber alertado los timeouts al CRM. Un 40 por ciento aleatorio con una pista de comentario “inteligente” es un NPC parlante pegado a un cara o cruz.
 

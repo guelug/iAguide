@@ -61,7 +61,7 @@ Write the loop above as pseudocode in your language, with a fake `runTool(name, 
 
 ## Where the dummy tutorial went
 
-The loop above is testable without weights. The Hugging Face course first implements it as a [dummy agent library](/course/dummy-agent) (stop before Observation, run the tool yourself) and then as a [smolagents](/course/smolagents) particularity. Patterns — ReAct versus a graph versus a retrieval workflow — live in [agent patterns](/course/agent-patterns). Those are encodings of **this** loop, not a fifth track.
+The loop above is testable without weights. The Hugging Face course first implements it as a [dummy agent library](/en/m/dummy-agent) (stop before Observation, run the tool yourself) and then as a [smolagents](/en/m/smolagents) particularity. Patterns — ReAct versus a graph versus a retrieval workflow — live in [agent patterns](/en/m/agent-patterns). Those are encodings of **this** loop, not a fifth track.
 
 <TryThis>
 Lab, still without a model: implement `runTool(name, args)` with a hard allowlist and a `max_steps` of 4. Feed it two scripted completions (one Action, one Final Answer). Assert that a third Action would stop. Point a comment at dummy-agent for the same lab with JSON in the prompt.
@@ -75,4 +75,4 @@ This lesson rewrites ideas from the [Hugging Face Agents Course](https://hugging
 
 ## Next on this track
 
-The harness map continues in two layers. **General pattern** (no product in the title): [agent loop](/course/agent-loop), [prompt assembly](/course/prompt-assembly), [tools runtime](/course/tools-runtime), [sessions](/course/sessions), [gateway](/course/gateway), [compression and caching](/course/compression-caching), [plugins and skills](/course/plugins-and-skills), [scheduled jobs](/course/scheduled-jobs), [browser tools](/course/browser-tools), [programmatic access](/course/programmatic-access). **Product particularities** follow: Hermes (`hermes-*`) then OpenClaw (`openclaw-*`). Hugging Face encodings (dummy-agent, smolagents, LangGraph, LlamaIndex) stay on this same harness track — not a fifth one.
+The harness map continues in two layers. **General pattern** (no product in the title): [agent loop](/en/m/agent-loop), [prompt assembly](/en/m/prompt-assembly), [tools runtime](/en/m/tools-runtime), [sessions](/en/m/sessions), [gateway](/en/m/gateway), [compression and caching](/en/m/compression-caching), [plugins and skills](/en/m/plugins-and-skills), [scheduled jobs](/en/m/scheduled-jobs), [browser tools](/en/m/browser-tools), [programmatic access](/en/m/programmatic-access). **Product particularities** follow: Hermes (`hermes-*`) then OpenClaw (`openclaw-*`). Hugging Face encodings (dummy-agent, smolagents, LangGraph, LlamaIndex) stay on this same harness track — not a fifth one.

@@ -14,7 +14,7 @@ Curso oficial: https://huggingface.co/learn/agents-course · repo: https://githu
 
 *Fuente nombrada: Hugging Face Agents Course, Bonus Unit 1, [introduction](https://huggingface.co/learn/agents-course/bonus-unit1/introduction).*
 
-Los autores la marcan **opcional** y más avanzada que Unit 1. Vuelve cuando sepas mejor el fine-tuning. Aun así recorren las ideas núcleo. Preparación recomendada: afinar un LLM con Transformers ([NLP Course capítulo 3](https://huggingface.co/learn/nlp-course/chapter3/1?fw=pt)) y conocer `SFTTrainer` ([NLP Course capítulo 11](https://huggingface.co/learn/nlp-course/en/chapter11/1)). iAguide lo coloca después de [fine-tuning](/course/fine-tuning) por la misma razón.
+Los autores la marcan **opcional** y más avanzada que Unit 1. Vuelve cuando sepas mejor el fine-tuning. Aun así recorren las ideas núcleo. Preparación recomendada: afinar un LLM con Transformers ([NLP Course capítulo 3](https://huggingface.co/learn/nlp-course/chapter3/1?fw=pt)) y conocer `SFTTrainer` ([NLP Course capítulo 11](https://huggingface.co/learn/nlp-course/en/chapter11/1)). iAguide lo coloca después de [fine-tuning](/es/m/fine-tuning) por la misma razón.
 
 Lo que dicen que aprenderás: cómo los LLM modernos estructuran conversaciones que disparan tools; LoRA como adapter ligero; el ciclo Thought → Act → Observe dentro de modelos de function-calling; tokens especiales nuevos que separan razonamiento interno, llamadas salientes y respuestas de tools. Al final deberías haber afinado tu propio modelo para function calling.
 
@@ -45,7 +45,7 @@ Esos marcadores son cómo el modelo distingue razonamiento interno, llamadas sal
 Consejo práctico: si añades tokens al tokenizer, resérvalos y entrena las filas de embedding. Un token especial con embedding aleatorio es una palabra nueva que el modelo no ha visto. El notebook es el ejemplo trabajado; esta página no lo pega.
 
 <Callout>
-El bucle dummy de [dummy-agent](/course/dummy-agent) ya para en una secuencia y parsea JSON. El fine-tune de function-calling mete ese contrato en los pesos. El arnés sigue ejecutando. El modelo sigue sin poder llamar una función; solo puede emitir texto que parece una llamada.
+El bucle dummy de [dummy-agent](/es/m/dummy-agent) ya para en una secuencia y parsea JSON. El fine-tune de function-calling mete ese contrato en los pesos. El arnés sigue ejecutando. El modelo sigue sin poder llamar una función; solo puede emitir texto que parece una llamada.
 </Callout>
 
 ## Empieza desde instruct, no desde base
@@ -68,7 +68,7 @@ Consejo práctico: no hagas LoRA de un checkpoint base “porque es más puro.�
 
 LoRA inserta unos pocos pesos nuevos como adapter. El entrenamiento es más rápido, más barato, y el adapter pesa unos cientos de MB. Añade matrices de descomposición de rango a capas Transformer, normalmente lineales. El resto del modelo se congela; actualizas el adapter. En inferencia corres adapter más base, o fusionas para no añadir latencia.
 
-La unidad apunta al capítulo LoRA del NLP Course para la mecánica. iAguide ya enseña LoRA en [fine-tuning](/course/fine-tuning). Esta particularidad es *cómo se ven los datos* cuando la tarea son tokens de tools.
+La unidad apunta al capítulo LoRA del NLP Course para la mecánica. iAguide ya enseña LoRA en [fine-tuning](/es/m/fine-tuning). Esta particularidad es *cómo se ven los datos* cuando la tarea son tokens de tools.
 
 Consejo práctico: LoRA aprenderá fielmente el esquema del viernes. Si el lunes el esquema movió un campo obligatorio, el adapter del lunes está mal. Congela el esquema JSON un mes y luego entrena una vez. SchemaPatch hizo lo contrario.
 
@@ -137,9 +137,9 @@ Consejo práctico: mantén los argumentos válidos respecto al esquema. Un forma
 
 *Fuente nombrada: Hugging Face Agents Course, Bonus Unit 1, What You’ll Learn en [introduction](https://huggingface.co/learn/agents-course/bonus-unit1/introduction) y la lista Think/Act/Observe en [what-is-function-calling](https://huggingface.co/learn/agents-course/bonus-unit1/what-is-function-calling).*
 
-La introducción promete que implementarás y modificarás el ciclo Thought → Act → Observe para flujos de function-calling mantenibles. Los tokens son cómo el ciclo se *escribe* después de entrenar. El arnés de [dummy-agent](/course/dummy-agent) sigue ejecutando la función. La Observation sigue sin muestrearse.
+La introducción promete que implementarás y modificarás el ciclo Thought → Act → Observe para flujos de function-calling mantenibles. Los tokens son cómo el ciclo se *escribe* después de entrenar. El arnés de [dummy-agent](/es/m/dummy-agent) sigue ejecutando la función. La Observation sigue sin muestrearse.
 
-Consejo práctico: registra el texto `[TOOL_CALLS]` como span (véase [observability](/course/observability)). Un LoRA que emite una llamada con pinta válida a una tool que nunca registraste es un bug de datos que solo verás si el span de parse falla cerrado.
+Consejo práctico: registra el texto `[TOOL_CALLS]` como span (véase [observability](/es/m/observability)). Un LoRA que emite una llamada con pinta válida a una tool que nunca registraste es un bug de datos que solo verás si el span de parse falla cerrado.
 
 ## Lista práctica
 
@@ -162,10 +162,10 @@ El prompting lista tools; el fine-tune de function-calling enseña tokens y role
 
 *Fuente nombrada: Hugging Face Agents Course, Bonus Unit 1 (unidad completa); particularidades de training y harness de iAguide.*
 
-- El bucle prompteado que sustituyes o complementas: [dummy-agent](/course/dummy-agent)
-- Mecánica de LoRA: [fine-tuning](/course/fine-tuning)
-- Tools code-first sin LoRA propio: [smolagents](/course/smolagents)
-- Cuando retrieve es la tool: [agentic-rag](/course/agentic-rag)
+- El bucle prompteado que sustituyes o complementas: [dummy-agent](/es/m/dummy-agent)
+- Mecánica de LoRA: [fine-tuning](/es/m/fine-tuning)
+- Tools code-first sin LoRA propio: [smolagents](/es/m/smolagents)
+- Cuando retrieve es la tool: [agentic-rag](/es/m/agentic-rag)
 
 Inicio del curso: https://huggingface.co/learn/agents-course · repo: https://github.com/huggingface/agents-course · docs: https://huggingface.co/docs · LoRA del NLP Course: https://huggingface.co/learn/nlp-course/chapter11/4?fw=pt
 

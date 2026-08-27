@@ -2,7 +2,7 @@
 
 *Named source: Hugging Face Agents Course, Unit 3, [Introduction to Use Case for Agentic RAG](https://huggingface.co/learn/agents-course/unit3/agentic-rag/introduction) and [Agentic Retrieval Augmented Generation](https://huggingface.co/learn/agents-course/unit3/agentic-rag/agentic-rag) (Burtenshaw, Thomas, Simonini, & Paniego, Apache-2.0).*
 
-Classic RAG always fetches. **Agentic RAG** gives the model a retrieve tool (and maybe weather, web, Hub stats) and lets it decide. Unit 3 builds this as Alfred planning a gala: a RAG tool over **guest stories**, plus other tools, composed into a “gala agent.” You may use smolagents, LlamaIndex, or LangGraph — the course shows tabs for each. The geometry is the one in [embeddings](/course/embeddings-and-retrieval): stuff vs retrieve-then-read vs choose. This page is the worked party.
+Classic RAG always fetches. **Agentic RAG** gives the model a retrieve tool (and maybe weather, web, Hub stats) and lets it decide. Unit 3 builds this as Alfred planning a gala: a RAG tool over **guest stories**, plus other tools, composed into a “gala agent.” You may use smolagents, LlamaIndex, or LangGraph — the course shows tabs for each. The geometry is the one in [embeddings](/en/m/embeddings-and-retrieval): stuff vs retrieve-then-read vs choose. This page is the worked party.
 
 Official course home: https://huggingface.co/learn/agents-course · source: https://github.com/huggingface/agents-course
 
@@ -66,7 +66,7 @@ The agent page wires guest RAG + web + weather + Hub stats into one runnable age
 Practical tip: log which tool fired. A gala agent that only ever calls web search is not using the invitee index. A gala agent that only ever calls invitees is classic RAG with a costume.
 
 <Callout>
-Retrieved text is **data**. Treat it like Unit 1 Observation: append it, do not obey it as policy. See also [safety and injection](/course/safety-and-injection) in this course map when you harden production.
+Retrieved text is **data**. Treat it like Unit 1 Observation: append it, do not obey it as policy. See also [safety and injection](/en/m/safety-and-injection) in this course map when you harden production.
 </Callout>
 
 ## Gala requirements as an allowlist

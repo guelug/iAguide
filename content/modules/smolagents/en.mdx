@@ -16,9 +16,9 @@ Alfred the butler returns. In Unit 1 he was weather JSON. Here he plans a party 
 
 The course lists four advertised advantages: **simplicity** (few abstractions), **flexible LLM support**, a **code-first** default, and **Hub integration** (including Gradio Spaces as tools). Ideal when you need a lightweight experiment and the application logic is straightforward.
 
-Refuse it when control flow *is* the product (branch, join, wait for a human, persist state) — that is [LangGraph](/course/langgraph). Refuse it when the product is "ask my data" as a pipeline — that is [LlamaIndex](/course/llamaindex). The Unit 2 intro names the shared skeleton you should still be able to point at in any of them: an LLM engine, a list of tools, a parser, a system prompt synced with that parser, memory, and error logging / retries (Hugging Face Agents Course, [unit2/introduction](https://huggingface.co/learn/agents-course/unit2/introduction)).
+Refuse it when control flow *is* the product (branch, join, wait for a human, persist state) — that is [LangGraph](/en/m/langgraph). Refuse it when the product is "ask my data" as a pipeline — that is [LlamaIndex](/en/m/llamaindex). The Unit 2 intro names the shared skeleton you should still be able to point at in any of them: an LLM engine, a list of tools, a parser, a system prompt synced with that parser, memory, and error logging / retries (Hugging Face Agents Course, [unit2/introduction](https://huggingface.co/learn/agents-course/unit2/introduction)).
 
-Practical tip: if you cannot draw the dummy loop from [the previous particularity](/course/dummy-agent) on a whiteboard, do not import smolagents yet. The library will hide the stop-and-parse you still own.
+Practical tip: if you cannot draw the dummy loop from [the previous particularity](/en/m/dummy-agent) on a whiteboard, do not import smolagents yet. The library will hide the stop-and-parse you still own.
 
 ## MultiStepAgent is the dummy loop with a log
 
@@ -66,7 +66,7 @@ The LLM still needs an interface: **name**, **description**, **input types and d
 
 Default toolbox, from the course and the docs: `PythonInterpreterTool`, `FinalAnswerTool`, `UserInputTool`, `DuckDuckGoSearchTool` / `WebSearchTool`, plus Hub-loaded tools via `load_tool` when you accept `trust_remote_code`. Do not load Hub tools you have not read.
 
-Practical tip: a docstring that says "always use this" is naive RAG with extra steps. A docstring that lists allowed enum values is a cheap schema. Start there before you fine-tune (see [function-calling fine-tuning](/course/function-calling-ft)).
+Practical tip: a docstring that says "always use this" is naive RAG with extra steps. A docstring that lists allowed enum values is a cheap schema. Start there before you fine-tune (see [function-calling fine-tuning](/en/m/function-calling-ft)).
 
 ## Models are interchangeable; the loop is not
 
@@ -80,7 +80,7 @@ The course names the wrappers, not a secret protocol:
 - `OpenAIServerModel` — any OpenAI-shaped HTTP API.
 - `AzureOpenAIServerModel` — Azure OpenAI deployments.
 
-Swap the engine; the loop remains. That is the point of [the harness](/course/the-harness). Do not invent a fifth wrapper. If a new class appears in the docs, read the docs that week.
+Swap the engine; the loop remains. That is the point of [the harness](/en/m/the-harness). Do not invent a fifth wrapper. If a new class appears in the docs, read the docs that week.
 
 Practical tip: log `model_id` and provider next to every trace. "It worked on Colab" is not a reproduction. The Unit 1 dummy already taught you that chat templates matter; smolagents still applies one.
 
@@ -179,13 +179,13 @@ Practical tip: keep an offline golden prompt ("formal menu for the party") and a
 6. The model wrapper is one of the documented classes. The `model_id` is logged.
 7. Hub `trust_remote_code` is off unless you read the file.
 
-If any line is blank, you are not ready for [nested agents](/course/smolagents-multi).
+If any line is blank, you are not ready for [nested agents](/en/m/smolagents-multi).
 
 ## What to remember
 
 *Synthesis of Unit 2.1 pages listed under Sources, Hugging Face Agents Course (Burtenshaw, Thomas, Simonini, & Paniego, Apache-2.0).*
 
-smolagents encodes the dummy loop. `MultiStepAgent` writes memory, samples, parses, executes, logs an `ActionStep`. CodeAgent is the default because code composes; ToolCallingAgent is JSON for simple systems. Tools are `@tool` or a `Tool` subclass with name, description, typed inputs, and `forward`. Models swap. Imports do not. Set `max_steps`. Read the secure-execution page before the agent sees a URL. Nested retrieval, teams, and vision are the [next particularity](/course/smolagents-multi).
+smolagents encodes the dummy loop. `MultiStepAgent` writes memory, samples, parses, executes, logs an `ActionStep`. CodeAgent is the default because code composes; ToolCallingAgent is JSON for simple systems. Tools are `@tool` or a `Tool` subclass with name, description, typed inputs, and `forward`. Models swap. Imports do not. Set `max_steps`. Read the secure-execution page before the agent sees a URL. Nested retrieval, teams, and vision are the [next particularity](/en/m/smolagents-multi).
 
 ## Sources
 

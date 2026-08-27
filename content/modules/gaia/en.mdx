@@ -110,7 +110,7 @@ They created an API. Summary of routes (see their live docs for interactive deta
 
 Submit compares to ground truth as **EXACT MATCH**. Prompt accordingly. The GAIA team shared a prompting example on the [GAIA leaderboard Space](https://huggingface.co/spaces/gaia-benchmark/leaderboard). For the course, **do not include the text FINAL ANSWER** in the submission; the agent should reply with the answer and nothing else.
 
-Practical tip: exact match is a product decision. “apple, banana” versus “apples, bananas” is a zero. Teach the output contract in the system prompt, then log the raw string on the trace (see [observability](/course/observability)).
+Practical tip: exact match is a product decision. “apple, banana” versus “apples, bananas” is a zero. Teach the output contract in the system prompt, then log the raw string on the trace (see [observability](/en/m/observability)).
 
 The template Space is https://huggingface.co/spaces/agents-course/Final_Assignment_Template. They encourage you to change it. Submit needs three things: Hugging Face username, a public `agent_code` URL (`.../tree/main`), and a list of answers with task id and submitted_answer. Duplicate the template onto your profile if you sit *their* exam. iAguide will not collect those payloads.
 
@@ -130,7 +130,7 @@ They later wrote twenty Level-1-shaped rows with exact-match keys, added a file 
 
 *Named source: Hugging Face Agents Course, Unit 4, [conclusion](https://huggingface.co/learn/agents-course/unit4/conclusion); Unit 4 introduction’s “what’s next” culture in the course.*
 
-The conclusion thanks you and points at curated resources, including **MCPs** and beyond. iAguide folds MCP into [tools](/course/tools-and-mcp) and multi-agent into [agent-patterns](/course/agent-patterns) and [smolagents-multi](/course/smolagents-multi). Do not treat a certificate Space as the last page of this particularity.
+The conclusion thanks you and points at curated resources, including **MCPs** and beyond. iAguide folds MCP into [tools](/en/m/tools-and-mcp) and multi-agent into [agent-patterns](/en/m/agent-patterns) and [smolagents-multi](/en/m/smolagents-multi). Do not treat a certificate Space as the last page of this particularity.
 
 Practical tip: after a GAIA-shaped set exists, the next failure mode is usually a tool description or an exact-match wrapper, not a new framework. Fix those before you import LangGraph.
 
@@ -159,27 +159,27 @@ GAIA is 466 human-easy, assistant-hard questions with three levels and exact-mat
 
 *Named source: Hugging Face Agents Course, Unit 4, The process in [hands-on](https://huggingface.co/learn/agents-course/unit4/hands-on); GAIA leaderboard prompting note on https://huggingface.co/spaces/gaia-benchmark/leaderboard.*
 
-The submit route is unforgiving by design. A correct fruit list in the wrong order, a singular where they asked for plural, or a sentence around the fact, all score zero. That is not a vendor bug. It is the pillar they called simplicity of evaluation. The dummy loop’s `Final Answer:` stop sequence from [dummy-agent](/course/dummy-agent) is the same hinge: the harness must peel the wrapper before POST.
+The submit route is unforgiving by design. A correct fruit list in the wrong order, a singular where they asked for plural, or a sentence around the fact, all score zero. That is not a vendor bug. It is the pillar they called simplicity of evaluation. The dummy loop’s `Final Answer:` stop sequence from [dummy-agent](/en/m/dummy-agent) is the same hinge: the harness must peel the wrapper before POST.
 
-Practical tip: add an offline row whose only difference is punctuation. If your agent fails it, you have a wrapper bug, not a reasoning bug. Trace that row as its own span class (see [observability](/course/observability)).
+Practical tip: add an offline row whose only difference is punctuation. If your agent fails it, you have a wrapper bug, not a reasoning bug. Trace that row as its own span class (see [observability](/en/m/observability)).
 
 ## Files as observations, not as chat
 
 *Named source: Hugging Face Agents Course, Unit 4, `GET /files/<task_id>` in [hands-on](https://huggingface.co/learn/agents-course/unit4/hands-on).*
 
-Some tasks ship a file. The API gives you a download by task id. That file is an **observation** the harness must fetch and parse. If you stuff the bytes into the system prompt “just in case,” you have reinvented naive RAG and you will blow the context on Level 2. Agentic RAG in [agentic-rag](/course/agentic-rag) is the same geometry: retrieve is a tool, not a default.
+Some tasks ship a file. The API gives you a download by task id. That file is an **observation** the harness must fetch and parse. If you stuff the bytes into the system prompt “just in case,” you have reinvented naive RAG and you will blow the context on Level 2. Agentic RAG in [agentic-rag](/en/m/agentic-rag) is the same geometry: retrieve is a tool, not a default.
 
-Practical tip: one tool named `get_task_file` whose description says when to call it. If the model never calls it on file tasks, the description is the bug. Do not fine-tune yet; see [function-calling-ft](/course/function-calling-ft).
+Practical tip: one tool named `get_task_file` whose description says when to call it. If the model never calls it on file tasks, the description is the bug. Do not fine-tune yet; see [function-calling-ft](/en/m/function-calling-ft).
 
 ## Cross-links in this course
 
 *Named source: Hugging Face Agents Course, Unit 4 (whole unit); iAguide particularities that share the loop.*
 
-- Inner cycle you will submit: [dummy-agent](/course/dummy-agent)
-- Code-first agent many students use: [smolagents](/course/smolagents)
-- Retrieve hops: [agentic-rag](/course/agentic-rag)
-- Traces for exact-match failures: [observability](/course/observability)
-- Broader eval culture: [evaluation](/course/evaluation)
+- Inner cycle you will submit: [dummy-agent](/en/m/dummy-agent)
+- Code-first agent many students use: [smolagents](/en/m/smolagents)
+- Retrieve hops: [agentic-rag](/en/m/agentic-rag)
+- Traces for exact-match failures: [observability](/en/m/observability)
+- Broader eval culture: [evaluation](/en/m/evaluation)
 
 Course home: https://huggingface.co/learn/agents-course · repo: https://github.com/huggingface/agents-course · docs: https://huggingface.co/docs
 

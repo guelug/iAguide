@@ -2,7 +2,7 @@
 
 Un ranking público mide lo que fue construido para medir. Sets contaminados, suites que premian la verborrea y agentes que lucen en quizzes mienten de formas distintas. Tu defensa es un **eval pequeño y tuyo**: veinte casos que te importan, corregidos por script o humano, en cada cambio.
 
-go, Apache-2.0).*
+Esta lección reescribe ideas del [Hugging Face Agents Course](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.
 
 En agentes, evalúa el **bucle**, no solo la frase final: ¿llamó a una tool que no debía? ¿Paró? ¿Parseó el esquema? Offline primero. Online después. [GAIA](/es/m/gaia) es un metro público duro; sigue sin ser tus clientes. La traza del turno vive en [observabilidad](/es/m/observability). Esta lección es la alfabetización: qué es un número, qué no, y cómo no confundir un quiz con un agente.
 
@@ -125,3 +125,6 @@ Luego, y solo luego, tus **veinte casos**. No cien. Veinte que te importan: el t
 
 ## Caso — las notas bonitas de QuizAgent
 
+QuizAgent sacó un 88% en un quiz interno de opción múltiple sobre "seguridad de agentes". En tres tareas con forma GAIA que necesitaban una hoja de cálculo y un calendario, falló las tres y aun así produjo prosa con confianza. El quiz nunca llamó a una tool. Habían medido la comprensión lectora del system prompt.
+
+La lección: un número bonito no es un agente. Si tu examen interno se puede aprobar leyendo el prompt, mide fluidez, no el bucle. Cuando producción falle de una forma nueva, esa traza entra al set. Ese es el bucle de la Bonus Unit 2, aplicado a tu dominio, no al leaderboard.

@@ -18,7 +18,7 @@ El notebook oficial está en [agents-course/notebooks](https://huggingface.co/ag
 
 La Unidad 1 define un agente como un sistema que usa un modelo de lenguaje para interactuar con un entorno y alcanzar un objetivo definido por el usuario. El modelo razona y planifica. El <Term id="harness">arnés</Term> ejecuta. Herramientas, memoria y control de flujo rodean los pesos — no son los pesos.
 
-Es la misma distinción que este curso ya hizo en [el arnés](/course/the-harness). La unidad de Hugging Face solo te obliga a escribir el `while` interior.
+Es la misma distinción que este curso ya hizo en [el arnés](/es/m/the-harness). La unidad de Hugging Face solo te obliga a escribir el `while` interior.
 
 Tres nombres, un ciclo:
 
@@ -59,7 +59,7 @@ El LLM solo maneja texto. Describe la acción que quiere y los parámetros. Para
 
 Los thoughts son el monólogo interior del agente: planear, analizar, decidir, recordar, reflexionar. Chain-of-thought es un truco de prompting — "vamos paso a paso" — para trabajo que se queda **dentro** del modelo (mates, lógica). ReAct es el otro truco: entrelazar Thought, Action y Observation para que el modelo salga del prompt y vuelva con evidencia.
 
-Los modelos de function-calling, afinados para emitir mensajes de herramientas, pueden saltarse el thought visible. Su "pensamiento" es opcional. El bucle dummy sigue pidiendo `Thought:` porque el modelo que tienes delante es un chat *inducido* a un ciclo, no un especialista *entrenado* en uno. Esa distinción es toda la lección de [fine-tuning para function calling](/course/function-calling-ft).
+Los modelos de function-calling, afinados para emitir mensajes de herramientas, pueden saltarse el thought visible. Su "pensamiento" es opcional. El bucle dummy sigue pidiendo `Thought:` porque el modelo que tienes delante es un chat *inducido* a un ciclo, no un especialista *entrenado* en uno. Esa distinción es toda la lección de [fine-tuning para function calling](/es/m/function-calling-ft).
 
 <Compare a="Chain-of-thought" b="ReAct">
 <Side>
@@ -177,9 +177,9 @@ Implementa un bucle diminuto pensamiento-acción-observación en Python con herr
 
 *Fuente nombrada: Hugging Face Agents Course, Unidad 1 [tutorial](https://huggingface.co/learn/agents-course/unit1/tutorial) y [github.com/huggingface/agents-course](https://github.com/huggingface/agents-course).*
 
-No es smolagents. El primer agente "de verdad" en ese curso es el mismo bucle dentro de `CodeAgent` — [siguiente particularidad](/course/smolagents). LlamaIndex y LangGraph llegan después como otras codificaciones, no como un ascenso.
+No es smolagents. El primer agente "de verdad" en ese curso es el mismo bucle dentro de `CodeAgent` — [siguiente particularidad](/es/m/smolagents). LlamaIndex y LangGraph llegan después como otras codificaciones, no como un ascenso.
 
-No es producción. Sin reintentos con jitter, sin allowlist más allá de un dict, sin sandbox, sin trazas. [Observabilidad](/course/observability) es un bonus posterior por una razón: no puedes trazar un bucle que no has escrito.
+No es producción. Sin reintentos con jitter, sin allowlist más allá de un dict, sin sandbox, sin trazas. [Observabilidad](/es/m/observability) es un bonus posterior por una razón: no puedes trazar un bucle que no has escrito.
 
 No es un quiz. La Unidad 1 tiene quizzes. Esta lección no los hospeda. La habilidad es: puedes señalar la secuencia de stop y decir qué se rompe si la quitas.
 

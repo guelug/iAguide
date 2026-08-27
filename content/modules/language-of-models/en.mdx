@@ -60,7 +60,7 @@ Hugging Face’s agents course puts it bluntly: the LLM is the **brain** of the 
 
 That is the same next-token job as the rest of this page. Agency is extra loop, extra tools, extra training. The engine is unchanged.
 
-Special tokens (`<|im_end|>`, `<|eot_id|>`, `<end_of_turn>`) are how a model knows a turn ended. They belong with the tokenizer; we unpack them in [tokenization](/course/tokenization).
+Special tokens (`<|im_end|>`, `<|eot_id|>`, `<end_of_turn>`) are how a model knows a turn ended. They belong with the tokenizer; we unpack them in [tokenization](/en/m/tokenization).
 
 This lesson rewrites ideas from the [Hugging Face Agents Course](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.
 
@@ -70,4 +70,4 @@ Take a weather question. Write (1) the tokens you think a chat model must emit t
 
 ## Case — Alfred without a loop
 
-A student wired HuggingChat to a coffee machine API and called it an agent. The model wrote lovely plans (“go to the kitchen…”) and never emitted a tool call, because nothing in the prompt named a function and nothing in the runtime parsed one. They had an engine. They did not have a harness. The loop lives in [the harness](/course/the-harness) and the dummy encoding in [dummy agent](/course/dummy-agent).
+A student wired HuggingChat to a coffee machine API and called it an agent. The model wrote lovely plans (“go to the kitchen…”) and never emitted a tool call, because nothing in the prompt named a function and nothing in the runtime parsed one. They had an engine. They did not have a harness. The loop lives in [the harness](/en/m/the-harness) and the dummy encoding in [dummy agent](/en/m/dummy-agent).

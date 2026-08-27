@@ -120,7 +120,7 @@ Consejo: `pipeline` sin `model=` bajará en silencio un default que puede estar 
 
 ## Local frente a Providers frente a Endpoints frente a Jobs
 
-**Local** es para privacidad, para eval de Unsloth, para modelos que ningún partner sirve, y para cuando los 0,10 dólares ya se fueron. El coste es electricidad y VRAM. Ya lo viste en [inferencia local](/course/local-inference).
+**Local** es para privacidad, para eval de Unsloth, para modelos que ningún partner sirve, y para cuando los 0,10 dólares ya se fueron. El coste es electricidad y VRAM. Ya lo viste en [inferencia local](/es/m/local-inference).
 
 **Providers** es para "necesito un chat completion y no quiero bajar 20 GB". El coste son las tarifas del partner a través de la factura del Hub. El failover está documentado cuando `provider="auto"`. La compatibilidad OpenAI solo-chat es la URL del router. Imagen y embeddings quieren `InferenceClient`.
 
@@ -134,7 +134,7 @@ Llamar a Inference Providers es lo mismo que descargar los pesos. No. `from_pret
 
 ## TGI y vLLM, un párrafo
 
-Cuando te quedas pequeño tanto el portátil como el router, autoalojas. [Text Generation Inference](https://huggingface.co/docs/text-generation-inference) es el servidor de producción de Hugging Face. [vLLM](https://docs.vllm.ai) es el servidor comunitario de alto throughput. Ambos hablan chat completions de OpenAI. `InferenceClient(model="http://localhost:8000")` o Hermes `provider: custom` con esa base URL es el cliente. Los flags exactos de serve para Kimi Linear ya viven en [kimi-linear-serve](/course/kimi-linear-serve). No los dupliques. No inventes flags GGUF para arquitecturas que este curso ya prohibió.
+Cuando te quedas pequeño tanto el portátil como el router, autoalojas. [Text Generation Inference](https://huggingface.co/docs/text-generation-inference) es el servidor de producción de Hugging Face. [vLLM](https://docs.vllm.ai) es el servidor comunitario de alto throughput. Ambos hablan chat completions de OpenAI. `InferenceClient(model="http://localhost:8000")` o Hermes `provider: custom` con esa base URL es el cliente. Los flags exactos de serve para Kimi Linear ya viven en [kimi-linear-serve](/es/m/kimi-linear-serve). No los dupliques. No inventes flags GGUF para arquitecturas que este curso ya prohibió.
 
 ## Function calling es el mismo JSON que OpenAI, en quien sirva el modelo
 

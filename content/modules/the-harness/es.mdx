@@ -148,7 +148,7 @@ Confundir estas cosas es depurar la capa equivocada. Caso clásico: "Hermes igno
 
 ## Dónde fue el tutorial dummy
 
-El bucle de arriba se testa sin pesos. El curso de Hugging Face lo implementa primero como [librería dummy](/course/dummy-agent) (parar antes de Observation) y luego como particularidad [smolagents](/course/smolagents). Los patrones — ReAct frente a un grafo frente a un workflow de retrieval — viven en [patrones de agente](/course/agent-patterns). Son codificaciones de **este** bucle, no una quinta vía.
+El bucle de arriba se testa sin pesos. El curso de Hugging Face lo implementa primero como [librería dummy](/es/m/dummy-agent) (parar antes de Observation) y luego como particularidad [smolagents](/es/m/smolagents). Los patrones — ReAct frente a un grafo frente a un workflow de retrieval — viven en [patrones de agente](/es/m/agent-patterns). Son codificaciones de **este** bucle, no una quinta vía.
 
 <TryThis>
 Lab, aún sin modelo: implementa `runTool(name, args)` con allowlist dura y `max_steps` 4. Dale dos completions guionizadas (una Action, un Final Answer). Asegura que una tercera Action pararía. Comenta un puntero a dummy-agent para el mismo lab con JSON en el prompt.
@@ -166,7 +166,7 @@ Esta lección reescribe ideas del [curso de agentes de Hugging Face](https://hug
 
 ## Siguiente en esta vía
 
-El mapa del arnés sigue en dos capas. **Patrón general** (sin producto en el título): [bucle del agente](/course/agent-loop), [ensamblado de prompt](/course/prompt-assembly), [runtime de tools](/course/tools-runtime), [sesiones](/course/sessions), [gateway](/course/gateway), [compresión y caché](/course/compression-caching), [plugins y skills](/course/plugins-and-skills), [trabajos programados](/course/scheduled-jobs), [tools de browser](/course/browser-tools), [acceso programático](/course/programmatic-access). **Particularidades de producto** después: Hermes (`hermes-*`) y OpenClaw (`openclaw-*`). Las codificaciones Hugging Face (dummy-agent, smolagents, LangGraph, LlamaIndex) siguen en esta misma vía — no hay una quinta.
+El mapa del arnés sigue en dos capas. **Patrón general** (sin producto en el título): [bucle del agente](/es/m/agent-loop), [ensamblado de prompt](/es/m/prompt-assembly), [runtime de tools](/es/m/tools-runtime), [sesiones](/es/m/sessions), [gateway](/es/m/gateway), [compresión y caché](/es/m/compression-caching), [plugins y skills](/es/m/plugins-and-skills), [trabajos programados](/es/m/scheduled-jobs), [tools de browser](/es/m/browser-tools), [acceso programático](/es/m/programmatic-access). **Particularidades de producto** después: Hermes (`hermes-*`) y OpenClaw (`openclaw-*`). Las codificaciones Hugging Face (dummy-agent, smolagents, LangGraph, LlamaIndex) siguen en esta misma vía — no hay una quinta.
 
 ## Fuentes
 

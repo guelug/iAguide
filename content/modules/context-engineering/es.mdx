@@ -4,7 +4,7 @@ La ventana es finita. Ingeniería de contexto es decidir **qué se gana el asien
 
 **Archivos de contexto del proyecto** (`AGENTS.md`, un índice de skills, un SOUL corto) ganan a pegar el repo. Trae la página que hace falta. SOUL / MEMORY al estilo Hermes son nombres de producto para "política permanente" y "notas durables": idea útil, no religión. Cortos, versionados, fuera del montón no fiable.
 
-Da forma al prompt para que el **prefijo estable** sea idéntico byte a byte si quieres aciertos de [caché de prefijo](/course/calls-cache-threads). La salida estructurada va en el contrato, no en un párrafo de esperanzas.
+Da forma al prompt para que el **prefijo estable** sea idéntico byte a byte si quieres aciertos de [caché de prefijo](/es/m/calls-cache-threads). La salida estructurada va en el contrato, no en un párrafo de esperanzas.
 
 <VisualSlot caption="Una ventana dividida en perfil, un hit de índice o un repo empujado, el hilo y MEMORY. Empujar es el fallo ámbar." />
 
@@ -41,7 +41,7 @@ Imagina la ventana de contexto como seis asientos etiquetados. Presupuesta cada 
 1. **Política de sistema** — quién es el agente, qué no debe hacer, contrato de salida. Hermes lo llama `SOUL.md` más un archivo de proyecto; OpenClaw pliega un set bootstrap. **Estable.** Fíjalo para la caché de prefijo.
 2. **Esquemas de tools** — cada descripción visible de `tool_call`, esquema de argumentos, forma de retorno. También **estable** mientras no añadas una tool a mitad de hilo.
 3. **Índice de skills** — nombres, descripciones de una línea. El cuerpo de la skill es una llamada a `load_skill(name)`, no un pegado. Estable por defecto; volátil cuando el operador instala una skill nueva.
-4. **Chunks recuperados** — salida de RAG agéntico. Volátil por naturaleza: por consulta, por tool call. Etiqueta cada chunk como no fiable (ver [safety](/course/safety-and-injection)).
+4. **Chunks recuperados** — salida de RAG agéntico. Volátil por naturaleza: por consulta, por tool call. Etiqueta cada chunk como no fiable (ver [safety](/es/m/safety-and-injection)).
 5. **Hilo vivo** — los turnos recientes del usuario más las rondas de tools. Crece, compacta, y nunca parte un par tool_call/tool_result por una frontera de compactación.
 6. **Snapshot de memoria** — notas durables de turnos anteriores, congeladas al inicio de la sesión. Volátil en el sentido de que cambia entre sesiones, no dentro de una.
 
@@ -118,7 +118,7 @@ Lo sabrás porque: el coste sube por turno aunque no cambiases el modelo, la lat
 
 1. Acorta el prefijo estable.
 2. Indexa y recupera el nivel volátil.
-3. **Compacta** el hilo vivo. Ver [compression-caching](/course/compression-caching).
+3. **Compacta** el hilo vivo. Ver [compression-caching](/es/m/compression-caching).
 
 Si esas fallan, el movimiento correcto es un modelo distinto con un contexto más largo, **no** un system prompt más largo. Un modelo de contexto 200k con un system prompt de 50k es peor que un modelo de contexto 32k con un system prompt de 2k, en coste, latencia y adherencia.
 

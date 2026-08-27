@@ -44,7 +44,7 @@ The manager is another `CodeAgent` with `managed_agents=[web_agent]`, plotting i
 Practical tip: set the worker's `max_steps` **smaller** than the manager's. A child that can run fifteen web hops inside one parent step is how you discover the bill. The course uses 10 / 15. Copy the inequality, not necessarily the integers.
 
 <Callout>
-`managed_agents` is how smolagents nests loops. It is not LangGraph. There is no compiled state machine, no reducer, no human-in-the-loop node. If you need those, stop wrapping workers and open [LangGraph](/course/langgraph).
+`managed_agents` is how smolagents nests loops. It is not LangGraph. There is no compiled state machine, no reducer, no human-in-the-loop node. If you need those, stop wrapping workers and open [LangGraph](/en/m/langgraph).
 </Callout>
 
 ## Vision: images at start versus images in the log
@@ -150,7 +150,7 @@ Practical tip: a check that always PASSes is worse than no check. Log the judge 
 
 *Named source: Hugging Face Agents Course, [Unit 2 introduction](https://huggingface.co/learn/agents-course/unit2/introduction) (when a framework is not needed); Multi-Agent Systems page above.*
 
-If the task is one search and a sentence, a single CodeAgent is the product. Nesting adds a summary boundary where facts die. If the task is a fixed pipeline (load, split, embed, query), you wanted [LlamaIndex](/course/llamaindex), not a manager. If the task is "classify then draft then wait for a human," you wanted [LangGraph](/course/langgraph). Multi-agent smolagents is for **parallel kinds of work** that would otherwise share one bloated log.
+If the task is one search and a sentence, a single CodeAgent is the product. Nesting adds a summary boundary where facts die. If the task is a fixed pipeline (load, split, embed, query), you wanted [LlamaIndex](/en/m/llamaindex), not a manager. If the task is "classify then draft then wait for a human," you wanted [LangGraph](/en/m/langgraph). Multi-agent smolagents is for **parallel kinds of work** that would otherwise share one bloated log.
 
 
 ## Memory hygiene at the summary boundary

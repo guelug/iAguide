@@ -14,7 +14,7 @@ Chunking is a product decision: too big and you retrieve noise; too small and yo
 
 Naive RAG disappoints when the question needs two hops, when the chunk boundary split the answer, or when the retrieved text is instructions in disguise (see safety).
 
-The particularity of *how* LlamaIndex or smolagents wire this sits in [LlamaIndex](/course/llamaindex) and [agentic RAG](/course/agentic-rag). Here we only need the three geometries.
+The particularity of *how* LlamaIndex or smolagents wire this sits in [LlamaIndex](/en/m/llamaindex) and [agentic RAG](/en/m/agentic-rag). Here we only need the three geometries.
 
 <TryThis>
 Write three queries against a fake employee handbook: (a) one that keyword search wins, (b) one that vectors win, (c) one that neither wins unless you hop. For each, say whether you would stuff, retrieve-once, or give the model a search tool.

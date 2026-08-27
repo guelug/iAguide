@@ -120,7 +120,7 @@ Consejo: `pipeline` without `model=` will quietly pull a default that may be gat
 
 ## Local versus Providers versus Endpoints versus Jobs
 
-**Local** is for privacy, for Unsloth eval, for models no partner serves, and for when 0.10 dollars is already gone. Cost is electricity and VRAM. You already met this in [local inference](/course/local-inference).
+**Local** is for privacy, for Unsloth eval, for models no partner serves, and for when 0.10 dollars is already gone. Cost is electricity and VRAM. You already met this in [local inference](/en/m/local-inference).
 
 **Providers** is for "I need a chat completion and I do not want to download 20 GB." Cost is partner rates through the Hub bill. Failover is documented when `provider="auto"`. Chat-only OpenAI compatibility is the router URL. Images and embeddings want `InferenceClient`.
 
@@ -134,7 +134,7 @@ Calling Inference Providers is the same as downloading the weights. No. `from_pr
 
 ## TGI and vLLM, one paragraph
 
-When you outgrow both the laptop and the router, you self-host. [Text Generation Inference](https://huggingface.co/docs/text-generation-inference) is Hugging Face's production server. [vLLM](https://docs.vllm.ai) is the community high-throughput server. Both speak OpenAI chat completions. `InferenceClient(model="http://localhost:8000")` or Hermes `provider: custom` with that base URL is the client. Exact serve flags for Kimi Linear already live in [kimi-linear-serve](/course/kimi-linear-serve). Do not duplicate them. Do not invent GGUF flags for architectures this course already forbade.
+When you outgrow both the laptop and the router, you self-host. [Text Generation Inference](https://huggingface.co/docs/text-generation-inference) is Hugging Face's production server. [vLLM](https://docs.vllm.ai) is the community high-throughput server. Both speak OpenAI chat completions. `InferenceClient(model="http://localhost:8000")` or Hermes `provider: custom` with that base URL is the client. Exact serve flags for Kimi Linear already live in [kimi-linear-serve](/en/m/kimi-linear-serve). Do not duplicate them. Do not invent GGUF flags for architectures this course already forbade.
 
 ## Case — the free-tier key and the agent that talked too much
 

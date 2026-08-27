@@ -116,7 +116,7 @@ A turn is a trace; model and tools are spans. The unit’s metric list is latenc
 
 *Named source: Hugging Face Agents Course, Bonus Unit 2, [introduction](https://huggingface.co/learn/agents-course/bonus-unit2/introduction) (Burtenshaw, Thomas, Simonini, & Paniego, Apache-2.0).*
 
-The authors say this chapter is for people who already develop and deploy agents, who need traces to diagnose a live run, who want to cut operational overhead, and who want a loop of user feedback plus automated eval. In short: anyone putting an agent in front of users. iAguide places it after [evaluation](/course/evaluation) because a metric without a span is a vibe. The dummy `while` in [dummy-agent](/course/dummy-agent) is still the inner clock; this page is how you see it after deploy.
+The authors say this chapter is for people who already develop and deploy agents, who need traces to diagnose a live run, who want to cut operational overhead, and who want a loop of user feedback plus automated eval. In short: anyone putting an agent in front of users. iAguide places it after [evaluation](/en/m/evaluation) because a metric without a span is a vibe. The dummy `while` in [dummy-agent](/en/m/dummy-agent) is still the inner clock; this page is how you see it after deploy.
 
 Practical tip: do this unit before you argue about a vendor. If you cannot name five spans on a support turn, a dashboard will only show you a prettier black box.
 
@@ -142,7 +142,7 @@ The introduction promises OpenTelemetry with the smolagents framework. The tools
 
 Practical tip: one exporter in staging. Confirm that a tool span appears when you call `get_weather` on the dummy Alfred example. If the exporter only sees `generate`, you instrumented the model and not the harness.
 
-Cross-link: the inner loop you are tracing is the one written in the open in [dummy-agent](/course/dummy-agent). Nested workers from [smolagents-multi](/course/smolagents-multi) become nested spans or you lose the manager.
+Cross-link: the inner loop you are tracing is the one written in the open in [dummy-agent](/en/m/dummy-agent). Nested workers from [smolagents-multi](/en/m/smolagents-multi) become nested spans or you lose the manager.
 
 ## Latency versus errors, taught as two charts
 
@@ -197,11 +197,11 @@ The unit’s loop: new failures join the offline set. Harder to brag. The only w
 
 *Named source: Hugging Face Agents Course, Bonus Unit 2 (whole unit); iAguide particularities that implement the inner loop.*
 
-- Inner `while`: [dummy-agent](/course/dummy-agent)
-- Code-first framework you instrument: [smolagents](/course/smolagents)
-- Nested workers as nested spans: [smolagents-multi](/course/smolagents-multi)
-- Retrieve as a tool span: [agentic-rag](/course/agentic-rag)
-- Offline eval culture: [evaluation](/course/evaluation) and [gaia](/course/gaia)
+- Inner `while`: [dummy-agent](/en/m/dummy-agent)
+- Code-first framework you instrument: [smolagents](/en/m/smolagents)
+- Nested workers as nested spans: [smolagents-multi](/en/m/smolagents-multi)
+- Retrieve as a tool span: [agentic-rag](/en/m/agentic-rag)
+- Offline eval culture: [evaluation](/en/m/evaluation) and [gaia](/en/m/gaia)
 
 Practical tip: if a nested worker has no span, you will debug the manager and ship the worker’s bug. Name the worker.
 

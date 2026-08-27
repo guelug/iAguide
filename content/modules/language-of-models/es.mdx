@@ -2,13 +2,29 @@
 
 Un <Term id="token">token</Term> es el átomo que el modelo ve. No es una palabra, no es un carácter, no es un sílaba. Es un identificador entero — un índice en un vocabulario — que el <Term id="tokenizer">tokenizador</Term> aprendió a asignar a pedazos de texto según la frecuencia con la que aparecían en el corpus de entrenamiento. El inglés suele caer cerca de 0,7–1 palabra por token; el código, las URLs, los lenguajes con vocabularios ricos y los alfabetos no latinos se desvían mucho. Una sola frase en español con tildes y conjugaciones puede comerse 1,3 veces lo que su prima inglesa.
 
-No hace falta una constante precisa. Hace falta el hábito: **cuenta tokens, no caracteres**, cuando pienses en coste, contexto y velocidad. Si el precio del API es por millón de tokens, tu JSON de 12 KB no es “barato” — puede ser dos mil tokens sin que nadie se haya dado cuenta.
+No hace falta una constante precisa. Hace falta el hábito: **cuenta tokens, no caracteres**, cuando pienses en coste, contexto y velocidad. Si el precio del API es por millón de tokens, tu JSON de 12 KB no es "barato" — puede ser dos mil tokens sin que nadie se haya dado cuenta.
+
+El tokenizador es parte del artefacto del modelo. Un GGUF o una carpeta de Hugging Face que trae el tokenizador equivocado es otro modelo, aunque los pesos parezcan los mismos.
 
 <Callout>
-Regla práctica, no ley: una página de prosa suele ser unos cientos de tokens; un volcado JSON, un stack trace gordo o un log de 200 líneas puede gastar miles sin parecer “largo” a tu ojo. Mide, no adivines.
+Regla práctica, no ley: una página de prosa suele ser unos cientos de tokens; un volcado JSON, un stack trace gordo o un log de 200 líneas puede gastar miles sin parecer "largo" a tu ojo. Mide, no adivines.
 </Callout>
 
-ar, extraer entidades. Tamaño típico: millones de parámetros. No escribe el siguiente turno de un chat. La similitud entre vectores es una puntuación, no una prueba.
+## El contexto es una ventana, no un archivador
+
+La <Term id="context-window">ventana de contexto</Term> es cuántos tokens puede atender el modelo **ahora mismo**: system prompt, tools, el hilo hasta aquí y los tokens que está a punto de escribir. No es memoria a largo plazo. Cuando la ventana se llena, algo tiene que salir — compactas, recuperas o empiezas un hilo nuevo.
+
+Las ventanas grandes no son gratis. Cuestan memoria de <Term id="kv-cache">caché KV</Term> y suelen ralentizar el <Term id="prefill">prefill</Term>. El módulo de [compresión y caché](/es/m/compression-caching) vive de esta tensión.
+
+## Embeddings, en breve
+
+Un <Term id="embedding">embedding</Term> es una lista de números. Las listas cercanas tienden a significar cosas relacionadas. Los embeddings de tokens son la primera mirada del modelo a cada token; las capas posteriores los mezclan. Los embeddings de pasajes son lo que guarda casi cualquier stack de "búsqueda vectorial". No necesitas la geometría. Necesitas: **la similitud es una puntuación, no una prueba**.
+
+## Encoder, decoder, seq2seq
+
+No todos los transformadores generan texto. Tres arquitecturas, tres trabajos:
+
+**Encoder** (BERT y familia). Lee una secuencia y emite un vector por posición, o uno global. Sirve para clasificar, buscar, extraer entidades. Tamaño típico: millones de parámetros. No escribe el siguiente turno de un chat. La similitud entre vectores es una puntuación, no una prueba.
 
 **Decoder** (Llama, SmolLM2, Gemma, Mistral, clase GPT, DeepSeek). Genera tokens nuevos, uno a uno, para completar una secuencia. Miles de millones de parámetros. Chat, código, el cerebro de un agente.
 
@@ -25,8 +41,13 @@ Sale el siguiente token. Con plantilla de chat e instrucciones, esos tokens pued
 
 Los nombres que el curso pone sobre la mesa — GPT-4, Llama 3, SmolLM2, Gemma, Mistral, DeepSeek-R1 — son decoders. El LLM de un agente es un decoder **chat / instruct**, no un BERT con un system prompt pegado.
 
-
 Si eliges un encoder para un chatbot, el síntoma no es «se equivoca»: es que no hay generación autoregresiva que parsear. Si eliges un T5 y esperas ReAct, estás en el mapa equivocado. La pregunta de compra no es «¿es un LLM?». Es «¿emite el siguiente token de un chat con plantilla?».
+
+## Siguiente token, para siempre
+
+La predicción de <Term id="next-token">siguiente token</Term> es el trabajo: dada la secuencia hasta ahora, produce <Term id="logits">logits</Term> — una puntuación por cada ítem del vocabulario —, los convierte en probabilidades (softmax, en el módulo de mates) y elige.
+
+Eso es toda la generación. Planificar, tools, trazas de "razonamiento": tokens extra, bucles extra, entrenamiento extra. El modelo sigue emitiendo un token cada vez.
 
 ## Tokens especiales: diversidad, no memorización
 
@@ -50,35 +71,69 @@ Dentro de un paso: tokenizas, el modelo arma una representación de significado 
 ## Palancas de muestreo
 
 - **<Term id="greedy">Greedy</Term>** (temperatura 0, o argmax): siempre la puntuación más alta. Repetible si el runtime es determinista. Útil para evals, para extracción estructurada, para cuando necesitas que la misma pregunta dé la misma respuesta.
-- **<Term id="temperature">Temperatura</Term>**: divide los logits antes de softmax. Baja afila la distribución (más probabilidad al primero); alta la aplana (más diversidad). Muy alta se vuelve balbuceo. Rango útil: 0,0–1,2 para la mayoría de trabajo serio. Por encima de 1,5 el modelo deja de responder y empieza a “soñar”.
+- **<Term id="temperature">Temperatura</Term>**: divide los logits antes de softmax. Baja afila la distribución (más probabilidad al primero); alta la aplana (más diversidad). Muy alta se vuelve balbuceo. Rango útil: 0,0–1,2 para la mayoría de trabajo serio. Por encima de 1,5 el modelo deja de responder y empieza a "soñar".
 - **<Term id="top-p">Top-p</Term>** (nucleus): quédate con el conjunto más pequeño de tokens cuya masa acumulada suma p, y muestrea solo de ese conjunto. p=0,9 es lo más habitual. Permite variar el tamaño del conjunto según lo concentrada que esté la distribución.
 - **<Term id="top-k">Top-k</Term>**: quédate con los k tokens más probables, y muestrea. k=40 era el clásico; top-p ha comido su terreno porque se adapta mejor a distribuciones planas.
 
 El curso nombra también beam search: explorar varias secuencias candidatas. Un chat de agente casi nunca lo usa como default. Greedy o muestreo, y un EOS.
 
 <Myth>
+"Temperatura 0 significa que el modelo dice la verdad." No. Significa que el modelo es menos aleatorio. Un token equivocado con confianza sigue estando equivocado.
 </Myth>
 
 <Myth>
-“Top-p 0,9 + temperatura 0,7 es la configuración correcta para chatbots.” Tampoco. Es un punto de partida razonable. Si tu salida es código, baja temperatura. Si tu salida es brainstorming, súbela. Si tu salida tiene que ser JSON válido y parseable, **temperatura 0** y arregla los bugs del prompt.
+"Top-p 0,9 + temperatura 0,7 es la configuración correcta para chatbots." Tampoco. Es un punto de partida razonable. Si tu salida es código, baja temperatura. Si tu salida es brainstorming, súbela. Si tu salida tiene que ser JSON válido y parseable, **temperatura 0** y arregla los bugs del prompt.
 </Myth>
 
 <Callout>
-La temperatura no se aplica “al modelo”, se aplica a **los logits del último token** en cada paso. Por eso “temperatura creativa” no convierte al modelo en otro. Solo aplana la distribución sobre el mismo vocabulario con el mismo condicionamiento.
+La temperatura no se aplica "al modelo", se aplica a **los logits del último token** en cada paso. Por eso "temperatura creativa" no convierte al modelo en otro. Solo aplana la distribución sobre el mismo vocabulario con el mismo condicionamiento.
 </Callout>
 
 ## Prefill frente a decode, a fondo
 
+Dos fases, una petición:
+
+1. **Prefill** — ingerir el prompt, a menudo en paralelo. Construir la caché KV. Suele ser pesado en cómputo.
+2. **Decode** — emitir un token, añadir sus keys y values, repetir. Suele estar limitado por **ancho de banda de memoria**: relees los pesos para una cantidad diminuta de trabajo nuevo.
+
+Por eso un system prompt largo duele en el primer token, y por eso una generación larga duele en tokens por segundo a medida que la caché crece.
+
 ### Por qué importa en producción
 
-- **Latencia del primer token (TTFT)** ≈ tiempo de prefill. Si tu UX muestra “el modelo está pensando…” durante 8 segundos con un system prompt de 20k tokens, no es el modelo: es el prefill.
+- **Latencia del primer token (TTFT)** ≈ tiempo de prefill. Si tu UX muestra "el modelo está pensando…" durante 8 segundos con un system prompt de 20k tokens, no es el modelo: es el prefill.
 - **Throughput** ≈ tokens por segundo de decode. Si cae a medida que la conversación crece, es la caché KV engordando.
 - **Coste** ≈ prefill cobra por tokens de entrada (aunque lo pagues en tiempo de GPU propio), decode cobra por tokens de salida. Los dos están en la factura; muchos productos no se enteran de que el prefill se está comiendo la mitad del presupuesto hasta que miran.
 - **Caché de prefijo** ≈ si tu system prompt es estable entre turnos, los proveedores (OpenAI, Anthropic, vLLM, Ollama con `--cache`) lo cachean y el prefill sale gratis o a precio reducido. **Pero** cambia un byte del prefijo y se acabó.
 
 <Callout>
-“Mi bot va lento con prompts largos” — mide. Si el TTFT sube con el tamaño del prompt, es prefill. Si los tokens/seg bajan con la longitud del contexto, es decode. Las soluciones son distintas: acorta el prompt vs acorta la respuesta, cuantiza vs sube batch size.
+"Mi bot va lento con prompts largos" — mide. Si el TTFT sube con el tamaño del prompt, es prefill. Si los tokens/seg bajan con la longitud del contexto, es decode. Las soluciones son distintas: acorta el prompt vs acorta la respuesta, cuantiza vs sube batch size.
 </Callout>
+
+<TryThis>
+En cualquier UI local que muestre conteos de tokens (servidor llama.cpp, Ollama, LM Studio), manda la misma pregunta corta dos veces: una sola, otra después de pegar un archivo grande. Mira el tiempo hasta el primer token frente a los tokens por segundo. Estás viendo prefill frente a decode, no "al modelo confundido".
+</TryThis>
 
 ## Determinismo
 
+Greedy + un kernel determinista + un prompt fijo puede repetir. El muestreo no. Algunos kernels de GPU no son bit-estables entre ejecuciones. Si necesitas reproducibilidad — evals, tests — fija la semilla, temperatura 0, y aun así trata el drift de GPU como posible.
+
+## Los modelos de chat son el motor dentro del agente
+
+El curso de Hugging Face lo dice sin rodeos: el LLM es el **cerebro** del agente, no el agente. Los decoders (Llama, Gemma, SmolLM, clase GPT) predicen el siguiente token. Los encoders (clase BERT) emiten embeddings. Los encoder-decoder (T5, BART) mapean una secuencia a otra. Los agentes casi siempre se sientan sobre un decoder **chat / instruct**: consumen una conversación con plantilla y emiten más tokens — incluidos los que significan "llama a esta tool".
+
+Es el mismo trabajo de siguiente token que el resto de esta página. La agencia es bucle extra, tools extra, entrenamiento extra. El motor no cambia.
+
+Los tokens especiales (`<|im_end|>`, `<|eot_id|>`, `<end_of_turn>`) son cómo sabe el modelo que un turno terminó. Viven con el tokenizador; los abrimos en [tokenización](/es/m/tokenization).
+
+<TryThis>
+Toma una pregunta del tiempo. Escribe (1) los tokens que crees que un modelo de chat debe emitir para *llamar* a `get_weather`, y (2) los tokens que emite *después* de que el arnés añada "15°C, nublado". Estás mirando el motor dentro del bucle, no un segundo cerebro.
+</TryThis>
+
+## Caso — Alfred sin bucle
+
+Un estudiante conectó HuggingChat a la API de una cafetera y lo llamó agente. El modelo escribía planes encantadores ("ve a la cocina…") y nunca emitía una llamada a tool, porque nada en el prompt nombraba una función y nada en el runtime la parseaba. Tenían un motor. No tenían un arnés. El bucle vive en [el arnés](/es/m/the-harness) y la codificación dummy en [dummy agent](/es/m/dummy-agent).
+
+## Fuentes
+
+- Hugging Face Agents Course — *The language of models*. https://huggingface.co/learn/agents-course (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.
+- Hugging Face NLP Course — *Tokenizers*. https://huggingface.co/learn/nlp-course

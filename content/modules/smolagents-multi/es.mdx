@@ -44,7 +44,7 @@ El manager es otro `CodeAgent` con `managed_agents=[web_agent]`, imports de plot
 Consejo práctico: pon el `max_steps` del worker **menor** que el del manager. Un hijo que puede dar quince saltos web dentro de un paso del padre es cómo descubres la factura. El curso usa 10 / 15. Copia la desigualdad, no necesariamente los enteros.
 
 <Callout>
-`managed_agents` es cómo smolagents anida bucles. No es LangGraph. No hay máquina de estados compilada, ni reducer, ni nodo human-in-the-loop. Si necesitas eso, deja de envolver workers y abre [LangGraph](/course/langgraph).
+`managed_agents` es cómo smolagents anida bucles. No es LangGraph. No hay máquina de estados compilada, ni reducer, ni nodo human-in-the-loop. Si necesitas eso, deja de envolver workers y abre [LangGraph](/es/m/langgraph).
 </Callout>
 
 ## Visión: imágenes al inicio frente a imágenes en el log
@@ -128,7 +128,7 @@ Consejo práctico: un check que siempre hace PASS es peor que ningún check. Reg
 
 *Fuente nombrada: Hugging Face Agents Course, [introducción Unidad 2](https://huggingface.co/learn/agents-course/unit2/introduction); página Multi-Agent Systems.*
 
-Si la tarea es una búsqueda y una frase, un CodeAgent solo es el producto. Anidar añade un borde de resumen donde mueren los hechos. Si la tarea es un pipeline fijo (load, split, embed, query), querías [LlamaIndex](/course/llamaindex), no un manager. Si la tarea es "clasifica luego redacta luego espera a un humano," querías [LangGraph](/course/langgraph). Multi-agente smolagents es para **tipos de trabajo en paralelo** que si no compartirían un log hinchado.
+Si la tarea es una búsqueda y una frase, un CodeAgent solo es el producto. Anidar añade un borde de resumen donde mueren los hechos. Si la tarea es un pipeline fijo (load, split, embed, query), querías [LlamaIndex](/es/m/llamaindex), no un manager. Si la tarea es "clasifica luego redacta luego espera a un humano," querías [LangGraph](/es/m/langgraph). Multi-agente smolagents es para **tipos de trabajo en paralelo** que si no compartirían un log hinchado.
 
 ## Higiene de memoria en el borde del resumen
 
