@@ -46,7 +46,7 @@ LlamaParse is a paid managed API. The course says so. Do not paste a "free forev
 
 ## Tools: four kinds, one contract
 
-*Named source: Hugging Face Agents Course, Unit 2.2, [Using Tools in LlamaIndex](https://huggingface.co/learn/agents-course/unit2/llama-index/tools); Function Calling Guide https://docs.llamaindex.ai/en/stable/examples/workflow/function_calling_agent/.*
+*Named source: Hugging Face Agents Course, Unit 2.2, [Using Tools in LlamaIndex](https://huggingface.co/learn/agents-course/unit2/llama-index/tools); Function Calling Guide https://docs.llamaindex.ai/en/stable/examples/workflow/function_calling_agent/
 
 1. `FunctionTool` — wrap a Python function. Name and description optional but load-bearing; type annotations and docstrings become the schema. Their weather example: `FunctionTool.from_defaults(get_weather, name="my_weather_tool", description="Useful for getting the weather for a given location.")` then `tool.call("New York")`.
 2. `QueryEngineTool` — wrap a `QueryEngine` with **name** and **description** so the LLM can pick it. `return_direct=False` means the model sees the retrieval as an observation and may continue. `True` would short-circuit. Know which you passed.
@@ -59,7 +59,7 @@ Practical tip: the name plus description *are* the API the model sees. "some use
 
 ## Agents: function-calling, ReAct, or a custom workflow
 
-*Named source: Hugging Face Agents Course, Unit 2.2, [Using Agents in LlamaIndex](https://huggingface.co/learn/agents-course/unit2/llama-index/agents); BaseWorkflowAgent https://github.com/run-llama/llama_index/blob/main/llama-index-core/llama_index/core/agent/workflow/base_agent.py.*
+*Named source: Hugging Face Agents Course, Unit 2.2, [Using Agents in LlamaIndex](https://huggingface.co/learn/agents-course/unit2/llama-index/agents); BaseWorkflowAgent https://github.com/run-llama/llama_index/blob/main/llama-index-core/llama_index/core/agent/workflow/base_agent.py
 
 Three types on that page:
 
@@ -104,7 +104,7 @@ Pick one data source you actually have (a folder of PDFs, a Notion export, a SQL
 
 ## Embeddings, Chroma, and persistence
 
-*Named source: Hugging Face Agents Course, Unit 2.2, [components](https://huggingface.co/learn/agents-course/unit2/llama-index/components); vector store overview https://docs.llamaindex.ai/en/stable/module_guides/storing/vector_stores/.*
+*Named source: Hugging Face Agents Course, Unit 2.2, [components](https://huggingface.co/learn/agents-course/unit2/llama-index/components); vector store overview https://docs.llamaindex.ai/en/stable/module_guides/storing/vector_stores/
 
 The course's Chroma path: `chromadb.PersistentClient(path="./alfred_chroma_db")`, collection `"alfred"`, `ChromaVectorStore`, attached to `IngestionPipeline` so ingestion populates the store. Persistence is the point of the client path. An in-memory store that dies at process exit is a tutorial, not a product.
 
@@ -122,7 +122,7 @@ A second bug: they embedded with `bge-small-en-v1.5` and queried with a differen
 
 ## Practical checklist
 
-*Named source: Unit 2.2 pages listed under Sources; LlamaIndex docs https://docs.llamaindex.ai.*
+*Named source: Unit 2.2 pages listed under Sources; LlamaIndex docs https://docs.llamaindex.ai
 
 1. You can name the loader (directory, LlamaHub reader, or LlamaParse) and the license/cost of that choice.
 2. Splitter, embed model id, and vector store path are written down. Query uses the same embedder.
@@ -134,7 +134,7 @@ A second bug: they embedded with `bge-small-en-v1.5` and queried with a differen
 
 ## Multi-agent inside AgentWorkflow
 
-*Named source: Hugging Face Agents Course, Unit 2.2, [Using Agents in LlamaIndex](https://huggingface.co/learn/agents-course/unit2/llama-index/agents) (Creating Multi-agent systems); AgentWorkflow basic intro https://docs.llamaindex.ai/en/stable/examples/agent/agent_workflow_basic/.*
+*Named source: Hugging Face Agents Course, Unit 2.2, [Using Agents in LlamaIndex](https://huggingface.co/learn/agents-course/unit2/llama-index/agents) (Creating Multi-agent systems); AgentWorkflow basic intro https://docs.llamaindex.ai/en/stable/examples/agent/agent_workflow_basic/
 
 `AgentWorkflow` can hold several named agents and keep a **single active speaker**, with handoff. The course builds a `ReActAgent` calculator (`add`, `subtract`) and a `ReActAgent` `info_lookup` that owns a `QueryEngineTool`, then `AgentWorkflow(agents=[...], root_agent="calculator")`. `FunctionAgent` is for models with a function-calling API; `ReActAgent` for any LLM. Narrower scope, higher accuracy — the same isolation claim as smolagents workers, different class names.
 

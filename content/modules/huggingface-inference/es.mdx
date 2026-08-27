@@ -3,7 +3,7 @@
 Inferencia es usar un modelo entrenado para predecir sobre entradas nuevas. Hugging Face vende **cuatro** productos que esa palabra cubre, y mezclarlos es cómo se muere una clave de nivel gratuito un martes:
 
 1. **Transformers local** — `pipeline`, `AutoModel.from_pretrained`, `AutoTokenizer`. Los pesos caen en la caché del Hub de la lección anterior. Tu GPU (o CPU) los ejecuta. Oficial: [documentación de Transformers](https://huggingface.co/docs/transformers) y el [quicktour](https://huggingface.co/docs/transformers/en/quicktour).
-2. **Inference Providers** — una API serverless. Envías mensajes de chat a `https://router.huggingface.co/v1`. Una GPU de un partner en otro sitio ejecuta un modelo que *también* tiene un id del Hub. **No** descargas shards. Oficial: [Inference Providers](https://huggingface.co/docs/inference-providers/en/index) y la [guía de inferencia de huggingface_hub](https://huggingface.co/docs/huggingface_hub/en/guides/inference).
+2. **Inference Providers** — una API serverless. Envías mensajes de chat a `https://huggingface.co/docs/inference-providers. Una GPU de un partner en otro sitio ejecuta un modelo que *también* tiene un id del Hub. **No** descargas shards. Oficial: [Inference Providers](https://huggingface.co/docs/inference-providers/en/index) y la [guía de inferencia de huggingface_hub](https://huggingface.co/docs/huggingface_hub/en/guides/inference).
 3. **Inference Endpoints** — hardware dedicado que Hugging Face gestiona por ti. El mismo cliente Python, una URL privada. CLI oficial: `hf endpoints`. Docs: [Inference Endpoints](https://huggingface.co/docs/inference-endpoints).
 4. **Jobs** — `hf jobs run`, compute con forma Docker en GPUs y TPUs del Hub para un script, no para un round-trip de chat. Citado de la [sección jobs de la CLI](https://huggingface.co/docs/huggingface_hub/en/guides/cli).
 
@@ -20,7 +20,7 @@ La autenticación es un User Access Token de Hugging Face con el permiso **Make 
 La forma HTTP que imprimen las docs:
 
 ```bash
-curl https://router.huggingface.co/v1/chat/completions \
+curl https://huggingface.co/docs/inference-providers/chat/completions \
     -H "Authorization: Bearer $HF_TOKEN" \
     -H "Content-Type: application/json" \
     -d '{"messages":[{"role":"user","content":"How many G in huggingface?"}],"model":"openai/gpt-oss-120b:fastest","stream":false}'
@@ -42,7 +42,7 @@ import os
 from openai import OpenAI
 
 client = OpenAI(
-    base_url="https://router.huggingface.co/v1",
+    base_url="https://huggingface.co/docs/inference-providers",
     api_key=os.environ["HF_TOKEN"],
 )
 completion = client.chat.completions.create(
@@ -51,7 +51,7 @@ completion = client.chat.completions.create(
 )
 ```
 
-`huggingface_hub.InferenceClient` es el cliente nativo y cubre tareas de imagen y voz que el endpoint de chat de OpenAI no cubre. `provider="auto"` elige el backend más rápido. Pasar una URL como `model=` apunta el mismo cliente a un Inference Endpoint. Pasar `http://localhost:8080` lo apunta a TGI, vLLM, llama.cpp u Ollama locales. Una clase, tres destinos. Esa es la [guía de inferencia](https://huggingface.co/docs/huggingface_hub/en/guides/inference).
+`huggingface_hub.InferenceClient` es el cliente nativo y cubre tareas de imagen y voz que el endpoint de chat de OpenAI no cubre. `provider="auto"` elige el backend más rápido. Pasar una URL como `model=` apunta el mismo cliente a un Inference Endpoint. Pasar `http://localhost:8080 lo apunta a TGI, vLLM, llama.cpp u Ollama locales. Una clase, tres destinos. Esa es la [guía de inferencia](https://huggingface.co/docs/huggingface_hub/en/guides/inference).
 
 <Callout>
 Consejo: un 403 del router con un token que puede hacer `hf download` suele ser un permiso **Make calls to Inference Providers** que falta, no un id de modelo malo. Acuña un token fine-grained con esa casilla marcada. Un 404 en el modelo es "ningún partner sirve este id como chat", no "el Hub borró Qwen".
@@ -91,7 +91,7 @@ model:
   default: "Qwen/Qwen3.5-397B-A17B"
 ```
 
-Añade sufijos de routing al nombre del modelo. Sobrescribe la base con `HF_BASE_URL` solo si sabes por qué. OpenClaw y cualquier otro arnés que hable chat completions de OpenAI puede apuntar `base_url` a `https://router.huggingface.co/v1` y `api_key` a `HF_TOKEN`. Esta lección no inventa claves YAML de OpenClaw; lee [docs.openclaw.ai](https://docs.openclaw.ai/concepts/architecture) para ese arnés. El contrato HTTP es la página de Providers de arriba.
+Añade sufijos de routing al nombre del modelo. Sobrescribe la base con `HF_BASE_URL` solo si sabes por qué. OpenClaw y cualquier otro arnés que hable chat completions de OpenAI puede apuntar `base_url` a `https://huggingface.co/docs/inference-providers y `api_key` a `HF_TOKEN`. Esta lección no inventa claves YAML de OpenClaw; lee [docs.openclaw.ai](https://docs.openclaw.ai/concepts/architecture) para ese arnés. El contrato HTTP es la página de Providers de arriba.
 
 Hermes puede emitir **varias** completions por turno de usuario (bucle principal, compresión auxiliar, título, visión). La página de providers ya avisa de que las claves de nivel gratuito en otros sitios mueren a los pocos turnos de agente. La misma aritmética pega a un crédito HF de 0,10 dólares. Ese es el Caso más abajo.
 
@@ -148,7 +148,7 @@ Las salidas estructuradas y el JSON mode siguen el mismo objeto OpenAI `response
 
 La página de precios nota que elegir el provider `"hf-inference"` es la antigua **Inference API (serverless)**. Pasados los créditos del nivel gratuito pagas tiempo de compute por precio del hardware. A julio de 2025, ese pool "se centra sobre todo en inferencia CPU" (embeddings, ranking, clasificación, redes históricas más pequeñas como BERT o GPT-2). Una imagen FLUX en una máquina GPU se factura como segundos por la tarifa listada de la GPU; su ejemplo es 10 segundos a 0,00012 dólares por segundo → 0,0012 dólares. Ese ejemplo es de Hugging Face, fechado en esa página. Los LLM de chat que de verdad quieres para Hermes suelen caer en Groq, Together, Fireworks, Cerebras u otro partner de la tabla de Providers — igual de enrutados, igual sin recargo de HF, igual de medidos.
 
-`GET https://router.huggingface.co/v1/models` lista lo que el router puede servir, con precio por provider, longitud de contexto, latencia y throughput cuando el Hub los tiene. `hf models ls --warm` (índice de Providers) lista modelos del Hub que al menos un partner sirve ahora. Un hit de búsqueda del Hub sin réplica caliente es una descarga, no un curl.
+`GET https://huggingface.co/docs/inference-providers/models lista lo que el router puede servir, con precio por provider, longitud de contexto, latencia y throughput cuando el Hub los tiene. `hf models ls --warm` (índice de Providers) lista modelos del Hub que al menos un partner sirve ahora. Un hit de búsqueda del Hub sin réplica caliente es una descarga, no un curl.
 
 ## Tokenizer, modelo, generate — los tres objetos bajo el pipeline
 
@@ -190,7 +190,7 @@ Lo que Oriol debería haber hecho, en el orden que las docs ya implican:
 El bug fue tratar una API de chat serverless como una suscripción a tanto alzado. Está medida, incluso cuando el medidor empieza en diez centavos.
 
 <TryThis>
-Dos ordenadores, un modelo público tiny, solo formas oficiales. (1) Local: `pip install -U transformers` y ejecuta un `pipeline("text-generation", model="openai-community/gpt2")` con un prompt corto. Confirma que la primera corrida descarga a la caché del Hub (`hf cache ls` debería mostrar `openai-community/gpt2` o `gpt2`). (2) Serverless: exporta un `HF_TOKEN` fine-grained con permiso de Inference Providers. Repite el curl oficial contra `https://router.huggingface.co/v1/chat/completions` del índice de Providers — mantén su forma JSON, incluida una lista `messages` y un id de `model` **con** sufijo `:fastest` o `:cheapest`. No inventes una ruta de chat gpt2 si el router no lista una; el pipeline local y el router pueden usar ids distintos porque son productos distintos. (3) Escribe una frase: qué llamada copió pesos a disco, y cuál solo copió tokens por HTTPS. Si el curl da 403, arregla el permiso del token antes de tocar el id del modelo.
+Dos ordenadores, un modelo público tiny, solo formas oficiales. (1) Local: `pip install -U transformers` y ejecuta un `pipeline("text-generation", model="openai-community/gpt2")` con un prompt corto. Confirma que la primera corrida descarga a la caché del Hub (`hf cache ls` debería mostrar `openai-community/gpt2` o `gpt2`). (2) Serverless: exporta un `HF_TOKEN` fine-grained con permiso de Inference Providers. Repite el curl oficial contra `https://huggingface.co/docs/inference-providers/chat/completions del índice de Providers — mantén su forma JSON, incluida una lista `messages` y un id de `model` **con** sufijo `:fastest` o `:cheapest`. No inventes una ruta de chat gpt2 si el router no lista una; el pipeline local y el router pueden usar ids distintos porque son productos distintos. (3) Escribe una frase: qué llamada copió pesos a disco, y cuál solo copió tokens por HTTPS. Si el curl da 403, arregla el permiso del token antes de tocar el id del modelo.
 </TryThis>
 
 ## Qué recordar

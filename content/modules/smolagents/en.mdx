@@ -96,7 +96,7 @@ Practical tip: print the allowlist in the PR. If the list contains `os`, `sys`, 
 
 ## A first run, without pretending it is production
 
-*Named source: Hugging Face Agents Course, Unit 2.1, [CodeAgents](https://huggingface.co/learn/agents-course/unit2/smolagents/code_agents); notebook https://huggingface.co/agents-course/notebooks/blob/main/unit2/smolagents/code_agents.ipynb.*
+*Named source: Hugging Face Agents Course, Unit 2.1, [CodeAgents](https://huggingface.co/learn/agents-course/unit2/smolagents/code_agents); notebook https://huggingface.co/agents-course/notebooks/blob/main/unit2/smolagents/code_agents.ipynb
 
 Install is the docs line `pip install smolagents -U`. Hub login if you use serverless. Then the course's smallest CodeAgent: `DuckDuckGoSearchTool` plus `InferenceClientModel`, `agent.run("Search for the best music recommendations for a party at the Wayne's mansion.")`. Watch the trace. Confirm you see **parsed code**, not a JSON blob, if you instantiated `CodeAgent`.
 
@@ -135,7 +135,7 @@ Practical tip: one new tool per run until the trace is boring. Then add the seco
 
 ## Verbosity, planning, and the Unit 1 tutorial flags
 
-*Named source: Hugging Face Agents Course, Unit 1, [Let's Create Our First Agent Using smolagents](https://huggingface.co/learn/agents-course/unit1/tutorial); CodeAgent reference https://huggingface.co/docs/smolagents/main/en/reference/agents#smolagents.CodeAgent.*
+*Named source: Hugging Face Agents Course, Unit 1, [Let's Create Our First Agent Using smolagents](https://huggingface.co/learn/agents-course/unit1/tutorial); CodeAgent reference https://huggingface.co/docs/smolagents/main/en/reference/agents
 
 The Unit 1 tutorial constructs a `CodeAgent` with `max_steps=6`, `verbosity_level=1`, `grammar=None`, `planning_interval=None`, and an explicit `prompt_templates` argument. Those flags are part of the public constructor, not folklore:
 
@@ -149,7 +149,7 @@ Practical tip: copy the tutorial's constructor once, then delete flags you canno
 
 ## What the Hub share actually publishes
 
-*Named source: Hugging Face Agents Course, Unit 2.1, [CodeAgents](https://huggingface.co/learn/agents-course/unit2/smolagents/code_agents) (sharing to the Hub); Hub docs https://huggingface.co/docs/hub.*
+*Named source: Hugging Face Agents Course, Unit 2.1, [CodeAgents](https://huggingface.co/learn/agents-course/unit2/smolagents/code_agents) (sharing to the Hub); Hub docs https://huggingface.co/docs/hub
 
 `push_to_hub` ships an agent others can `from_hub` / reload. That is code, a system prompt, a tool list, and whatever secrets you accidentally closed over. The course is enthusiastic about sharing Alfred. iAguide is not: treat a public Space as **source**, same as a Git repo. Strip tokens. Keep `trust_remote_code` off until you have read the file.
 

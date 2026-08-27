@@ -123,7 +123,7 @@ Si la comprension de imagen no esta disponible, se salta o falla, el browser cae
 
 No inventen un `browser.incognito` que mapee a incognito de sesion. Los perfiles de browser y el incognito de sesion son stores distintos.
 
-**Caso.** `start` y `tabs` funcionan, `open https://127.0.0.1:3000` falla. Eso es SSRF de navegacion, no un CDP muerto. Dejen la politica estricta; anadan una excepcion exacta de hostname solo si el acceso de browser a red privada esta revisado (OpenClaw, *Browser*, s. f.).
+**Caso.** `start` y `tabs` funcionan, `open https://127.0.0.1:3000 falla. Eso es SSRF de navegacion, no un CDP muerto. Dejen la politica estricta; anadan una excepcion exacta de hostname solo si el acceso de browser a red privada esta revisado (OpenClaw, *Browser*, s. f.).
 
 Citen *Browser control API* para la superficie HTTP loopback. Esta leccion no vuelca cada query parameter.
 
@@ -141,7 +141,7 @@ Headless managed Chrome sigue usando el default conservador `--disable-gpu`. Los
 
 El background oficial de Chrome MCP: blog de Chrome for Developers sobre DevTools MCP, y el README de chrome-devtools-mcp. Citenlos desde la pagina *Browser* de OpenClaw.
 
-Citen *Tools and custom providers* cuando `alsoAllow` y el filtrado de perfil no coinciden (`https://docs.openclaw.ai/gateway/config-tools`).
+Citen *Tools and custom providers* cuando `alsoAllow` y el filtrado de perfil no coinciden (`https://docs.openclaw.ai/gateway/config-tools).
 
 La particularidad otra vez: `openclaw` aislado por defecto; `user` necesita un humano en el escritorio; la extension `chrome` funciona desde el telefono; SSRF es fail-closed; el proxy de nodo es como un Gateway remoto conduce el browser de un laptop.
 

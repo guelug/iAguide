@@ -78,7 +78,7 @@ Hermes contiene lógica para no filtrar la clave API equivocada a un endpoint cu
 
 El resolvedor también distingue un endpoint custom **de verdad** elegido por el usuario del camino fallback de OpenRouter que se usa cuando no hay endpoint custom. Esa distinción importa para servidores locales, APIs compatibles con OpenAI que no son OpenRouter, cambiar de proveedor sin rehacer el setup, y endpoints custom guardados en config que deben seguir funcionando aunque `OPENAI_BASE_URL` no esté exportado.
 
-**Caso.** `OPENROUTER_API_KEY` y `OPENAI_API_KEY` conviven en `.env`. El operador apunta Hermes a `http://localhost:8000/v1`. Si el resolvedor enviara la clave de OpenRouter a localhost, fallan dos cosas: el servidor local puede registrar un secreto de nube, y OpenRouter no ha visto la petición. El alcance existe para que eso no ocurra.
+**Caso.** `OPENROUTER_API_KEY` y `OPENAI_API_KEY` conviven en `.env`. El operador apunta Hermes a `http://localhost:8000/v1. Si el resolvedor enviara la clave de OpenRouter a localhost, fallan dos cosas: el servidor local puede registrar un secreto de nube, y OpenRouter no ha visto la petición. El alcance existe para que eso no ocurra.
 
 ## Nous Portal, en este harness
 

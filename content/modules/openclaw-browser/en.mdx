@@ -136,7 +136,7 @@ Circuit breaker: repeated managed Chrome launch failures pause new launch attemp
 
 Do not invent a `browser.incognito` config that maps to session incognito. Browser profiles and session incognito are different stores.
 
-**Case.** `start` and `tabs` work, `open https://127.0.0.1:3000` fails. That is navigation SSRF, not a dead CDP. Leave strict policy; add an exact hostname exception only if private-network browser access is reviewed (OpenClaw, *Browser*, n.d.).
+**Case.** `start` and `tabs` work, `open https://127.0.0.1:3000 fails. That is navigation SSRF, not a dead CDP. Leave strict policy; add an exact hostname exception only if private-network browser access is reviewed (OpenClaw, *Browser*, n.d.).
 
 Cite *Browser control API* for the loopback HTTP surface and CLI snapshots. This lesson does not dump every query parameter.
 
@@ -159,7 +159,7 @@ Official Chrome MCP background: Chrome for Developers blog on DevTools MCP, and 
 
 The particularity one more time: isolated `openclaw` by default; `user` needs a human at the desk; `chrome` extension works from a phone; SSRF is fail-closed; node proxy is how a remote Gateway drives a laptop browser.
 
-See also *Tools and custom providers* when `alsoAllow` and profile filtering disagree (`https://docs.openclaw.ai/gateway/config-tools`).
+See also *Tools and custom providers* when `alsoAllow` and profile filtering disagree (`https://docs.openclaw.ai/gateway/config-tools).
 
 ## Sources
 

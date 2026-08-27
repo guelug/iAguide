@@ -46,7 +46,7 @@ Direct Tailnet bind, no Serve/Funnel:
 
 Connect a native or CLI client from another Tailnet device on `ws://<tailscale-ip>:18789`. Do **not** use the direct plain-HTTP address for the browser Control UI. Remote plain HTTP cannot create browser device identity, and token/password auth does not replace it. Use Tailscale Serve for the Control UI (OpenClaw, *Tailscale*, n.d.).
 
-When a bindable Tailnet IPv4 is present, the Gateway also requires `http://127.0.0.1:18789` for authenticated same-host clients. If no Tailnet address is available at startup, it falls back to loopback only; restart after Tailscale becomes available.
+When a bindable Tailnet IPv4 is present, the Gateway also requires `http://127.0.0.1:18789 for authenticated same-host clients. If no Tailnet address is available at startup, it falls back to loopback only; restart after Tailscale becomes available.
 
 Public Funnel:
 
@@ -101,7 +101,7 @@ The standalone loopback browser HTTP API also does **not** accept Tailscale iden
 
 Funnel plus `none` is refused. Gateway-protected routes reject **externally managed** Funnel ingress when auth mode is `none` as well.
 
-**Case.** An operator binds `tailnet`, opens Control UI over `http://100.x:18789`, and wonders why device identity never appears. Remote plain HTTP cannot create browser device identity. Serve is the Control UI path (OpenClaw, *Tailscale*, n.d.).
+**Case.** An operator binds `tailnet`, opens Control UI over `http://100.x:18789, and wonders why device identity never appears. Remote plain HTTP cannot create browser device identity. Serve is the Control UI path (OpenClaw, *Tailscale*, n.d.).
 
 <TryThis>
 Write the three tailscale.mode values and the default. Write which mode requires password auth. Write whether identity headers work on the ordinary Gateway listener. Name bind tailnet's Control UI restriction. Write whether Funnel is for browser control.

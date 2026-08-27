@@ -46,7 +46,7 @@ Bind directo a Tailnet, sin Serve/Funnel:
 
 Conecten un cliente nativo o CLI desde otro dispositivo Tailnet en `ws://<tailscale-ip>:18789`. **No** usen la direccion HTTP plana directa para el Control UI de browser. El HTTP plano remoto no puede crear identidad de dispositivo browser, y token/password no la sustituyen. Usen Tailscale Serve para el Control UI (OpenClaw, *Tailscale*, s. f.).
 
-Cuando hay un IPv4 Tailnet bindeable, el Gateway tambien exige `http://127.0.0.1:18789` para clientes same-host autenticados. Si no hay direccion Tailnet al startup, cae a loopback solo; reinicien cuando Tailscale este disponible.
+Cuando hay un IPv4 Tailnet bindeable, el Gateway tambien exige `http://127.0.0.1:18789 para clientes same-host autenticados. Si no hay direccion Tailnet al startup, cae a loopback solo; reinicien cuando Tailscale este disponible.
 
 Funnel publico:
 
@@ -101,7 +101,7 @@ La API HTTP standalone de browser en loopback tampoco acepta headers de identida
 
 Funnel mas `none` se rechaza. Las rutas protegidas del Gateway tambien rechazan ingress Funnel **gestionada externamente** cuando el modo de auth es `none`.
 
-**Caso.** Un operador bindea `tailnet`, abre Control UI sobre `http://100.x:18789`, y se pregunta por que nunca aparece identidad de dispositivo. El HTTP plano remoto no puede crear identidad de dispositivo browser. Serve es el camino del Control UI (OpenClaw, *Tailscale*, s. f.).
+**Caso.** Un operador bindea `tailnet`, abre Control UI sobre `http://100.x:18789, y se pregunta por que nunca aparece identidad de dispositivo. El HTTP plano remoto no puede crear identidad de dispositivo browser. Serve es el camino del Control UI (OpenClaw, *Tailscale*, s. f.).
 
 <TryThis>
 Escribe los tres valores de tailscale.mode y el default. Escribe que modo exige auth password. Escribe si los headers de identidad funcionan en el listener ordinario del Gateway. Nombra la restriccion de Control UI de bind tailnet. Escribe si Funnel es para control de browser.

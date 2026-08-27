@@ -99,7 +99,7 @@ Practical tip: publish your own 20-row set with exact-match keys before you argu
 
 ## The scoring API, as they print it
 
-*Named source: Hugging Face Agents Course, Unit 4, The process in [hands-on](https://huggingface.co/learn/agents-course/unit4/hands-on); live docs https://agents-course-unit4-scoring.hf.space/docs.*
+*Named source: Hugging Face Agents Course, Unit 4, The process in [hands-on](https://huggingface.co/learn/agents-course/unit4/hands-on); live docs https://agents-course-unit4-scoring.hf.space/docs
 
 They created an API. Summary of routes (see their live docs for interactive details):
 
@@ -140,7 +140,7 @@ Pick three GAIA-style questions for a domain you know (not from the set if you w
 
 ## Practical checklist
 
-*Named source: Unit 4 pages under Sources; scoring docs https://agents-course-unit4-scoring.hf.space/docs.*
+*Named source: Unit 4 pages under Sources; scoring docs https://agents-course-unit4-scoring.hf.space/docs
 
 1. Answers are short, factual, unambiguous.
 2. Hops need tools; a glossary quiz cannot fake them.
@@ -157,7 +157,7 @@ GAIA is 466 human-easy, assistant-hard questions with three levels and exact-mat
 
 ## Exact match is a prompt problem
 
-*Named source: Hugging Face Agents Course, Unit 4, The process in [hands-on](https://huggingface.co/learn/agents-course/unit4/hands-on); GAIA leaderboard prompting note on https://huggingface.co/spaces/gaia-benchmark/leaderboard.*
+*Named source: Hugging Face Agents Course, Unit 4, The process in [hands-on](https://huggingface.co/learn/agents-course/unit4/hands-on); GAIA leaderboard prompting note on https://huggingface.co/spaces/gaia-benchmark/leaderboard
 
 The submit route is unforgiving by design. A correct fruit list in the wrong order, a singular where they asked for plural, or a sentence around the fact, all score zero. That is not a vendor bug. It is the pillar they called simplicity of evaluation. The dummy loop’s `Final Answer:` stop sequence from [dummy-agent](/en/m/dummy-agent) is the same hinge: the harness must peel the wrapper before POST.
 

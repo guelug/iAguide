@@ -33,7 +33,7 @@ Practical tip: log whether the retriever fired. If it fires on every turn, your 
 
 ## Building the worker, then the manager
 
-*Named source: Hugging Face Agents Course, Unit 2.1, [Multi-Agent Systems](https://huggingface.co/learn/agents-course/unit2/smolagents/multi_agent_systems); notebook https://huggingface.co/agents-course/notebooks/blob/main/unit2/smolagents/multiagent_notebook.ipynb.*
+*Named source: Hugging Face Agents Course, Unit 2.1, [Multi-Agent Systems](https://huggingface.co/learn/agents-course/unit2/smolagents/multi_agent_systems); notebook https://huggingface.co/agents-course/notebooks/blob/main/unit2/smolagents/multiagent_notebook.ipynb
 
 The course's web worker is a `CodeAgent` with search, `VisitWebpageTool`, and a custom `calculate_cargo_travel_time` tool (haversine, 750 km/h cruise, +10% routing, +1 hour for takeoff — those constants are in the notebook, not physics you must re-derive). `name="web_agent"`, `description="Browses the web to find information"`, `verbosity_level=0`, `max_steps=10`. Quiet on purpose: the parent should not drown in child traces.
 

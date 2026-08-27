@@ -188,7 +188,7 @@ El camino generate de Transformers, una vez tengas VRAM, hará OOM en una tarjet
 - **GGUF en Ollama.** Artefacto equivocado. Para.
 - **Prefix cache de un dump denso.** Estado lineal y KV de MLA mezclados. Grupos de objetos separados, o sáltate prefix cache el día uno.
 
-Si tu arnés ya habla OpenAI, apunta `base_url` a `http://127.0.0.1:8000/v1` y conserva la lista de messages. No reimplementes plantillas de chat en el cliente. No recortes JSON de tools para "ahorrar contexto" antes de haber medido el TPOT híbrido; eso es resolver el cuello de botella equivocado.
+Si tu arnés ya habla OpenAI, apunta `base_url` a `http://127.0.0.1:8000/v1 y conserva la lista de messages. No reimplementes plantillas de chat en el cliente. No recortes JSON de tools para "ahorrar contexto" antes de haber medido el TPOT híbrido; eso es resolver el cuello de botella equivocado.
 
 El batch size en vLLM crecerá porque el estado KDA es constante. Esa es la historia de throughput a 1M. No es razón para poner `max-model-len` a 1M en una tarjeta que no aguanta el cuarto MLA. Mide, luego sube.
 

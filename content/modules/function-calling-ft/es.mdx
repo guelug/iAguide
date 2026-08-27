@@ -22,7 +22,7 @@ Consejo práctico: sáltate esta unidad si tu esquema sigue cambiando cada seman
 
 ## Roles nuevos en la conversación
 
-*Fuente nombrada: Hugging Face Agents Course, Bonus Unit 1, How does the model "learn" to take an action? en [what-is-function-calling](https://huggingface.co/learn/agents-course/bonus-unit1/what-is-function-calling); function calling de Mistral https://docs.mistral.ai/capabilities/function_calling/.*
+*Fuente nombrada: Hugging Face Agents Course, Bonus Unit 1, How does the model "learn" to take an action? en [what-is-function-calling](https://huggingface.co/learn/agents-course/bonus-unit1/what-is-function-calling); function calling de Mistral https://docs.mistral.ai/capabilities/function_calling/
 
 El ciclo de Unit 1 es Think, Act (formatea la acción y para), Observe (el resultado de la ejecución). Una API de chat típica solo alterna user y assistant. El function calling añade **roles nuevos**: uno para una Action, uno para una Observation.
 
@@ -64,7 +64,7 @@ Consejo práctico: no hagas LoRA de un checkpoint base “porque es más puro.�
 
 ## LoRA es el adapter, no el producto
 
-*Fuente nombrada: Hugging Face Agents Course, Bonus Unit 1, sección LoRA en [fine-tuning](https://huggingface.co/learn/agents-course/bonus-unit1/fine-tuning); tutorial LoRA del NLP Course https://huggingface.co/learn/nlp-course/chapter11/4?fw=pt.*
+*Fuente nombrada: Hugging Face Agents Course, Bonus Unit 1, sección LoRA en [fine-tuning](https://huggingface.co/learn/agents-course/bonus-unit1/fine-tuning); tutorial LoRA del NLP Course https://huggingface.co/learn/nlp-course/chapter11/4?fw=pt
 
 LoRA inserta unos pocos pesos nuevos como adapter. El entrenamiento es más rápido, más barato, y el adapter pesa unos cientos de MB. Añade matrices de descomposición de rango a capas Transformer, normalmente lineales. El resto del modelo se congela; actualizas el adapter. En inferencia corres adapter más base, o fusionas para no añadir latencia.
 
@@ -76,7 +76,7 @@ Consejo práctico: LoRA aprenderá fielmente el esquema del viernes. Si el lunes
 
 ## El notebook es el laboratorio; esta página es el contrato
 
-*Fuente nombrada: Hugging Face Agents Course, Bonus Unit 1, Fine-Tuning a Model for Function-Calling en [fine-tuning](https://huggingface.co/learn/agents-course/bonus-unit1/fine-tuning); notebook https://huggingface.co/agents-course/notebooks/blob/main/bonus-unit1/bonus-unit1.ipynb.*
+*Fuente nombrada: Hugging Face Agents Course, Bonus Unit 1, Fine-Tuning a Model for Function-Calling en [fine-tuning](https://huggingface.co/learn/agents-course/bonus-unit1/fine-tuning); notebook https://huggingface.co/agents-course/notebooks/blob/main/bonus-unit1/bonus-unit1.ipynb
 
 Te mandan al notebook oficial y luego a Colab. Esta lección no rehospeda sus celdas. Quédate con el contrato: añade tokens especiales a un instruct pequeño, entrena LoRA en conversaciones que ya contienen roles Action y Observation, sirve la misma plantilla.
 
@@ -143,7 +143,7 @@ Consejo práctico: registra el texto `[TOOL_CALLS]` como span (véase [observabi
 
 ## Lista práctica
 
-*Fuente nombrada: páginas de Bonus Unit 1 en Fuentes; docs de Mistral https://docs.mistral.ai/capabilities/function_calling/.*
+*Fuente nombrada: páginas de Bonus Unit 1 en Fuentes; docs de Mistral https://docs.mistral.ai/capabilities/function_calling/
 
 1. Congela el esquema antes de reunir pares.
 2. Empieza desde un checkpoint instruct, no base, como hace la unidad con Gemma-2-2b-it.

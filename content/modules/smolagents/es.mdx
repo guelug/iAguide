@@ -96,7 +96,7 @@ Consejo práctico: imprime la allowlist en el PR. Si la lista contiene `os`, `sy
 
 ## Una primera ejecución, sin fingir que es producción
 
-*Fuente nombrada: Hugging Face Agents Course, Unidad 2.1, [CodeAgents](https://huggingface.co/learn/agents-course/unit2/smolagents/code_agents); notebook https://huggingface.co/agents-course/notebooks/blob/main/unit2/smolagents/code_agents.ipynb.*
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.1, [CodeAgents](https://huggingface.co/learn/agents-course/unit2/smolagents/code_agents); notebook https://huggingface.co/agents-course/notebooks/blob/main/unit2/smolagents/code_agents.ipynb
 
 La instalación es la línea de los docs `pip install smolagents -U`. Login al Hub si usas serverless. Luego el CodeAgent más pequeño del curso: `DuckDuckGoSearchTool` más `InferenceClientModel`, `agent.run("Search for the best music recommendations for a party at the Wayne's mansion.")`. Mira la traza. Confirma que ves **parsed code**, no un blob JSON, si instanciaste `CodeAgent`.
 
@@ -126,7 +126,7 @@ Consejo práctico: una herramienta nueva por ejecución hasta que la traza sea a
 
 ## Verbosity, planning y los flags del tutorial de la Unidad 1
 
-*Fuente nombrada: Hugging Face Agents Course, Unidad 1, [Let's Create Our First Agent Using smolagents](https://huggingface.co/learn/agents-course/unit1/tutorial); referencia CodeAgent https://huggingface.co/docs/smolagents/main/en/reference/agents#smolagents.CodeAgent.*
+*Fuente nombrada: Hugging Face Agents Course, Unidad 1, [Let's Create Our First Agent Using smolagents](https://huggingface.co/learn/agents-course/unit1/tutorial); referencia CodeAgent https://huggingface.co/docs/smolagents/main/en/reference/agents
 
 El tutorial de la Unidad 1 construye un `CodeAgent` con `max_steps=6`, `verbosity_level=1`, `grammar=None`, `planning_interval=None` y un argumento explícito `prompt_templates`. Esos flags son del constructor público, no folklore:
 
@@ -140,7 +140,7 @@ Consejo práctico: copia el constructor del tutorial una vez, luego borra flags 
 
 ## Qué publica de verdad el share del Hub
 
-*Fuente nombrada: Hugging Face Agents Course, Unidad 2.1, [CodeAgents](https://huggingface.co/learn/agents-course/unit2/smolagents/code_agents); docs del Hub https://huggingface.co/docs/hub.*
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.1, [CodeAgents](https://huggingface.co/learn/agents-course/unit2/smolagents/code_agents); docs del Hub https://huggingface.co/docs/hub
 
 `push_to_hub` envía un agente que otros pueden recargar. Eso es código, un system prompt, una lista de herramientas y los secretos que hayas cerrado encima por accidente. El curso se entusiasma compartiendo a Alfred. iAguide no: trata un Space público como **fuente**, igual que un repo Git. Quita tokens. Deja `trust_remote_code` apagado hasta haber leído el archivo.
 
@@ -148,7 +148,7 @@ Consejo práctico: bajar no es evaluar. Un agente del Hub que "funciona" con el 
 
 ## Errores, reintentos y qué registrar
 
-*Fuente nombrada: Hugging Face Agents Course, [introducción Unidad 2](https://huggingface.co/learn/agents-course/unit2/introduction); Bonus Unidad 2 [observabilidad](https://huggingface.co/learn/agents-course/bonus-unit2/what-is-agent-observability-and-evaluation); instrumentación OpenTelemetry en https://huggingface.co/docs/smolagents.*
+*Fuente nombrada: Hugging Face Agents Course, [introducción Unidad 2](https://huggingface.co/learn/agents-course/unit2/introduction); Bonus Unidad 2 [observabilidad](https://huggingface.co/learn/agents-course/bonus-unit2/what-is-agent-observability-and-evaluation); instrumentación OpenTelemetry en https://huggingface.co/docs/smolagents
 
 El esqueleto compartido de la Unidad 2 ya listaba logging de errores y reintentos como razón para usar un framework. smolagents reintentará un parseo fallido. No te dirá, por sí solo, que DuckDuckGo volvió vacío, o que gastaste cuatro pasos repitiendo el menú. Registra al menos: índice de paso, nombre de herramienta, resumen de argumentos, longitud de la observación, si disparó `FinalAnswerTool`, y recuentos de tokens si el wrapper los expone.
 

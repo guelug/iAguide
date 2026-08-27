@@ -78,7 +78,7 @@ Hermes contains logic to avoid leaking the wrong API key to a custom endpoint wh
 
 The resolver also distinguishes a **real** custom endpoint the user selected from the OpenRouter fallback path used when no custom endpoint is configured. That distinction matters for local model servers, non-OpenRouter OpenAI-compatible APIs, switching providers without re-running setup, and config-saved custom endpoints that must keep working even when `OPENAI_BASE_URL` is not exported.
 
-**Case.** `OPENROUTER_API_KEY` and `OPENAI_API_KEY` both sit in `.env`. The operator points Hermes at `http://localhost:8000/v1`. If the resolver sent the OpenRouter key to localhost, two things go wrong: the local server may log a cloud secret, and OpenRouter has not seen a request. Scoping exists so that does not happen.
+**Case.** `OPENROUTER_API_KEY` and `OPENAI_API_KEY` both sit in `.env`. The operator points Hermes at `http://localhost:8000/v1. If the resolver sent the OpenRouter key to localhost, two things go wrong: the local server may log a cloud secret, and OpenRouter has not seen a request. Scoping exists so that does not happen.
 
 ## Nous Portal, in this harness
 

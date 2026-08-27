@@ -46,7 +46,7 @@ LlamaParse es una API gestionada de pago. El curso lo dice. No pegues una promes
 
 ## Herramientas: cuatro tipos, un contrato
 
-*Fuente nombrada: Hugging Face Agents Course, Unidad 2.2, [Using Tools in LlamaIndex](https://huggingface.co/learn/agents-course/unit2/llama-index/tools); Function Calling Guide https://docs.llamaindex.ai/en/stable/examples/workflow/function_calling_agent/.*
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.2, [Using Tools in LlamaIndex](https://huggingface.co/learn/agents-course/unit2/llama-index/tools); Function Calling Guide https://docs.llamaindex.ai/en/stable/examples/workflow/function_calling_agent/
 
 1. `FunctionTool` — envuelve una función Python. Nombre y descripción opcionales pero con peso; las anotaciones de tipo y el docstring se vuelven el esquema. Su ejemplo del tiempo: `FunctionTool.from_defaults(get_weather, name="my_weather_tool", description="Useful for getting the weather for a given location.")` y luego `tool.call("New York")`.
 2. `QueryEngineTool` — envuelve un `QueryEngine` con **nombre** y **descripción** para que el LLM pueda elegirlo. `return_direct=False` significa que el modelo ve la recuperación como observación y puede continuar. `True` cortocircuita. Entérate de cuál pasaste.
@@ -59,7 +59,7 @@ Consejo práctico: el nombre más la descripción *son* la API que ve el modelo.
 
 ## Agentes: function-calling, ReAct o un workflow a medida
 
-*Fuente nombrada: Hugging Face Agents Course, Unidad 2.2, [Using Agents in LlamaIndex](https://huggingface.co/learn/agents-course/unit2/llama-index/agents); BaseWorkflowAgent https://github.com/run-llama/llama_index/blob/main/llama-index-core/llama_index/core/agent/workflow/base_agent.py.*
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.2, [Using Agents in LlamaIndex](https://huggingface.co/learn/agents-course/unit2/llama-index/agents); BaseWorkflowAgent https://github.com/run-llama/llama_index/blob/main/llama-index-core/llama_index/core/agent/workflow/base_agent.py
 
 Tres tipos en esa página:
 
@@ -104,7 +104,7 @@ Elige una fuente de datos que de verdad tengas (una carpeta de PDFs, un export d
 
 ## Embeddings, Chroma y persistencia
 
-*Fuente nombrada: Hugging Face Agents Course, Unidad 2.2, [components](https://huggingface.co/learn/agents-course/unit2/llama-index/components); vector stores https://docs.llamaindex.ai/en/stable/module_guides/storing/vector_stores/.*
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.2, [components](https://huggingface.co/learn/agents-course/unit2/llama-index/components); vector stores https://docs.llamaindex.ai/en/stable/module_guides/storing/vector_stores/
 
 La vía Chroma del curso: `chromadb.PersistentClient(path="./alfred_chroma_db")`, colección `"alfred"`, `ChromaVectorStore`, enganchado al `IngestionPipeline` para que la ingestión llene el store. La persistencia es el punto del client path. Un store en memoria que muere al salir del proceso es un tutorial, no un producto.
 
@@ -114,7 +114,7 @@ Consejo práctico: deja el chunk_overlap explícito. Su primer splitter usa `chu
 
 ## Multi-agente dentro de AgentWorkflow
 
-*Fuente nombrada: Hugging Face Agents Course, Unidad 2.2, [Using Agents in LlamaIndex](https://huggingface.co/learn/agents-course/unit2/llama-index/agents); intro AgentWorkflow https://docs.llamaindex.ai/en/stable/examples/agent/agent_workflow_basic/.*
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.2, [Using Agents in LlamaIndex](https://huggingface.co/learn/agents-course/unit2/llama-index/agents); intro AgentWorkflow https://docs.llamaindex.ai/en/stable/examples/agent/agent_workflow_basic/
 
 `AgentWorkflow` puede sostener varios agentes con nombre y mantener un **único hablante activo**, con handoff. El curso construye un `ReActAgent` calculadora (`add`, `subtract`) y un `ReActAgent` `info_lookup` que posee un `QueryEngineTool`, luego `AgentWorkflow(agents=[...], root_agent="calculator")`. `FunctionAgent` es para modelos con API de function calling; `ReActAgent` para cualquier LLM. Alcance más estrecho, más exactitud — la misma tesis de aislamiento que los workers de smolagents, otros nombres de clase.
 
@@ -150,7 +150,7 @@ Un segundo bug: embedieron con `bge-small-en-v1.5` y consultaron con otro embedd
 
 ## Lista práctica
 
-*Fuente nombrada: páginas de la Unidad 2.2 listadas en Fuentes; docs LlamaIndex https://docs.llamaindex.ai.*
+*Fuente nombrada: páginas de la Unidad 2.2 listadas en Fuentes; docs LlamaIndex https://docs.llamaindex.ai
 
 1. Puedes nombrar el loader (directorio, reader de LlamaHub o LlamaParse) y la licencia/coste de esa elección.
 2. Splitter, id del modelo de embeddings y ruta del vector store están escritos. La consulta usa el mismo embedder.
@@ -252,4 +252,4 @@ Burtenshaw, B., Thomas, J., Simonini, T. y Paniego, S. (s. f.). *Hugging Face Ag
 - Notebook workflows: https://huggingface.co/agents-course/notebooks/blob/main/unit2/llama-index/workflows.ipynb
 
 - Connectors docs: https://docs.llamaindex.ai/en/stable/module_guides/loading/connector/
-- LlamaParse notes: https://github.com/run-llama/llama_cloud_services/blob/main/parse.md
+- LlamaParse notes: https://github.com/run-llama/llama_cloud_services

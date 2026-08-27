@@ -1,6 +1,6 @@
 ## Particularidad — el agente decide recuperar
 
-*Fuente nombrada: Hugging Face Agents Course, Unidad 3, [Introduction to Use Case for Agentic RAG](https://huggingface.co/learn/agents-course/unit3/agentic-rag/introduction) y [Agentic Retrieval Augmented Generation](https://huggingface.co/learn/agents-course/unit3/agentic-rag/agentic-rag) (Burtenshaw, Thomas, Simonini y Paniego, Apache-2.0).*
+*Fuente nombrada: Hugging Face Agents Course, Unidad 3, [Introduction to Use Case for Agentic RAG](https://huggingface.co/learn/agents-course/unit3/agentic-ragintroduction) y [Agentic Retrieval Augmented Generation](https://huggingface.co/learn/agents-course/unit3/agentic-ragagentic-rag) (Burtenshaw, Thomas, Simonini y Paniego, Apache-2.0).*
 
 El RAG clásico siempre busca. El **RAG agéntico** le da al modelo una herramienta retrieve (y quizá tiempo, web, stats del Hub) y le deja decidir. La Unidad 3 construye esto como Alfred planeando una gala: una herramienta RAG sobre **historias de invitados**, más otras tools, compuestas en un agente de gala. Puedes usar smolagents, LlamaIndex o LangGraph: el curso muestra pestañas para cada uno. La geometría es la de [embeddings](/es/m/embeddings-and-retrieval): stuffing frente a retrieve-then-read frente a elegir. Esta página es la fiesta trabajada.
 
@@ -10,7 +10,7 @@ Portada oficial: https://huggingface.co/learn/agents-course · fuente: https://g
 
 ## Por qué Alfred necesita RAG
 
-*Fuente nombrada: Hugging Face Agents Course, Unidad 3, [introduction](https://huggingface.co/learn/agents-course/unit3/agentic-rag/introduction).*
+*Fuente nombrada: Hugging Face Agents Course, Unidad 3, [introduction](https://huggingface.co/learn/agents-course/unit3/agentic-ragintroduction).*
 
 El brief de la gala es deliberado. Un anfitrión renacentista necesita charla de deporte, cultura y ciencia, y debe evitar política y religión. Un buen anfitrión conoce los trasfondos. El tiempo debe estar fresco para lanzar fuegos. Es demasiado para los pesos solos y demasiado lío para un solo hop retrieve-then-read. Alfred necesita tools, y una de ellas es un retriever sobre material de invitados.
 
@@ -18,7 +18,7 @@ Consejo práctico: escribe los requisitos duros como descripciones de tools ante
 
 ## RAG clásico frente a RAG agéntico
 
-*Fuente nombrada: Hugging Face Agents Course, Unidad 3, [agentic-rag](https://huggingface.co/learn/agents-course/unit3/agentic-rag/agentic-rag); Unidad 2.1 [retrieval_agents](https://huggingface.co/learn/agents-course/unit2/smolagents/retrieval_agents); Unidad 2.2 [agents](https://huggingface.co/learn/agents-course/unit2/llama-index/agents).*
+*Fuente nombrada: Hugging Face Agents Course, Unidad 3, [agentic-rag](https://huggingface.co/learn/agents-course/unit3/agentic-ragagentic-rag); Unidad 2.1 [retrieval_agents](https://huggingface.co/learn/agents-course/unit2/smolagents/retrieval_agents); Unidad 2.2 [agents](https://huggingface.co/learn/agents-course/unit2/llama-index/agents).*
 
 Los LLM aprenden conocimiento general. Puede faltarles lo relevante o lo actual. RAG encuentra pasajes y los reenvía. El RAG agéntico no responde automáticamente encima de documentos: Alfred puede usar cualquier otra tool o flujo. El diagrama del curso contrasta retrieve-then-read automático con un agente que elige tools.
 
@@ -36,7 +36,7 @@ Retrieve es una tool con nombre. El modelo puede saltársela. Hace falta descrip
 </Compare>
 ## Invitados: la tool RAG sobre historias
 
-*Fuente nombrada: Hugging Face Agents Course, Unidad 3, [invitees](https://huggingface.co/learn/agents-course/unit3/agentic-rag/invitees).*
+*Fuente nombrada: Hugging Face Agents Course, Unidad 3, [invitees](https://huggingface.co/learn/agents-course/unit3/agentic-raginvitees).*
 
 La página de invitees es el notebook largo: cargar material de invitados, indexarlo, exponerlo como retriever, query engine o Tool de smolagents. Los nombres de clase exactos siguen la pestaña de framework (LlamaIndex QueryEngineTool, subclase Tool de smolagents, nodo LangGraph que llama a un retriever). No inventes una cuarta API. Lee la pestaña que vas a ejecutar.
 
@@ -44,7 +44,7 @@ Consejo práctico: las historias de invitados son datos. Una línea de vandalism
 
 ## Otras tools de la gala: web, tiempo, stats del Hub
 
-*Fuente nombrada: Hugging Face Agents Course, Unidad 3, [Building and Integrating Tools](https://huggingface.co/learn/agents-course/unit3/agentic-rag/tools).*
+*Fuente nombrada: Hugging Face Agents Course, Unidad 3, [Building and Integrating Tools](https://huggingface.co/learn/agents-course/unit3/agentic-ragtools).*
 
 La página de tools concede a Alfred búsqueda web DuckDuckGo vía el wrapper del framework, una tool de tiempo para los fuegos (el mismo hueco dummy o API que get_weather de la Unidad 1), y estadísticas de descargas del Hub. Usa el snippet del framework que elegiste. No mezcles un objeto tool de smolagents en un nodo LangGraph sin el adaptador del curso.
 
@@ -52,7 +52,7 @@ Consejo práctico: tres tools, no treinta. Una cuarta como send_invite sin human
 
 ## Componer el agente de gala
 
-*Fuente nombrada: Hugging Face Agents Course, Unidad 3, [agent](https://huggingface.co/learn/agents-course/unit3/agentic-rag/agent); conclusión https://huggingface.co/learn/agents-course/unit3/agentic-rag/conclusion.*
+*Fuente nombrada: Hugging Face Agents Course, Unidad 3, [agent](https://huggingface.co/learn/agents-course/unit3/agentic-ragagent); conclusión https://huggingface.co/learn/agents-course/unit3/agentic-ragconclusion
 
 La página agent cablea RAG de invitados, web, tiempo y stats del Hub en un agente ejecutable por pestaña. El mismo ciclo de la Unidad 1: Thought, Action, Observation, presupuesto de saltos. Elegir framework es codificación, no un ascenso. Si el flujo exige humano antes de enviar, prefiere LangGraph. Si el corpus es el producto, QueryEngineTool de LlamaIndex. Si quieres código como acción, smolagents.
 
@@ -64,7 +64,7 @@ El texto recuperado es dato. Trátalo como Observation de la Unidad 1: añádelo
 
 ## Requisitos de la gala como allowlist
 
-*Fuente nombrada: Hugging Face Agents Course, Unidad 3, [introduction](https://huggingface.co/learn/agents-course/unit3/agentic-rag/introduction).*
+*Fuente nombrada: Hugging Face Agents Course, Unidad 3, [introduction](https://huggingface.co/learn/agents-course/unit3/agentic-ragintroduction).*
 
 Trasfondo del invitado va a la tool RAG. Conocimiento fresco del mundo va a la web. Timing de fuegos va al tiempo. Charla de cultura y ciencia va a RAG más web, no a tools de política. Cualquier cosa que envíe email va a un nodo humano o a una tool rechazada.
 
@@ -104,7 +104,7 @@ GalaFlow indexó bios de prensa. El vandalismo de Wikipedia pedía volcar emails
 
 ## Las pestañas de framework no son tres productos
 
-*Fuente nombrada: Hugging Face Agents Course, Unidad 3, [introduction](https://huggingface.co/learn/agents-course/unit3/agentic-rag/introduction); [tools](https://huggingface.co/learn/agents-course/unit3/agentic-rag/tools).*
+*Fuente nombrada: Hugging Face Agents Course, Unidad 3, [introduction](https://huggingface.co/learn/agents-course/unit3/agentic-ragintroduction); [tools](https://huggingface.co/learn/agents-course/unit3/agentic-ragtools).*
 
 La misma idea de tiempo aparece tres veces según la pestaña. Elige una y quédate. Copiar las tres a un proceso son tres parsers. La Unidad 2 ya enseñó cuándo gana cada codificación; la 3 es el caso de uso, no un cuarto framework.
 
@@ -112,7 +112,7 @@ Consejo práctico: nombra la codificación en la carpeta del repo, gala-smolagen
 
 ## Lo que indexas es un objeto legal
 
-*Fuente nombrada: Hugging Face Agents Course, Unidad 3, [invitees](https://huggingface.co/learn/agents-course/unit3/agentic-rag/invitees); etapas de carga de la Unidad 2.2.*
+*Fuente nombrada: Hugging Face Agents Course, Unidad 3, [invitees](https://huggingface.co/learn/agents-course/unit3/agentic-raginvitees); etapas de carga de la Unidad 2.2.*
 
 Licencia y PII son tuyas. La fiesta del curso es ficción. Tu gala de empresa no. No indexes emails personales para ayudar a Alfred a cotillear. El párrafo de anfitrión que conoce trasfondos es pedagogía, no una política de datos.
 
@@ -120,7 +120,7 @@ Consejo práctico: una colección por sensibilidad. Bios públicas en un índice
 
 ## El tiempo de los fuegos es la Unidad 1 de esmoquin
 
-*Fuente nombrada: Hugging Face Agents Course, Unidad 3, [tools](https://huggingface.co/learn/agents-course/unit3/agentic-rag/tools); Unidad 1 [dummy-agent-library](https://huggingface.co/learn/agents-course/unit1/dummy-agent-library).*
+*Fuente nombrada: Hugging Face Agents Course, Unidad 3, [tools](https://huggingface.co/learn/agents-course/unit3/agentic-ragtools); Unidad 1 [dummy-agent-library](https://huggingface.co/learn/agents-course/unit1/dummy-agent-library).*
 
 Para antes de Observation. Parsea la tool de tiempo. Ejecútala tú. Añade la cadena de la estación. Si el modelo escribe cielo despejado sin una llamada, estás otra vez en MeteoLite. La gala no anula el bucle dummy.
 
@@ -199,12 +199,12 @@ El RAG agéntico es retrieve como herramienta, no como destino. La gala necesita
 
 Burtenshaw, B., Thomas, J., Simonini, T. y Paniego, S. (s. f.). Hugging Face Agents Course (Apache-2.0). https://huggingface.co/learn/agents-course · https://github.com/huggingface/agents-course
 
-- Introducción Unidad 3: https://huggingface.co/learn/agents-course/unit3/agentic-rag/introduction
-- Concepto Agentic RAG: https://huggingface.co/learn/agents-course/unit3/agentic-rag/agentic-rag
-- Invitees: https://huggingface.co/learn/agents-course/unit3/agentic-rag/invitees
-- Tools: https://huggingface.co/learn/agents-course/unit3/agentic-rag/tools
-- Agent: https://huggingface.co/learn/agents-course/unit3/agentic-rag/agent
-- Conclusión: https://huggingface.co/learn/agents-course/unit3/agentic-rag/conclusion
+- Introducción Unidad 3: https://huggingface.co/learn/agents-course/unit3/agentic-ragintroduction
+- Concepto Agentic RAG: https://huggingface.co/learn/agents-course/unit3/agentic-ragagentic-rag
+- Invitees: https://huggingface.co/learn/agents-course/unit3/agentic-raginvitees
+- Tools: https://huggingface.co/learn/agents-course/unit3/agentic-ragtools
+- Agent: https://huggingface.co/learn/agents-course/unit3/agentic-ragagent
+- Conclusión: https://huggingface.co/learn/agents-course/unit3/agentic-ragconclusion
 - README Unidad 3: https://github.com/huggingface/agents-course/tree/main/units/en/unit3
 - Retrieval agents smolagents: https://huggingface.co/learn/agents-course/unit2/smolagents/retrieval_agents
 - QueryEngineTool LlamaIndex: https://huggingface.co/learn/agents-course/unit2/llama-index/agents
@@ -230,7 +230,7 @@ Burtenshaw, B., Thomas, J., Simonini, T. y Paniego, S. (s. f.). Hugging Face Age
 - Introduction.mdx en GitHub: https://github.com/huggingface/agents-course/blob/main/units/en/unit3/agentic-rag/introduction.mdx
 - Conclusion.mdx en GitHub: https://github.com/huggingface/agents-course/blob/main/units/en/unit3/agentic-rag/conclusion.mdx
 - README.md Unidad 3: https://github.com/huggingface/agents-course/blob/main/units/en/unit3/README.md
-- Prefijo learn de la unidad: https://huggingface.co/learn/agents-course/unit3/agentic-rag/
+- Prefijo learn de la unidad: https://huggingface.co/learn/agents-course/unit3/agentic-rag
 - GitHub smolagents: https://github.com/huggingface/smolagents
 - GitHub LlamaIndex: https://github.com/run-llama/llama_index
 - GitHub LangGraph: https://github.com/langchain-ai/langgraph

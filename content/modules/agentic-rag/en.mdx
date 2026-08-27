@@ -1,6 +1,6 @@
 ## Particularity — the agent chooses to retrieve
 
-*Named source: Hugging Face Agents Course, Unit 3, [Introduction to Use Case for Agentic RAG](https://huggingface.co/learn/agents-course/unit3/agentic-rag/introduction) and [Agentic Retrieval Augmented Generation](https://huggingface.co/learn/agents-course/unit3/agentic-rag/agentic-rag) (Burtenshaw, Thomas, Simonini, & Paniego, Apache-2.0).*
+*Named source: Hugging Face Agents Course, Unit 3, [Introduction to Use Case for Agentic RAG](https://huggingface.co/learn/agents-course/unit3/agentic-ragintroduction) and [Agentic Retrieval Augmented Generation](https://huggingface.co/learn/agents-course/unit3/agentic-ragagentic-rag) (Burtenshaw, Thomas, Simonini, & Paniego, Apache-2.0).*
 
 Classic RAG always fetches. **Agentic RAG** gives the model a retrieve tool (and maybe weather, web, Hub stats) and lets it decide. Unit 3 builds this as Alfred planning a gala: a RAG tool over **guest stories**, plus other tools, composed into a “gala agent.” You may use smolagents, LlamaIndex, or LangGraph — the course shows tabs for each. The geometry is the one in [embeddings](/en/m/embeddings-and-retrieval): stuff vs retrieve-then-read vs choose. This page is the worked party.
 
@@ -10,7 +10,7 @@ Official course home: https://huggingface.co/learn/agents-course · source: http
 
 ## Why Alfred needs RAG at all
 
-*Named source: Hugging Face Agents Course, Unit 3, [introduction](https://huggingface.co/learn/agents-course/unit3/agentic-rag/introduction).*
+*Named source: Hugging Face Agents Course, Unit 3, [introduction](https://huggingface.co/learn/agents-course/unit3/agentic-ragintroduction).*
 
 The gala brief is deliberate. A Renaissance host needs sports, culture, and science talk — and must avoid politics and religion. A good host knows guest backgrounds and can gossip safely. Weather must be fresh so fireworks launch under a clear sky. That is too much for weights alone and too messy for one retrieve-then-read hop. Alfred needs tools, and one of them is a retriever over invitee material.
 
@@ -18,7 +18,7 @@ Practical tip: write the hard requirements as tool descriptions before you index
 
 ## Classic RAG versus agentic RAG
 
-*Named source: Hugging Face Agents Course, Unit 3, [agentic-rag](https://huggingface.co/learn/agents-course/unit3/agentic-rag/agentic-rag); Unit 2.1 [retrieval_agents](https://huggingface.co/learn/agents-course/unit2/smolagents/retrieval_agents); Unit 2.2 [agents](https://huggingface.co/learn/agents-course/unit2/llama-index/agents).*
+*Named source: Hugging Face Agents Course, Unit 3, [agentic-rag](https://huggingface.co/learn/agents-course/unit3/agentic-ragagentic-rag); Unit 2.1 [retrieval_agents](https://huggingface.co/learn/agents-course/unit2/smolagents/retrieval_agents); Unit 2.2 [agents](https://huggingface.co/learn/agents-course/unit2/llama-index/agents).*
 
 LLMs learn general knowledge. They may lack relevant or up-to-date facts. RAG finds passages and forwards them. **Agentic** RAG does not answer automatically on top of documents: Alfred may use any other tool or flow. The course diagram contrasts automatic retrieve-then-read with an agent that picks tools.
 
@@ -37,7 +37,7 @@ Retrieve is a named tool. The model may skip it. Needs honest descriptions and o
 
 ## Invitees: the RAG tool over guest stories
 
-*Named source: Hugging Face Agents Course, Unit 3, [invitees](https://huggingface.co/learn/agents-course/unit3/agentic-rag/invitees).*
+*Named source: Hugging Face Agents Course, Unit 3, [invitees](https://huggingface.co/learn/agents-course/unit3/agentic-raginvitees).*
 
 The invitees page is the long worked notebook: load guest material, index it, expose it as a retriever / query engine / smolagents `Tool`. Exact class names follow the framework tab you pick (LlamaIndex `QueryEngineTool`, smolagents `Tool` subclass, LangGraph node that calls a retriever). Do not invent a fourth API. Read the tab you will run.
 
@@ -45,7 +45,7 @@ Practical tip: keep guest stories **data**. A Wikipedia vandalism line that says
 
 ## Other gala tools: web, weather, Hub stats
 
-*Named source: Hugging Face Agents Course, Unit 3, [Building and Integrating Tools](https://huggingface.co/learn/agents-course/unit3/agentic-rag/tools).*
+*Named source: Hugging Face Agents Course, Unit 3, [Building and Integrating Tools](https://huggingface.co/learn/agents-course/unit3/agentic-ragtools).*
 
 The tools page grants Alfred:
 
@@ -59,7 +59,7 @@ Practical tip: three tools, not thirty. A fourth like `send_invite` without a hu
 
 ## Composing the gala agent
 
-*Named source: Hugging Face Agents Course, Unit 3, [agent](https://huggingface.co/learn/agents-course/unit3/agentic-rag/agent); conclusion https://huggingface.co/learn/agents-course/unit3/agentic-rag/conclusion.*
+*Named source: Hugging Face Agents Course, Unit 3, [agent](https://huggingface.co/learn/agents-course/unit3/agentic-ragagent); conclusion https://huggingface.co/learn/agents-course/unit3/agentic-ragconclusion
 
 The agent page wires guest RAG + web + weather + Hub stats into one runnable agent per framework tab. Same Unit 1 cycle: Thought, Action, Observation, hop budget. Framework choice is encoding, not a promotion. If control flow is “always ask human before send,” prefer LangGraph. If the guest corpus is the product, LlamaIndex’s `QueryEngineTool` is natural. If you want code-as-action, smolagents.
 
@@ -71,7 +71,7 @@ Retrieved text is **data**. Treat it like Unit 1 Observation: append it, do not 
 
 ## Gala requirements as an allowlist
 
-*Named source: Hugging Face Agents Course, Unit 3, [introduction](https://huggingface.co/learn/agents-course/unit3/agentic-rag/introduction) (gala requirements).*
+*Named source: Hugging Face Agents Course, Unit 3, [introduction](https://huggingface.co/learn/agents-course/unit3/agentic-ragintroduction) (gala requirements).*
 
 Map requirements to tools and refusals:
 
@@ -124,7 +124,7 @@ Agentic RAG is retrieve as a tool, not as destiny. Alfred’s gala needs guest s
 
 ## Framework tabs are not three products
 
-*Named source: Hugging Face Agents Course, Unit 3, [introduction](https://huggingface.co/learn/agents-course/unit3/agentic-rag/introduction) (“You can choose any of the frameworks”); [tools](https://huggingface.co/learn/agents-course/unit3/agentic-rag/tools) hfoptions tabs.*
+*Named source: Hugging Face Agents Course, Unit 3, [introduction](https://huggingface.co/learn/agents-course/unit3/agentic-ragintroduction) (“You can choose any of the frameworks”); [tools](https://huggingface.co/learn/agents-course/unit3/agentic-ragtools) hfoptions tabs.*
 
 The same weather idea appears three times: a smolagents `@tool` or `DuckDuckGoSearchTool`, a LlamaIndex `FunctionTool` / toolspec, a LangGraph `DuckDuckGoSearchRun`. Pick one tab and stay on it for the gala. Copy-pasting all three into one process is three parsers. Unit 2 already taught you when each encoding wins; Unit 3 is the use case, not a fourth framework.
 
@@ -132,7 +132,7 @@ Practical tip: name the encoding in the repo folder (`gala-smolagents/`, not `ga
 
 ## What you index is a legal object
 
-*Named source: Hugging Face Agents Course, Unit 3, [invitees](https://huggingface.co/learn/agents-course/unit3/agentic-rag/invitees); Unit 2.2 loading stages.*
+*Named source: Hugging Face Agents Course, Unit 3, [invitees](https://huggingface.co/learn/agents-course/unit3/agentic-raginvitees); Unit 2.2 loading stages.*
 
 Guest stories may be press bios, internal notes, or Wikipedia dumps. License and PII are yours. The course’s party is fiction. Your workplace gala is not. Do not index personal emails to “help Alfred gossip.” The host-should-know-backgrounds paragraph is pedagogy, not a data policy.
 
@@ -140,7 +140,7 @@ Practical tip: a separate collection per sensitivity. Public bios in one index. 
 
 ## Fireworks weather is Unit 1 in a tuxedo
 
-*Named source: Hugging Face Agents Course, Unit 3, [tools](https://huggingface.co/learn/agents-course/unit3/agentic-rag/tools) (weather for fireworks); Unit 1 [dummy-agent-library](https://huggingface.co/learn/agents-course/unit1/dummy-agent-library).*
+*Named source: Hugging Face Agents Course, Unit 3, [tools](https://huggingface.co/learn/agents-course/unit3/agentic-ragtools) (weather for fireworks); Unit 1 [dummy-agent-library](https://huggingface.co/learn/agents-course/unit1/dummy-agent-library).*
 
 Stop before Observation. Parse the weather tool. Run it yourself. Append the station string. If the model writes “clear skies perfect for fireworks” without a tool call, you are back in MeteoLite. The gala does not waive the dummy loop.
 
@@ -170,7 +170,7 @@ Practical tip: keep answers short and factual so scoring is exact match, the way
 - Introduction source file: https://github.com/huggingface/agents-course/blob/main/units/en/unit3/agentic-rag/introduction.mdx
 - Conclusion source file: https://github.com/huggingface/agents-course/blob/main/units/en/unit3/agentic-rag/conclusion.mdx
 - Unit 3 README: https://github.com/huggingface/agents-course/blob/main/units/en/unit3/README.md
-- Learn URL prefix for this unit: https://huggingface.co/learn/agents-course/unit3/agentic-rag/
+- Learn URL prefix for this unit: https://huggingface.co/learn/agents-course/unit3/agentic-rag
 - Spanish parallel pages exist under units/es/unit3/agentic-rag/ in the same repo.
 - smolagents GitHub: https://github.com/huggingface/smolagents
 - LlamaIndex GitHub: https://github.com/run-llama/llama_index
@@ -185,12 +185,12 @@ Practical tip: keep answers short and factual so scoring is exact match, the way
 
 Burtenshaw, B., Thomas, J., Simonini, T., & Paniego, S. (n.d.). *Hugging Face Agents Course* (Apache-2.0). https://huggingface.co/learn/agents-course · https://github.com/huggingface/agents-course
 
-- Unit 3 introduction: https://huggingface.co/learn/agents-course/unit3/agentic-rag/introduction
-- Agentic RAG concept: https://huggingface.co/learn/agents-course/unit3/agentic-rag/agentic-rag
-- Invitees (guest RAG): https://huggingface.co/learn/agents-course/unit3/agentic-rag/invitees
-- Tools (web, weather, Hub): https://huggingface.co/learn/agents-course/unit3/agentic-rag/tools
-- Agent composition: https://huggingface.co/learn/agents-course/unit3/agentic-rag/agent
-- Conclusion: https://huggingface.co/learn/agents-course/unit3/agentic-rag/conclusion
+- Unit 3 introduction: https://huggingface.co/learn/agents-course/unit3/agentic-ragintroduction
+- Agentic RAG concept: https://huggingface.co/learn/agents-course/unit3/agentic-ragagentic-rag
+- Invitees (guest RAG): https://huggingface.co/learn/agents-course/unit3/agentic-raginvitees
+- Tools (web, weather, Hub): https://huggingface.co/learn/agents-course/unit3/agentic-ragtools
+- Agent composition: https://huggingface.co/learn/agents-course/unit3/agentic-ragagent
+- Conclusion: https://huggingface.co/learn/agents-course/unit3/agentic-ragconclusion
 - Unit 3 README in repo: https://github.com/huggingface/agents-course/tree/main/units/en/unit3
 - smolagents retrieval agents (prior art): https://huggingface.co/learn/agents-course/unit2/smolagents/retrieval_agents
 - LlamaIndex agentic RAG via QueryEngineTool: https://huggingface.co/learn/agents-course/unit2/llama-index/agents

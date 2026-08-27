@@ -142,7 +142,7 @@ Para stores de tamaño produccion, `maxEntries` de mantenimiento y la politica d
 
 Usen `openclaw doctor --session-sqlite inspect` cuando `sessionStartedAt` se vea mal tras un import JSONL. Los timestamps idle faltantes caen al start time, lo que hace que una fila migrada parezca idle-ready de inmediato. Esa sorpresa esta documentada (OpenClaw, *Session management*, s. f.).
 
-Los docs de heartbeat (`https://docs.openclaw.ai/gateway/heartbeat`) deberian estar abiertos mientras afinan idle. La pagina de heartbeat es la otra mitad de la historia idle: es un monitor, no una conversacion. Si lo tratan como conversacion, nunca entenderan por que idle sigue disparando.
+Los docs de heartbeat (`https://docs.openclaw.ai/gateway/heartbeat) deberian estar abiertos mientras afinan idle. La pagina de heartbeat es la otra mitad de la historia idle: es un monitor, no una conversacion. Si lo tratan como conversacion, nunca entenderan por que idle sigue disparando.
 
 Cuando daily e idle aplican ambos, OpenClaw evalua ambos. Una sesion puede daily-rodar a las 04:00 y luego idle-rodar tras silencio de la tarde. Eso son dos ids nuevos en un dia de calendario. Los operadores que asumieron "daily significa una sesion por dia" subcuentan.
 
@@ -150,9 +150,9 @@ No pongan secretos en el primer mensaje de usuario tras un roll esperando que el
 
 Esta leccion es la mitad de politica de *Session management*. La mitad de routing es la leccion hermana `openclaw-sessions`. Lean ambas antes de cambiar `session.*` en produccion.
 
-Vean tambien el overview de arquitectura para donde el estado de sesion se sienta relativo al proceso Gateway (`https://docs.openclaw.ai/concepts/architecture`).
+Vean tambien el overview de arquitectura para donde el estado de sesion se sienta relativo al proceso Gateway (`https://docs.openclaw.ai/concepts/architecture).
 
-Acrediten *Doctor* por la reescritura de `dm` a `direct` y de `session.idleMinutes` a `session.reset.idleMinutes` (`https://docs.openclaw.ai/cli/doctor`).
+Acrediten *Doctor* por la reescritura de `dm` a `direct` y de `session.idleMinutes` a `session.reset.idleMinutes` (`https://docs.openclaw.ai/cli/doctor).
 
 Citen *Sandboxing* cuando alguien mezcle non-main y idle en un solo switch.
 

@@ -33,7 +33,7 @@ Consejo práctico: registra si el retriever disparó. Si dispara en cada turno, 
 
 ## Construir el worker, luego el manager
 
-*Fuente nombrada: Hugging Face Agents Course, Unidad 2.1, [Multi-Agent Systems](https://huggingface.co/learn/agents-course/unit2/smolagents/multi_agent_systems); notebook https://huggingface.co/agents-course/notebooks/blob/main/unit2/smolagents/multiagent_notebook.ipynb.*
+*Fuente nombrada: Hugging Face Agents Course, Unidad 2.1, [Multi-Agent Systems](https://huggingface.co/learn/agents-course/unit2/smolagents/multi_agent_systems); notebook https://huggingface.co/agents-course/notebooks/blob/main/unit2/smolagents/multiagent_notebook.ipynb
 
 El worker web del curso es un `CodeAgent` con búsqueda, `VisitWebpageTool` y una herramienta `calculate_cargo_travel_time` (haversine, crucero 750 km/h, +10% de ruta, +1 hora de despegue — constantes del notebook, no física que debas rederivar). `name="web_agent"`, `description="Browses the web to find information"`, `verbosity_level=0`, `max_steps=10`. Silencioso a propósito: el padre no debe ahogarse en trazas hijas.
 

@@ -81,7 +81,7 @@ If a token refresh fails with a terminal error (HTTP 4xx, `invalid_grant`, revok
 
 **Plan-quota semantics are not fully documented by Hermes.** Which ChatGPT plan tiers are eligible, and how Hermes usage counts against Codex limits, are marked **not currently documented** on the providers page. This lesson will not invent them. Check the ChatGPT / Codex billing dashboard.
 
-OpenClaw ChatGPT OAuth is PKCE against `https://auth.openai.com/oauth/authorize` with scope `openid profile email offline_access`, callback on `http://localhost:1455/auth/callback` (loopback only; override host with `OPENCLAW_OAUTH_CALLBACK_HOST`). Command:
+OpenClaw ChatGPT OAuth is PKCE against `https://auth.openai.com/oauth/authorize with scope `openid profile email offline_access`, callback on `http://localhost:1455/auth/callback (loopback only; override host with `OPENCLAW_OAUTH_CALLBACK_HOST`). Command:
 
 ```bash
 openclaw models auth login --provider openai
@@ -172,9 +172,9 @@ Write which of (Claude Pro, Claude Max plus extra credits, a raw API key, Nous P
 
 The providers page also documents consumer OAuth that is easy to confuse with the API-key twin of the same brand ([Nous Research, providers](https://hermes-agent.nousresearch.com/docs/integrations/providers)):
 
-- **Qwen OAuth (`qwen-oauth`)** — browser PKCE against the Qwen Portal; tokens in `~/.hermes/auth.json`; endpoint `https://portal.qwen.ai/v1`. This is **not** `alibaba` / DashScope, which wants `DASHSCOPE_API_KEY` and is the production/programmatic path. Alibaba Coding Plan is yet a third SKU (`alibaba-coding-plan`, endpoint `https://coding-intl.dashscope.aliyuncs.com/v1`) that reuses the same DashScope key with a different bill.
+- **Qwen OAuth (`qwen-oauth`)** — browser PKCE against the Qwen Portal; tokens in `~/.hermes/auth.json`; endpoint `https://qwenlm.github.io/blog/qwen3/. This is **not** `alibaba` / DashScope, which wants `DASHSCOPE_API_KEY` and is the production/programmatic path. Alibaba Coding Plan is yet a third SKU (`alibaba-coding-plan`, endpoint `https://help.aliyun.com/zh/model-studio/getting-started/models) that reuses the same DashScope key with a different bill.
 - **MiniMax OAuth (`minimax-oauth`)** — browser login, Anthropic Messages-compatible `/anthropic` endpoint. Ignores `MINIMAX_API_KEY`. The `minimax` / `minimax-cn` providers are the key paths.
-- **Ollama Cloud** — first-class provider with API key from ollama.com; local Ollama is a **custom endpoint** at `http://localhost:11434/v1` with no key. Do not mix the two.
+- **Ollama Cloud** — first-class provider with API key from ollama.com; local Ollama is a **custom endpoint** at `http://localhost:11434/v1 with no key. Do not mix the two.
 - **Hugging Face Inference Providers** — `HF_TOKEN` in `~/.hermes/.env`, provider `huggingface`. Fine-grained token must enable "Make calls to Inference Providers." Hermes documents a free tier of **0.10 USD per month** credit and **no markup** on provider rates. That number is also on Hugging Face's own [Pricing and Billing](https://huggingface.co/docs/inference-providers/pricing) page (Free Users: 0.10 USD, subject to change). Treat it as a **credit**, not as "the harness is free."
 
 <Callout>

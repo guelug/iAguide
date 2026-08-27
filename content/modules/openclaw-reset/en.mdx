@@ -147,7 +147,7 @@ For production-sized stores, maintenance `maxEntries` and reset policy interact:
 Use `openclaw doctor --session-sqlite inspect` when `sessionStartedAt` looks wrong after a JSONL import. Missing idle timestamps fall back to start time, which makes a migrated row look idle-ready immediately. That surprise is documented (OpenClaw, *Session management*, n.d.).
 
 
-Heartbeat docs (`https://docs.openclaw.ai/gateway/heartbeat`) should be open while you tune idle. The heartbeat page is the other half of the idle story: it is a monitor, not a conversation. If you treat it as a conversation, you will never understand why idle still fires.
+Heartbeat docs (`https://docs.openclaw.ai/gateway/heartbeat) should be open while you tune idle. The heartbeat page is the other half of the idle story: it is a monitor, not a conversation. If you treat it as a conversation, you will never understand why idle still fires.
 
 When daily and idle both apply, OpenClaw evaluates both. A session can daily-roll at 04:00 and later idle-roll after afternoon silence. That is two new ids in one calendar day. Operators who assumed "daily means one session per day" under-count.
 
@@ -155,9 +155,9 @@ Do not put secrets in the first user message after a roll expecting the model to
 
 This lesson is the policy half of *Session management*. The routing half is the sibling lesson `openclaw-sessions`. Read both before changing `session.*` in production.
 
-See also the architecture overview for where session state sits relative to the Gateway process (`https://docs.openclaw.ai/concepts/architecture`).
+See also the architecture overview for where session state sits relative to the Gateway process (`https://docs.openclaw.ai/concepts/architecture).
 
-Credit *Doctor* for the `dm` to `direct` rewrite and the `session.idleMinutes` to `session.reset.idleMinutes` rewrite (`https://docs.openclaw.ai/cli/doctor`).
+Credit *Doctor* for the `dm` to `direct` rewrite and the `session.idleMinutes` to `session.reset.idleMinutes` rewrite (`https://docs.openclaw.ai/cli/doctor).
 
 This lesson stops at none/daily/idle, the three timestamps, overrides, and the heartbeat-does-not-extend-idle invariant. Compaction continues later. Cron isolated sessions continue in the cron lesson.
 

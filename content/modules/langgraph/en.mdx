@@ -44,7 +44,7 @@ Practical tip: name every field in State before you write the first node. Missin
 
 ## Alfred's first graph: mail
 
-*Named source: Hugging Face Agents Course, Unit 2.3, [Building Your First LangGraph](https://huggingface.co/learn/agents-course/unit2/langgraph/first_graph); notebook https://huggingface.co/agents-course/notebooks/blob/main/unit2/langgraph/mail_sorting.ipynb.*
+*Named source: Hugging Face Agents Course, Unit 2.3, [Building Your First LangGraph](https://huggingface.co/learn/agents-course/unit2/langgraph/first_graph); notebook https://huggingface.co/agents-course/notebooks/blob/main/unit2/langgraph/mail_sorting.ipynb
 
 Alfred reads incoming mail, classifies spam versus legitimate, drafts a preliminary reply if genuine, prints a note for Mr. Wayne, END. The course is careful: this first graph **is not an agent** in the Unit 1 sense because no tool is involved. It is a workflow with an LLM at a junction. Learn the framework here; do not call it agency yet.
 
@@ -79,7 +79,7 @@ Draw a graph for a three-step review: (1) retrieve the doc, (2) draft a summary,
 
 ## Persistence and human-in-the-loop, as advertised
 
-*Named source: Hugging Face Agents Course, Unit 2.3, [when_to_use_langgraph](https://huggingface.co/learn/agents-course/unit2/langgraph/when_to_use_langgraph); LangGraph docs https://langchain-ai.github.io/langgraph/.*
+*Named source: Hugging Face Agents Course, Unit 2.3, [when_to_use_langgraph](https://huggingface.co/learn/agents-course/unit2/langgraph/when_to_use_langgraph); LangGraph docs https://langchain-ai.github.io/langgraph/
 
 The course lists persistence and human-in-the-loop as reasons to pick LangGraph. Unit 2.3's first notebook does not implement a checkpointer in the excerpt we teach from; treat HITL as a documented LangGraph capability you add when a node must wait, not as a function we invent here. A human node that is actually `input()` in a Colab cell is a demo. A human node that stores state and resumes is the product.
 
@@ -103,7 +103,7 @@ A sibling bug: spam classification lived in the draft node "to save an LLM call.
 
 ## Practical checklist
 
-*Named source: Unit 2.3 pages listed under Sources; LangGraph docs https://langchain-ai.github.io/langgraph/.*
+*Named source: Unit 2.3 pages listed under Sources; LangGraph docs https://langchain-ai.github.io/langgraph/
 
 1. You can say in one sentence why control, not freedom, is the product.
 2. State fields are listed, including a hop counter and an END condition.

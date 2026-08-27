@@ -81,7 +81,7 @@ Si un refresh falla con error terminal (HTTP 4xx, `invalid_grant`, grant revocad
 
 **La semántica de cuota del plan no está documentada por completo en Hermes.** Qué niveles de ChatGPT son elegibles, y cómo cuenta el uso de Hermes contra los límites de Codex, aparecen como **not currently documented** en la página de proveedores. Esta lección no los inventa. Mira el panel de facturación de ChatGPT / Codex.
 
-El OAuth de ChatGPT en OpenClaw es PKCE contra `https://auth.openai.com/oauth/authorize` con alcance `openid profile email offline_access`, callback en `http://localhost:1455/auth/callback` (solo loopback; el host se anula con `OPENCLAW_OAUTH_CALLBACK_HOST`). Comando:
+El OAuth de ChatGPT en OpenClaw es PKCE contra `https://auth.openai.com/oauth/authorize con alcance `openid profile email offline_access`, callback en `http://localhost:1455/auth/callback (solo loopback; el host se anula con `OPENCLAW_OAUTH_CALLBACK_HOST`). Comando:
 
 ```bash
 openclaw models auth login --provider openai
@@ -167,9 +167,9 @@ Estrategias: `fill_first` (por defecto), `round_robin`, `least_used`, `random`. 
 
 La página de proveedores también documenta OAuth de consumo fácil de confundir con el gemelo de clave API de la misma marca ([Nous Research, providers](https://hermes-agent.nousresearch.com/docs/integrations/providers)):
 
-- **Qwen OAuth (`qwen-oauth`)** — PKCE de navegador contra Qwen Portal; tokens en `~/.hermes/auth.json`; endpoint `https://portal.qwen.ai/v1`. **No** es `alibaba` / DashScope, que quiere `DASHSCOPE_API_KEY` y es el camino de producción. Alibaba Coding Plan es un tercer SKU (`alibaba-coding-plan`) que reutiliza la misma clave DashScope con otra factura.
+- **Qwen OAuth (`qwen-oauth`)** — PKCE de navegador contra Qwen Portal; tokens en `~/.hermes/auth.json`; endpoint `https://qwenlm.github.io/blog/qwen3/. **No** es `alibaba` / DashScope, que quiere `DASHSCOPE_API_KEY` y es el camino de producción. Alibaba Coding Plan es un tercer SKU (`alibaba-coding-plan`) que reutiliza la misma clave DashScope con otra factura.
 - **MiniMax OAuth (`minimax-oauth`)** — login de navegador, endpoint compatible Anthropic Messages `/anthropic`. Ignora `MINIMAX_API_KEY`. Los proveedores `minimax` / `minimax-cn` son los de clave.
-- **Ollama Cloud** — proveedor de primera clase con clave de ollama.com; Ollama local es un **endpoint custom** en `http://localhost:11434/v1` sin clave. No los mezcles.
+- **Ollama Cloud** — proveedor de primera clase con clave de ollama.com; Ollama local es un **endpoint custom** en `http://localhost:11434/v1 sin clave. No los mezcles.
 - **Hugging Face Inference Providers** — `HF_TOKEN` en `~/.hermes/.env`, proveedor `huggingface`. El token de grano fino debe habilitar "Make calls to Inference Providers." Hermes documenta un nivel gratuito de **0,10 USD al mes** de crédito y **sin recargo** sobre las tarifas del proveedor. Ese número está también en [Pricing and Billing](https://huggingface.co/docs/inference-providers/pricing) de Hugging Face (usuarios Free: 0,10 USD, sujeto a cambio). Trátalo como **crédito**, no como "el harness es gratis."
 
 <Callout>

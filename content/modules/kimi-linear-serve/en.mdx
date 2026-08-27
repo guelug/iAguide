@@ -207,7 +207,7 @@ Kimi Team. (2026). *Attention residuals* (arXiv:2603.15031). https://arxiv.org/a
 The metal lesson in one breath: engine with KDA, `fla-core>=0.4.0`, `trust_remote_code`, TP until 96 GB of BF16 fits, `max-model-len` from traces not from 1M, no GGUF, no llama.cpp, no MLX until a port exists, AttnRes inherited if present. Everything else is a footnote.
 
 
-If your harness already speaks OpenAI, point `base_url` at `http://127.0.0.1:8000/v1` and keep the messages list. Do not reimplement chat templates in the client. Do not strip tool JSON to "save context" before you have measured the hybrid TPOT; that is solving the wrong bottleneck.
+If your harness already speaks OpenAI, point `base_url` at `http://127.0.0.1:8000/v1 and keep the messages list. Do not reimplement chat templates in the client. Do not strip tool JSON to "save context" before you have measured the hybrid TPOT; that is solving the wrong bottleneck.
 
 Batch size in vLLM will grow because KDA state is constant. That is the throughput story at 1M. It is not a reason to set `max-model-len` to 1M on a card that cannot hold the MLA quarter. Measure, then raise.
 

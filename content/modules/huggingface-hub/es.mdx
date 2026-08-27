@@ -45,12 +45,12 @@ Ese argumento `token=` es el ejemplo de la propia documentación del Hub. Las li
 Para CI, **no guardes un token de Hub de larga vida como secreto de GitHub si puedes evitarlo**. [Trusted Publishers](https://huggingface.co/docs/hub/en/security-tokens) intercambia la identidad OIDC del proveedor de CI por un token de Hub de corta vida al empezar cada run — con alcance de repo para publicar, o de usuario para leer repos con puerta. Ese es el camino documentado para GitHub Actions, GitLab CI y CircleCI.
 
 <Callout>
-Consejo: nunca hagas commit de `HF_TOKEN`. Si un token se filtra, rótalo desde la pestaña Access Tokens **y** llama al endpoint público de revocación. Quien encuentre el token de otra persona puede invalidarlo con `POST https://huggingface.co/api/credentials/revoke`. No hace falta tener derechos sobre la cuenta víctima. El endpoint siempre responde 202, así que no sirve para sondear si un token es válido. Pasa el valor crudo por variable de entorno, no en la línea de curl.
+Consejo: nunca hagas commit de `HF_TOKEN`. Si un token se filtra, rótalo desde la pestaña Access Tokens **y** llama al endpoint público de revocación. Quien encuentre el token de otra persona puede invalidarlo con `POST https://huggingface.co/docs/hub/en/security-tokens. No hace falta tener derechos sobre la cuenta víctima. El endpoint siempre responde 202, así que no sirve para sondear si un token es válido. Pasa el valor crudo por variable de entorno, no en la línea de curl.
 </Callout>
 
 ```bash
 # LEAKED_HF_TOKEN guarda el valor crudo. No pegues tokens en el historial.
-curl -X POST "https://huggingface.co/api/credentials/revoke" \
+curl -X POST "https://huggingface.co/docs/hub/en/security-tokens" \
   -H "Content-Type: application/json" \
   -d "{\"credentials\": [\"${LEAKED_HF_TOKEN}\"]}"
 ```
@@ -202,7 +202,7 @@ Hugging Face. (s. f.). *Hugging Face Hub documentation*. https://huggingface.co/
 
 - User access tokens: https://huggingface.co/docs/hub/en/security-tokens
 - Settings → Access Tokens: https://huggingface.co/settings/tokens
-- Endpoint de revocación (misma página de tokens): `POST https://huggingface.co/api/credentials/revoke`
+- Endpoint de revocación (misma página de tokens): `POST https://huggingface.co/docs/hub/en/security-tokens
 - Gated models: https://huggingface.co/docs/hub/en/models-gated
 - Spaces overview: https://huggingface.co/docs/hub/en/spaces-overview
 - Storage backend (Xet): https://huggingface.co/docs/hub/en/storage-backends

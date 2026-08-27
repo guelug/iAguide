@@ -22,7 +22,7 @@ Practical tip: skip this unit if your schema still changes weekly. SchemaPatch b
 
 ## New roles in the conversation
 
-*Named source: Hugging Face Agents Course, Bonus Unit 1, How does the model "learn" to take an action? in [what-is-function-calling](https://huggingface.co/learn/agents-course/bonus-unit1/what-is-function-calling); Mistral function calling https://docs.mistral.ai/capabilities/function_calling/.*
+*Named source: Hugging Face Agents Course, Bonus Unit 1, How does the model "learn" to take an action? in [what-is-function-calling](https://huggingface.co/learn/agents-course/bonus-unit1/what-is-function-calling); Mistral function calling https://docs.mistral.ai/capabilities/function_calling/
 
 Unit 1’s cycle is Think, Act (format the action and stop), Observe (the execution result). A typical chat API only alternates user and assistant. Function calling adds **new roles**: one for an Action, one for an Observation.
 
@@ -64,7 +64,7 @@ Practical tip: do not LoRA a base checkpoint “because it is purer.” You will
 
 ## LoRA is the adapter, not the product
 
-*Named source: Hugging Face Agents Course, Bonus Unit 1, LoRA section in [fine-tuning](https://huggingface.co/learn/agents-course/bonus-unit1/fine-tuning); NLP Course LoRA tutorial https://huggingface.co/learn/nlp-course/chapter11/4?fw=pt.*
+*Named source: Hugging Face Agents Course, Bonus Unit 1, LoRA section in [fine-tuning](https://huggingface.co/learn/agents-course/bonus-unit1/fine-tuning); NLP Course LoRA tutorial https://huggingface.co/learn/nlp-course/chapter11/4?fw=pt
 
 LoRA inserts a small number of new weights as an adapter. Training is faster, cheaper, and the adapter is a few hundred MB. It adds rank-decomposition matrices to Transformer layers, typically linear layers. The rest of the model is frozen; you update the adapter. At inference you run adapter plus base, or merge for no extra latency.
 
@@ -76,7 +76,7 @@ Practical tip: LoRA will faithfully learn last Friday’s schema. If Monday’s 
 
 ## The notebook is the lab; this page is the contract
 
-*Named source: Hugging Face Agents Course, Bonus Unit 1, Fine-Tuning a Model for Function-Calling in [fine-tuning](https://huggingface.co/learn/agents-course/bonus-unit1/fine-tuning); notebook https://huggingface.co/agents-course/notebooks/blob/main/bonus-unit1/bonus-unit1.ipynb.*
+*Named source: Hugging Face Agents Course, Bonus Unit 1, Fine-Tuning a Model for Function-Calling in [fine-tuning](https://huggingface.co/learn/agents-course/bonus-unit1/fine-tuning); notebook https://huggingface.co/agents-course/notebooks/blob/main/bonus-unit1/bonus-unit1.ipynb
 
 They send you to the official notebook, then Colab. This lesson does not re-host their cells. Steal the contract: append special tokens to a small instruct, train LoRA on conversations that already contain Action and Observation roles, serve the same template.
 
@@ -143,7 +143,7 @@ Practical tip: log `[TOOL_CALLS]` text as a span (see [observability](/en/m/obse
 
 ## Practical checklist
 
-*Named source: Bonus Unit 1 pages under Sources; Mistral docs https://docs.mistral.ai/capabilities/function_calling/.*
+*Named source: Bonus Unit 1 pages under Sources; Mistral docs https://docs.mistral.ai/capabilities/function_calling/
 
 1. Freeze the schema before you collect pairs.
 2. Start from an instruct checkpoint, not base, as the unit does with Gemma-2-2b-it.
