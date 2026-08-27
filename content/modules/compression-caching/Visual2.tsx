@@ -3,122 +3,136 @@
 import { useState } from "react";
 import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
-import { Flow, Halo, Motes, Node3D, PointerTilt, Slab, Tag, Wire } from "@/components/three/atoms";
+import { Flow, Halo, Lattice, Motes, Node3D, PointerTilt, Ribbon, Slab, Tag, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
 import { useCopy } from "@/lib/useCopy";
 
-type Mode = "map" | "mechanism" | "tradeoff";
-type Tone = "teal" | "violet" | "amber";
+/* compression-caching: a long thread shrinks into a summary, prefix halo stable,
+   LRU evictions slide out. */
+type Mode = "compact" | "prefix" | "evict";
+
 const COPY = {
-  "en": {
-    "topic1": "concept 1 · compression-caching",
-    "topic2": "concept 2 · compression-caching",
-    "topic3": "concept 3 · compression-caching",
-    "title": "three dimensions of the idea",
-    "hint": "map, mechanism, trade-off",
-    "map": "map",
-    "mechanism": "mechanism",
-    "tradeoff": "trade-off",
-    "input": "input",
-    "output": "output",
-    "decision": "decision",
-    "context": "context",
-    "system": "system",
-    "constraint": "constraint",
-    "signal": "signal",
-    "cost": "cost",
-    "result": "result"
+  en: {
+    keep_only_what_earns_its_token: "keep only what earns its token",
+    compact_prefix_evict: "compact · prefix · evict",
+    compact: "compact",
+    prefix: "prefix",
+    evict: "evict",
+    thread: "thread",
+    summary: "summary",
+    stable_prefix: "stable prefix",
+    lru: "lru",
+    hit: "hit",
+    miss: "miss",
   },
-  "es": {
-    "topic1": "Dos trabajos que se mezclan",
-    "topic2": "Las dos fases del cómputo: prefill y decode",
-    "topic3": "A3B y la compactación",
-    "title": "tres dimensiones de la idea",
-    "hint": "mapa, mecanismo y trade-off",
-    "map": "mapa",
-    "mechanism": "mecanismo",
-    "tradeoff": "trade-off",
-    "input": "entrada",
-    "output": "salida",
-    "decision": "decisión",
-    "context": "contexto",
-    "system": "sistema",
-    "constraint": "restricción",
-    "signal": "señal",
-    "cost": "coste",
-    "result": "resultado"
-  }
+  es: {
+    keep_only_what_earns_its_token: "quedarte solo lo que se gana el token",
+    compact_prefix_evict: "compacta · prefijo · expulsa",
+    compact: "compacta",
+    prefix: "prefijo",
+    evict: "expulsa",
+    thread: "hilo",
+    summary: "resumen",
+    stable_prefix: "prefijo estable",
+    lru: "lru",
+    hit: "acierto",
+    miss: "fallo",
+  },
 };
 
 export default function Visual() {
   const t = useCopy(COPY);
-  const [mode, setMode] = useState<Mode>("map");
-  const tones: Tone[] = ["teal", "violet", "amber"];
-  const colors = [P.teal, P.violet, P.amber];
-  const tone = (i: number) => tones[i % 3];
+  const [mode, setMode] = useState<Mode>("compact");
+
   return (
     <Figure
-      label={t.title}
-      hint={t.hint}
+      label={t.keep_only_what_earns_its_token}
+      hint={t.compact_prefix_evict}
       legend={[
-        { color: P.teal, label: t.topic1 },
-        { color: P.violet, label: t.topic2 },
-        { color: P.amber, label: t.topic3 },
+        { color: P.teal, label: t.thread },
+        { color: P.violet, label: t.summary },
+        { color: P.rose, label: t.lru },
       ]}
       controls={
         <Switcher
           value={mode}
           onChange={setMode}
           options={[
-            { value: "map", label: t.map, tone: P.teal },
-            { value: "mechanism", label: t.mechanism, tone: P.violet },
-            { value: "tradeoff", label: t.tradeoff, tone: P.amber },
+            { value: "compact", label: t.compact, tone: P.teal },
+            { value: "prefix", label: t.prefix, tone: P.violet },
+            { value: "evict", label: t.evict, tone: P.rose },
           ]}
-          ariaLabel={t.title}
+          ariaLabel={t.keep_only_what_earns_its_token}
         />
       }
     >
       <Stage className="h-full w-full" camera={{ position: [0, 0.4, 8.6], fov: 37 }}>
         <Motes count={110} radius={7} opacity={0.3} />
         <PointerTilt amount={0.07}>
-          {mode === "map" && <>
-            {[t.topic1, t.topic2, t.topic3].map((topic, i) => (
-              <group key={topic}>
-                <Slab position={[(i - 1) * 2.2, 0.5, 0]} size={[1.8, 1.05, 0.14]} color={colors[i]} fill={0.2} />
-                <Tag position={[(i - 1) * 2.2, 1.25, 0.15]} tone={tone(i)} size="xs">{topic}</Tag>
-                <Node3D position={[(i - 1) * 2.2, 0.5, 0.18]} color={colors[i]} radius={0.13} pulse={i * 0.25} />
+
+        {mode === "compact" && (
+          <>
+            {/* long thread of message slabs condensed into one small summary */}
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <Slab
+                key={i}
+                position={[-2.5 + i * 0.85, 0.9 - (i % 2) * 0.2, 0]}
+                size={[0.75, 0.55, 0.1]}
+                color={P.teal}
+                fill={0.16 + i * 0.02}
+              />
+            ))}
+            <Tag position={[0, 1.8, 0.15]} tone="teal">{t.thread}</Tag>
+            <Flow points={[[-0.5, 0.7, 0], [0.5, -0.15, 0]]} color={P.violet} count={3} size={0.05} />
+            {/* the result summary */}
+            <Slab position={[1.3, -0.4, 0]} size={[1.4, 0.85, 0.14]} color={P.violet} fill={0.3} rim={0.8} />
+            <Tag position={[1.3, 0.65, 0.15]} tone="violet">{t.summary}</Tag>
+            <Ribbon points={[[-1.8, 0.7, 0], [-1.0, 0.2, 0], [1.3, -0.05, 0]]} color={P.rose} radius={0.03} opacity={0.7} />
+            <Tag position={[0, -1.0, 0.15]} tone="muted" size="xs">10k → 200 tokens</Tag>
+          </>
+        )}
+
+        {mode === "prefix" && (
+          <>
+            <Halo position={[0, 0.5, 0]} radius={1.3} color={P.teal} opacity={0.4} spin={0.1} />
+            {/* stable prefix slab */}
+            <Slab position={[0, 0.5, 0]} size={[3.6, 1.0, 0.14]} color={P.teal} fill={0.22} />
+            <Tag position={[0, 1.45, 0.15]} tone="teal">{t.stable_prefix}</Tag>
+            {/* identical request hits */}
+            <Ribbon points={[[-2.7, 0.5, 0], [-1.8, 0.5, 0]]} color={P.amber} radius={0.04} opacity={0.85} />
+            <Slab position={[-2.7, 0.5, 0]} size={[1.2, 0.5, 0.1]} color={P.amber} fill={0.28} />
+            <Tag position={[-2.7, 1.05, 0.15]} tone="amber" size="xs">{t.hit}</Tag>
+            <Wire points={[[-2.9, -0.25, 0], [2.9, -0.25, 0]]} color={P.lineStrong} opacity={0.5} />
+            {/* a second request lands on the same bytes */}
+            <Ribbon points={[[2.7, 0.5, 0], [1.8, 0.5, 0]]} color={P.amber} radius={0.04} opacity={0.85} />
+            <Slab position={[2.7, 0.5, 0]} size={[1.2, 0.5, 0.1]} color={P.amber} fill={0.28} />
+            <Tag position={[2.7, 1.05, 0.15]} tone="amber" size="xs">{t.hit}</Tag>
+          </>
+        )}
+
+        {mode === "evict" && (
+          <>
+            {/* three cache entries; the oldest slides out */}
+            {[P.teal, P.violet, P.rose].map((col, i) => (
+              <group key={i}>
+                <Slab
+                  position={[-1.4 + i * 1.4, 0.4, 0]}
+                  size={[1.2, 1.0, 0.14]}
+                  color={col}
+                  fill={0.24 - i * 0.04}
+                />
+                <Tag position={[-1.4 + i * 1.4, 1.05, 0.15]} tone={col === P.teal ? "teal" : col === P.violet ? "violet" : "rose"} size="xs">
+                  e{i + 1}
+                </Tag>
               </group>
             ))}
-            <Flow points={[[-1.0, 0.5, 0], [1.0, 0.5, 0]]} color={P.lineStrong} count={3} size={0.045} />
-            <Tag position={[0, -0.9, 0.15]} tone="muted" size="xs">{t.input} → {t.system} → {t.output}</Tag>
-          </>}
-          {mode === "mechanism" && <>
-            <Halo position={[0, 0.45, 0]} radius={0.65} color={P.violet} opacity={0.55} spin={0.2} />
-            <Node3D position={[0, 0.45, 0]} color={P.violet} radius={0.2} pulse={0.35} />
-            <Tag position={[0, 1.15, 0.15]} tone="violet">{t.system}</Tag>
-            {[t.topic1, t.topic2, t.topic3].map((topic, i) => {
-              const a = (i / 3) * Math.PI * 2 - Math.PI / 2;
-              const x = Math.cos(a) * 2.25, y = 0.45 + Math.sin(a) * 1.15;
-              return <group key={topic}>
-                <Node3D position={[x, y, 0]} color={colors[i]} radius={0.13} matte />
-                <Tag position={[x, y + 0.32, 0.15]} tone={tone(i)} size="xs">{topic}</Tag>
-                <Flow points={[[x * 0.55, 0.45 + (y - 0.45) * 0.55, 0], [x * 0.9, 0.45 + (y - 0.45) * 0.9, 0]]} color={colors[i]} count={2} size={0.04} />
-              </group>;
-            })}
-            <Tag position={[0, -1.35, 0.15]} tone="muted" size="xs">{t.context} + {t.signal} → {t.result}</Tag>
-          </>}
-          {mode === "tradeoff" && <>
-            <Slab position={[-1.55, 0.45, 0]} size={[2.2, 1.55, 0.14]} color={P.teal} fill={0.18} />
-            <Tag position={[-1.55, 1.5, 0.15]} tone="teal">{t.topic1}</Tag>
-            <Tag position={[-1.55, 0.35, 0.15]} tone="teal" size="xs">{t.signal}</Tag>
-            <Slab position={[1.55, 0.45, 0]} size={[2.2, 1.55, 0.14]} color={P.rose} fill={0.18} />
-            <Tag position={[1.55, 1.5, 0.15]} tone="rose">{t.topic2}</Tag>
-            <Tag position={[1.55, 0.35, 0.15]} tone="rose" size="xs">{t.constraint}</Tag>
-            <Flow points={[[-0.4, 0.45, 0], [0.4, 0.45, 0]]} color={P.amber} count={3} size={0.05} />
-            <Tag position={[0, 1.05, 0.15]} tone="amber" size="xs">{t.decision}</Tag>
-            <Wire points={[[-2.65, -0.8, 0], [2.65, -0.8, 0]]} color={P.lineStrong} opacity={0.55} />
-            <Tag position={[0, -1.15, 0.15]} tone="muted" size="xs">{t.cost} ↔ {t.result}</Tag>
-          </>}
+            {/* eviction arrow for the oldest one */}
+            <Ribbon points={[[1.0, 0.4, 0], [2.4, -0.4, 0]]} color={P.rose} radius={0.04} opacity={0.85} />
+            <Tag position={[2.5, -0.85, 0.15]} tone="rose">{t.lru}</Tag>
+            <Tag position={[0, -0.85, 0.15]} tone="muted" size="xs">capacity · LRU</Tag>
+          </>
+        )}
+
         </PointerTilt>
       </Stage>
     </Figure>
