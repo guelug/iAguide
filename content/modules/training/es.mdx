@@ -93,6 +93,10 @@ Optimizadores de segunda generación. Lion usa solo el signo del momento (más r
 
 Para LoRA y fine-tuning pequeño, AdamW con learning rates 1e-5 a 5e-5 es un buen punto de partida. Para preentrenamiento, learning rates 1e-4 a 6e-4 con cosine schedule hasta 10% del LR pico.
 
+<VisualSlot id="training:3" caption="Forward teal y backward rose atravesando la pila con la regla de la cadena, la curva de pérdida con la meseta logarítmica y la regla de Chinchilla L ≈ 20·N, y AdamW descendiendo el valle con las actualizaciones de m_t, v_t y θ." />
+
+<FormulaVideo src="/animations/backprop_chain.mp4" label="Animación de backpropagation y regla de la cadena" caption="El gradiente vuelve por la cadena de operaciones y actualiza los pesos en sentido contrario al forward." />
+
 ## Prefill y decode: la división que importa
 
 Cuando sirves un modelo, hay dos fases muy distintas:

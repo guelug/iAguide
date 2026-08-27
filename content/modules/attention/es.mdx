@@ -25,6 +25,8 @@ La raíz de d en la fórmula no es un adorno: sin ella, los softmax se vuelven p
 
 <VisualSlot caption="Una query mira las keys; los values se mezclan. Cambia a cabezas y luego a GQA, donde las keys se comparten." />
 
+<FormulaVideo src="/animations/softmax_attention.mp4" label="Animación de la fórmula de atención y softmax" caption="La atención escala Q·Kᵀ, normaliza con softmax y mezcla los values." />
+
 ## El bloque transformer al completo
 
 Una capa de un transformer decoder moderno suele tener este esqueleto:
@@ -209,6 +211,8 @@ Una startup corría inferencia de un 13B en una A100 con ventana de 32k. Con la 
 />
 
 <VisualSlot id="attention:2" caption="Tres vistas del tema: mapa, mecanismo y trade-off — interactivas y en español." />
+
+<VisualSlot id="attention:3" caption="La fórmula de atención pieza a pieza: Q/K/V, escalado por √d, softmax y máscara causal." />
 
 ## Fuentes
 

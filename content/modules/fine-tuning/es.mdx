@@ -88,6 +88,8 @@ r=64, alpha=128, módulos=q/k/v/o + gate/up/down, LR=1e-4, 5–10 épocas. Para 
 El LR "correcto" depende del modelo base. Llama 3 fine-tunea bien con LR 1e-4 a 3e-4 en LoRA; Mistral acepta 2e-4; modelos más grandes suelen querer LR más bajo. Cuando copies una receta, mira el modelo base para el que fue escrita.
 </Callout>
 
+<VisualSlot id="fine-tuning:3" caption="SFT con la pérdida CE -log π_θ(y|x) frente a DPO con la pérdida por pares elegida/rechazada que empuja π_θ hacia y_w y la aleja de y_l, la penalización KL(π_θ‖π_ref) que evita el drift, y la partición train/held-out con un sello que no se cruza durante el entrenamiento." />
+
 ## NEFTune y otros trucos de regularización
 
 Cuando haces SFT con pocos datos (cientos de pares), el modelo sobreajusta rápido. Trucos comunes:

@@ -1,6 +1,7 @@
 import { Callout } from "@/components/mdx/Callout";
 import { Compare, Side } from "@/components/mdx/Compare";
 import { Formula } from "@/components/mdx/Formula";
+import { FormulaVideo } from "@/components/mdx/FormulaVideo";
 import { Myth } from "@/components/mdx/Myth";
 import { Path, Easy, Hard } from "@/components/mdx/Path";
 import { Quiz } from "@/components/mdx/Quiz";
@@ -14,6 +15,7 @@ export const mdxComponents = {
   Compare,
   Side,
   Formula,
+  FormulaVideo,
   Myth,
   Path,
   Easy,
