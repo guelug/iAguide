@@ -199,3 +199,50 @@ If you cannot answer (1)–(5) from logs, the spend postmortem is theatre.
 - Hugging Face. (n.d.). *Inference Providers*. https://huggingface.co/docs/inference-providers/index
 - Anthropic. (n.d.). *Using Claude Code with your Pro or Max plan*. https://support.claude.com/en/articles/11145838-using-claude-code-with-your-pro-or-max-plan
 - Comfy-Org. (n.d.). *Models*. https://docs.comfy.org/basic-concepts/models
+
+## Case — the HF bill that died on a Tuesday
+
+A dev uses the monthly free 0.10 USD credit of Hugging Face Inference Providers with an agent that fires about 8 model calls per user turn. They spend 0.08 USD on Monday. By Tuesday 14:00 calls return 402 Payment Required without warning. They suspect a router bug. Real diagnosis, not HF's: each agent turn is 8 prefills + 8 decodes; with small models that is thousands of tokens, and the 0.10 USD free credit does not survive two days of agent traffic. What happened is not a bug, it is that an agent is a **multiplier** on tokens per user turn. Three fixes available, all documented by Hermes/OpenClaw. First, move the default path to an **API key** provider (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`) where the bill goes to the organisation and the limits are per token, not per monthly credit. Second, set a per-turn `max_steps` in the harness to cap the blow-up. Third, cache the repeated answers (the same `get_weather` for the same city returns the same string for minutes). Their monitoring only watched 5xx; they should have added 402 as a hard alert. The lesson is the same one as the Hermes table: the HF credit is for testing, not for production agent traffic.
+
+## Quiz
+
+<Quiz
+ questions={[
+  {
+    id: "q1",
+    stem: "What are the three distinct bills a harness pays, per this lesson?",
+    options: [
+      { id: "a", text: "Subscription quota, pay-per-token API, and local electricity; they are different currencies and should not be folded into one line" },
+      { id: "b", text: "Pay-per-token API only" },
+      { id: "c", text: "Quota, model tips, dataset royalties" },
+      { id: "d", text: "Hardware, salaries, electricity" }
+    ],
+    correct: "a",
+    explanation: "The lesson splits: subscription quota (consumption plan), pay-per-token API (organisation key), and local electricity (your own GPU with Ollama / vLLM / ComfyUI). Mixing them in one sentence is how budgets blow up without anyone knowing what is being paid for."
+  },
+  {
+    id: "q2",
+    stem: "Why do free-tier Gemini keys die quickly under an agent harness?",
+    options: [
+      { id: "a", text: "Because Gemini does not work with agents" },
+      { id: "b", text: "Because each user turn can multiply into N model calls (prefill + tools), and the free-tier quota runs out in a handful of agent turns, not in a handful of chat sessions" },
+      { id: "c", text: "Because free keys expire after an hour" },
+      { id: "d", text: "Because Gemini blocks all Hermes traffic" }
+    ],
+    correct: "b",
+    explanation: "The Hermes table documents this explicitly: free-tier Gemini keys die after a handful of **agent turns**, because Hermes can do multiple model calls per user turn. The `oauth-and-keys` lesson describes the same pattern: if you are serious, an organisation key with GCP billing is the predictable path."
+  },
+  {
+    id: "q3",
+    stem: "What is the difference between a 429 and a 402 on an Inference Providers response?",
+    options: [
+      { id: "a", text: "429 is a rate limit by window: it cools down; 402 is payment: the credit or plan ran out and the request is rejected until you renew" },
+      { id: "b", text: "They mean the same thing" },
+      { id: "c", text: "429 is HTTP, 402 is application-level" },
+      { id: "d", text: "429 means auth, 402 means network" }
+    ],
+    correct: "a",
+    explanation: "429 Too Many Requests: rate limit, returns in seconds or minutes when the window passes. 402 Payment Required: the credit or plan ran out; until you renew or switch keys, every request bounces. Hermes' credential pools handle them separately because the remediation differs: cooldown for 429, key swap or plan upgrade for 402."
+  }
+ ]}
+/>

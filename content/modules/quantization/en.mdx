@@ -6,6 +6,17 @@ Weights in FP16/BF16 take 2 bytes each. A dense 8B model is already on the order
 
 Quality is the bill. Some tasks (tight code, exact names) notice 4-bit more than casual chat does. There is no universal “Q4 loses X%.” Measure on your prompts.
 
+<Path>
+<Easy>
+Quantizing means storing weights in fewer bits so they fit and move faster. It does not change FLOPs, it changes the bytes travelling through memory. And because decode reads the whole weights per token, fewer bytes = more tokens per second. Rule: if your metric is first token, quantization helps little; if it is streaming, it helps a lot.
+</Easy>
+<Hard>
+Weights in FP16/BF16 take 2 bytes each. A dense 8B model is already on the order of 16 GB for weights alone, plus KV cache, plus activations, plus fragmentation. Quantization stores (and often computes) those weights in fewer bits so the model fits and moves through memory faster.
+
+The mental trick: quantization does not change the model's FLOPs — the number of multiplications and additions is the same. What changes is the bytes moving between memory and compute units. And because decode is memory-bandwidth-bound (it reads the whole weights for each new token), fewer bytes = more tokens/second. In prefill, by contrast, the bottleneck is FLOPs: quantization compresses weights but the matrix math scales with the product of dimensions, so the margin is modest. Optimize for your SLO.
+</Hard>
+</Path>
+
 ## How to read a GGUF name
 
 A name like `Something-8B-Instruct-Q4_K_M.gguf` is a sentence:

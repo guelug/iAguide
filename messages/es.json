@@ -113,7 +113,11 @@
     "quiz": "Cuestionario",
     "explanation": "Explicación",
     "reset": "Reiniciar",
-    "check": "Corregir"
+    "check": "Corregir",
+    "pathEasy": "Camino rápido",
+    "pathEasyHint": "Lo esencial en cinco minutos",
+    "pathHard": "Camino profundo",
+    "pathHardHint": "El porqué, los fallos, los números"
   },
   "footer": {
     "license": "Licencia MIT",

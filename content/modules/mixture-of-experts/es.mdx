@@ -4,6 +4,17 @@ Una capa dense usa todos los pesos en cada token. Una **mezcla de expertos** enr
 
 Piénsalo como una biblioteca con mil bibliotecarios: en cada pregunta solo consultas a dos de ellos, pero la biblioteca entera está en el edificio. El coste del edificio es por todos; el coste de la consulta es por los dos.
 
+<Path>
+<Easy>
+Un MoE enruta cada token a unos pocos expertos. El total de parámetros puede ser enorme; los activos por token son menos. La trampa: la memoria se paga por el total, los FLOPs por los activos. Un "400B MoE" puede sentirse como un dense de 30B en cómputo, pero necesita VRAM para albergar a los expertos que no disparas.
+</Easy>
+<Hard>
+Una capa dense usa todos los pesos en cada token. Una mezcla de expertos enruta cada token a unos pocos MLP. El total puede ser enorme; los parámetros activos por token son menos. Por eso un "400B MoE" puede parecerse a un dense de 30B en FLOPs — y aun así necesitar VRAM para albergar a los que no disparas.
+
+La confusión más cara es mezclar los dos números: la memoria que necesitas es por el total, los FLOPs por token por los activos. Si tu GPU tiene 24 GB y el modelo total en fp16 son 60 GB, no corre, aunque el modelo "active" solo 3B por token. Lee la ficha: totales para dimensionar, activos para estimar velocidad.
+</Hard>
+</Path>
+
 <VisualSlot caption="Un router sobre seis expertos. Dense los enciende todos; top-k dos; la VRAM sigue albergando a los dormidos." />
 
 ## A3B y la familia MoE moderna

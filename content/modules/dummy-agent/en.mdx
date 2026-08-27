@@ -28,6 +28,17 @@ Three names, one cycle:
 
 The cycle is a `while`. It continues until the objective is done, or until you hit a step budget. Frameworks bake the rules into a <Term id="system-prompt">system prompt</Term>. The dummy lesson does the same, in the open, so you can see every token.
 
+<Path>
+<Easy>
+An agent is a three-step loop: the model thinks (Thought), asks for an action (Action), and you hand back what happened (Observation). Repeat until the goal is met or the budget runs out. You do not need a framework to get this: it is a `while` with a JSON inside.
+</Easy>
+<Hard>
+Unit 1 is framework-agnostic on purpose. The authors do not want you to confuse a library with the idea. You probably would not ship the dummy loop. You should be able to write it, or you will not know what smolagents, LlamaIndex, or LangGraph is hiding.
+
+The cycle is a `while`: Thought (the model decides), Action (a structured request, still text), Observation (the environment answers, the harness appends that string, it is not sampled). It continues until the objective is done or you hit a step budget. Frameworks bake the rules into a system prompt; the dummy lesson leaves them in the open so you can see every token.
+</Hard>
+</Path>
+
 Alfred, the weather butler in that unit, is the worked example. A user asks for the weather in New York. Alfred thinks, emits a JSON action for `get_weather`, waits for a real observation, thinks again, and only then writes `Final Answer:`.
 
 ## Tools are text first

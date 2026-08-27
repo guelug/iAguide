@@ -10,6 +10,17 @@ Todo arnés serio — Hermes Agent, OpenClaw, el chat que escribiste un sábado 
 
 El modelo se cambia. El bucle es el producto.
 
+<Path>
+<Easy>
+Un turno es: entra el mensaje, se arma el contexto, el modelo responde, se ejecutan las tools si las pidió, y se guarda el transcript. Cinco pasos, siempre en ese orden. Si cambias de modelo, el bucle no cambia. Eso es lo que hace que un agente sea un producto y no un prompt.
+</Easy>
+<Hard>
+Los cinco verbos son el mapa iAguide. El curso de Hugging Face nombra el mismo pulso por dentro: Thought, Action, Observation, en un `while` hasta que el objetivo está cumplido. No son dos bucles. El while del curso **es** el paso 4 (y un trozo del 3). Intake, armar y persistir los pone el arnés alrededor.
+
+La distinción importa cuando depuras: un fallo de parseo vive en el paso 4, un fallo de contexto en el 2, un fallo de persistencia en el 5. Si mezclas los planos, acabas tocando la temperatura para arreglar un bug de almacenamiento.
+</Hard>
+</Path>
+
 <VisualSlot caption="Recorre los cinco verbos de un turno. El pulso es trabajo moviéndose por el arnés, no un segundo cerebro." />
 
 Los cinco verbos son el mapa iAguide. El curso de Hugging Face nombra el mismo pulso por dentro: Thought, Action, Observation, en un `while` hasta que el objetivo está cumplido. No son dos bucles. El while del curso **es** el paso 4 (y un trozo del 3). Intake, armar y persistir los pone el arnés alrededor.

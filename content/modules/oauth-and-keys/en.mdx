@@ -215,3 +215,50 @@ Hermes stores pool state in `~/.hermes/auth.json` under `credential_pool`. Strat
 - OpenClaw. (n.d.). *Model failover*. https://docs.openclaw.ai/concepts/model-failover
 - Anthropic. (n.d.). *Using Claude Code with your Pro or Max plan*. https://support.claude.com/en/articles/11145838-using-claude-code-with-your-pro-or-max-plan
 - Nous Research. (n.d.). Nous Portal subscriptions. https://portal.nousresearch.com/manage-subscription
+
+## Case — the ChatGPT refresh that lost its plan
+
+A team runs an OpenClaw gateway 24/7 on a ChatGPT OAuth login. It works for two months untouched. On the third month, calls return HTTP 401 out of nowhere. They suspect an expired token; they run `openclaw auth refresh`. No error, but the next turn still 401s. The gateway is using a ChatGPT subscription OAuth login tied to a member whose plan expired: the plan is no longer Plus, it dropped to Free, and Free does not include Codex access. Diagnosis: an OAuth login is bound to the **plan of the account** that authorised it, not to the gateway's organisation. When the plan drops below the threshold, refreshes keep working but the provider's endpoints reject the call. The fix documented by OpenClaw is the same one the lesson already states: for an always-on gateway, an **API key** on the host is the predictable path. OAuth is subscription auth for desktops, not for daemons. After moving the gateway to `OPENAI_API_KEY` the 401s went away. Their monitoring did not catch the plan change; they should have added a "still authorised" check alongside "still authenticated."
+
+## Quiz
+
+<Quiz
+ questions={[
+  {
+    id: "q1",
+    stem: "Why does OpenClaw recommend an API key over OAuth for a 24/7 gateway?",
+    options: [
+      { id: "a", text: "Because API keys are free and OAuth is not" },
+      { id: "b", text: "Because OAuth is subscription auth and ties to the plan of the account that authorised it; a plan change can break refreshes without a visible error, while an API key on the gateway host is predictable and bills the organisation" },
+      { id: "c", text: "Because OpenClaw does not implement OAuth" },
+      { id: "d", text: "Because API keys are faster" }
+    ],
+    correct: "b",
+    explanation: "OpenClaw's Authentication page says explicitly: for an always-on gateway, an API key is the **most predictable** path. OAuth is subscription auth, not service auth: if the plan changes or expires, refreshes can keep working but the provider rejects the call with a silent 401."
+  },
+  {
+    id: "q2",
+    stem: "What is PKCE (RFC 7636) for in a harness's OAuth path?",
+    options: [
+      { id: "a", text: "Encrypting chat messages with the provider" },
+      { id: "b", text: "Protecting the authorisation-code flow on public clients (desktop, CLI), so an intercepted code cannot be redeemed without the proof of possession" },
+      { id: "c", text: "Signing the model's weights" },
+      { id: "d", text: "Compressing the tools JSON" }
+    ],
+    correct: "b",
+    explanation: "PKCE (Proof Key for Code Exchange, RFC 7636; Sakimura, Bradley & Jones, 2015) adds a `code_verifier` and `code_challenge` to the OAuth 2.0 flow (RFC 6749). Desktop and CLI harnesses are public clients that cannot keep a secret; PKCE stops an intercepted code from being redeemed without the proof of possession."
+  },
+  {
+    id: "q3",
+    stem: "Why can't `/model` add a new provider in Hermes?",
+    options: [
+      { id: "a", text: "Because it is disabled in production" },
+      { id: "b", text: "Because `/model` only switches between already-configured providers and models; to add one, run `hermes model` in the terminal outside any session, then open a new chat" },
+      { id: "c", text: "Because `/model` is admin-only" },
+      { id: "d", text: "Because new providers arrive via OTA" }
+    ],
+    correct: "b",
+    explanation: "Hermes splits `hermes model` (provider onboarding, OAuth, keys) from `/model` (switching between configured ones inside a chat). If you only have OpenRouter and write `/model` expecting to see Anthropic, you will not. The fix is to quit, run `hermes model`, finish the onboarding, then start a new chat."
+  }
+ ]}
+/>

@@ -304,3 +304,59 @@ Open the [Conversational Kaggle notebook](https://github.com/unslothai/notebooks
 **Case.** A 24GB card. The user enables **vision**, sets context to **8192**, and loads **LoRA 16-bit**. The run OOMs before step 1. Walk the official knobs, in order. First, this model page says **QLoRA works with 24GB** and **LoRA needs more than 36GB** — so `load_in_4bit=True` on `unsloth/Qwen3.8-27B-unsloth-bnb-4bit`, not 16-bit LoRA. Second, **vision off** if the job is text: `finetune_vision_layers=False`. The encoder is not free. Third, **`max_seq_length=2048`**, the recipe default; 8192 is a serve ambition, not a 24GB train budget. Fourth, **batch 1**, keep `"unsloth"` checkpointing. Fifth, **`offload_embedding=True`** so the untied embedding sits in RAM. If it still OOMs after those five, cut context again, not rank first. Rank 16 is already the small start.
 
 Official sources: [Qwen3.8 train guide](https://unsloth.ai/docs/models/qwen3.8/train) (and [train.md](https://unsloth.ai/docs/models/qwen3.8/train.md)), [notebooks index](https://unsloth.ai/docs/get-started/unsloth-notebooks), [notebooks repo](https://github.com/unslothai/notebooks), [RL guide](https://unsloth.ai/docs/get-started/reinforcement-learning-rl-guide), [vision fine-tuning](https://unsloth.ai/docs/basics/vision-fine-tuning). Serving the GGUF is the metal lesson that follows.
+
+## Case — GRPO on Qwen3.8 and the reward that never arrived
+
+A team runs RL GRPO on Qwen3.8-27B Instruct with a custom math dataset. First run with `max_steps=300`. By step 200 the average reward is still pinned at 0.0. They ask the forum; they are told "wait longer." They bump to `max_steps=1000` and retrain. By step 800 it is still at 0.0 with near-zero variance. They suspect a trainer bug. Real diagnosis: Unsloth's RL guide is explicit — GRPO samples **G** answers per question, scores them with a **verifiable reward**, and constructs advantages with Z-score. If the probability of a correct answer under the **Instruct** checkpoint is ~0, **you never see a good rollout** and the baseline stays at 0. Their dataset mixed numeric answers and free-form questions; the reward parser only recognised the numeric format, so most rollouts fell into reward=0 with zero variance. Three fixes. First, start from an Instruct checkpoint, not Base — the recipe assumes this and does not repeat it. Second, debug the reward by `print(reward_fn(question, sample))` on 20 hand examples, not by GRPO. Third, trim the dataset to what the reward knows how to score, do not add more volume to "see if it climbs." With those three, the reward started moving by step 250. Lesson: GRPO without a verifiable reward, or with a reward that does not parse, is expensive theatre.
+
+## Quiz
+
+<Quiz
+ questions={[
+  {
+    id: "q1",
+    stem: "Why does GRPO fit on one GPU per Unsloth's RL guide?",
+    options: [
+      { id: "a", text: "Because GRPO does not use PyTorch" },
+      { id: "b", text: "Because GRPO samples G answers, scores them with a verifiable reward, and builds advantages with Z-score; there is no value model and no learned reward model in the PPO sense" },
+      { id: "c", text: "Because GRPO runs on CPU" },
+      { id: "d", text: "Because GRPO trains with 1-bit quantisation" }
+    ],
+    correct: "b",
+    explanation: "GRPO (Group Relative Policy Optimization) drops the value model from classic PPO. Advantages come from Z-score within the group of G samples, so the per-step overhead is negligible compared to the model's own forward. RLVR = a **verifiable** reward (math, code, a small-checks rubric). If the reward is not checkable, GRPO does not save you."
+  },
+  {
+    id: "q2",
+    stem: "Why does Unsloth recommend starting GRPO from an Instruct checkpoint, not Base?",
+    options: [
+      { id: "a", text: "Because Instruct checkpoints are smaller" },
+      { id: "b", text: "Because if the probability of a correct answer is ~0 under the initial model, GRPO never sees a good rollout and the baseline stays at reward 0 with no signal" },
+      { id: "c", text: "Because Base does not fit in 24GB" },
+      { id: "d", text: "Because Instruct checkpoints ship with the chat template" }
+    ],
+    correct: "b",
+    explanation: "GRPO needs **some** good rollouts to build a distribution with variance. Starting from Base means almost every rollout scores 0; the Z-score of a uniform group is noise. Starting from Instruct gives a distribution already biased toward the expected format and grammar."
+  },
+  {
+    id: "q3",
+    stem: "Which six cells of the Kaggle Qwen3.8 conversational notebook should you change for your own dataset?",
+    options: [
+      { id: "a", text: "The six environment-setup cells" },
+      { id: "b", text: "(1) dataset path / `load_dataset`, (2) the cell that renders `text` with the Qwen chat template, (3) `finetune_vision_layers`, (4) `max_seq_length`, (5) `max_steps` or epochs, (6) `output_dir` and the export cell" },
+      { id: "c", text: "Only the first cell" },
+      { id: "d", text: "Only the last save cell" }
+    ],
+    correct: "b",
+    explanation: "The [Kaggle conversational notebook](https://github.com/unslothai/notebooks/blob/main/nb/Kaggle-Qwen3.8_(27B)-Conversational.ipynb) has six cells a real user changes for their JSONL and `max_seq_length=2048`. If you cannot name six cells, you do not have a dataset — you have a vibe."
+  }
+ ]}
+/>
+
+## Sources
+
+- [Qwen3.8 train guide](https://unsloth.ai/docs/models/qwen3.8/train) and [train.md](https://unsloth.ai/docs/models/qwen3.8/train.md)
+- [Notebooks index](https://unsloth.ai/docs/get-started/unsloth-notebooks)
+- [Notebooks repo](https://github.com/unslothai/notebooks)
+- [RL guide](https://unsloth.ai/docs/get-started/reinforcement-learning-rl-guide)
+- [Vision fine-tuning](https://unsloth.ai/docs/basics/vision-fine-tuning)
+- Unsloth 4-bit checkpoint. https://huggingface.co/unsloth/Qwen3.8-27B-unsloth-bnb-4bit

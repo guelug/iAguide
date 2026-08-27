@@ -198,3 +198,50 @@ Primary documentation and papers for this lesson (URLs retrieved August 2026):
 - Hu, E. J., Shen, Y., Wallis, P., Allen-Zhu, Z., Li, Y., Wang, S., Wang, L., & Chen, W. (2022). LoRA: Low-rank adaptation of large language models. *ICLR*. arXiv:2106.09685. https://arxiv.org/abs/2106.09685
 - Unsloth. (n.d.). Fine-tuning LLMs guide (LoRA versus QLoRA versus full FT). https://unsloth.ai/docs/get-started/fine-tuning-llms-guide
 - Comfy-Org. (n.d.). *ComfyUI LoRA example*. https://docs.comfy.org/tutorials/basic/lora
+
+## Case — the `.ckpt` checkpoint that came with a gift
+
+A studio downloads a "premium" `.ckpt` from a tracker promising "8K quality." They drop it into `ComfyUI/models/checkpoints/` and on the first Queue Prompt ComfyUI takes 4× longer than with a similar-sized `.safetensors`. They suspect a driver bug. The log says `pickle` is loading an opaque blob that Python itself documents as not secure (PSF, `pickle`). A `.ckpt` drags in an arbitrary serialised object; if the model author (or whoever uploaded it to the tracker) injected code via `__reduce__`, that code runs at load time. No "firewall" stops it. The studio runs the checkpoint through `tools/convert.py` into `.safetensors`, reloads, and ComfyUI goes back to its usual latency. Operational lesson: in ComfyUI, `safetensors` is the default format precisely because it only stores tensors. If you must use a `.ckpt`, audit it first — the load log tells the whole story. Hugging Face documents `safetensors` as the safe default (read without pickle, hash validation, memory mapping)."
+
+## Quiz
+
+<Quiz
+ questions={[
+  {
+    id: "q1",
+    stem: "What is the structural difference between an LLM and a latent-diffusion image model?",
+    options: [
+      { id: "a", text: "They are the same architecture with different training data" },
+      { id: "b", text: "The LLM predicts the next token autoregressively; the image model iterates denoising on a compressed latent starting from noise, with a UNet or DiT plus CLIP and a VAE" },
+      { id: "c", text: "The image model has no text encoder" },
+      { id: "d", text: "The LLM is a transformer and the image model is pure convolutional" }
+    ],
+    correct: "b",
+    explanation: "An LLM generates text token by token in parallel during prefill and one at a time during decode. An open image generator (SD 1.5, SDXL, Flux) does iterative denoising in latent space: start from noise, predict noise (or velocity), advance a few steps until the latent sits in the manifold the VAE can decode. CLIP translates the prompt; the VAE maps latent to pixels."
+  },
+  {
+    id: "q2",
+    stem: "Why does Comfy-Org insist on downloading the weights separately?",
+    options: [
+      { id: "a", text: "Because the app has no internet access by default" },
+      { id: "b", text: "Because checkpoints weigh many GB and the app install is small: models are weight files you place under `ComfyUI/models/` (checkpoints, VAEs, LoRAs, ControlNets, upscalers), and you pick the file in the matching Load node" },
+      { id: "c", text: "Because ComfyUI only works with checkpoints downloaded from CivitAI" },
+      { id: "d", text: "Because models are deleted when the app closes" }
+    ],
+    correct: "b",
+    explanation: "Comfy-Org's Models page says: the app install is small; models are files that **are not bundled by default**. You download them, put them under `ComfyUI/models/<type>/`, and pick them in the right Load node. No checkpoint, no model. No VAE, no latent-to-RGB decoding."
+  },
+  {
+    id: "q3",
+    stem: "What is the problem with loading an old `.ckpt` in ComfyUI?",
+    options: [
+      { id: "a", text: "`.ckpt` files cannot be loaded at all" },
+      { id: "b", text: "`.ckpt` files serialise via pickle; Python documents pickle as not secure, so a `.ckpt` can execute arbitrary code on load if the model author packaged it that way" },
+      { id: "c", text: "`.ckpt` files are incompatible with SD 1.5" },
+      { id: "d", text: "`.ckpt` files use more VRAM than `.safetensors` of the same size" }
+    ],
+    correct: "b",
+    explanation: "`safetensors` stores only tensors and validates hashes; it does not run code. `.ckpt` uses pickle, which the PSF describes as not secure. Comfy-Org recommends `.safetensors` for that reason. If you must use a `.ckpt`, convert it with `tools/convert.py` or audit the load log first."
+  }
+ ]}
+/>

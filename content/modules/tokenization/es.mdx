@@ -113,11 +113,18 @@ Elige un instruct que de verdad corras. Imprime `tokenizer.chat_template` (o la 
 
 Cuando el arnés ejecuta una tool, la observación es otro mensaje, delimitado como los demás. El modelo no tiene un canal paralelo. Si olvidas la plantilla de los resultados, tratará el JSON como prosa: lo completará, lo citará, lo inventará.
 
+<Path>
+<Easy>
+La regla en una línea: **todo entra en la misma cadena**. El modelo no tiene memoria ni canal aparte. Si la Observation no está en el prompt, el modelo no se enteró de que llovía en Nueva York. Antes de tocar temperatura, mira los delimitadores.
+</Easy>
+<Hard>
 En un agente de function-calling el rol se llama `tool` (o el nombre que la familia haya aprendido). En el dummy de la Unidad 1, a menudo concatenas `Observation:` sobre el turno assistant. Distinta grafía, misma regla: **entra en la cadena**. El siguiente prefill la ve. Si no está, el modelo no «se enteró» de que llovía en Nueva York; predice como si no hubiera llovido.
 
 Consejo práctico: un tool call mal plantillado se parece a un modelo tonto. Mira primero los delimitadores. Luego la temperatura.
 
 Los modelos de function-calling afinados introducen roles extra (assistant con tool_calls, tool con el resultado). Sigue siendo la misma cadena. El bonus de [function-calling](/es/m/function-calling-ft) enseña a *entrenar* ese rito. Aquí basta no olvidar pintarlo.
+</Hard>
+</Path>
 
 <Myth>
 «El chat recuerda los turnos; el tokenizador es un detalle.» No. Recuerda porque tú le vuelves a pegar la cadena. El tokenizador decide cómo se corta esa cadena. Un detalle que, cambiado, es otro modelo.

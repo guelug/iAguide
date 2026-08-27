@@ -188,3 +188,46 @@ En un repo git de juguete: (1) abre `claude agents`, acepta el workspace, despac
 - OpenAI. (s. f.). *Codex CLI*. https://developers.openai.com/codex/cli
 - OpenAI. (s. f.). *openai/codex* (repositorio). https://github.com/openai/codex
 
+## Quiz
+
+<Quiz
+ questions={[
+  {
+    id: "q1",
+    stem: "¿Qué afirma Anthropic sobre Claude Code con un plan Pro?",
+    options: [
+      { id: "a", text: "Que Claude Code funciona con cualquier plan, incluido Pro, vía OAuth" },
+      { id: "b", text: "Que Claude Code con OAuth necesita Max con créditos extra de uso comprados; Pro no es un camino OAuth soportado" },
+      { id: "c", text: "Que Claude Code con Pro funciona si añades una variable de entorno" },
+      { id: "d", text: "Que Claude Code con Pro solo corre en CI" }
+    ],
+    correct: "b",
+    explanation: "Anthropic documenta el camino OAuth para Claude Code con un plan Max más créditos extra de uso comprados. Pro no tiene camino OAuth: si quieres Claude Code con Pro, usas `ANTHROPIC_API_KEY` (pago por token, independiente del plan). Mezclar 'Pro suena igual a Max' es la fuente típica del ticket 'el harness está roto'."
+  },
+  {
+    id: "q2",
+    stem: "¿Para qué sirve `claude agents` según la documentación de Anthropic?",
+    options: [
+      { id: "a", text: "Para listar agentes remotos del marketplace" },
+      { id: "b", text: "Para abrir Agent View: una pantalla que despacha y vigila múltiples sesiones en paralelo sobre worktrees aislados, todavía marcado como research preview" },
+      { id: "c", text: "Para configurar el OAuth de Anthropic sin abrir el navegador" },
+      { id: "d", text: "Para desplegar el agente a producción en un cluster" }
+    ],
+    correct: "b",
+    explanation: "Anthropic describe `claude agents` como la entrada a Agent View: despachar varias tareas en paralelo, hacer peek/attach a una, mantener el resto vivo. Anthropic lo etiqueta como research preview. Cada sesión corre sobre su propio worktree en `.claude/worktrees/`, aislada del repo de trabajo."
+  },
+  {
+    id: "q3",
+    stem: "¿Cuál es el modelo documentado por OpenAI como default para generación de código en la Responses API?",
+    options: [
+      { id: "a", text: "`gpt-5.3-codex`, siempre" },
+      { id: "b", text: "`gpt-5.6`, con `gpt-5.3-codex` solo para tareas de agente de código si el proveedor lo recomienda" },
+      { id: "c", text: "Cualquier modelo sirve igual; no hay default" },
+      { id: "d", text: "`gpt-5-mini`" }
+    ],
+    correct: "b",
+    explanation: "OpenAI recomienda el modelo de propósito general más reciente para la mayoría de generación de código vía Responses API. `gpt-5.3-codex` existe para trabajo de agente de código, pero no es el default documentado. Pega el nombre del modelo que imprimen las docs, no uno más viejo que tienes en un gist."
+  }
+ ]}
+/>
+

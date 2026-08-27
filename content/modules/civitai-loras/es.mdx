@@ -198,3 +198,50 @@ No inventes palabras disparadoras ni deltas de FID; cópialos de la card que abr
 - Podell, D. et al. (2023). *SDXL* (arXiv:2307.01952). https://arxiv.org/abs/2307.01952
 - Black Forest Labs. (2024). Card de modelo FLUX.1-dev. https://huggingface.co/black-forest-labs/FLUX.1-dev
 
+## Caso — el slider de strength a 2.0 sobre un LoRA entrenado para 0.7
+
+Un estudio de ilustración publica semanalmente thumbnails con un LoRA propio. Cambian de base a SDXL, pero conservan un LoRA entrenado sobre SD 1.5 con `recommended strength 0.6–0.8` en la card. Un editor sube `strength_model = 2.0` esperando "más del estilo". Las salidas llegan con texturas fritas, ojos hundidos, a veces bandas de color donde debería haber pelo. No es un bug del modelo, es el delta de rango bajo multiplicado por un escalar fuera del rango en el que el adapter fue entrenado. Bajan a 0.7, alinean `strength_clip` también a 0.7, y el estilo vuelve al territorio que el LoRA sabe generar. Lección operativa: el slider de strength no es "cuánto quiero". Es "cuánto tolera este adapter". La card de CivitAI nombra el rango; si no lo nombra, empieza en 0.6 y mueve en pasos de 0.1, no en pasos de 0.5.
+
+## Quiz
+
+<Quiz
+ questions={[
+  {
+    id: "q1",
+    stem: "¿Dónde se conecta el nodo Load LoRA en un grafo de ComfyUI?",
+    options: [
+      { id: "a", text: "Antes de Load Checkpoint, como pre-procesador del modelo" },
+      { id: "b", text: "Sustituyendo a Load Checkpoint, porque un LoRA es un checkpoint pequeño" },
+      { id: "c", text: "Entre Load Checkpoint y KSampler, sobre las salidas MODEL y CLIP, mientras CLIP Text Encode sigue cableado al CLIP del checkpoint" },
+      { id: "d", text: "Después de Save Image, porque es un post-procesador" }
+    ],
+    correct: "c",
+    explanation: "El grafo de Comfy-Org es Load Checkpoint → Load LoRA (sobre MODEL y CLIP) → CLIP Text Encode (CLIP pasa por Load LoRA antes) → KSampler → VAE Decode → Save Image. Load LoRA no reemplaza al checkpoint: aplica matrices de rango bajo entrenables encima de una base congelada (Hu et al., 2022)."
+  },
+  {
+    id: "q2",
+    stem: "¿Por qué un LoRA entrenado para SD 1.5 produce ruido sobre SDXL?",
+    options: [
+      { id: "a", text: "Porque SDXL es más grande y necesita más VRAM" },
+      { id: "b", text: "Porque el LoRA se entrenó para una forma de pesos y un espacio CLIP concretos; sumarlo a otra arquitectura saca la trayectoria de denoise fuera de la variedad que el VAE sabe decodificar" },
+      { id: "c", text: "Porque hay que reiniciar ComfyUI antes de usar un LoRA nuevo" },
+      { id: "d", text: "Porque SDXL requiere siempre un VAE distinto al del LoRA" }
+    ],
+    correct: "b",
+    explanation: "Load LoRA no comprueba familia: suma deltas de rango bajo a `model` y `clip`. Forma equivocada o CLIP equivocado implica que la trayectoria latente se aleja del manifold que el VAE decodifica. La card de CivitAI nombra la base; empareja esa base, o usa el LoRA sobre un SD 1.5 como dreamshaper_8."
+  },
+  {
+    id: "q3",
+    stem: "¿Qué significa `strength_model` según Comfy-Org?",
+    options: [
+      { id: "a", text: "Es la resolución a la que el LoRA debe correr" },
+      { id: "b", text: "Es el número de pasos de denoise aplicados al adapter" },
+      { id: "c", text: "Es un escalar que multiplica el delta que Load LoRA añade a `MODEL` y, por separado, `strength_clip` multiplica el delta sobre `CLIP`; la card nombra el rango recomendado" },
+      { id: "d", text: "Es la calidad de imagen final en bits por píxel" }
+    ],
+    correct: "c",
+    explanation: "Comfy-Org lista dos entradas independientes: `strength_model` para los deltas sobre la UNet/DiT, y `strength_clip` para los deltas sobre el encoder de texto. Ambos se quedan en 1.0 por defecto. Si la card dice 0.6–0.8, sube por encima de 1.0 solo cuando sabes que ese adapter lo tolera; fuera de rango, el estilo se rompe."
+  }
+ ]}
+/>
+

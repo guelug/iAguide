@@ -15,3 +15,50 @@ Write three unit tests for a tool loop **without a model**: (1) unknown tool nam
 QuizAgent scored 88% on an internal multiple-choice “agent safety” quiz. On three GAIA-style tasks that needed a spreadsheet and a calendar, it failed all three and still produced confident prose. The quiz never called a tool. They had measured reading comprehension of the system prompt.
 
 This lesson rewrites ideas from the [Hugging Face Agents Course](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.
+
+## Quiz
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "What does a public leaderboard actually measure?",
+      options: [
+        { id: "a", text: "Whether your agent is better than the rest." },
+        { id: "b", text: "What it was built to measure: contaminated train sets, prompt suites that reward verbosity, and agents that look good on quizzes all lie in different ways, so the number reflects the test, not your product." },
+        { id: "c", text: "Cost in dollars." },
+        { id: "d", text: "Safety." }
+      ],
+      correct: "b",
+      explanation: "A public ranking measures the set it picked. If the set rewards prose, it rewards prose. Your defence is not climbing the ranking; it is a small, owned eval — twenty cases you care about — graded by a script or a human on every change."
+    },
+    {
+      id: "q2",
+      stem: "Before an LLM judge or GAIA, which three asserts cover the loop?",
+      options: [
+        { id: "a", text: "Latency, cost, and throughput." },
+        { id: "b", text: "Verify the GPU, count tokens, and restart the process." },
+        { id: "c", text: "Allow (an unknown tool name is denied), parse (malformed JSON does not execute), and stop (the Observation is appended by the harness, not taken from the model)." },
+        { id: "d", text: "Three asserts over the system prompt." }
+      ],
+      correct: "c",
+      explanation: "Those three asserts are on the tool dispatcher, not on the model: an allowlist by name, a parser that fails open into an error, and a stop marker that is honoured. If the dispatcher lies, your twenty cases lie with it. That is why they run on every commit, with no GPU."
+    },
+    {
+      id: "q3",
+      stem: "Your internal exam is multiple-choice over the system prompt. What is going on?",
+      options: [
+        { id: "a", text: "You are evaluating the agent loop." },
+        { id: "b", text: "You are measuring reading comprehension of the prompt: the quiz never calls a tool, the options reward vocabulary, and an agent can pass without executing anything — you are measuring fluency, not the loop." },
+        { id: "c", text: "You are measuring latency." },
+        { id: "d", text: "You are measuring safety." }
+      ],
+      correct: "b",
+      explanation: "If your set can be passed by reading the system prompt, it is still a quiz. To be an agent eval it needs the GAIA shape: short factual answer, tools, multi-hop, exact match. Start with five rows shaped like level 1 (few steps and few tools) and add new rows from production failures until you have twenty your customer would sign."
+    }
+  ]}
+/>
+
+## Fuentes
+
+- Hugging Face — *Agents Course* (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0. https://huggingface.co/learn/agents-course

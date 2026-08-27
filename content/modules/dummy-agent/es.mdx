@@ -28,6 +28,17 @@ Tres nombres, un ciclo:
 
 El ciclo es un `while`. Sigue hasta que el objetivo está cumplido, o hasta un presupuesto de pasos. Los frameworks meten las reglas en un <Term id="system-prompt">system prompt</Term>. La lección dummy hace lo mismo, a la vista, para que veas cada token.
 
+<Path>
+<Easy>
+Un agente es un bucle de tres pasos: el modelo piensa (Thought), pide una acción (Action), y tú le devuelves lo que pasó (Observation). Repite hasta cumplir el objetivo o gastar el presupuesto. No necesitas un framework para entenderlo: es un `while` con un JSON dentro.
+</Easy>
+<Hard>
+La Unidad 1 es agnóstica de frameworks a propósito. Los autores no quieren que confundas una biblioteca con la idea. Probablemente no enviarías este bucle a producción. Deberías ser capaz de escribirlo, o no sabrás qué esconden smolagents, LlamaIndex o LangGraph.
+
+El ciclo es un `while`: Thought (el modelo decide), Action (petición estructurada, sigue siendo texto), Observation (el entorno responde, el arnés añade esa cadena, no se muestrea). Sigue hasta el objetivo o hasta un presupuesto de pasos. Los frameworks meten las reglas en un system prompt; la lección dummy las deja a la vista para que veas cada token.
+</Hard>
+</Path>
+
 Alfred, el mayordomo del tiempo en esa unidad, es el ejemplo trabajado. Un usuario pregunta el tiempo en Nueva York. Alfred piensa, emite una acción JSON para `get_weather`, espera una observación real, piensa otra vez, y solo entonces escribe `Final Answer:`.
 
 ## Las herramientas son texto primero

@@ -6,6 +6,17 @@ usuario → <Term id="thread">hilo</Term> → prefill / decode → quizá <Term 
 
 El modelo es un motor de tokens dentro de ese bucle. Cambias el motor; el bucle sigue. Eso es todo este módulo.
 
+<Path>
+<Easy>
+Un chat manda un mensaje y espera. Un arnés es un bucle: hilo, modelo, quizá tools, quizá subagentes, compactación, y de vuelta. El modelo es un motor dentro de ese bucle. Si entiendes eso, ya entiendes el 80% de este curso: cambias el motor, el bucle sigue.
+</Easy>
+<Hard>
+El arnés es el bucle completo: usuario → hilo → prefill/decode → quizá herramientas → quizá subagente → acierto o fallo de caché → compactación → de vuelta al usuario. El modelo es un motor de tokens dentro de ese bucle. Cambias el motor; el bucle sigue.
+
+La distinción importa cuando optimizas: un system prompt largo se amortigua sobre todos los turnos futuros si mantienes el prefijo estable; una respuesta larga solo cuesta decode una vez. Inflar el prefijo con skills obsoletos cuesta prefill para siempre. Inflar la respuesta con cortesía cuesta decode una vez. Decide cuál de las dos fases estás optimizando antes de tocar nada.
+</Hard>
+</Path>
+
 <VisualSlot caption="El bucle del agente. El pulso es un turno recorriendo el arnés, no un segundo cerebro." />
 
 ## Prefill y decode: la base del arnés

@@ -10,6 +10,17 @@ $$
 
 $d$ is the key dimension; the square root stops the scores exploding as $d$ grows. You do not need to derive this to ship a product. You need: **every new token attends over the cached keys**, which is why the <Term id="kv-cache">KV cache</Term> exists, and why long context costs memory.
 
+<Path>
+<Easy>
+Attention is a blend: each token asks (query), the tokens present offer labels (keys), and values are mixed by how much each matters. The square root of d stops the scores from exploding. What actually matters: every new token attends over the cached keys, which is why the KV cache exists and why long context costs memory.
+</Easy>
+<Hard>
+For the token you are predicting, the model builds a query (a vector question). Every token already in the window offers a key (a vector label). The query·key dot-product scores say how much this query cares about each key; values are blended with those scores and a final vector comes out.
+
+The square root of d in the formula is not decoration: without it, softmax turns into near one-hot spikes and gradients die. The technical detail matters because without it the model does not train. And the operational consequence is the KV cache: every new token attends over the cached keys, which is why long context costs memory.
+</Hard>
+</Path>
+
 <VisualSlot caption="One query looking across keys; values blend. Switch to heads, then to GQA where keys are shared." />
 
 ## The block around it

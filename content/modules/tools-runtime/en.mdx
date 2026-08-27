@@ -8,6 +8,17 @@ The model never “has bash.” It emits a structured **tool_call**. Your harnes
 4. Runs a **handler** (or routes to a **backend**: local terminal, Docker, SSH, browser CDP…).
 5. Appends a tool-result message and continues the loop.
 
+<Path>
+<Easy>
+The model never executes anything. It emits a request with a name and arguments; your code validates it, runs it, and returns the result to the loop. Five boxes: schema, registry, dispatch, policy, backend. If a tool misbehaves, check first whether the model even saw it (schema) and whether your code let it through (policy).
+</Easy>
+<Hard>
+The full chain: the schema is what the model sees this turn; the registry maps name to handler; dispatch parses, validates types, and calls; policy decides whether the schema is even shown; the backend executes (local terminal, Docker, SSH, CDP). A failure in any of the five looks like a dumb model, but it is not.
+
+The golden rule: if policy removes a tool, the model never sees its schema. That is the gate. Not a "please" in the system prompt. And if the registry lacks the name, nothing runs, even if the model asks.
+</Hard>
+</Path>
+
 <VisualSlot caption="Schema → registry → dispatch pulse → policy gate → backend. Permissions sit between the model and the host." />
 
 ## Plugin vs builtin

@@ -227,3 +227,57 @@ Xiong, R., Yang, Y., He, D., Zheng, K., Zheng, S., Xing, C., Zhang, H., Lan, Y.,
 Zhang, B., & Sennrich, R. (2019). Root mean square layer normalization. *Advances in Neural Information Processing Systems, 32*.
 
 Zhu, D., et al. (2025). *Hyper-Connections* (arXiv:2409.19606).
+
+## Case — the late blocks that "weren't learning"
+
+A lab fine-tunes a deep PreNorm hybrid and watches the gradient norms of the last blocks collapse. They lower the learning rate on those blocks "to stabilise them." It gets worse. Real diagnosis, not paper talk: under unit-weight PreNorm the running sum grows as `O(L)` and late `f` blocks see a diluted input. Their "weak" gradient was not laziness, it was the old depth-aggregator doing its old job. They apply Block AttnRes (`N ≈ 8`), reset the optimiser state for the new `w_l` and RMSNorm parameters, and re-train. The gradient norm of the late blocks catches up to the early ones. GPQA-Diamond jumps several points. The LR was never the problem; the mixer was. What looked like "the dumb block" was old mud from the skip.
+
+## Quiz
+
+<Quiz
+ questions={[
+  {
+    id: "q1",
+    stem: "What job does the residual do beyond letting the gradient pass through identity?",
+    options: [
+      { id: "a", text: "Compresses the previous output into a learned latent vector" },
+      { id: "b", text: "Acts as a depth-wise aggregator with unit weights welded to 1, a uniform sum of every previous layer" },
+      { id: "c", text: "Replaces the MLP to save parameters" },
+      { id: "d", text: "Only normalises magnitudes and does not mix anything" }
+    ],
+    correct: "b",
+    explanation: "Unrolling `h_l = h_{l-1} + f(h_{l-1})` shows each layer receives a uniform sum of all previous ones with coefficients fixed at 1. The residual is linear attention over depth with the gates nailed shut. AttnRes swaps that aggregator for a softmax."
+  },
+  {
+    id: "q2",
+    stem: "Why does AttnRes initialise the query vector `w_l` to zero?",
+    options: [
+      { id: "a", text: "To save memory: a layer without a query writes nothing" },
+      { id: "b", text: "Because the paper forbids training the per-layer query" },
+      { id: "c", text: "So the initial attention is uniform over previous outputs, starting as an average of the past and letting training learn which depths to over-weight" },
+      { id: "d", text: "So `w_l` can be tuned later in production with a flag" }
+    ],
+    correct: "c",
+    explanation: "With `w_l = 0` every initial logit is equal, the softmax is uniform, and the layer starts as an average. A random peaked `w_l` makes the early softmax unstable. Zero init is a training courtesy, not a service flag: after training it is just a vector in the checkpoint."
+  },
+  {
+    id: "q3",
+    stem: "What does Block AttnRes solve versus Full AttnRes without losing much quality?",
+    options: [
+      { id: "a", text: "Block AttnRes swaps softmax for sigmoid to save I/O" },
+      { id: "b", text: "Block AttnRes splits the L layers into N block summaries and applies softmax over those (~8) plus the running partial; memory and comm drop from O(L d) to O(N d) with nearly the same loss" },
+      { id: "c", text: "Block AttnRes removes RMSNorm from the keys because grouping makes it unnecessary" },
+      { id: "d", text: "Block AttnRes uses one multi-query head instead of dense softmax" }
+    ],
+    correct: "b",
+    explanation: "Full AttnRes materialises a softmax over every previous output (O(L² d) FLOPs, O(L d) memory and comm). Block groups into N summaries (≈ 8) plus the running partial; comm and memory drop to O(N d). In the paper `S = 1, 2, 4, 8` cluster around the same loss; `N ≈ 8` is an infrastructure choice, not magic."
+  }
+ ]}
+/>
+
+## Sources
+
+- Kimi Team. (2026). *Attention residuals* (arXiv:2603.15031). https://arxiv.org/abs/2603.15031
+- MoonshotAI. (2026). Code repository. https://github.com/MoonshotAI/Attention-Residuals
+- Kimi Team. (2025). *Kimi Linear: An expressive, efficient attention architecture* (arXiv:2510.26692). https://arxiv.org/abs/2510.26692
+- Published checkpoint. https://huggingface.co/moonshotai/Kimi-Linear-48B-A3B-Instruct

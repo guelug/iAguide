@@ -6,6 +6,17 @@ user → <Term id="thread">thread</Term> → prefill / decode → maybe <Term id
 
 The model is a token engine inside that loop. Swap the engine; the loop remains. That is the whole point of this module.
 
+<Path>
+<Easy>
+A chat box sends a message and waits. A harness is a loop: thread, model, maybe tools, maybe subagents, compaction, and back. The model is an engine inside that loop. Get that and you have 80% of this course: swap the engine, the loop stays.
+</Easy>
+<Hard>
+The harness is the full loop: user → thread → prefill/decode → maybe tools → maybe a subagent → cache hit or miss → compaction → back to the user. The model is a token engine inside that loop. Swap the engine; the loop remains.
+
+The distinction matters when you optimize: a long system prompt amortizes over every future turn if you keep the prefix stable; a long reply only costs decode once. Padding the prefix with stale skills costs prefill forever. Padding the reply with courtesy costs decode once. Decide which of the two phases you are optimizing before touching anything.
+</Hard>
+</Path>
+
 <VisualSlot caption="The agent loop. The pulse is one turn travelling the harness — not a second brain." />
 
 <Myth>

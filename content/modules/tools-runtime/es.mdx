@@ -16,6 +16,17 @@ Una buena tool complementa al modelo. La aritmética vive en una calculadora, no
 
 El LLM solo maneja texto. Describe la acción que quiere y los parámetros. Tú haces el resto. El usuario ve una respuesta natural. Tú ves un despacho.
 
+<Path>
+<Easy>
+El modelo no ejecuta nada. Emite una petición con nombre y argumentos; tu código la valida, la ejecuta y devuelve el resultado al bucle. Cinco cajas: esquema, registro, despacho, política, backend. Si una tool no funciona, mira primero si el modelo siquiera la vio (esquema) y si tu código la dejó pasar (política).
+</Easy>
+<Hard>
+La cadena completa: el esquema es lo que el modelo ve este turno; el registro mapea nombre a handler; el despacho parsea, valida tipos y llama; la política decide si el esquema siquiera se muestra; el backend ejecuta (terminal local, Docker, SSH, CDP). Un fallo en cualquiera de las cinco se parece a un modelo tonto, pero no lo es.
+
+La regla de oro: si la política quita una tool, el modelo no ve su esquema. Esa es la puerta. No un «por favor» en el system prompt. Y si el registro no tiene el nombre, no se ejecuta, aunque el modelo lo pida.
+</Hard>
+</Path>
+
 ## Las cinco cajas del runtime
 
 ### Esquema

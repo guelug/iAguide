@@ -128,3 +128,50 @@ Luego, y solo luego, tus **veinte casos**. No cien. Veinte que te importan: el t
 QuizAgent sacó un 88% en un quiz interno de opción múltiple sobre "seguridad de agentes". En tres tareas con forma GAIA que necesitaban una hoja de cálculo y un calendario, falló las tres y aun así produjo prosa con confianza. El quiz nunca llamó a una tool. Habían medido la comprensión lectora del system prompt.
 
 La lección: un número bonito no es un agente. Si tu examen interno se puede aprobar leyendo el prompt, mide fluidez, no el bucle. Cuando producción falle de una forma nueva, esa traza entra al set. Ese es el bucle de la Bonus Unit 2, aplicado a tu dominio, no al leaderboard.
+
+## Quiz
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué mide de verdad un ranking público tipo leaderboard?",
+      options: [
+        { id: "a", text: "Mide si tu agente es mejor que el resto." },
+        { id: "b", text: "Mide lo que fue construido para medir: sets contaminados, suites que premian la verborrea y agentes que lucen en quizzes mienten de formas distintas, así que el número refleja el test, no tu producto." },
+        { id: "c", text: "Mide el coste en dólares." },
+        { id: "d", text: "Mide la seguridad." }
+      ],
+      correct: "b",
+      explanation: "Un ranking público mide el set que eligió. Si el set premia la prosa, premia la prosa. Tu defensa no es subir en el ranking; es un eval pequeño y tuyo — veinte casos que te importan — corregido por script o por humano en cada cambio."
+    },
+    {
+      id: "q2",
+      stem: "Antes de un juez LLM o de GAIA, ¿qué tres asserts cubre el bucle?",
+      options: [
+        { id: "a", text: "Latencia, coste y throughput." },
+        { id: "b", text: "Verificar GPU, contar tokens y reiniciar el proceso." },
+        { id: "c", text: "Allow (tool desconocida se deniega), parse (JSON malformado no se ejecuta) y stop (la Observation la añade el arnés, no la toma del modelo)." },
+        { id: "d", text: "Tres asserts sobre el system prompt." }
+      ],
+      correct: "c",
+      explanation: "Esos tres asserts van sobre el despacho de tools, no sobre el modelo: allowlist por nombre, parser que falla abierto hacia un error, y marcador de stop respetado. Si el despacho miente, tus veinte casos mienten con él. Por eso corren en cada commit, sin GPU."
+    },
+    {
+      id: "q3",
+      stem: "Tu examen interno es opción múltiple sobre el system prompt. ¿Qué está pasando?",
+      options: [
+        { id: "a", text: "Estás evaluando el bucle del agente." },
+        { id: "b", text: "Estás midiendo comprensión lectora del prompt: el quiz nunca llama a una tool, las opciones premian el vocabulario y un agente puede aprobar sin ejecutar nada — estás midiendo fluidez, no el bucle." },
+        { id: "c", text: "Estás midiendo latencia." },
+        { id: "d", text: "Estás midiendo seguridad." }
+      ],
+      correct: "b",
+      explanation: "Si tu set se aprueba leyendo el system prompt, todavía es un quiz. Para que sea eval de agente, necesita la forma de GAIA: respuesta fáctica corta, tools, multi-hop, exact match. Empieza con cinco filas con forma de nivel 1 (pocos pasos y pocas tools) y suma filas nuevas desde los fallos de producción hasta tener veinte que tu cliente firmaría."
+    }
+  ]}
+/>
+
+## Fuentes
+
+- Hugging Face — *Agents Course* (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0. https://huggingface.co/learn/agents-course

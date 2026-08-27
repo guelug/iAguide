@@ -12,6 +12,17 @@ $d$ es la dimensión de la key; la raíz evita que las puntuaciones exploten cua
 
 No hace falta derivarlo para publicar. Hace falta: **cada token nuevo atiende sobre las keys cacheadas**, por eso existe la <Term id="kv-cache">caché KV</Term> y por eso el contexto largo cuesta memoria.
 
+<Path>
+<Easy>
+La atención es una mezcla: cada token pregunta (query), los tokens presentes ofrecen etiquetas (keys), y los valores se mezclan según cuánto importa cada uno. La fórmula con la raíz de d evita que las puntuaciones exploten. Lo que de verdad importa: cada token nuevo atiende sobre las keys cacheadas, por eso existe la caché KV y por eso el contexto largo cuesta memoria.
+</Easy>
+<Hard>
+Para el token que estás prediciendo, el modelo arma una query (una pregunta vectorial). Cada token ya presente ofrece una key (una etiqueta vectorial). Las puntuaciones del producto punto query·key dicen cuánto le importa cada key a esta query; los values se mezclan con esas puntuaciones y se devuelve un vector final.
+
+La raíz de d en la fórmula no es un adorno: sin ella, los softmax se vuelven picos casi one-hot y los gradientes mueren. El detalle técnico importa porque sin él el modelo no entrena. Y la consecuencia operativa es la caché KV: cada token nuevo atiende sobre las keys cacheadas, por eso el contexto largo cuesta memoria.
+</Hard>
+</Path>
+
 <VisualSlot caption="Una query mira las keys; los values se mezclan. Cambia a cabezas y luego a GQA, donde las keys se comparten." />
 
 ## El bloque transformer al completo

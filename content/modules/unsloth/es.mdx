@@ -243,3 +243,61 @@ Escribe una lista de cinco líneas y déjala encima de cada comando de entrenami
 **Case.** Un compañero hace fine-tune sobre un JSON de **solo respuestas**: sin turno de sistema, sin turno de usuario, sin plantilla de chat, sin EOS. La pérdida cae. Exporta GGUF, lo mete en Ollama y el modelo **entra en bucle** — la misma cláusula, luego la misma cláusula, hasta que el cliente lo corta. Diagnostica en este orden, que es también el de la guía de problemas GGUF de Unsloth. Primero, el conjunto de train nunca mostró una plantilla conversacional, así que el adapter aprendió "continúa este bloque de texto de respuesta", no "cierra un turno". Segundo, **el EOS nunca estuvo en el objetivo**, así que al servir no hay nada que emita una parada. Tercero, Ollama envuelve el prompt en **su** plantilla, que ahora es un **segundo** envoltorio alrededor de un modelo que nunca vio el primero. La ventana de chat de Unsloth pudo parecer bien si promptaron como compleción cruda. El arreglo no es otro quant. Renderiza cada fila con `tokenizer.apply_chat_template`, conserva la **misma** plantilla en el Modelfile / motor vLLM, conserva el **mismo EOS**, y usa un notebook conversacional para que el collator no pueda saltarse ese paso en silencio. Después evalúa un prompt reservado en **Ollama**, no solo dentro de Unsloth.
 
 Fuentes oficiales de esta lección: [docs de Unsloth](https://unsloth.ai/docs), [guía de fine-tuning](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide), [requisitos](https://unsloth.ai/docs/get-started/fine-tuning-for-beginners/unsloth-requirements), [notebooks](https://unsloth.ai/docs/get-started/unsloth-notebooks), [guardar a GGUF](https://unsloth.ai/docs/basics/inference-and-deployment/saving-to-gguf), [hiperparámetros LoRA](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide/lora-hyperparameters-guide), [unsloth start](https://unsloth.ai/docs/integrations/unsloth-start), [GitHub unslothai/unsloth](https://github.com/unslothai/unsloth). La VRAM específica de Qwen3.8 y la receta SFT completa son la siguiente lección de entrenamiento.
+
+## Caso — los flags que se contradicen en el mismo notebook
+
+Un equipo mete el notebook conversacional de Unsloth para un Llama 3.1 8B. Activan `load_in_4bit=True` y `full_finetuning=True` a la vez. La pérdida empieza a caer; el trainer imprime el primer step. Una hora después, monitorizan VRAM y ven 22 GB usados sobre una RTX 4090 (24 GB). Celebran. A las tres horas el proceso muere con `CUDA OOM` durante el guardado del checkpoint. Sospechan leak. Diagnóstico real: la guía de fine-tuning de Unsloth es explícita: solo uno de `4-bit, 8-bit, 16-bit LoRA, full fine-tune` debe ser `True`. Cuando `full_finetuning=True` está activo, **incluso con `load_in_4bit=True`** el optimizador acaba moviendo copias en FP32/BF16 para actualizar todos los parámetros. La "victoria" de las primeras horas era el ajuste del adapter LoRA residual que el notebook aún conservaba del preset; cuando el optimizador cambió a full, la VRAM se duplicó. El arreglo no es comprar más VRAM. Es volver al notebook, fijar `full_finetuning=False`, dejar `load_in_4bit=True`, y aceptar que el camino pequeño es 4-bit LoRA. Lección: Unsloth expone flags combinados para flexibilidad; la guía dice que **no se combinan**. Si los flags parecen contradecirse, lo hacen.
+
+## Quiz
+
+<Quiz
+ questions={[
+  {
+    id: "q1",
+    stem: "¿Qué dos productos de Unsloth ofrecen GPU gratis según el index de notebooks?",
+    options: [
+      { id: "a", text: "Colab y Kaggle; Kaggle ofrece 30 horas y 2× Tesla T4 según la página de notebooks" },
+      { id: "b", text: "Colab y AWS" },
+      { id: "c", text: "Solo Kaggle" },
+      { id: "d", text: "Paperspace y Vast" }
+    ],
+    correct: "a",
+    explanation: "El [índice de notebooks](https://unsloth.ai/docs/get-started/unsloth-notebooks) y el repo [unslothai/notebooks](https://github.com/unslothai/notebooks) listan notebooks de **Colab** y de **Kaggle**. Kaggle, según Unsloth, es un producto de Google tipo Colab con 30 horas de GPU y 2× Tesla T4. Los limites exactos los pone cada plataforma."
+  },
+  {
+    id: "q2",
+    stem: "¿Cuál es el flujo correcto al pasar de un modelo entrenado a producción?",
+    options: [
+      { id: "a", text: "Entrenar y luego convertir el checkpoint a GGUF para Ollama" },
+      { id: "b", text: "safetensors / bnb-4bit → entrenar → GGUF o merged_16bit para vLLM. Nunca GGUF → entrenar" },
+      { id: "c", text: "Descargar el GGUF y entrenar encima" },
+      { id: "d", text: "Convertir el GGUF a safetensors antes de entrenar" }
+    ],
+    correct: "b",
+    explanation: "La página de [guardar a GGUF](https://unsloth.ai/docs/basics/inference-and-deployment/saving-to-gguf) es **export**, no entrenamiento. El camino soportado es: safetensors / bnb-4bit → entrenar → GGUF (`q4_k_m`, `q8_0`, `f16`) o `merged_16bit` para vLLM. Entrenar sobre un GGUF no es un flujo documentado."
+  },
+  {
+    id: "q3",
+    stem: "¿Qué import hay que usar para un modelo con id de arquitectura reciente como Qwen3.8?",
+    options: [
+      { id: "a", text: "`from unsloth import FastLanguageModel` siempre" },
+      { id: "b", text: "`FastModel` para modelos multimodales y de id de arquitectura reciente (Qwen3.8 es uno); `FastLanguageModel` para los notebooks de texto más antiguos. Ambos exponen `from_pretrained` y `get_peft_model`" },
+      { id: "c", text: "Solo `transformers` directamente" },
+      { id: "d", text: "Solo `llama_cpp`" }
+    ],
+    correct: "b",
+    explanation: "Los notebooks de texto antiguos importan `FastLanguageModel`. Los modelos multimodales y con id de arquitectura reciente — Qwen3.8 es uno — importan `FastModel`. Los flags que de verdad conmutas (`max_seq_length`, `load_in_4bit`, `full_finetuning`) son las mismas ideas en ambas APIs. Mezclar APIs en un mismo notebook es mezclar parsers."
+  }
+ ]}
+/>
+
+## Fuentes
+
+- [Unsloth docs](https://unsloth.ai/docs)
+- [Guía de fine-tuning](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide)
+- [Requisitos](https://unsloth.ai/docs/get-started/fine-tuning-for-beginners/unsloth-requirements)
+- [Índice de notebooks](https://unsloth.ai/docs/get-started/unsloth-notebooks)
+- [Guardar a GGUF](https://unsloth.ai/docs/basics/inference-and-deployment/saving-to-gguf)
+- [Hiperparámetros LoRA](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide/lora-hyperparameters-guide)
+- [unsloth start](https://unsloth.ai/docs/integrations/unsloth-start)
+- [GitHub unslothai/unsloth](https://github.com/unslothai/unsloth)

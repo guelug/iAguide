@@ -220,3 +220,59 @@ Released artefacts: instruct and base 48B-A3B on Hugging Face, KDA kernels in FL
 Read the KDA paper for the kernel; read the AttnRes paper for the residual; read the serve lesson before you type vLLM flags.
 
 Those three documents are the syllabus for this mixer. Nothing else is required to start; everything else is a detour.
+
+## Case — Mamba-2 versus KDA in a 1B bake-off
+
+An open-source team replicates Kimi Linear's sweep on a tight budget: 1B parameters, same corpus, same GPUs. They train two models, Mamba-2 and KDA, with the same recipe (3:1 versus MLA) for 200B tokens. Mamba-2 converges faster in the first 50B; the team tweets "linear attention beats softmax." By 150B the in-context retrieval metric crosses: Mamba-2 drops, KDA rises. By 200B Mamba-2 sits three points behind. They suspect KDA is overfitting. They repeat with a different seed: same curve, same crossover. Diagnosis: KDA's **per-channel** gate lets each state dimension forget at its own pace, so a head can keep a tool name and forget a temperature. Mamba-2 uses a **per-head** gate, so the whole head pays the price of one memory. On a benchmark where instruction types shift, KDA wins; on a short repetitive one, Mamba-2 can win. The team's mistake was not the model, it was generalising from 50B of tokens. Lesson: Kimi Linear's table is 1.4T; replicate that scale or don't generalise from it.
+
+## Quiz
+
+<Quiz
+ questions={[
+  {
+    id: "q1",
+    stem: "What does KDA (Kimi Delta Attention) add over Gated DeltaNet (GDN)?",
+    options: [
+      { id: "a", text: "KDA replaces the delta recurrence with softmax attention" },
+      { id: "b", text: "KDA replaces GDN's scalar gate `alpha_t` with a diagonal `Diag(alpha_t)`: forgetting is per-channel, one rate per state feature" },
+      { id: "c", text: "KDA adds a learned value head" },
+      { id: "d", text: "KDA is GDN with RMSNorm added" }
+    ],
+    correct: "b",
+    explanation: "GDN (arXiv:2412.06464) uses a scalar gate `alpha_t in [0, 1]` per head. KDA turns it into a diagonal `Diag(alpha_t)`: each state dimension decides when to forget on its own clock. Finer than GDN or Mamba2. That is why Kimi Linear uses KDA in the 3:1 KDA:MLA hybrid."
+  },
+  {
+    id: "q2",
+    stem: "How does DeltaNet train the memory compared to the naive Hebbian outer product?",
+    options: [
+      { id: "a", text: "DeltaNet rewrites the memory with the outer product `k_t v_t^T`" },
+      { id: "b", text: "DeltaNet applies a rank-1 correction (the delta rule) so the memory actually maps `k_t` toward `v_t`, instead of just stacking associations" },
+      { id: "c", text: "DeltaNet drops `v_t` from the state and only keeps `k_t`" },
+      { id: "d", text: "DeltaNet runs backprop inside the state, not a closed-form update" }
+    ],
+    correct: "b",
+    explanation: "The outer-product `S := S + k v^T` is Hebbian: it heaps associations, never corrects them. The delta rule from [DeltaNet](https://arxiv.org/abs/2406.06484) applies a rank-1 correction — a least-squares-style step that writes `v_t` along `k_t` and subtracts what the memory already had on that direction. The memory learns real mappings."
+  },
+  {
+    id: "q3",
+    stem: "How does KDA (token axis) relate to AttnRes (depth axis)?",
+    options: [
+      { id: "a", text: "They are the same mechanism rewritten" },
+      { id: "b", text: "They are orthogonal and compose: KDA mixes over tokens with a per-channel gate; AttnRes mixes over layers with softmax. Kimi Linear runs both in the same 48B/3B hybrid" },
+      { id: "c", text: "AttnRes replaces KDA in the 48B checkpoint" },
+      { id: "d", text: "KDA and AttnRes cannot coexist because of memory pressure" }
+    ],
+    correct: "b",
+    explanation: "KDA is a gated delta recurrence over tokens. AttnRes is softmax over layers. Different axes. Kimi Linear 48B/3B runs both: 3:1 KDA:MLA in attention plus Block AttnRes on the residual path. You inherit KDA from the architecture id; you inherit AttnRes only if that checkpoint was trained with it, and then it is already inside the graph."
+  }
+ ]}
+/>
+
+## Sources
+
+- Kimi Team. (2025). *Kimi Linear: An expressive, efficient attention architecture* (arXiv:2510.26692). https://arxiv.org/abs/2510.26692
+- Yang, S. & Wang, D. (2024). *DeltaNet* (arXiv:2406.06484). https://arxiv.org/abs/2406.06484
+- Gated DeltaNet (arXiv:2412.06464). https://arxiv.org/abs/2412.06464
+- FLA. Kernels `fla/ops/kda`. https://github.com/fla-org/flash-linear-attention/tree/main/fla/ops/kda
+- KDA checkpoint. https://huggingface.co/moonshotai/Kimi-Linear-48B-A3B-Instruct
+- Kimi Team. (2026). *Attention residuals* (arXiv:2603.15031). https://arxiv.org/abs/2603.15031

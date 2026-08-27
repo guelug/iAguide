@@ -8,6 +8,17 @@ El truco mental: la cuantización no cambia los FLOPs del modelo — el número 
 
 La calidad es la factura. Algunas tareas (código estricto, nombres exactos, JSON bien formado) notan los 4 bits más que un chat suelto. No hay un "Q4 pierde un X%" universal. Mide en tus prompts.
 
+<Path>
+<Easy>
+Cuantizar es guardar los pesos con menos bits para que quepan y se muevan más rápido. No cambia los FLOPs, cambia los bytes que viajan por memoria. Y como el decode lee los pesos enteros por cada token, menos bytes = más tokens por segundo. Regla: si tu métrica es el primer token, la cuantización ayuda poco; si es streaming, ayuda mucho.
+</Easy>
+<Hard>
+Los pesos en FP16/BF16 ocupan 2 bytes cada uno. Un dense 8B ya anda por 16 GB solo de pesos, más caché KV, más activaciones, más fragmentación. La cuantización guarda (y a menudo computa) esos pesos con menos bits para que quepan y se muevan más rápido por memoria.
+
+El truco mental: la cuantización no cambia los FLOPs del modelo — el número de multiplicaciones y sumas es el mismo. Lo que cambia son los bytes que se mueven entre memoria y unidades de cómputo. Y como el decode es memory-bandwidth-bound (lee los pesos enteros para cada token nuevo), menos bytes = más tokens/segundo. En prefill, en cambio, el cuello son los FLOPs: la cuantización comprime pesos pero el cómputo matricial escala con el producto de dimensiones, así que el margen es modesto. Optimiza según tu SLO.
+</Hard>
+</Path>
+
 ## Prefill frente a decode: dónde ayuda la cuantización
 
 No todas las fases del inference se benefician igual:

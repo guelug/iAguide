@@ -113,7 +113,11 @@
     "quiz": "Quiz",
     "explanation": "Explanation",
     "reset": "Reset",
-    "check": "Check"
+    "check": "Check",
+    "pathEasy": "Quick path",
+    "pathEasyHint": "The essentials in five minutes",
+    "pathHard": "Deep path",
+    "pathHardHint": "The why, the failure modes, the numbers"
   },
   "footer": {
     "license": "MIT License",

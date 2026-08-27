@@ -218,3 +218,59 @@ Checkpoint: [`moonshotai/Kimi-Linear-48B-A3B-Instruct`](https://huggingface.co/m
 Servir es la lección metal. Residuales de atención es la lección de foundations siguiente. Optimizar AttnRes es la lección de sistemas.
 
 Lee esas tres en ese orden si vas a entrenar o servir el híbrido en serio.
+
+## Caso — Mamba-2 vs KDA en una prueba de 1B
+
+Un equipo open-source replica el barrido de Kimi Linear con un presupuesto reducido: 1B parámetros, mismo corpus, mismas GPUs. Ponen dos modelos, Mamba-2 y KDA, con la misma receta (3:1 contra MLA) y entrenan 200B tokens. Mamba-2 converge más rápido en las primeras 50B; el equipo tuitea "linear attention gana a softmax". A 150B la métrica de retrieval-in-contexto se cruza: Mamba-2 cae, KDA sube. A 200B Mamba-2 está tres puntos por detrás. Sospechan overfit de KDA. Repiten con seed distinto: misma curva, mismo cruce. Diagnóstico: la puerta **por canal** de KDA permite que cada dimensión del estado olvide a su propio ritmo, así una cabeza puede guardar un nombre de herramienta y olvidar una temperatura. Mamba-2 usa una puerta **por cabeza**, así que la cabeza entera paga el precio de un recuerdo. En un benchmark donde las instrucciones cambian de tipo, KDA gana; en un benchmark corto y repetitivo, Mamba-2 puede ganar. El error del equipo no fue el modelo, fue generalizar desde 50B de tokens. Lección: la tabla de Kimi Linear es 1.4T; replica esa escala o no generalices a partir de ella.
+
+## Quiz
+
+<Quiz
+ questions={[
+  {
+    id: "q1",
+    stem: "¿Qué añade KDA (Kimi Delta Attention) sobre Gated DeltaNet (GDN)?",
+    options: [
+      { id: "a", text: "KDA sustituye la recurrencia delta por atención softmax" },
+      { id: "b", text: "KDA sustituye la puerta escalar `alpha_t` de GDN por una diagonal `Diag(alpha_t)`: el olvido es por canal, una tasa por rasgo del estado" },
+      { id: "c", text: "KDA añade una cabeza de valor aprendida" },
+      { id: "d", text: "KDA es GDN con RMSNorm" }
+    ],
+    correct: "b",
+    explanation: "GDN (arXiv:2412.06464) usa una puerta escalar `alpha_t in [0, 1]` por cabeza. KDA la convierte en una diagonal `Diag(alpha_t)`: cada dimensión del estado decide olvidar a su propio ritmo. Más fino que GDN o Mamba2. Por eso Kimi Linear usa KDA en el híbrido 3:1 KDA:MLA."
+  },
+  {
+    id: "q2",
+    stem: "¿Cómo se entrena la memoria en DeltaNet frente al producto externo Hebbian ingenuo?",
+    options: [
+      { id: "a", text: "DeltaNet reescribe la memoria con el producto externo `k_t v_t^T`" },
+      { id: "b", text: "DeltaNet aplica una corrección de rango 1 (regla delta) para que la memoria mapee de verdad `k_t` hacia `v_t`, en vez de solo apilar asociaciones" },
+      { id: "c", text: "DeltaNet elimina `v_t` del estado y solo guarda `k_t`" },
+      { id: "d", text: "DeltaNet usa backpropagation dentro del estado, no una actualización cerrada" }
+    ],
+    correct: "b",
+    explanation: "El producto externo `S := S + k v^T` es Hebbiano: acumula asociaciones, nunca las corrige. La regla delta de [DeltaNet](https://arxiv.org/abs/2406.06484) aplica una corrección de rango 1 — un ajuste tipo least-squares que escribe `v_t` en la dirección `k_t` y resta lo que la memoria ya tenía en esa dirección. La memoria aprende mapeos de verdad."
+  },
+  {
+    id: "q3",
+    stem: "¿Cuál es la relación entre KDA (eje de tokens) y AttnRes (eje de profundidad)?",
+    options: [
+      { id: "a", text: "Son el mismo mecanismo reescrito" },
+      { id: "b", text: "Son ortogonales y se componen: KDA mezcla sobre tokens con puerta por canal; AttnRes mezcla sobre capas con softmax. Kimi Linear corre los dos en el mismo híbrido 48B/3B" },
+      { id: "c", text: "AttnRes sustituye a KDA en el checkpoint 48B" },
+      { id: "d", text: "KDA y AttnRes no se pueden usar juntos por consumo de memoria" }
+    ],
+    correct: "b",
+    explanation: "KDA es una recurrencia delta con puerta sobre tokens. AttnRes es softmax sobre capas. Son ejes distintos. Kimi Linear 48B/3B corre ambos: 3:1 KDA:MLA en la atención + Block AttnRes en el camino residual. Heredar KDA viene del id de arquitectura; heredar AttnRes solo si ese checkpoint se entrenó con él, y entonces ya está dentro del grafo."
+  }
+ ]}
+/>
+
+## Fuentes
+
+- Kimi Team. (2025). *Kimi Linear: An expressive, efficient attention architecture* (arXiv:2510.26692). https://arxiv.org/abs/2510.26692
+- Yang, S. y Wang, D. (2024). *DeltaNet* (arXiv:2406.06484). https://arxiv.org/abs/2406.06484
+- Gated DeltaNet (arXiv:2412.06464). https://arxiv.org/abs/2412.06464
+- FLA. Kernels `fla/ops/kda`. https://github.com/fla-org/flash-linear-attention/tree/main/fla/ops/kda
+- Checkpoint KDA. https://huggingface.co/moonshotai/Kimi-Linear-48B-A3B-Instruct
+- Kimi Team. (2026). *Attention residuals* (arXiv:2603.15031). https://arxiv.org/abs/2603.15031

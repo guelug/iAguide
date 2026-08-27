@@ -10,6 +10,17 @@ Every serious harness — Hermes Agent, OpenClaw, a chat-box you wrote on a Satu
 
 The model is replaceable. The loop is the product.
 
+<Path>
+<Easy>
+A turn is: intake the message, assemble context, call the model, run tools if it asked, persist the transcript. Five steps, always in that order. Swap the model and the loop stays. That is what makes an agent a product instead of a prompt.
+</Easy>
+<Hard>
+The five verbs are the iAguide map. The Hugging Face course names the same pulse from inside: Thought, Action, Observation, in a `while` until the goal is met. These are not two loops. The course's while **is** step 4 (and part of 3). Intake, assemble, and persist are the harness's job around it.
+
+The distinction matters when you debug: a parse failure lives in step 4, a context failure in step 2, a persistence failure in step 5. Mix the layers and you end up tuning temperature to fix a storage bug.
+</Hard>
+</Path>
+
 <VisualSlot caption="Step the five verbs of a turn. The pulse is work moving through the harness — not a second brain." />
 
 ## Interrupt, budget, fallback (general ideas)
