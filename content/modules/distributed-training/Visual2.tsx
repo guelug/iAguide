@@ -3,122 +3,139 @@
 import { useState } from "react";
 import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
-import { Flow, Halo, Motes, Node3D, PointerTilt, Slab, Tag, Wire } from "@/components/three/atoms";
+import { Flow, Halo, Lattice, Motes, Node3D, PointerTilt, Ribbon, Slab, Tag, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
 import { useCopy } from "@/lib/useCopy";
 
-type Mode = "map" | "mechanism" | "tradeoff";
-type Tone = "teal" | "violet" | "amber";
+/* distributed training: data parallel replicas, pipeline stages, tensor split. */
+type Mode = "data" | "pipeline" | "tensor";
+
 const COPY = {
-  "en": {
-    "topic1": "concept 1 · distributed-training",
-    "topic2": "concept 2 · distributed-training",
-    "topic3": "concept 3 · distributed-training",
-    "title": "three dimensions of the idea",
-    "hint": "map, mechanism, trade-off",
-    "map": "map",
-    "mechanism": "mechanism",
-    "tradeoff": "trade-off",
-    "input": "input",
-    "output": "output",
-    "decision": "decision",
-    "context": "context",
-    "system": "system",
-    "constraint": "constraint",
-    "signal": "signal",
-    "cost": "cost",
-    "result": "result"
+  en: {
+    one_model_four_gpus_three_splits: "one model, four GPUs, three splits",
+    data_parallel_pipeline_tensor: "data parallel · pipeline · tensor parallel",
+    data: "data parallel",
+    pipeline: "pipeline",
+    tensor: "tensor",
+    replica: "replica",
+    gradient: "gradient",
+    stage: "stage",
+    activations: "activations",
+    shard: "shard",
+    all_reduce: "all-reduce",
   },
-  "es": {
-    "topic1": "Una GPU nunca basta (para pretrain)",
-    "topic2": "¿Por qué entrenar un modelo grande necesita má",
-    "topic3": "Data parallel (DDP): la más simple",
-    "title": "tres dimensiones de la idea",
-    "hint": "mapa, mecanismo y trade-off",
-    "map": "mapa",
-    "mechanism": "mecanismo",
-    "tradeoff": "trade-off",
-    "input": "entrada",
-    "output": "salida",
-    "decision": "decisión",
-    "context": "contexto",
-    "system": "sistema",
-    "constraint": "restricción",
-    "signal": "señal",
-    "cost": "coste",
-    "result": "resultado"
-  }
+  es: {
+    one_model_four_gpus_three_splits: "un modelo, cuatro GPUs, tres repartos",
+    data_parallel_pipeline_tensor: "datos · pipeline · tensor",
+    data: "paralelo de datos",
+    pipeline: "pipeline",
+    tensor: "tensor",
+    replica: "réplica",
+    gradient: "gradiente",
+    stage: "etapa",
+    activations: "activaciones",
+    shard: "fragmento",
+    all_reduce: "all-reduce",
+  },
 };
 
 export default function Visual() {
   const t = useCopy(COPY);
-  const [mode, setMode] = useState<Mode>("map");
-  const tones: Tone[] = ["teal", "violet", "amber"];
-  const colors = [P.teal, P.violet, P.amber];
-  const tone = (i: number) => tones[i % 3];
+  const [mode, setMode] = useState<Mode>("data");
+
   return (
     <Figure
-      label={t.title}
-      hint={t.hint}
+      label={t.one_model_four_gpus_three_splits}
+      hint={t.data_parallel_pipeline_tensor}
       legend={[
-        { color: P.teal, label: t.topic1 },
-        { color: P.violet, label: t.topic2 },
-        { color: P.amber, label: t.topic3 },
+        { color: P.teal, label: t.data },
+        { color: P.violet, label: t.pipeline },
+        { color: P.amber, label: t.tensor },
       ]}
       controls={
         <Switcher
           value={mode}
           onChange={setMode}
           options={[
-            { value: "map", label: t.map, tone: P.teal },
-            { value: "mechanism", label: t.mechanism, tone: P.violet },
-            { value: "tradeoff", label: t.tradeoff, tone: P.amber },
+            { value: "data", label: t.data, tone: P.teal },
+            { value: "pipeline", label: t.pipeline, tone: P.violet },
+            { value: "tensor", label: t.tensor, tone: P.amber },
           ]}
-          ariaLabel={t.title}
+          ariaLabel={t.one_model_four_gpus_three_splits}
         />
       }
     >
       <Stage className="h-full w-full" camera={{ position: [0, 0.4, 8.6], fov: 37 }}>
         <Motes count={110} radius={7} opacity={0.3} />
         <PointerTilt amount={0.07}>
-          {mode === "map" && <>
-            {[t.topic1, t.topic2, t.topic3].map((topic, i) => (
-              <group key={topic}>
-                <Slab position={[(i - 1) * 2.2, 0.5, 0]} size={[1.8, 1.05, 0.14]} color={colors[i]} fill={0.2} />
-                <Tag position={[(i - 1) * 2.2, 1.25, 0.15]} tone={tone(i)} size="xs">{topic}</Tag>
-                <Node3D position={[(i - 1) * 2.2, 0.5, 0.18]} color={colors[i]} radius={0.13} pulse={i * 0.25} />
+
+        {mode === "data" && (
+          <>
+            {/* four replicas, gradients converge into all-reduce */}
+            {[0, 1, 2, 3].map((i) => (
+              <group key={i}>
+                <Slab position={[-2.2 + (i % 2) * 1.5, 0.85 - Math.floor(i / 2) * 1.4, 0]} size={[1.15, 0.75, 0.12]} color={P.teal} fill={0.2} />
+                <Tag position={[-2.2 + (i % 2) * 1.5, 1.35 - Math.floor(i / 2) * 1.4, 0.15]} tone="teal" size="xs">GPU {i + 1}</Tag>
+                <Tag position={[-2.2 + (i % 2) * 1.5, 0.85 - Math.floor(i / 2) * 1.4, 0.15]} tone="teal" size="xs">{t.replica}</Tag>
+                <Ribbon points={[[-1.6 + (i % 2) * 1.5, 0.45 - Math.floor(i / 2) * 1.4, 0], [0.7, 0.0, 0]]} color={P.violet} radius={0.025} opacity={0.7} />
               </group>
             ))}
-            <Flow points={[[-1.0, 0.5, 0], [1.0, 0.5, 0]]} color={P.lineStrong} count={3} size={0.045} />
-            <Tag position={[0, -0.9, 0.15]} tone="muted" size="xs">{t.input} → {t.system} → {t.output}</Tag>
-          </>}
-          {mode === "mechanism" && <>
-            <Halo position={[0, 0.45, 0]} radius={0.65} color={P.violet} opacity={0.55} spin={0.2} />
-            <Node3D position={[0, 0.45, 0]} color={P.violet} radius={0.2} pulse={0.35} />
-            <Tag position={[0, 1.15, 0.15]} tone="violet">{t.system}</Tag>
-            {[t.topic1, t.topic2, t.topic3].map((topic, i) => {
-              const a = (i / 3) * Math.PI * 2 - Math.PI / 2;
-              const x = Math.cos(a) * 2.25, y = 0.45 + Math.sin(a) * 1.15;
-              return <group key={topic}>
-                <Node3D position={[x, y, 0]} color={colors[i]} radius={0.13} matte />
-                <Tag position={[x, y + 0.32, 0.15]} tone={tone(i)} size="xs">{topic}</Tag>
-                <Flow points={[[x * 0.55, 0.45 + (y - 0.45) * 0.55, 0], [x * 0.9, 0.45 + (y - 0.45) * 0.9, 0]]} color={colors[i]} count={2} size={0.04} />
-              </group>;
-            })}
-            <Tag position={[0, -1.35, 0.15]} tone="muted" size="xs">{t.context} + {t.signal} → {t.result}</Tag>
-          </>}
-          {mode === "tradeoff" && <>
-            <Slab position={[-1.55, 0.45, 0]} size={[2.2, 1.55, 0.14]} color={P.teal} fill={0.18} />
-            <Tag position={[-1.55, 1.5, 0.15]} tone="teal">{t.topic1}</Tag>
-            <Tag position={[-1.55, 0.35, 0.15]} tone="teal" size="xs">{t.signal}</Tag>
-            <Slab position={[1.55, 0.45, 0]} size={[2.2, 1.55, 0.14]} color={P.rose} fill={0.18} />
-            <Tag position={[1.55, 1.5, 0.15]} tone="rose">{t.topic2}</Tag>
-            <Tag position={[1.55, 0.35, 0.15]} tone="rose" size="xs">{t.constraint}</Tag>
-            <Flow points={[[-0.4, 0.45, 0], [0.4, 0.45, 0]]} color={P.amber} count={3} size={0.05} />
-            <Tag position={[0, 1.05, 0.15]} tone="amber" size="xs">{t.decision}</Tag>
-            <Wire points={[[-2.65, -0.8, 0], [2.65, -0.8, 0]]} color={P.lineStrong} opacity={0.55} />
-            <Tag position={[0, -1.15, 0.15]} tone="muted" size="xs">{t.cost} ↔ {t.result}</Tag>
-          </>}
+            <Halo position={[1.5, 0.0, 0]} radius={0.65} color={P.violet} opacity={0.55} spin={0.2} />
+            <Node3D position={[1.5, 0.0, 0]} color={P.violet} radius={0.18} pulse={0.4} />
+            <Tag position={[1.5, 0.75, 0.15]} tone="violet" size="xs">{t.all_reduce}</Tag>
+            <Ribbon points={[[2.0, 0.0, 0], [2.7, 0.0, 0]]} color={P.violet} radius={0.035} opacity={0.8} />
+            <Tag position={[2.4, -0.5, 0.15]} tone="muted" size="xs">{t.gradient}</Tag>
+          </>
+        )}
+
+        {mode === "pipeline" && (
+          <>
+            {/* model split across stages, activations flow */}
+            {[0, 1, 2, 3].map((i) => (
+              <group key={i}>
+                <Slab position={[-2.3 + i * 1.55, 0.5, 0]} size={[1.25, 1.2, 0.14]} color={P.violet} fill={0.16 + i * 0.04} />
+                <Tag position={[-2.3 + i * 1.55, 1.3, 0.15]} tone="violet" size="xs">{t.stage} {i + 1}</Tag>
+                <Node3D position={[-2.3 + i * 1.55, 0.5, 0.15]} color={P.violet} radius={0.12} pulse={i * 0.2} />
+              </group>
+            ))}
+            {[0, 1, 2].map((i) => (
+              <Flow points={[[-1.7 + i * 1.55, 0.5, 0], [-1.3 + i * 1.55, 0.5, 0]]} color={P.teal} count={2} size={0.05} key={i} />
+            ))}
+            <Ribbon points={[[-2.3, -0.4, 0], [-0.8, -0.9, 0], [0.8, -0.9, 0], [2.3, -0.4, 0]]} color={P.teal} radius={0.03} opacity={0.7} />
+            <Tag position={[0, -1.35, 0.15]} tone="teal" size="xs">{t.activations} · 1F1B schedule</Tag>
+          </>
+        )}
+
+        {mode === "tensor" && (
+          <>
+            {/* one weight matrix split column-wise across two GPUs */}
+            <Slab position={[-1.5, 0.4, 0]} size={[1.8, 2.0, 0.14]} color={P.teal} fill={0.18} />
+            <Tag position={[-1.5, 1.65, 0.15]} tone="teal" size="xs">W[:, :k]</Tag>
+            <Slab position={[1.5, 0.4, 0]} size={[1.8, 2.0, 0.14]} color={P.amber} fill={0.18} />
+            <Tag position={[1.5, 1.65, 0.15]} tone="amber" size="xs">W[:, k:]</Tag>
+            <Lattice
+              cells={Array.from({ length: 12 }, (_, i) => ({
+                position: [-2.15 + (i % 3) * 0.55, 1.0 - Math.floor(i / 3) * 0.45, 0.16] as [number, number, number],
+                color: P.teal,
+              }))}
+              size={0.17}
+              opacity={0.9}
+              matte
+            />
+            <Lattice
+              cells={Array.from({ length: 12 }, (_, i) => ({
+                position: [0.85 + (i % 3) * 0.55, 1.0 - Math.floor(i / 3) * 0.45, 0.16] as [number, number, number],
+                color: P.amber,
+              }))}
+              size={0.17}
+              opacity={0.9}
+              matte
+            />
+            <Flow points={[[-0.5, 0.4, 0], [0.5, 0.4, 0]]} color={P.violet} count={3} />
+            <Tag position={[0, -1.05, 0.15]} tone="violet" size="xs">all-gather / reduce-scatter</Tag>
+          </>
+        )}
+
         </PointerTilt>
       </Stage>
     </Figure>
