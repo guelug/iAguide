@@ -3,122 +3,147 @@
 import { useState } from "react";
 import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
-import { Flow, Halo, Motes, Node3D, PointerTilt, Slab, Tag, Wire } from "@/components/three/atoms";
+import { Lattice, Motes, Node3D, PointerTilt, Ribbon, Slab, Tag, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
 import { useCopy } from "@/lib/useCopy";
 
-type Mode = "map" | "mechanism" | "tradeoff";
-type Tone = "teal" | "violet" | "amber";
+/* quantization: precision bars, calibration histogram, GPTQ vs AWQ packing. */
+type Mode = "precision" | "calibration" | "packing";
+
 const COPY = {
-  "en": {
-    "topic1": "concept 1 · quantization",
-    "topic2": "concept 2 · quantization",
-    "topic3": "concept 3 · quantization",
-    "title": "three dimensions of the idea",
-    "hint": "map, mechanism, trade-off",
-    "map": "map",
-    "mechanism": "mechanism",
-    "tradeoff": "trade-off",
-    "input": "input",
-    "output": "output",
-    "decision": "decision",
-    "context": "context",
-    "system": "system",
-    "constraint": "constraint",
-    "signal": "signal",
-    "cost": "cost",
-    "result": "result"
+  en: {
+    quantization_is_lossy_compression: "quantization is lossy compression",
+    precision_calibration_packing: "precision · calibration · packing",
+    precision: "fp16 vs int4",
+    calibration: "calibration",
+    packing: "gptq vs awq",
+    fp16: "fp16",
+    int4: "int4",
+    scale: "scale",
+    zero: "zero-point",
+    gptq: "GPTQ",
+    awq: "AWQ",
   },
-  "es": {
-    "topic1": "Por qué cuantizamos",
-    "topic2": "Prefill frente a decode: dónde ayuda la cuanti",
-    "topic3": "Cómo leer un nombre GGUF",
-    "title": "tres dimensiones de la idea",
-    "hint": "mapa, mecanismo y trade-off",
-    "map": "mapa",
-    "mechanism": "mecanismo",
-    "tradeoff": "trade-off",
-    "input": "entrada",
-    "output": "salida",
-    "decision": "decisión",
-    "context": "contexto",
-    "system": "sistema",
-    "constraint": "restricción",
-    "signal": "señal",
-    "cost": "coste",
-    "result": "resultado"
-  }
+  es: {
+    quantization_is_lossy_compression: "la cuantización es compresión con pérdida",
+    precision_calibration_packing: "precisión · calibración · empaquetado",
+    precision: "fp16 vs int4",
+    calibration: "calibración",
+    packing: "gptq vs awq",
+    fp16: "fp16",
+    int4: "int4",
+    scale: "escala",
+    zero: "punto cero",
+    gptq: "GPTQ",
+    awq: "AWQ",
+  },
 };
 
 export default function Visual() {
   const t = useCopy(COPY);
-  const [mode, setMode] = useState<Mode>("map");
-  const tones: Tone[] = ["teal", "violet", "amber"];
-  const colors = [P.teal, P.violet, P.amber];
-  const tone = (i: number) => tones[i % 3];
+  const [mode, setMode] = useState<Mode>("precision");
+
+  // a weight histogram before quantization
+  const histo = [0.3, 0.7, 1.5, 1.0, 0.4, 0.2, 0.1, 0.05];
+
   return (
     <Figure
-      label={t.title}
-      hint={t.hint}
+      label={t.quantization_is_lossy_compression}
+      hint={t.precision_calibration_packing}
       legend={[
-        { color: P.teal, label: t.topic1 },
-        { color: P.violet, label: t.topic2 },
-        { color: P.amber, label: t.topic3 },
+        { color: P.teal, label: t.precision },
+        { color: P.violet, label: t.calibration },
+        { color: P.amber, label: t.packing },
       ]}
       controls={
         <Switcher
           value={mode}
           onChange={setMode}
           options={[
-            { value: "map", label: t.map, tone: P.teal },
-            { value: "mechanism", label: t.mechanism, tone: P.violet },
-            { value: "tradeoff", label: t.tradeoff, tone: P.amber },
+            { value: "precision", label: t.precision, tone: P.teal },
+            { value: "calibration", label: t.calibration, tone: P.violet },
+            { value: "packing", label: t.packing, tone: P.amber },
           ]}
-          ariaLabel={t.title}
+          ariaLabel={t.quantization_is_lossy_compression}
         />
       }
     >
       <Stage className="h-full w-full" camera={{ position: [0, 0.4, 8.6], fov: 37 }}>
         <Motes count={110} radius={7} opacity={0.3} />
         <PointerTilt amount={0.07}>
-          {mode === "map" && <>
-            {[t.topic1, t.topic2, t.topic3].map((topic, i) => (
-              <group key={topic}>
-                <Slab position={[(i - 1) * 2.2, 0.5, 0]} size={[1.8, 1.05, 0.14]} color={colors[i]} fill={0.2} />
-                <Tag position={[(i - 1) * 2.2, 1.25, 0.15]} tone={tone(i)} size="xs">{topic}</Tag>
-                <Node3D position={[(i - 1) * 2.2, 0.5, 0.18]} color={colors[i]} radius={0.13} pulse={i * 0.25} />
-              </group>
+
+        {mode === "precision" && (
+          <>
+            {/* two bars: same weight value, different bit width */}
+            <Slab position={[-1.6, 0.4, 0]} size={[1.6, 0.4, 0.1]} color={P.teal} fill={0.32} />
+            <Tag position={[-1.6, 0.85, 0.15]} tone="teal">{t.fp16} · 16 bits</Tag>
+            {[0, 1, 2, 3].map((i) => (
+              <Slab
+                key={i}
+                position={[0.7 + i * 0.45, 0.4, 0]}
+                size={[0.4, 0.4, 0.1]}
+                color={P.amber}
+                fill={0.32}
+              />
             ))}
-            <Flow points={[[-1.0, 0.5, 0], [1.0, 0.5, 0]]} color={P.lineStrong} count={3} size={0.045} />
-            <Tag position={[0, -0.9, 0.15]} tone="muted" size="xs">{t.input} → {t.system} → {t.output}</Tag>
-          </>}
-          {mode === "mechanism" && <>
-            <Halo position={[0, 0.45, 0]} radius={0.65} color={P.violet} opacity={0.55} spin={0.2} />
-            <Node3D position={[0, 0.45, 0]} color={P.violet} radius={0.2} pulse={0.35} />
-            <Tag position={[0, 1.15, 0.15]} tone="violet">{t.system}</Tag>
-            {[t.topic1, t.topic2, t.topic3].map((topic, i) => {
-              const a = (i / 3) * Math.PI * 2 - Math.PI / 2;
-              const x = Math.cos(a) * 2.25, y = 0.45 + Math.sin(a) * 1.15;
-              return <group key={topic}>
-                <Node3D position={[x, y, 0]} color={colors[i]} radius={0.13} matte />
-                <Tag position={[x, y + 0.32, 0.15]} tone={tone(i)} size="xs">{topic}</Tag>
-                <Flow points={[[x * 0.55, 0.45 + (y - 0.45) * 0.55, 0], [x * 0.9, 0.45 + (y - 0.45) * 0.9, 0]]} color={colors[i]} count={2} size={0.04} />
-              </group>;
-            })}
-            <Tag position={[0, -1.35, 0.15]} tone="muted" size="xs">{t.context} + {t.signal} → {t.result}</Tag>
-          </>}
-          {mode === "tradeoff" && <>
-            <Slab position={[-1.55, 0.45, 0]} size={[2.2, 1.55, 0.14]} color={P.teal} fill={0.18} />
-            <Tag position={[-1.55, 1.5, 0.15]} tone="teal">{t.topic1}</Tag>
-            <Tag position={[-1.55, 0.35, 0.15]} tone="teal" size="xs">{t.signal}</Tag>
-            <Slab position={[1.55, 0.45, 0]} size={[2.2, 1.55, 0.14]} color={P.rose} fill={0.18} />
-            <Tag position={[1.55, 1.5, 0.15]} tone="rose">{t.topic2}</Tag>
-            <Tag position={[1.55, 0.35, 0.15]} tone="rose" size="xs">{t.constraint}</Tag>
-            <Flow points={[[-0.4, 0.45, 0], [0.4, 0.45, 0]]} color={P.amber} count={3} size={0.05} />
-            <Tag position={[0, 1.05, 0.15]} tone="amber" size="xs">{t.decision}</Tag>
-            <Wire points={[[-2.65, -0.8, 0], [2.65, -0.8, 0]]} color={P.lineStrong} opacity={0.55} />
-            <Tag position={[0, -1.15, 0.15]} tone="muted" size="xs">{t.cost} ↔ {t.result}</Tag>
-          </>}
+            <Tag position={[1.35, 0.85, 0.15]} tone="amber">{t.int4} · 4×4 bits</Tag>
+            {/* the rounding gap */}
+            <Wire points={[[-0.3, 0.05, 0], [0.5, 0.05, 0]]} color={P.rose} dashed opacity={0.7} />
+            <Tag position={[0.1, -0.3, 0.15]} tone="rose" size="xs">≈</Tag>
+            <Ribbon
+              points={[[-1.6, -0.35, 0], [-0.5, -0.35, 0], [1.4, -0.35, 0]]}
+              color={P.teal}
+              radius={0.03}
+              opacity={0.7}
+            />
+            <Tag position={[0, -0.8, 0.15]} tone="muted" size="xs">peso ≈ 0.3147</Tag>
+          </>
+        )}
+
+        {mode === "calibration" && (
+          <>
+            {histo.map((h, i) => (
+              <Slab
+                key={i}
+                position={[-2.6 + i * 0.55, -0.6 + h / 2, 0]}
+                size={[0.45, h, 0.08]}
+                color={P.teal}
+                fill={0.3}
+              />
+            ))}
+            <Wire points={[[-3.1, -0.6, 0], [2.4, -0.6, 0]]} color={P.lineStrong} opacity={0.6} />
+            {/* scale+zero-point box */}
+            <Slab position={[1.9, 0.9, 0]} size={[1.6, 1.2, 0.12]} color={P.violet} fill={0.2} />
+            <Tag position={[1.9, 1.7, 0.15]} tone="violet" size="xs">{t.scale}</Tag>
+            <Tag position={[1.9, 0.9, 0.15]} tone="violet" size="xs">{t.zero}</Tag>
+            <Wire points={[[1.0, 0.4, 0], [1.1, 0.7, 0]]} color={P.lineStrong} dashed opacity={0.5} />
+            <Tag position={[0, -1.3, 0.15]} tone="muted" size="xs">clip range</Tag>
+          </>
+        )}
+
+        {mode === "packing" && (
+          <>
+            <Slab position={[-1.6, 0.6, 0]} size={[2.0, 1.4, 0.14]} color={P.teal} fill={0.18} />
+            <Tag position={[-1.6, 1.5, 0.15]} tone="teal">{t.gptq}</Tag>
+            {/* rowwise */}
+            {[0, 1, 2].map((i) => (
+              <Slab key={i} position={[-1.6, 1.0 - i * 0.4, 0.1]} size={[1.6, 0.25, 0.06]} color={P.teal} fill={0.3} />
+            ))}
+            <Slab position={[1.6, 0.6, 0]} size={[2.0, 1.4, 0.14]} color={P.amber} fill={0.18} />
+            <Tag position={[1.6, 1.5, 0.15]} tone="amber">{t.awq}</Tag>
+            <Lattice
+              cells={Array.from({ length: 8 }, (_, i) => ({
+                position: [1.1 + (i % 2) * 0.5, 1.1 - Math.floor(i / 2) * 0.32, 0.15] as [number, number, number],
+                color: P.amber,
+              }))}
+              size={0.16}
+              opacity={0.85}
+              matte
+            />
+            <Tag position={[0, -0.4, 0.15]} tone="muted" size="xs">rowwise vs grouped</Tag>
+          </>
+        )}
+
         </PointerTilt>
       </Stage>
     </Figure>

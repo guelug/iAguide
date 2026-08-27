@@ -3,122 +3,137 @@
 import { useState } from "react";
 import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
-import { Flow, Halo, Motes, Node3D, PointerTilt, Slab, Tag, Wire } from "@/components/three/atoms";
+import { Halo, Lattice, Motes, Node3D, PointerTilt, Ribbon, Slab, Tag, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
 import { useCopy } from "@/lib/useCopy";
 
-type Mode = "map" | "mechanism" | "tradeoff";
-type Tone = "teal" | "violet" | "amber";
+/* serving: batching timeline, KV paging, speculative decoding. */
+type Mode = "batching" | "paging" | "spec";
+
 const COPY = {
-  "en": {
-    "topic1": "concept 1 · serving-and-throughput",
-    "topic2": "concept 2 · serving-and-throughput",
-    "topic3": "concept 3 · serving-and-throughput",
-    "title": "three dimensions of the idea",
-    "hint": "map, mechanism, trade-off",
-    "map": "map",
-    "mechanism": "mechanism",
-    "tradeoff": "trade-off",
-    "input": "input",
-    "output": "output",
-    "decision": "decision",
-    "context": "context",
-    "system": "system",
-    "constraint": "constraint",
-    "signal": "signal",
-    "cost": "cost",
-    "result": "result"
+  en: {
+    throughput_is_batching_paged_kv_drafts: "throughput is batching + paged KV + drafts",
+    the_trinity_of_fast_inference: "the trinity of fast inference",
+    batching: "continuous batching",
+    paging: "paged attention",
+    spec: "speculative",
+    joins: "joins",
+    leaves: "leaves",
+    draft: "draft",
+    verify: "verify",
+    accepted: "accepted",
+    rejected: "rejected",
+    pages: "pages",
   },
-  "es": {
-    "topic1": "Por qué un chat rápido no es un servidor barat",
-    "topic2": "Prefill y decode: dos trabajos en una misma má",
-    "topic3": "Batching continuo: la magia está en admitir a ",
-    "title": "tres dimensiones de la idea",
-    "hint": "mapa, mecanismo y trade-off",
-    "map": "mapa",
-    "mechanism": "mecanismo",
-    "tradeoff": "trade-off",
-    "input": "entrada",
-    "output": "salida",
-    "decision": "decisión",
-    "context": "contexto",
-    "system": "sistema",
-    "constraint": "restricción",
-    "signal": "señal",
-    "cost": "coste",
-    "result": "resultado"
-  }
+  es: {
+    throughput_is_batching_paged_kv_drafts: "el throughput es batching + KV paginada + borradores",
+    the_trinity_of_fast_inference: "la trinidad de la inferencia rápida",
+    batching: "batching continuo",
+    paging: "atención paginada",
+    spec: "especulativa",
+    joins: "entra",
+    leaves: "sale",
+    draft: "borrador",
+    verify: "verifica",
+    accepted: "aceptado",
+    rejected: "rechazado",
+    pages: "páginas",
+  },
 };
 
 export default function Visual() {
   const t = useCopy(COPY);
-  const [mode, setMode] = useState<Mode>("map");
-  const tones: Tone[] = ["teal", "violet", "amber"];
-  const colors = [P.teal, P.violet, P.amber];
-  const tone = (i: number) => tones[i % 3];
+  const [mode, setMode] = useState<Mode>("batching");
+
   return (
     <Figure
-      label={t.title}
-      hint={t.hint}
+      label={t.throughput_is_batching_paged_kv_drafts}
+      hint={t.throughput_is_batching_paged_kv_drafts}
       legend={[
-        { color: P.teal, label: t.topic1 },
-        { color: P.violet, label: t.topic2 },
-        { color: P.amber, label: t.topic3 },
+        { color: P.teal, label: t.batching },
+        { color: P.violet, label: t.paging },
+        { color: P.amber, label: t.spec },
       ]}
       controls={
         <Switcher
           value={mode}
           onChange={setMode}
           options={[
-            { value: "map", label: t.map, tone: P.teal },
-            { value: "mechanism", label: t.mechanism, tone: P.violet },
-            { value: "tradeoff", label: t.tradeoff, tone: P.amber },
+            { value: "batching", label: t.batching, tone: P.teal },
+            { value: "paging", label: t.paging, tone: P.violet },
+            { value: "spec", label: t.spec, tone: P.amber },
           ]}
-          ariaLabel={t.title}
+          ariaLabel={t.throughput_is_batching_paged_kv_drafts}
         />
       }
     >
       <Stage className="h-full w-full" camera={{ position: [0, 0.4, 8.6], fov: 37 }}>
         <Motes count={110} radius={7} opacity={0.3} />
         <PointerTilt amount={0.07}>
-          {mode === "map" && <>
-            {[t.topic1, t.topic2, t.topic3].map((topic, i) => (
-              <group key={topic}>
-                <Slab position={[(i - 1) * 2.2, 0.5, 0]} size={[1.8, 1.05, 0.14]} color={colors[i]} fill={0.2} />
-                <Tag position={[(i - 1) * 2.2, 1.25, 0.15]} tone={tone(i)} size="xs">{topic}</Tag>
-                <Node3D position={[(i - 1) * 2.2, 0.5, 0.18]} color={colors[i]} radius={0.13} pulse={i * 0.25} />
+
+        {mode === "batching" && (
+          <>
+            {/* requests joining / leaving */}
+            <Wire points={[[-2.5, 0.9, 0], [2.5, 0.9, 0]]} color={P.lineStrong} opacity={0.5} />
+            {[0, 1, 2, 3, 4].map((i) => (
+              <group key={i}>
+                <Wire
+                  points={[[-2.2 + i * 0.4, 0.9, 0], [1.9 + i * 0.1, 0.9, 0]]}
+                  color={i === 4 ? P.rose : P.teal}
+                  width={5}
+                  opacity={0.8}
+                />
+                {i < 4 && <Node3D position={[-2.2 + i * 0.4, 0.9, 0]} color={P.teal} radius={0.08} pulse={i * 0.3} />}
               </group>
             ))}
-            <Flow points={[[-1.0, 0.5, 0], [1.0, 0.5, 0]]} color={P.lineStrong} count={3} size={0.045} />
-            <Tag position={[0, -0.9, 0.15]} tone="muted" size="xs">{t.input} → {t.system} → {t.output}</Tag>
-          </>}
-          {mode === "mechanism" && <>
-            <Halo position={[0, 0.45, 0]} radius={0.65} color={P.violet} opacity={0.55} spin={0.2} />
-            <Node3D position={[0, 0.45, 0]} color={P.violet} radius={0.2} pulse={0.35} />
-            <Tag position={[0, 1.15, 0.15]} tone="violet">{t.system}</Tag>
-            {[t.topic1, t.topic2, t.topic3].map((topic, i) => {
-              const a = (i / 3) * Math.PI * 2 - Math.PI / 2;
-              const x = Math.cos(a) * 2.25, y = 0.45 + Math.sin(a) * 1.15;
-              return <group key={topic}>
-                <Node3D position={[x, y, 0]} color={colors[i]} radius={0.13} matte />
-                <Tag position={[x, y + 0.32, 0.15]} tone={tone(i)} size="xs">{topic}</Tag>
-                <Flow points={[[x * 0.55, 0.45 + (y - 0.45) * 0.55, 0], [x * 0.9, 0.45 + (y - 0.45) * 0.9, 0]]} color={colors[i]} count={2} size={0.04} />
-              </group>;
-            })}
-            <Tag position={[0, -1.35, 0.15]} tone="muted" size="xs">{t.context} + {t.signal} → {t.result}</Tag>
-          </>}
-          {mode === "tradeoff" && <>
-            <Slab position={[-1.55, 0.45, 0]} size={[2.2, 1.55, 0.14]} color={P.teal} fill={0.18} />
-            <Tag position={[-1.55, 1.5, 0.15]} tone="teal">{t.topic1}</Tag>
-            <Tag position={[-1.55, 0.35, 0.15]} tone="teal" size="xs">{t.signal}</Tag>
-            <Slab position={[1.55, 0.45, 0]} size={[2.2, 1.55, 0.14]} color={P.rose} fill={0.18} />
-            <Tag position={[1.55, 1.5, 0.15]} tone="rose">{t.topic2}</Tag>
-            <Tag position={[1.55, 0.35, 0.15]} tone="rose" size="xs">{t.constraint}</Tag>
-            <Flow points={[[-0.4, 0.45, 0], [0.4, 0.45, 0]]} color={P.amber} count={3} size={0.05} />
-            <Tag position={[0, 1.05, 0.15]} tone="amber" size="xs">{t.decision}</Tag>
-            <Wire points={[[-2.65, -0.8, 0], [2.65, -0.8, 0]]} color={P.lineStrong} opacity={0.55} />
-            <Tag position={[0, -1.15, 0.15]} tone="muted" size="xs">{t.cost} ↔ {t.result}</Tag>
-          </>}
+            <Tag position={[-2.5, 1.3, 0.15]} tone="teal" size="xs">{t.joins}</Tag>
+            <Tag position={[2.5, 1.3, 0.15]} tone="rose" size="xs">{t.leaves}</Tag>
+            {/* decode slab underneath */}
+            <Slab position={[0, -0.5, 0]} size={[4.6, 0.95, 0.14]} color={P.violet} fill={0.18} />
+            <Tag position={[0, -1.05, 0.15]} tone="violet">decode step</Tag>
+            <Tag position={[0, -1.55, 0.15]} tone="muted" size="xs">gpu busy</Tag>
+          </>
+        )}
+
+        {mode === "paging" && (
+          <>
+            <Lattice
+              cells={Array.from({ length: 24 }, (_, i) => ({
+                position: [-2.4 + (i % 8) * 0.62, 0.7 - Math.floor(i / 8) * 0.55, 0] as [number, number, number],
+                color: i % 5 === 0 ? P.muted : i % 3 === 0 ? P.violet : P.teal,
+              }))}
+              size={0.26}
+              opacity={0.9}
+            />
+            <Tag position={[0, 1.4, 0.15]} tone="violet">{t.paging}</Tag>
+            <Tag position={[2.5, 0.2, 0.15]} tone="muted" size="xs">{t.pages}</Tag>
+            {/* virtual to physical mapping */}
+            <Slab position={[-2.6, -0.95, 0]} size={[1.4, 0.5, 0.1]} color={P.amber} fill={0.24} />
+            <Tag position={[-2.6, -0.55, 0.15]} tone="amber" size="xs">seq</Tag>
+            <Wire points={[[-2.0, -0.85, 0], [-1.8, 0.55, 0]]} color={P.lineStrong} dashed opacity={0.6} />
+          </>
+        )}
+
+        {mode === "spec" && (
+          <>
+            {/* draft model small and fast */}
+            <Slab position={[-1.9, 0.5, 0]} size={[1.5, 0.7, 0.12]} color={P.teal} fill={0.32} />
+            <Tag position={[-1.9, 1.05, 0.15]} tone="teal" size="xs">{t.draft}</Tag>
+            {/* big verifier */}
+            <Slab position={[0.7, 0.5, 0]} size={[2.6, 1.2, 0.16]} color={P.violet} fill={0.18} />
+            <Tag position={[0.7, 1.35, 0.15]} tone="violet">{t.verify}</Tag>
+            {/* ribbon from draft → verify */}
+            <Ribbon points={[[-1.1, 0.55, 0], [-0.4, 0.55, 0], [-0.4, 0.55, 0]]} color={P.teal} radius={0.04} opacity={0.85} />
+            {/* accepted / rejected */}
+            <Node3D position={[2.7, 0.9, 0]} color={P.teal} radius={0.14} pulse={0.2} />
+            <Tag position={[2.7, 1.3, 0.15]} tone="teal" size="xs">{t.accepted}</Tag>
+            <Node3D position={[2.7, 0.1, 0]} color={P.rose} radius={0.14} pulse={0.5} />
+            <Tag position={[2.7, -0.4, 0.15]} tone="rose" size="xs">{t.rejected}</Tag>
+            {/* the trick: one forward of verifier covers many draft steps */}
+            <Tag position={[0, -1.3, 0.15]} tone="muted" size="xs">1 fwd = N tokens</Tag>
+          </>
+        )}
+
         </PointerTilt>
       </Stage>
     </Figure>
