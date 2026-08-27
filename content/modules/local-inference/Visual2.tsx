@@ -1,14 +1,28 @@
 "use client";
+
 import { useState } from "react";
 import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
-import { Halo, Motes, Node3D, PointerTilt, Ribbon, Slab, Tag } from "@/components/three/atoms";
+import { Motes, Node3D, PointerTilt, Ribbon, Slab, Tag } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
 import { useCopy } from "@/lib/useCopy";
-type Mode="stack"|"formats"|"backend";
-const COPY={en:{label:"local inference is a stack of tradeoffs",hint:"runtime · format · backend",stack:"stack",formats:"formats",backend:"backend",llama:"llama.cpp",vllm:"vLLM",ollama:"ollama",gguf:"GGUF",awq:"AWQ",exl2:"EXL2",metal:"Metal",cuda:"CUDA"},es:{label:"la inferencia local es una pila de tradeoffs",hint:"runtime · formato · backend",stack:"pila",formats:"formatos",backend:"backend",llama:"llama.cpp",vllm:"vLLM",ollama:"ollama",gguf:"GGUF",awq:"AWQ",exl2:"EXL2",metal:"Metal",cuda:"CUDA"}};
-export default function Visual(){const t=useCopy(COPY);const [mode,setMode]=useState<Mode>("stack");return <Figure label={t.label} hint={t.hint} legend={[{color:P.teal,label:t.metal},{color:P.violet,label:t.cuda},{color:P.amber,label:t.formats}]} controls={<Switcher value={mode} onChange={setMode} options={[{value:"stack",label:t.stack,tone:P.teal},{value:"formats",label:t.formats,tone:P.amber},{value:"backend",label:t.backend,tone:P.violet}]} ariaLabel={t.label}/>}> <Stage className="h-full w-full" camera={{position:[0,.3,8.6],fov:37}}><Motes count={100} radius={7} opacity={.3}/><PointerTilt amount={.07}>
-{mode==="stack"&&<>{[[t.llama,P.teal,-2],[t.vllm,P.violet,0],[t.ollama,P.amber,2]].map(([lab,col,x],i)=><group key={lab as string}><Slab position={[x as number,.5,0]} size={[1.5,1,.12]} color={col as string} fill={.22}/><Tag position={[x as number,1.15,.15]} tone={(["teal","violet","amber"] as const)[i]}>{lab as string}</Tag></group>)}</>}
-{mode==="formats"&&<>{[[t.gguf,P.teal,-1.6],[t.awq,P.violet,0],[t.exl2,P.amber,1.6]].map(([lab,col,x])=><group key={lab as string}><Slab position={[x as number,.5,0]} size={[1.3,.7,.12]} color={col as string} fill={.24}/><Tag position={[x as number,1.0,.15]} tone={col===P.teal?"teal":col===P.violet?"violet":"amber"} size="xs">{lab as string}</Tag></group>)}<Tag position={[0,-.7,.15]} tone="muted" size="xs">peso · precisión · runtime</Tag></>}
-{mode==="backend"&&<><Halo position={[-1.6,.5,0]} radius={.7} color={P.teal} opacity={.45} spin={.15}/><Node3D position={[-1.6,.5,0]} color={P.teal} radius={.2} pulse={.3}/><Tag position={[-1.6,1.15,.15]} tone="teal">{t.metal}</Tag><Ribbon points={[[-.8,.5,0],[.8,.5,0]]} color={P.lineStrong} radius={.05} opacity={.8}/><Halo position={[1.6,.5,0]} radius={.7} color={P.violet} opacity={.45} spin={-.15}/><Node3D position={[1.6,.5,0]} color={P.violet} radius={.2} pulse={.3}/><Tag position={[1.6,1.15,.15]} tone="violet">{t.cuda}</Tag></>}
-</PointerTilt></Stage></Figure>}
+
+type Mode = "runtimes" | "phases" | "formats";
+const COPY = {
+  en: { title: "local inference is a choice of engine", hint: "runtimes · phases · formats", runtimes: "runtimes", phases: "prefill / decode", formats: "formats", llama: "llama.cpp", ollama: "Ollama", vllm: "vLLM", mlx: "MLX", prefill: "prefill", decode: "decode", gguf: "GGUF", safe: "safetensors", unified: "unified", vram: "VRAM" },
+  es: { title: "la inferencia local elige motor", hint: "runtimes · fases · formatos", runtimes: "motores", phases: "prefill / decode", formats: "formatos", llama: "llama.cpp", ollama: "Ollama", vllm: "vLLM", mlx: "MLX", prefill: "prefill", decode: "decode", gguf: "GGUF", safe: "safetensors", unified: "unificada", vram: "VRAM" },
+};
+
+export default function Visual() {
+  const t = useCopy(COPY);
+  const [mode, setMode] = useState<Mode>("runtimes");
+  return <Figure label={t.title} hint={t.hint} legend={[{ color: P.teal, label: t.llama }, { color: P.violet, label: t.ollama }, { color: P.amber, label: t.vllm }]} controls={<Switcher value={mode} onChange={setMode} options={[{ value: "runtimes", label: t.runtimes, tone: P.teal }, { value: "phases", label: t.phases, tone: P.violet }, { value: "formats", label: t.formats, tone: P.amber }]} ariaLabel={t.title} />}>
+    <Stage className="h-full w-full" camera={{ position: [0, 0.3, 8.6], fov: 37 }}>
+      <Motes count={100} radius={7} opacity={0.3} /><PointerTilt amount={0.07}>
+        {mode === "runtimes" && <>{[[t.llama, P.teal, -1.8], [t.ollama, P.violet, 0], [t.vllm, P.amber, 1.8]].map(([label, color, x], i) => <group key={label as string}><Slab position={[x as number, 0.2, 0]} size={[1.45, 0.9, 0.12]} color={color as string} fill={0.24} /><Tag position={[x as number, 0.78, 0.15]} tone={(["teal", "violet", "amber"] as const)[i]} size="xs">{label as string}</Tag></group>)}<Tag position={[0, -0.75, 0.15]} tone="muted" size="xs">un usuario · throughput distinto</Tag></>}
+        {mode === "phases" && <><Slab position={[-1.7, 0.2, 0]} size={[1.65, 0.9, 0.12]} color={P.teal} fill={0.22} /><Tag position={[-1.7, 0.78, 0.15]} tone="teal">{t.prefill}</Tag><Ribbon points={[[-0.75, 0.2, 0], [0.75, 0.2, 0]]} color={P.violet} radius={0.05} opacity={0.85} /><Slab position={[1.7, 0.2, 0]} size={[1.65, 0.9, 0.12]} color={P.violet} fill={0.22} /><Tag position={[1.7, 0.78, 0.15]} tone="violet">{t.decode}</Tag><Tag position={[0, -0.75, 0.15]} tone="muted" size="xs">TTFT ↔ tokens/segundo</Tag></>}
+        {mode === "formats" && <><Slab position={[-1.7, 0.2, 0]} size={[1.65, 0.9, 0.12]} color={P.amber} fill={0.22} /><Tag position={[-1.7, 0.78, 0.15]} tone="amber">{t.gguf}</Tag><Ribbon points={[[-0.75, 0.2, 0], [0.75, 0.2, 0]]} color={P.lineStrong} radius={0.05} opacity={0.8} /><Slab position={[1.7, 0.2, 0]} size={[1.65, 0.9, 0.12]} color={P.teal} fill={0.22} /><Tag position={[1.7, 0.78, 0.15]} tone="teal">{t.safe}</Tag><Tag position={[0, -0.75, 0.15]} tone="muted" size="xs">{t.unified} ↔ {t.vram}</Tag></>}
+      </PointerTilt>
+    </Stage>
+  </Figure>;
+}
