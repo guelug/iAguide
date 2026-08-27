@@ -73,6 +73,51 @@ No mezcles estos archivos entre motores y esperes milagros. Un `.gguf` no abre c
 
 Las cifras reales las da `ls -lh`. La tabla es una regla práctica para 2026; los esquemas cambian.
 
+## La taxonomía que aparece en las fichas
+
+Cuando compares modelos o construyas un filtro de hardware, no mezcles nombres de precisión con nombres de cuantizador. Esta es la lista completa que usaremos en el curso:
+
+| Valor | Qué describe | Bytes aproximados por valor | Uso habitual |
+| --- | --- | ---: | --- |
+| `int4` | Entero con 4 bits | 0,5 | Inferencia muy comprimida; exige kernels compatibles |
+| `int8` | Entero con 8 bits | 1 | Inferencia con buena calidad y soporte amplio |
+| `fp4` | Coma flotante de 4 bits | 0,5 | Inferencia o entrenamiento en hardware que lo soporte |
+| `mxfp4` | Variante de FP4 con escalas por bloques | ~0,5 más metadatos | Kernels modernos y aceleradores concretos |
+| `nvfp4` | FP4 optimizado para el ecosistema NVIDIA | ~0,5 más metadatos | Blackwell y runtimes que implementen ese formato |
+| `fp6` | Coma flotante de 6 bits | 0,75 | Punto intermedio entre 4 y 8 bits |
+| `fp8` | Coma flotante de 8 bits | 1 | Servir en GPUs con soporte FP8 |
+| `mxfp8` | FP8 escalado por bloques | ~1 más metadatos | Aceleradores y kernels con escalado MX |
+| `fp16` | Coma flotante de 16 bits | 2 | Baseline de inferencia y entrenamiento |
+| `bf16` | Brain floating point de 16 bits | 2 | Entrenamiento e inferencia moderna |
+| `fp32` | Coma flotante de 32 bits | 4 | Referencia numérica, entrenamiento selectivo y acumulación |
+| `unknown` | Precisión no declarada | No se puede estimar | Trátala como dato incompleto, no como una promesa |
+
+Los números de bytes son una aproximación para los valores de los pesos. Los formatos por bloques guardan escalas, ceros u otros metadatos; por eso `mxfp4` no significa exactamente 0,5 bytes por parámetro cuando miras el archivo real. Para presupuestar una máquina, usa el tamaño del artefacto y deja margen para activaciones, caché KV y fragmentación.
+
+`int4` y `fp4` tampoco son sinónimos. El primero representa enteros; el segundo representa valores de coma flotante. Dos formatos pueden ocupar cuatro bits y comportarse de forma distinta en rango dinámico, escalado, calidad y kernels disponibles. `mxfp4`, `mxfp8` y `nvfp4` añaden reglas de escala por bloque o dependencias de hardware. El nombre corto no te dice si tu runtime puede cargarlo.
+
+<Callout>
+Una ficha que diga solo «4-bit» está incompleta. Pregunta: ¿`int4`, `fp4`, `mxfp4`, `nvfp4` o un esquema GGUF como `Q4_K_M`? Después pregunta qué motor y qué GPU lo soportan. Los bits son la mitad de la respuesta; el kernel es la otra mitad.
+</Callout>
+
+## `max_price` no es precisión
+
+En catálogos de modelos, `max_price` suele ser un **filtro o límite económico**: el precio máximo que aceptas por una llamada, por millón de tokens o por otra unidad que defina el catálogo. No describe cómo se guardan los pesos y no debe aparecer en la misma columna que `fp8` o `Q4_K_M`.
+
+Un registro bien tipado separa al menos estos campos:
+
+| Campo | Ejemplo | Pregunta que responde |
+| --- | --- | --- |
+| `dtype` | `bf16`, `fp8`, `nvfp4` | ¿Con qué precisión trabaja el artefacto o kernel? |
+| `quantization` | `Q4_K_M`, `GPTQ`, `AWQ` | ¿Qué método y formato de compresión usa? |
+| `max_price` | `0.50` | ¿Cuál es el precio máximo permitido por la política del catálogo? |
+
+Si `dtype` vale `unknown`, no rellenes el hueco con una suposición basada en el nombre del modelo. Lee la tarjeta, los metadatos del archivo y la documentación del motor. Si tampoco hay precio, `max_price` debe quedar vacío o explícitamente sin definir, nunca confundirse con `unknown` de precisión.
+
+<TryThis>
+Construye una tabla con tres columnas: modelo, `dtype` y `max_price`. Añade una cuarta para `quantization`. Verás enseguida por qué `nvfp4` puede ser una decisión de hardware, mientras `max_price` es una decisión de presupuesto. Si el modelo solo dice «4-bit», marca la precisión como `unknown` hasta verificar el artefacto.
+</TryThis>
+
 ## Trueque de calidad, con honestidad
 
 | Quieres | Empieza por |
