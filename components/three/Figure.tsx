@@ -27,7 +27,7 @@ export function Figure({
   return (
     <div className="not-prose overflow-hidden rounded-2xl border border-line bg-surface shadow-[var(--shadow-card)]">
       {label || hint ? (
-        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-line/70 px-4 py-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-line/70 px-4 py-3">
           {label ? (
             <p className="font-mono text-[0.62rem] tracking-[0.2em] uppercase text-teal">
               {label}
