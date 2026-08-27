@@ -56,18 +56,22 @@ ChatML — roles system / user / assistant envueltos en `<|im_start|>` y `<|im_e
 
 SmolLM2 habla así, más o menos (el curso lo enseña con un pedido de ayuda):
 
-    <|im_start|>system
-    You are a helpful AI assistant named SmolLM, trained by Hugging Face<|im_end|>
-    <|im_start|>user
-    I need help with my order<|im_end|>
-    <|im_start|>assistant
+```text
+<|im_start|>system
+You are a helpful AI assistant named SmolLM, trained by Hugging Face<|im_end|>
+<|im_start|>user
+I need help with my order<|im_end|>
+<|im_start|>assistant
+```
 
 Llama 3.2, la misma conversación, no se parece:
 
-    <|begin_of_text|><|start_header_id|>system<|end_header_id|>
-    ...fecha de corte y fecha de hoy...
-    <|eot_id|><|start_header_id|>user<|end_header_id|>
-    I need help with my order<|eot_id|>
+```text
+<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+...fecha de corte y fecha de hoy...
+<|eot_id|><|start_header_id|>user<|end_header_id|>
+I need help with my order<|eot_id|>
+```
 
 Gemma cierra el turno con `<end_of_turn>`. Llama 3 cierra con `<|eot_id|>`. SmolLM2 cierra con `<|im_end|>`. No memorices el zoo. Llama a `tokenizer.apply_chat_template` (o al equivalente del runtime) y no inventes los delimitadores a mano.
 

@@ -102,7 +102,7 @@ En un Mac, **48B BF16 es un modelo de servidor**. No falsifiques un one-liner de
 
 Las capas KDA guardan **estado de convolución + delta** (tamaño constante). Las capas MLA guardan **KV real**. Los sistemas de prefix-cache como LMCache que crecieron con KV softmax necesitan una alineación estilo **mamba-cache-mode** y **grupos de objetos separados** para el estado lineal frente a la KV de MLA. Menciónalo para que no te sorprenda que un dump de prefijo de un modelo denso no se reproduzca. **No** tienes que configurar esto el día uno. Primero que `vllm serve` conteste `/v1/chat/completions`.
 
-AttnRes, si está en el checkpoint que bajaste (entrenamiento Kimi Linear más nuevo), ya está en el grafo. El sobrecoste de servir es la historia del **<2%** de la lección de residuales. No pasas `--attnres`.
+AttnRes, si está en el checkpoint que bajaste (entrenamiento Kimi Linear más nuevo), ya está en el grafo. El sobrecoste de servir es la historia del **menos del 2 %** de la lección de residuales. No pasas `--attnres`.
 
 **Case.** Alguien suelta un "Kimi Linear Q4 GGUF" en Ollama porque así sirve todo lo demás, o copia el `--max-model-len 1048576` de la card a una sola GPU de 24 GB. Primer camino: el runtime no tiene op KDA, así que obtienes un error o un mezclador silenciosamente mal. Segundo camino: los pesos nunca caben, y aunque un quant cupiera, 1M de KV-MLA sigue volando el resto de VRAM. Patrón de arreglo: motor que implementa KDA, tensor parallel hasta que **quepan los pesos**, luego un `max-model-len` sacado de trazas que registraste, luego medir.
 

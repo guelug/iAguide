@@ -69,8 +69,6 @@ La temperatura no se aplica “al modelo”, se aplica a **los logits del últim
 
 ## Prefill frente a decode, a fondo
 
-</TryThis>
-
 ### Por qué importa en producción
 
 - **Latencia del primer token (TTFT)** ≈ tiempo de prefill. Si tu UX muestra “el modelo está pensando…” durante 8 segundos con un system prompt de 20k tokens, no es el modelo: es el prefill.
