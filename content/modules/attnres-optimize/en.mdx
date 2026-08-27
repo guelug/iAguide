@@ -261,7 +261,7 @@ A serving team gets a vLLM profile dump for Kimi Linear 48B. Every residual laye
       { id: "d", text: "Convert the checkpoint to FP8 first to shrink the AttnRes cache" }
     ],
     correct: "c",
-    explanation: "`moonshotai/Kimi-Linear-48B-A3B-Instruct` carries AttnRes inside the graph, like RMSNorm or SwiGLU. The engine that loads it honours the schedule. Adding flags or "simplifying" the residual breaks the graph the model learned. What you actually do: measure TPOT on the right profiler segment and confirm the residual tax sits near 2%."
+    explanation: "`moonshotai/Kimi-Linear-48B-A3B-Instruct` carries AttnRes inside the graph, like RMSNorm or SwiGLU. The engine that loads it honours the schedule. Adding flags or \"simplifying\" the residual breaks the graph the model learned. What you actually do: measure TPOT on the right profiler segment and confirm the residual tax sits near 2%."
   }
  ]}
 />

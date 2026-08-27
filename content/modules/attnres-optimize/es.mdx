@@ -262,7 +262,7 @@ Un equipo de servicio recibe un volcado de perfil de un Kimi Linear 48B servido 
       { id: "d", text: "Conviertes el checkpoint a FP8 antes que nada para reducir la caché de AttnRes" }
     ],
     correct: "c",
-    explanation: "El checkpoint `moonshotai/Kimi-Linear-48B-A3B-Instruct` lleva AttnRes dentro del grafo, como RMSNorm o SwiGLU. El motor que lo carga respeta el schedule. Pasar flags extra o "simplificar" el residual rompe el grafo que el modelo aprendió. Lo que sí haces: medir TPOT en el segmento correcto del profiler y verificar que el impuesto residual queda cerca del 2%."
+    explanation: "El checkpoint `moonshotai/Kimi-Linear-48B-A3B-Instruct` lleva AttnRes dentro del grafo, como RMSNorm o SwiGLU. El motor que lo carga respeta el schedule. Pasar flags extra o \"simplificar\" el residual rompe el grafo que el modelo aprendió. Lo que sí haces: medir TPOT en el segmento correcto del profiler y verificar que el impuesto residual queda cerca del 2%."
   }
  ]}
 />
