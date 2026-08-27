@@ -197,6 +197,8 @@ Dos ordenadores, un modelo público tiny, solo formas oficiales. (1) Local: `pip
 
 El `pipeline` / `from_pretrained` de Transformers descarga pesos del Hub y los ejecuta aquí. Inference Providers hace POST a `router.huggingface.co/v1` con `HF_TOKEN` y un sufijo; no cambian de manos shards. Hermes guarda ese token en `~/.hermes/.env` como provider `huggingface`. El crédito del nivel gratuito es 0,10 dólares al mes tanto en la página de providers de Hermes como en la de precios de HF (sujeto a cambio); sin recargo; no inventes $/MTok de competidores. Los Endpoints son dedicados. Los Jobs son por lotes. TGI/vLLM son autoalojados. Providers no es una descarga.
 
+<VisualSlot id="huggingface-inference:2" caption="Tres vistas del tema: mapa, mecanismo y trade-off — interactivas y en español." />
+
 ## Fuentes
 
 Hugging Face. (s. f.). *Inference Providers*. https://huggingface.co/docs/inference-providers/en/index · precios https://huggingface.co/docs/inference-providers/en/pricing (nivel gratuito 0,10 USD / mes para usuarios Free, sujeto a cambio; sin recargo; consulta agosto de 2026).
