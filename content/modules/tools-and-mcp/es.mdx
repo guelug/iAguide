@@ -13,6 +13,8 @@ Los LLM solo leen y escriben texto. "Dar tools" es enseñarle, en el system prom
 
 <VisualSlot caption="Esquema a la izquierda, allowlist en el medio, tu runTool o un servidor MCP a la derecha. El modelo no salta el hueco." />
 
+<VisualSlot id="tools-and-mcp:2" caption="Nombre + esquema + código como una tool; anillos de permiso allow/deny; y MCP como host/client/server sobre stdio." />
+
 ## Cómo ve el modelo una tool
 
 El modelo **no ve** la tool como una función. Ve un esquema JSON que el arnés mete en el system prompt o en una sección "tools" del payload:

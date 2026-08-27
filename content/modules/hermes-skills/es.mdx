@@ -21,6 +21,8 @@ skills/
 
 `SKILL.md` es obligatorio. `scripts/` y `references/` son opcionales. Las bundled viajan con cada instalación y deben ser de uso amplio (documentos, investigación web, flujos de desarrollo comunes, administración). Las oficiales pero no universales van a `optional-skills/`: viajan con el repo, se descubren con `hermes skills browse` etiquetadas "official", y se instalan con confianza built-in. Las de nicho o comunidad van a un Skills Hub vía `hermes skills install` (Nous Research, *Creating Skills*, s. f.).
 
+<VisualSlot id="hermes-skills:2" caption="Un SKILL.md descompuesto (frontmatter + cuerpo + scripts), descubrimiento por órbita, y el prompt que enciende solo una." />
+
 ## El frontmatter es el contrato
 
 El YAML documentado incluye `name`, `description` (en la búsqueda de skills), `version`, `author`, `license`, `platforms` opcional (`macos`, `linux`, `windows`; omitir para cargar en todos), y un bloque `metadata.hermes`: `tags`, `related_skills`, `requires_toolsets`, `requires_tools`, `fallback_for_toolsets`, `fallback_for_tools`, `config` opcional, `blueprint` opcional. `required_environment_variables` y `required_credential_files` van al nivel superior.

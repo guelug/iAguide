@@ -379,6 +379,16 @@ export const VISUALS_EXTRA: Record<
   "attention-residuals:3": () => import("./attention-residuals/Visual3"),
   "language-of-models:2": () => import("./language-of-models/Visual2"),
   "language-of-models:3": () => import("./language-of-models/Visual3"),
+  "dummy-agent:2": () => import("./dummy-agent/Visual2"),
+  "agentic-rag:2": () => import("./agentic-rag/Visual2"),
+  "llamaindex:2": () => import("./llamaindex/Visual2"),
+  "langgraph:2": () => import("./langgraph/Visual2"),
+  "gaia:2": () => import("./gaia/Visual2"),
+  "smolagents:2": () => import("./smolagents/Visual2"),
+  "hermes-skills:2": () => import("./hermes-skills/Visual2"),
+  "oauth-and-keys:2": () => import("./oauth-and-keys/Visual2"),
+  "calls-cache-threads:2": () => import("./calls-cache-threads/Visual2"),
+  "tools-and-mcp:2": () => import("./tools-and-mcp/Visual2"),
 };
 
 export function getExtraVisualLoader(key: string) {
