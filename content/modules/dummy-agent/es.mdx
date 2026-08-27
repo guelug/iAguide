@@ -251,12 +251,58 @@ Esta lección reescribe ideas del [Curso de Agentes de Hugging Face](https://hug
 
 Cuatro preguntas de la Unidad 1 del Agents Course (Burtenshaw, Thomas, Simonini, Paniego). Cada fallo explica la opción, no un «incorrecto» vacío. El progreso se guarda en este navegador.
 
-<Quiz id="dummy-agent">
-  <Q id="agent" prompt="Qué es un agente, antes de que exista una biblioteca" a="Un LLM con un system prompt simpático" b="Un bucle pensamiento-acción-observación que puede llamar herramientas" c="Un fine-tune de function calling" d="Un RAG con un retriever siempre encendido" answer="b" why="La Unidad 1 define al agente por el ciclo Thought-Action-Observation más herramientas, no por el modelo ni por un adapter. Un chat sin bucle no es un agente." missA="Eso es un chatbot. Sin herramientas ni observación del entorno, no hay agente." missC="El fine-tune enseña el esquema a los pesos (bonus 1). El bucle sigue haciendo falta." missD="RAG es recuperación. Puede ser una herramienta del agente, no el agente." />
-  <Q id="tools-vs-actions" prompt="Cuál es la diferencia clave entre una herramienta y una acción" a="No hay diferencia: son sinónimos" b="La herramienta es la capacidad en el catálogo; la acción es la llamada de este turno" c="La acción es el código; la herramienta es el JSON" d="Las herramientas las escribe el modelo; las acciones, el humano" answer="b" why="La herramienta (tool) se describe una vez, en texto, para que el modelo sepa que existe. La acción es la instancia: este Thought eligió esta tool con estos argumentos." missA="La Unidad 1 las separa a propósito. Mezclarlas rompe el parseo del dummy." missC="JSON o código son dos codificaciones de la misma Action, no la frontera tool/acción." missD="El modelo elige la acción. El humano (o el harness) registra las tools." />
-  <Q id="observation" prompt="Qué es una Observation en el ciclo dummy" a="El siguiente pensamiento del modelo, más honesto" b="Un log que tú añades: el resultado de ejecutar la acción en el entorno" c="La métrica de un juez LLM" d="El contenido del system prompt" answer="b" why="Observation es el entorno hablando: stdout, JSON de una API, error. Se concatena al hilo de mensajes. No la genera el LLM." missA="Eso sería otro Thought. Si el modelo se observa a sí mismo, el dummy se come el propio texto." missC="Eso es evaluación (bonus 2), después del turno." missD="El system prompt es el contrato, no una observación." />
-  <Q id="dummy" prompt="Qué se niega a ser la dummy agent library de la Unidad 1" a="Un parseo de Thought/Action en unas veinte líneas" b="Un framework con memoria, planner y sandbox" c="Un motor serverless para el LLM" d="Un log de mensajes que hace de memoria" answer="b" why="La lección dummy es el bucle desnudo. Memoria, planner y sandbox son el harness. Si copias smolagents encima, ya no estás midiendo el ciclo." missA="Eso sí lo es: el corazón de la unidad." missC="Serverless (Inference) es el motor del modelo, no el arnés." missD="Los mensajes sí son la memoria del dummy. No es un productor extra." />
-</Quiz>
+<Quiz
+  questions={[
+    {
+      id: "dummy-agent-1",
+      stem: "Qué es un agente, antes de que exista una biblioteca",
+      options: [
+        { id: "a", text: "Un LLM con un system prompt simpático" },
+        { id: "b", text: "Un bucle pensamiento-acción-observación que puede llamar herramientas" },
+        { id: "c", text: "Un fine-tune de function calling" },
+        { id: "d", text: "Un RAG con un retriever siempre encendido" },
+      ],
+      correct: "b",
+      explanation: "La Unidad 1 define al agente por el ciclo Thought-Action-Observation más herramientas, no por el modelo ni por un adapter. Un chat sin bucle no es un agente.",
+    },
+    {
+      id: "dummy-agent-2",
+      stem: "Cuál es la diferencia clave entre una herramienta y una acción",
+      options: [
+        { id: "a", text: "No hay diferencia: son sinónimos" },
+        { id: "b", text: "La herramienta es la capacidad en el catálogo; la acción es la llamada de este turno" },
+        { id: "c", text: "La acción es el código; la herramienta es el JSON" },
+        { id: "d", text: "Las herramientas las escribe el modelo; las acciones, el humano" },
+      ],
+      correct: "b",
+      explanation: "La herramienta (tool) se describe una vez, en texto, para que el modelo sepa que existe. La acción es la instancia: este Thought eligió esta tool con estos argumentos.",
+    },
+    {
+      id: "dummy-agent-3",
+      stem: "Qué es una Observation en el ciclo dummy",
+      options: [
+        { id: "a", text: "El siguiente pensamiento del modelo, más honesto" },
+        { id: "b", text: "Un log que tú añades: el resultado de ejecutar la acción en el entorno" },
+        { id: "c", text: "La métrica de un juez LLM" },
+        { id: "d", text: "El contenido del system prompt" },
+      ],
+      correct: "b",
+      explanation: "Observation es el entorno hablando: stdout, JSON de una API, error. Se concatena al hilo de mensajes. No la genera el LLM.",
+    },
+    {
+      id: "dummy-agent-4",
+      stem: "Qué se niega a ser la dummy agent library de la Unidad 1",
+      options: [
+        { id: "a", text: "Un parseo de Thought/Action en unas veinte líneas" },
+        { id: "b", text: "Un framework con memoria, planner y sandbox" },
+        { id: "c", text: "Un motor serverless para el LLM" },
+        { id: "d", text: "Un log de mensajes que hace de memoria" },
+      ],
+      correct: "b",
+      explanation: "La lección dummy es el bucle desnudo. Memoria, planner y sandbox son el harness. Si copias smolagents encima, ya no estás midiendo el ciclo.",
+    },
+  ]}
+/>
 
 ## Fuentes
 

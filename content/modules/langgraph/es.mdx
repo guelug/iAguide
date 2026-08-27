@@ -158,12 +158,58 @@ LangGraph es el bucle general compilado como estado, nodos, aristas, reducers, S
 
 ## Cuestionario (Unidad 2.3)
 
-<Quiz id="langgraph">
-  <Q id="when" prompt="LangGraph merece la pena cuando" a="Quieres el bucle dummy lo más corto posible" b="Necesitas controlar el flujo (estado, nodos, aristas, ciclos, humano en el bucle)" c="Hugging Face no tiene smolagents" d="El modelo no soporta tools" answer="b" why="La unidad lo plantea como control frente a libertad. Si el grafo no te da nada que el dummy no dé, no lo uses." missA="Eso es dummy / smolagents." missC="smolagents existe y es 2.1." missD="Los nodos pueden llamar tools; el modelo sin tools no es el motivo del grafo." />
-  <Q id="blocks" prompt="Los bloques de LangGraph son" a="Agent, Tool, Memory, Planner" b="Estado, nodos, aristas, grafo compilado" c="Index, Retriever, QueryEngine" d="Thought, Action, Observation únicamente" answer="b" why="State reducer + nodes + edges + compile(). TAO sigue ocurriendo dentro de nodos, pero el producto es el grafo." missA="Eso es marketing de harness, no LangGraph." missC="Eso es LlamaIndex." missD="TAO es el ciclo; LangGraph lo recorta en grafo." />
-  <Q id="cycle" prompt="Un grafo sin arista de salida es" a="Un planner profundo" b="Un ciclo que no termina: el bug de Reviewly" c="Human-in-the-loop correcto" d="El document analysis agent" answer="b" why="Sin arista a END / interrupt, invoke no vuelve. HITL es un interrupt explícito, no un olvido." missA="El planner no se mide en ciclos infinitos." missC="HITL se declara (interrupt, approval). No aparece por accidente." missD="El análisis de documentos añade una tool, no un loop eterno." />
-  <Q id="compile" prompt="Qué registra de verdad un graph.compile() + invoke" a="Los pesos del LLM" b="El grafo ejecutable y, si hay checkpointer, el estado por hilo" c="El certificado de la Unidad 4" d="Las keys de OpenAI" answer="b" why="compile materializa el grafo. Un checkpointer persiste estado. Los pesos siguen en el proveedor." missA="No hay SFT aquí." missC="El certificado es un Space de HF, no LangGraph." missD="Las keys no deberían ir al grafo." />
-</Quiz>
+<Quiz
+  questions={[
+    {
+      id: "langgraph-1",
+      stem: "LangGraph merece la pena cuando",
+      options: [
+        { id: "a", text: "Quieres el bucle dummy lo más corto posible" },
+        { id: "b", text: "Necesitas controlar el flujo (estado, nodos, aristas, ciclos, humano en el bucle)" },
+        { id: "c", text: "Hugging Face no tiene smolagents" },
+        { id: "d", text: "El modelo no soporta tools" },
+      ],
+      correct: "b",
+      explanation: "La unidad lo plantea como control frente a libertad. Si el grafo no te da nada que el dummy no dé, no lo uses.",
+    },
+    {
+      id: "langgraph-2",
+      stem: "Los bloques de LangGraph son",
+      options: [
+        { id: "a", text: "Agent, Tool, Memory, Planner" },
+        { id: "b", text: "Estado, nodos, aristas, grafo compilado" },
+        { id: "c", text: "Index, Retriever, QueryEngine" },
+        { id: "d", text: "Thought, Action, Observation únicamente" },
+      ],
+      correct: "b",
+      explanation: "State reducer + nodes + edges + compile(). TAO sigue ocurriendo dentro de nodos, pero el producto es el grafo.",
+    },
+    {
+      id: "langgraph-3",
+      stem: "Un grafo sin arista de salida es",
+      options: [
+        { id: "a", text: "Un planner profundo" },
+        { id: "b", text: "Un ciclo que no termina: el bug de Reviewly" },
+        { id: "c", text: "Human-in-the-loop correcto" },
+        { id: "d", text: "El document analysis agent" },
+      ],
+      correct: "b",
+      explanation: "Sin arista a END / interrupt, invoke no vuelve. HITL es un interrupt explícito, no un olvido.",
+    },
+    {
+      id: "langgraph-4",
+      stem: "Qué registra de verdad un graph.compile() + invoke",
+      options: [
+        { id: "a", text: "Los pesos del LLM" },
+        { id: "b", text: "El grafo ejecutable y, si hay checkpointer, el estado por hilo" },
+        { id: "c", text: "El certificado de la Unidad 4" },
+        { id: "d", text: "Las keys de OpenAI" },
+      ],
+      correct: "b",
+      explanation: "compile materializa el grafo. Un checkpointer persiste estado. Los pesos siguen en el proveedor.",
+    },
+  ]}
+/>
 
 ## Fuentes
 

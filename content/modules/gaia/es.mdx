@@ -185,12 +185,58 @@ Inicio del curso: https://huggingface.co/learn/agents-course · repo: https://gi
 
 ## Cuestionario (Unidad 4)
 
-<Quiz id="gaia">
-  <Q id="what" prompt="GAIA mide de verdad" a="Si el chatbot es simpático" b="Si un agente resuelve preguntas reales (web, archivos, razonamiento) con respuesta de exact match" c="El Elo de un juez LLM" d="Tokens por segundo" answer="b" why="GAIA es un benchmark de agentes con niveles 1-3 y scoring por coincidencia exacta de la respuesta final, no de estilo." missA="No hay rúbrica de tono." missC="Los jueces LLM son bonus 2. GAIA no delega el veredicto ahí." missD="Eso es serving, metal." />
-  <Q id="levels" prompt="Los niveles 1, 2 y 3 de GAIA se distinguen por" a="El tamaño del LLM permitido" b="Dificultad / número de pasos y herramientas, no por un modelo distinto" c="Idioma de la pregunta" d="Si hay humano en el bucle" answer="b" why="Nivel 1 es corto; 2 y 3 encadenan más herramientas y razonamiento. El mismo agente juega los tres." missA="No hay división por parámetros." missC="El idioma no define el nivel." missD="HITL no es el eje de GAIA." />
-  <Q id="match" prompt="El exact match de GAIA es sobre todo un problema de" a="Embeddings" b="Prompt y formato de la respuesta final (unidades, grafía, nada de prosa extra)" c="El certificado de HF" d="Usar smolagents en vez de LangGraph" answer="b" why="Una respuesta correcta en prosa libre puntúa 0. El caso Quizly: 9/10 en trivia y un GAIA silencioso por el formato." missA="No hay retriever en el scorer." missC="El certificado es un Space aparte, después del score." missD="El framework no cambia la regla de match." />
-  <Q id="files" prompt="Los archivos en GAIA deben tratarse como" a="Chat: pégalos al system prompt" b="Observaciones: el agente los abre con tools cuando toca" c="Un índice LlamaIndex obligatorio" d="Imágenes de visión al inicio, siempre" answer="b" why="La unidad trata archivos como entorno, no como contexto preinyectado. Pegarlos revienta la ventana y salta el protocolo." missA="Eso no escala y contamina el prompt." missC="Puedes indexar; no es el protocolo de GAIA." missD="Solo si el ítem es visual. No siempre." />
-</Quiz>
+<Quiz
+  questions={[
+    {
+      id: "gaia-1",
+      stem: "GAIA mide de verdad",
+      options: [
+        { id: "a", text: "Si el chatbot es simpático" },
+        { id: "b", text: "Si un agente resuelve preguntas reales (web, archivos, razonamiento) con respuesta de exact match" },
+        { id: "c", text: "El Elo de un juez LLM" },
+        { id: "d", text: "Tokens por segundo" },
+      ],
+      correct: "b",
+      explanation: "GAIA es un benchmark de agentes con niveles 1-3 y scoring por coincidencia exacta de la respuesta final, no de estilo.",
+    },
+    {
+      id: "gaia-2",
+      stem: "Los niveles 1, 2 y 3 de GAIA se distinguen por",
+      options: [
+        { id: "a", text: "El tamaño del LLM permitido" },
+        { id: "b", text: "Dificultad / número de pasos y herramientas, no por un modelo distinto" },
+        { id: "c", text: "Idioma de la pregunta" },
+        { id: "d", text: "Si hay humano en el bucle" },
+      ],
+      correct: "b",
+      explanation: "Nivel 1 es corto; 2 y 3 encadenan más herramientas y razonamiento. El mismo agente juega los tres.",
+    },
+    {
+      id: "gaia-3",
+      stem: "El exact match de GAIA es sobre todo un problema de",
+      options: [
+        { id: "a", text: "Embeddings" },
+        { id: "b", text: "Prompt y formato de la respuesta final (unidades, grafía, nada de prosa extra)" },
+        { id: "c", text: "El certificado de HF" },
+        { id: "d", text: "Usar smolagents en vez de LangGraph" },
+      ],
+      correct: "b",
+      explanation: "Una respuesta correcta en prosa libre puntúa 0. El caso Quizly: 9/10 en trivia y un GAIA silencioso por el formato.",
+    },
+    {
+      id: "gaia-4",
+      stem: "Los archivos en GAIA deben tratarse como",
+      options: [
+        { id: "a", text: "Chat: pégalos al system prompt" },
+        { id: "b", text: "Observaciones: el agente los abre con tools cuando toca" },
+        { id: "c", text: "Un índice LlamaIndex obligatorio" },
+        { id: "d", text: "Imágenes de visión al inicio, siempre" },
+      ],
+      correct: "b",
+      explanation: "La unidad trata archivos como entorno, no como contexto preinyectado. Pegarlos revienta la ventana y salta el protocolo.",
+    },
+  ]}
+/>
 
 ## Fuentes
 
