@@ -1,3 +1,5 @@
+<VisualSlot id="civitai-loras:2" caption="Base congelada, delta A×B encima. Escalar el rank mueve parámetros. El trigger word enciende el delta." />
+
 ## La misma idea de adaptador, otro forward
 
 <Term id="lora">LoRA</Term> (Low-Rank Adaptation) inyecta matrices entrenables pequeñas en una base **congelada** para especializar un modelo enorme sin reescribirlo (Hu, Shen, Wallis, Allen-Zhu, Li, Wang, Wang y Chen, 2022, arXiv:2106.09685). La redacción de Unsloth para LLMs es la que ya viste: congelar la base en 16-bit (o 4-bit para QLoRA), entrenar A y B delgadas en las capas lineales, del orden del **1% de los pesos** ([guía de fine-tuning Unsloth](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide)).

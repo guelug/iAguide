@@ -389,6 +389,12 @@ export const VISUALS_EXTRA: Record<
   "oauth-and-keys:2": () => import("./oauth-and-keys/Visual2"),
   "calls-cache-threads:2": () => import("./calls-cache-threads/Visual2"),
   "tools-and-mcp:2": () => import("./tools-and-mcp/Visual2"),
+  "civitai-loras:2": () => import("./civitai-loras/Visual2"),
+  "unsloth:2": () => import("./unsloth/Visual2"),
+  "fine-tuning:2": () => import("./fine-tuning/Visual2"),
+  "training:2": () => import("./training/Visual2"),
+  "image-models:2": () => import("./image-models/Visual2"),
+  "function-calling-ft:2": () => import("./function-calling-ft/Visual2"),
 };
 
 export function getExtraVisualLoader(key: string) {

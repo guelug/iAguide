@@ -11,6 +11,8 @@ La portada de la documentación lo dice sin adorno: Unsloth permite ejecutar y e
 
 <VisualSlot caption="Cuatro diapositivas: Desktop frente a Core, QLoRA frente a LoRA frente a ajuste completo, safetensors de entrada y GGUF de salida, tres artefactos de exportación que conservan la misma plantilla de chat." />
 
+<VisualSlot id="unsloth:2" caption="Tres kernels naive fundiéndose en uno Triton, la barra de VRAM que se desploma con QLoRA, y el pipeline dataset → trainer → GGUF." />
+
 ## Por qué existen los kernels: dos afirmaciones de velocidad, no una
 
 Unsloth existe porque entrenar un modelo instruct moderno en una sola GPU sigue siendo demasiado lento y demasiado hambriento en un montaje estándar de Hugging Face más PEFT. Su afirmación **general**, en la portada de docs y en la lista de funciones de Studio, es que puedes entrenar **unas 2× más rápido** con **un 70% menos de VRAM**, **sin pérdida de exactitud**, frente a esa pila estándar. Es una afirmación de *familia*: LoRA, QLoRA, ajuste completo, RL y el resto del catálogo.
