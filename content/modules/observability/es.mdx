@@ -64,6 +64,8 @@ Online: tráfico real. Tasas de éxito, satisfacción, drift, consultas inespera
 
 Consejo práctico: no hagas A/B de un prompt y un modelo y una lista de tools de un golpe. Un cambio por experimento o no sabrás qué span se movió.
 
+<VisualSlot id="observability:2" caption="El bucle de la unidad: set offline de oro, despliegue, monitoreo online, y la arista de vuelta que convierte cada fallo de producción en una fila del set. Sin esa arista tienes un trofeo." />
+
 <Compare a="Offline" b="Online">
 <Side>
 Repetible, ground truth, CI. Ciego a nuevas clases de consulta. Mínimo antes de producción, según la unidad.
@@ -151,6 +153,8 @@ Enlace: el bucle interno que trazas es el que se escribe a la vista en [dummy-ag
 El ejemplo de latencia de la unidad es un agente que gasta veinte segundos en llamadas al modelo y podría usar un modelo más rápido o llamadas en paralelo. El de error es el proveedor A caído, pasar al B. Son páginas distintas del panel. Mezclarlas es cómo SignalOps se quedó verde.
 
 Consejo práctico: pagina el ratio de error de tools y el p95, por separado. Una disculpa rápida es un span de latencia exitoso y un span de tool fallido. El usuario sigue sin ticket.
+
+<VisualSlot id="observability:3" caption="Dos gráficos, no uno. El p95 verde de SignalOps sobre la misma traza que escondía un 40% de timeout al CRM. Cambia a 'lo que pasaba' para ver el diente de sierra del error." />
 
 ## Bucles de coste y cinco llamadas al LLM
 

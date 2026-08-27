@@ -22,6 +22,8 @@ Ese bucle es ReAct: razonar entrelazado con actuar. CoT es paso a paso sin entor
 
 Los subagentes son bucles anidados con menos tools. El coste es otro prefill (paralelo, cacheable si el system prompt del hijo es estable). Úsalos cuando el padre se ahogaría, no como pack de personalidad.
 
+<VisualSlot id="agent-patterns:2" caption="Los cinco patrones como escenas: el plan obsoleto que ignora observaciones, el bucle ReAct que replantea, el subagente que paga un prefill, el crítico que aprueba con el mismo sesgo y la memoria vieja que se vuelve política." />
+
 ## Planificar-y-actuar (Plan-and-Execute)
 
 El modelo hace un plan upfront (lista de pasos), luego ejecuta cada paso. La gracia: el plan es legible para el humano. El fallo: el plan no se adapta a las observaciones, así que un tool_call que devuelve algo inesperado deja al agente ejecutando un plan obsoleto.
@@ -120,6 +122,8 @@ Hazte tres preguntas:
 3. ¿Necesitas un nodo explícito de aprobación humana?
 
 Si todas son no, ReAct. Si alguna es sí, grafo. El grafo no es mejor; es **apropiado** para flujos que el bucle no representa bien.
+
+<VisualSlot id="agent-patterns:3" caption="Tres señales de que un while no basta: una puerta de aprobación humana, branches que divergen de verdad, y un checkpoint que sobrevive a los turnos." />
 
 <Steps>
 <Step title="Empieza por ReAct">

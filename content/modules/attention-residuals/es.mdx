@@ -32,6 +32,8 @@ Eso no es un fallo moral de los skips. Se construyeron para *pasar* una señal, 
 "Más profundo es siempre más capacidad." Bajo PreNorm de pesos unitarios, la profundidad extra puede ser lodo extra. El último tercio de la pila a menudo se ve más callado que el primero. AttnRes es la afirmación de que el mezclador, no el recuento de capas, era el grado de libertad que faltaba.
 </Myth>
 
+<VisualSlot id="attention-residuals:2" caption="La suma corriente crece como O(L) y la capa 32 se diluye; la profundidad es otro eje de tiempo; la puerta que nunca tuvo el residual es un softmax." />
+
 ## Dualidad: la profundidad es tiempo
 
 Un residual sobre **capas** tiene la misma forma que un RNN sobre **tokens**. Ambos comprimen el pasado en un solo estado. Para secuencias, el Transformer sustituyó la recurrencia por atención: cada posición lee todas las anteriores con pesos que dependen de los datos (Vaswani et al., 2017). Kimi Team (2026) hace el mismo movimiento en la profundidad. Los residuales estándar, y la mayoría de sus primos, son **atención lineal en profundidad** (mezcla fija o de rango bajo). AttnRes es **atención softmax en profundidad**. De lineal a softmax es el argumento de 2017, repetido en un eje corto de longitud `L` en vez de `T`.
@@ -167,6 +169,8 @@ DenseNet concatena mapas previos. DenseFormer (Pagliardini et al., 2024) aprende
 AttnRes es ortogonal a ensanchar streams: da a cada capa acceso selectivo a salidas anteriores **individuales** (o resúmenes de bloque) con un vector de dimensión `d`. Puedes combinarlo con otras normas; la corrida Kimi Linear simplemente lo pone sobre el híbrido PreNorm existente.
 
 La atención lineal sobre **tokens** (Katharopoulos et al., 2020) es el primo de secuencia. El softmax online (Milakov y Gimelshein, 2018) es cómo la lección de sistemas recorre la mezcla de profundidad sin materializar una matriz densa `L × L` de scores.
+
+<VisualSlot id="attention-residuals:3" caption="El mapa alpha aprendido (localidad + embedding + skips largos), Block con 9 resúmenes + el embedding, y la escalera de ablaciones con pérdida real de cada variante." />
 
 ## Cómo se ven de verdad los pesos aprendidos
 

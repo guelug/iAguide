@@ -2,12 +2,12 @@
 
 import { useParams } from "next/navigation";
 import { useEffect, useState, type ComponentType } from "react";
-import { getVisualLoader } from "@/content/modules";
+import { getExtraVisualLoader, getVisualLoader } from "@/content/modules";
 
 /**
  * Drops a module's diagram into the prose. Defaults to the visual
- * registered under the current slug; pass `id` to pull a second diagram
- * registered under any other key.
+ * registered under the current slug; pass `id` to pull a specific scene:
+ * another module's visual ("<slug>") or an extra scene ("<slug>:2").
  */
 export function VisualSlot({
   caption,
@@ -25,7 +25,9 @@ export function VisualSlot({
 
   useEffect(() => {
     if (!key) return;
-    const load = getVisualLoader(key);
+    const load = key.includes(":")
+      ? getExtraVisualLoader(key)
+      : getVisualLoader(key);
     if (!load) {
       setFailed(true);
       return;

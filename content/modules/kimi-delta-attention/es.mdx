@@ -20,6 +20,8 @@ $$
 La atención softmax guarda la lista y la puntúa. La lineal comprime la lista en `S` y espera que la compresión sea la correcta. El resto de KDA es *cómo* escribes en `S` para que esa esperanza sea menos ingenua.
 </Callout>
 
+<VisualSlot id="kimi-delta-attention:2" caption="La memoria que crece (softmax, la lista KV), la memoria que no (lineal, una matriz de estado fija) y KDA: la regla delta borra antes de escribir, con una puerta por canal." />
+
 ## La regla delta, luego una puerta, luego una puerta por canal
 
 [DeltaNet](https://arxiv.org/abs/2406.06484) trata `S` como un peso rápido y aplica la **regla delta**: una corrección de rango 1 para que la memoria mapee de verdad `k_t` hacia `v_t`, en vez de solo apilar productos externos.
@@ -65,6 +67,8 @@ FLOPs por cabeza para una secuencia de longitud `T` escalan como `6 T d_h^2 + 3 
 Chunkwise, para quien lea el kernel. Dentro de un chunk empaquetas el producto de Householders en una representación WY, aplicas una transformada UT para que la inversa de una matriz triangular sea una sustitución, luego un GEMM denso intra-chunk y una recurrencia para el estado del chunk. Por eso el prefill es rápido: los Tensor Cores ven matrices `C × d`, no un bucle Python de `T` updates de rango 1. El decode no puede usar ese empaquetado (`C = 1` en espíritu), así que corre la forma recurrente. Mezclar los dos kernels entre prefill y decode es la implementación de servicio, no otro modelo.
 
 Empaquetado WY, en una frase que puedes reusar: un producto de Householders de rango 1 se reescribe como `I - U W^T` para que un chunk de updates sean dos GEMMs y una resolución triangular. La transformada UT pliega las diagonales `beta` en esa matriz triangular. Si un blog de kernels dice "KDA es solo GDN con una puerta vector," la frase que falta es este empaquetado bajo una `k` **compartida** en las dos patas DPLR, que es por qué el kernel es 2× no 1.1×.
+
+<VisualSlot id="kimi-delta-attention:3" caption="El sandwich 3:1 (tres capas KDA por cada full attention), NoPE dejando la posición en manos de KDA, y −75% de KV en el mismo modelo." />
 
 ## Kimi Linear es un híbrido, no un RNN puro
 

@@ -355,3 +355,32 @@ export const VISUALS: Record<string, () => Promise<{ default: ComponentType }>> 
 export function getVisualLoader(slug: string) {
   return VISUALS[slug];
 }
+
+/**
+ * Optional extra scenes for a module: Visual2.tsx, Visual3.tsx, ... sit beside
+ * Visual.tsx in the same folder and are registered under "<slug>:2",
+ * "<slug>:3", ... Use <VisualSlot id="<slug>:2" /> in the MDX to place them
+ * near whatever section they teach. Kept in a separate map so an absent
+ * extra resolves to undefined without a failed dynamic import.
+ */
+export const VISUALS_EXTRA: Record<
+  string,
+  () => Promise<{ default: ComponentType }>
+> = {
+  "agent-patterns:2": () => import("./agent-patterns/Visual2"),
+  "agent-patterns:3": () => import("./agent-patterns/Visual3"),
+  "observability:2": () => import("./observability/Visual2"),
+  "observability:3": () => import("./observability/Visual3"),
+  "the-harness:2": () => import("./the-harness/Visual2"),
+  "the-harness:3": () => import("./the-harness/Visual3"),
+  "kimi-delta-attention:2": () => import("./kimi-delta-attention/Visual2"),
+  "kimi-delta-attention:3": () => import("./kimi-delta-attention/Visual3"),
+  "attention-residuals:2": () => import("./attention-residuals/Visual2"),
+  "attention-residuals:3": () => import("./attention-residuals/Visual3"),
+  "language-of-models:2": () => import("./language-of-models/Visual2"),
+  "language-of-models:3": () => import("./language-of-models/Visual3"),
+};
+
+export function getExtraVisualLoader(key: string) {
+  return VISUALS_EXTRA[key];
+}

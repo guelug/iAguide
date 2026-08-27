@@ -10,6 +10,8 @@ El tokenizador es parte del artefacto del modelo. Un GGUF o una carpeta de Huggi
 Regla práctica, no ley: una página de prosa suele ser unos cientos de tokens; un volcado JSON, un stack trace gordo o un log de 200 líneas puede gastar miles sin parecer "largo" a tu ojo. Mide, no adivines.
 </Callout>
 
+<VisualSlot caption="La pieza de la lección: tokens, embeddings y el pipeline siguiente-token." />
+
 ## El contexto es una ventana, no un archivador
 
 La <Term id="context-window">ventana de contexto</Term> es cuántos tokens puede atender el modelo **ahora mismo**: system prompt, tools, el hilo hasta aquí y los tokens que está a punto de escribir. No es memoria a largo plazo. Cuando la ventana se llena, algo tiene que salir — compactas, recuperas o empiezas un hilo nuevo.
@@ -61,6 +63,8 @@ No memorices el zoo. Mira el tokenizer_config.json del repo. Ejemplos del curso,
 - Gemma: `<end_of_turn>`
 
 DeepSeek-R1 usa `<|end_of_sentence|>`. Otro más. El punto no es la tabla; es que un delimitador copiado de otra familia es un bug. Lo abrimos en [tokenización](/es/m/tokenization).
+
+<VisualSlot id="language-of-models:2" caption="Un token no es una palabra: 4 palabras en español se vuelven 9 ids de vocabulario. La ventana es un presupuesto con regiones. Y tres arquitecturas distintas hacen tres trabajos distintos." />
 
 ## Autoregresivo hasta el EOS
 
@@ -116,6 +120,8 @@ En cualquier UI local que muestre conteos de tokens (servidor llama.cpp, Ollama,
 ## Determinismo
 
 Greedy + un kernel determinista + un prompt fijo puede repetir. El muestreo no. Algunos kernels de GPU no son bit-estables entre ejecuciones. Si necesitas reproducibilidad — evals, tests — fija la semilla, temperatura 0, y aun así trata el drift de GPU como posible.
+
+<VisualSlot id="language-of-models:3" caption="Autoregresivo hasta EOS; temperatura que aplana una distribución picuda; y el modelo de chat como motor dentro del bucle del agente, no como el agente." />
 
 ## Los modelos de chat son el motor dentro del agente
 
