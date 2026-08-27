@@ -54,6 +54,7 @@ import claudeCodeAndCodex from "./claude-code-and-codex/meta.json";
 import hermesOwnership from "./hermes-ownership/meta.json";
 import hermesAiagent from "./hermes-aiagent/meta.json";
 import hermesProviders from "./hermes-providers/meta.json";
+import openrouterPresets from "./openrouter-presets/meta.json";
 import hermesLoop from "./hermes-loop/meta.json";
 import hermesAssembly from "./hermes-assembly/meta.json";
 import hermesCompression from "./hermes-compression/meta.json";
@@ -142,6 +143,7 @@ const RAW = [
   hermesOwnership,
   hermesAiagent,
   hermesProviders,
+  openrouterPresets,
   hermesLoop,
   hermesAssembly,
   hermesCompression,
@@ -277,6 +279,7 @@ export const VISUALS: Record<string, () => Promise<{ default: ComponentType }>> 
   "hermes-ownership": () => import("./hermes-ownership/Visual"),
   "hermes-aiagent": () => import("./hermes-aiagent/Visual"),
   "hermes-providers": () => import("./hermes-providers/Visual"),
+  "openrouter-presets": () => import("./openrouter-presets/Visual"),
   "hermes-loop": () => import("./hermes-loop/Visual"),
   "hermes-assembly": () => import("./hermes-assembly/Visual"),
   "hermes-compression": () => import("./hermes-compression/Visual"),

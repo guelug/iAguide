@@ -1,0 +1,18 @@
+{
+  "id": "openrouter-presets",
+  "order": 6.24,
+  "slug": "openrouter-presets",
+  "track": "harness",
+  "title": {
+    "en": "OpenRouter presets",
+    "es": "OpenRouter: presets, routing y control"
+  },
+  "summary": {
+    "en": "Build OpenRouter presets: model fallbacks, provider routing, quantization, budgets, latency, tools, caching, reasoning, classifiers, and guardrails.",
+    "es": "Construye presets de OpenRouter: modelos de respaldo, routing de proveedores, cuantización, presupuestos, latencia, tools, caché, reasoning, classifiers y guardrails."
+  },
+  "status": "complete",
+  "prereqs": ["hermes-providers", "quantization", "tools-runtime"],
+  "durationMin": 35,
+  "tags": ["openrouter", "presets", "routing", "guardrails", "classifiers"]
+}
