@@ -168,6 +168,53 @@ Como minimo, fija `agents.defaults.workspace` y recomienda con fuerza `channels.
 
 Esta leccion se detiene en familias de runtime, el split de nombre Codex, el orden de seleccion y la horquilla ACP frente a nativo. Los archivos de workspace, las sesiones y el spawn ACP viven en lecciones posteriores.
 
+## Caso — el runtime que no era el que creían
+
+Un equipo configuró un runtime de Codex y esperaba el loop embebido. El log mostraba otro runtime. La lección: el loop embebido es el default y el ownership de runtime decide quién controla el bucle. Confundir las dos familias de runtime es cómo se depura la capa equivocada.
+
+## Quiz
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué es un agent runtime en OpenClaw?",
+      options: [
+        { id: "a", text: "Un modelo de lenguaje." },
+        { id: "b", text: "Un componente que posee un loop de agente: el loop embebido es el default." },
+        { id: "c", text: "Un plugin de mensajería." },
+        { id: "d", text: "Un servidor HTTP." }
+      ],
+      correct: "b",
+      explanation: "Un agent runtime posee un loop de agente. El loop embebido es el default; hay dos familias de runtime."
+    },
+    {
+      id: "q2",
+      stem: "¿Qué comparten las superficies Codex?",
+      options: [
+        { id: "a", text: "El mismo modelo." },
+        { id: "b", text: "El nombre, pero no el ownership: distintos runtimes pueden usar el nombre Codex." },
+        { id: "c", text: "El mismo código." },
+        { id: "d", text: "La misma configuración." }
+      ],
+      correct: "b",
+      explanation: "Las superficies Codex comparten el nombre, pero no el ownership de runtime. Hay que mirar cuál se está usando."
+    },
+    {
+      id: "q3",
+      stem: "¿Qué decide el ownership de runtime?",
+      options: [
+        { id: "a", text: "El idioma de los mensajes." },
+        { id: "b", text: "Quién controla el bucle del agente." },
+        { id: "c", text: "El formato de los logs." },
+        { id: "d", text: "La versión de Python." }
+      ],
+      correct: "b",
+      explanation: "El ownership de runtime decide quién controla el bucle del agente. La selección de runtime determina qué familia se usa."
+    }
+  ]}
+/>
+
 ## Fuentes
 
 OpenClaw. (s. f.). *Agent runtimes*. https://docs.openclaw.ai/concepts/agent-runtimes

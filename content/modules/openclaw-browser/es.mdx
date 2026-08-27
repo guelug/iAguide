@@ -161,6 +161,53 @@ Citen Chrome extension para el perfil chrome.
 
 Citen Sandboxing para allowHostControl.
 
+## Caso — el perfil de Chrome que se mezcló
+
+Un agente usaba el perfil user de Chrome y tocó las pestañas del humano. El perfil dedicado de OpenClaw existe para eso: el agente corre en su propio perfil, aislado del tuyo. Mezclar perfiles es cómo un agente borra una pestaña que no era suya.
+
+## Quiz
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué perfiles de browser distingue OpenClaw?",
+      options: [
+        { id: "a", text: "Chrome y Firefox." },
+        { id: "b", text: "openclaw, user y chrome: el del agente, el del humano y el dedicado." },
+        { id: "c", text: "Local y remoto." },
+        { id: "d", text: "Navegación y descarga." }
+      ],
+      correct: "b",
+      explanation: "OpenClaw distingue openclaw (el del agente), user (el del humano) y chrome (dedicado). El aislamiento depende de no mezclarlos."
+    },
+    {
+      id: "q2",
+      stem: "¿Por qué el agente no debe usar el perfil user?",
+      options: [
+        { id: "a", text: "Porque es más lento." },
+        { id: "b", text: "Porque tocaría las pestañas y sesiones del humano; el aislamiento es la garantía." },
+        { id: "c", text: "Porque no tiene permisos." },
+        { id: "d", text: "Porque Chrome lo prohíbe." }
+      ],
+      correct: "b",
+      explanation: "El perfil user es el del humano. Si el agente lo usa, puede tocar pestañas, sesiones y datos que no son suyos. El perfil dedicado es la garantía de aislamiento."
+    },
+    {
+      id: "q3",
+      stem: "¿Qué controla el plugin de browser?",
+      options: [
+        { id: "a", text: "Solo la velocidad de carga." },
+        { id: "b", text: "El plano de control y los puertos: qué puede hacer el agente y por dónde se conecta." },
+        { id: "c", text: "El idioma de las páginas." },
+        { id: "d", text: "El historial del humano." }
+      ],
+      correct: "b",
+      explanation: "El plugin controla el plano de control y los puertos: qué puede hacer el agente y por dónde se conecta el browser."
+    }
+  ]}
+/>
+
 ## Fuentes
 
 OpenClaw. (s. f.). *Browser*. https://docs.openclaw.ai/tools/browser

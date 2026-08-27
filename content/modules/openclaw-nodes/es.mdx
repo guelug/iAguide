@@ -187,6 +187,53 @@ Los node hosts ignoran overrides de `PATH` en el objeto `env` y recortan un conj
 
 Esta leccion se detiene en el contrato periferico: role, pairing, dos puertas de command, camera/screen/location, exec host. El proxy de browser vive en la leccion de browser. Tailscale Serve para acceso de nodos vive en la leccion Tailscale. Los codigos de pairing DM viven en la leccion de pairing.
 
+## Caso — el nodo con versión vieja
+
+Un nodo de iOS llevaba semanas sin actualizar y el gateway le mandaba comandos que no entendía. El desfase de versión rompió el pairing silenciosamente. Los nodos son periféricos, no un segundo Gateway: si la versión no coincide, la política de commands falla en la puerta.
+
+## Quiz
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué es un nodo en OpenClaw?",
+      options: [
+        { id: "a", text: "Un segundo Gateway." },
+        { id: "b", text: "Un dispositivo compañero (macOS, iOS, watchOS, Android) que se conecta al Gateway." },
+        { id: "c", text: "Un servidor independiente." },
+        { id: "d", text: "Un plugin." }
+      ],
+      correct: "b",
+      explanation: "Un nodo es un dispositivo compañero que se conecta al Gateway. No es un segundo Gateway: es un periférico."
+    },
+    {
+      id: "q2",
+      stem: "¿Qué pasa con el desfase de versión?",
+      options: [
+        { id: "a", text: "Nada: las versiones no importan." },
+        { id: "b", text: "El nodo puede no entender comandos nuevos; el pairing o la política de commands fallan." },
+        { id: "c", text: "El gateway se reinicia." },
+        { id: "d", text: "El nodo se actualiza solo." }
+      ],
+      correct: "b",
+      explanation: "El desfase de versión rompe la compatibilidad: el nodo puede no entender comandos nuevos. La política de commands falla en la puerta."
+    },
+    {
+      id: "q3",
+      stem: "¿Qué son las dos puertas de la política de commands?",
+      options: [
+        { id: "a", text: "Autenticación y cifrado." },
+        { id: "b", text: "Dos comprobaciones que un comando debe pasar antes de ejecutarse en el nodo." },
+        { id: "c", text: "Dos servidores." },
+        { id: "d", text: "Dos idiomas." }
+      ],
+      correct: "b",
+      explanation: "La política de commands tiene dos puertas: dos comprobaciones que un comando debe pasar antes de ejecutarse en el nodo."
+    }
+  ]}
+/>
+
 ## Fuentes
 
 OpenClaw. (s. f.). *Nodes*. https://docs.openclaw.ai/nodes

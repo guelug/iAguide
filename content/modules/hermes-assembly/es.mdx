@@ -171,6 +171,53 @@ Los archivos de contexto y `SOUL.md` pasan por `_scan_context_content`. Las clas
 En un directorio de usar y tirar, creen `.hermes.md` con una frase y `AGENTS.md` con una frase contradictoria. Predigan qué frase contiene el prompt ensamblado. Luego borren `.hermes.md` y predigan otra vez. Contrástenlo con la tabla de prioridad, no con el folklore de otros harnesses.
 </TryThis>
 
+## Caso — el prefijo que se reescribía solo
+
+Un equipo puso la fecha y la hora en el system prompt de cada turno. El prefijo cacheado nunca acertaba, el prefill se pagaba entero en cada llamada y la factura se duplicó sin que nadie tocara el modelo. La lección de Prompt Assembly: lo que cambia por turno va en las capas efímeras, no en el prefijo estable.
+
+## Quiz
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué separa Hermes en el ensamblado del prompt?",
+      options: [
+        { id: "a", text: "Nada: todo se concatena igual cada turno." },
+        { id: "b", text: "El estado cacheado del system prompt frente a las adiciones efímeras en el momento de la llamada a la API." },
+        { id: "c", text: "El prompt del usuario frente al del sistema, sin más." },
+        { id: "d", text: "Los mensajes en inglés frente a los de español." }
+      ],
+      correct: "b",
+      explanation: "Hermes separa a propósito el prefijo cacheado (estable, reutilizable) de las capas efímeras que cambian por turno. Meter datos volátiles en el prefijo mata la caché y encarece el prefill."
+    },
+    {
+      id: "q2",
+      stem: "¿Dónde vive SOUL.md en el ensamblado?",
+      options: [
+        { id: "a", text: "En la base de datos de sesiones." },
+        { id: "b", text: "En el prefijo cacheado, como parte de la identidad estable del agente." },
+        { id: "c", text: "Solo en el primer turno de cada conversación." },
+        { id: "d", text: "En un archivo aparte que el modelo descarga por URL." }
+      ],
+      correct: "b",
+      explanation: "SOUL.md es identidad estable: entra en el prefijo cacheado. Los platform hints y el contexto de proyecto se quedan en su tier correspondiente, no se mezclan con la identidad."
+    },
+    {
+      id: "q3",
+      stem: "¿Por qué los platform hints no van en el prefijo?",
+      options: [
+        { id: "a", text: "Porque son secretos que no deben persistir." },
+        { id: "b", text: "Porque cambian según la plataforma y el momento, así que pertenecen a las capas efímeras de la llamada." },
+        { id: "c", text: "Porque el prefijo no admite texto." },
+        { id: "d", text: "Porque el modelo los ignora." }
+      ],
+      correct: "b",
+      explanation: "Los hints de plataforma (estilo de respuesta por canal) varían por llamada. Si entraran en el prefijo, invalidarían la caché para todos los canales. Se quedan en el tier efímero."
+    }
+  ]}
+/>
+
 ## Fuentes
 
 Nous Research. (s. f.). *Prompt assembly*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/prompt-assembly

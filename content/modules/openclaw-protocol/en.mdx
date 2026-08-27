@@ -166,6 +166,53 @@ hello-ok.features.methods plus events are discovery metadata. Some real methods 
 
 Worker frames stay under 64 KiB except negotiated worker.inference.start up to 25 MiB. Public worker admission collapses credential and environment details to admission-rejected (OpenClaw, *Gateway protocol*, n.d.).
 
+## Case — the frame that arrived halfway
+
+A client sent ad-hoc JSON and the gateway could not parse the frame. The Gateway's WS protocol is the only plane: frames, not ad-hoc JSON. A client that does not respect the three envelopes (handshake, roles, scopes) stays out.
+
+## Quiz
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "What is the OpenClaw Gateway protocol?",
+      options: [
+        { id: "a", text: "A free JSON format." },
+        { id: "b", text: "The Gateway's WS protocol: frames, not ad-hoc JSON, with three envelopes." },
+        { id: "c", text: "An HTTP REST protocol." },
+        { id: "d", text: "A proprietary binary format." }
+      ],
+      correct: "b",
+      explanation: "The Gateway's WS protocol is the only plane: frames with three envelopes (handshake, roles, scopes). It is not ad-hoc JSON."
+    },
+    {
+      id: "q2",
+      stem: "What are the three envelopes?",
+      options: [
+        { id: "a", text: "Encryption, signature, and compression." },
+        { id: "b", text: "Handshake, roles, and scopes: the layers defining who talks and with what permissions." },
+        { id: "c", text: "Three protocol versions." },
+        { id: "d", text: "Three message types." }
+      ],
+      correct: "b",
+      explanation: "The three envelopes are handshake, roles, and scopes: they define who talks and with what permissions. Without them, the frame is not accepted."
+    },
+    {
+      id: "q3",
+      stem: "What are versioning and client constants?",
+      options: [
+        { id: "a", text: "The Python version." },
+        { id: "b", text: "The version and constants contract the client must respect to talk to the gateway." },
+        { id: "c", text: "The language of messages." },
+        { id: "d", text: "The log format." }
+      ],
+      correct: "b",
+      explanation: "Versioning and client constants define the contract the client must respect. An old-version client can be left out."
+    }
+  ]}
+/>
+
 ## Sources
 
 OpenClaw. (n.d.). *Gateway protocol*. https://docs.openclaw.ai/gateway/protocol

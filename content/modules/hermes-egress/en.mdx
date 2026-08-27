@@ -183,6 +183,53 @@ From the official user page (Nous Research, *Egress credential-injection proxy*,
 
 v1 limitations to recite: Docker backend only; uncovered SigV4 / GCP OAuth; no native Windows binary (Linux / macOS / WSL); CA is a 10-year self-signed cert on first generation; iron-proxy v0.39 has a single bind and a combined log stream.
 
+## Case — the key that escaped the sandbox
+
+An agent with prompt injection asked to read an environment variable and the Docker sandbox had it. Egress exists for exactly that: the sandbox must not hold real upstream API keys. The token swap and the denied CIDRs (including IMDS) are the fence, not an extra.
+
+## Quiz
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "Why must the sandbox not hold real keys?",
+      options: [
+        { id: "a", text: "Because they take disk space." },
+        { id: "b", text: "Because an agent with prompt injection can read and exfiltrate them; egress separates the agent environment from credentials." },
+        { id: "c", text: "Because keys expire fast." },
+        { id: "d", text: "Because the sandbox has no network." }
+      ],
+      correct: "b",
+      explanation: "The sandbox holds real upstream API keys. An agent with prompt injection can read them. Egress is the fence separating the agent environment from credentials."
+    },
+    {
+      id: "q2",
+      stem: "What is the token swap?",
+      options: [
+        { id: "a", text: "Swapping the key for a cheaper one." },
+        { id: "b", text: "Replacing real credentials with limited-scope tokens inside the sandbox." },
+        { id: "c", text: "Rotating keys every hour." },
+        { id: "d", text: "Sharing keys between profiles." }
+      ],
+      correct: "b",
+      explanation: "The token swap replaces real credentials with limited-scope tokens inside the sandbox, reducing the damage if they leak."
+    },
+    {
+      id: "q3",
+      stem: "Why are IMDS CIDRs denied?",
+      options: [
+        { id: "a", text: "Because IMDS is slow." },
+        { id: "b", text: "Because IMDS exposes cloud credentials; a compromised agent could request them if egress did not block it." },
+        { id: "c", text: "Because IMDS is not Docker-compatible." },
+        { id: "d", text: "Because IMDS only exists in AWS." }
+      ],
+      correct: "b",
+      explanation: "IMDS (Instance Metadata Service) exposes cloud credentials. Egress blocks those CIDRs so a compromised agent cannot request them."
+    }
+  ]}
+/>
+
 ## Sources
 
 Nous Research. (n.d.). *Egress credential-injection proxy (iron-proxy)*. Hermes Agent user guide. https://hermes-agent.nousresearch.com/docs/user-guide/egress/iron-proxy

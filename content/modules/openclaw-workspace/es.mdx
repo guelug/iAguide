@@ -161,6 +161,53 @@ Para desactivar por completo la creacion de archivos bootstrap en workspaces pre
 
 Esta leccion se detiene en el mapa de archivos, la inyeccion, la atestacion y lo que queda fuera de git. Las filas de sesion continuan en la leccion de sesiones. El reset daily e idle continua en la leccion de reset.
 
+## Caso — el archivo que no estaba en el workspace
+
+Un agente no encontraba un archivo de configuración que el equipo creía haber puesto. Estaba fuera del workspace, y el agente solo ve su casa. La lección: el workspace es la casa del agente; los archivos bootstrap se inyectan, y lo que NO está en el workspace no existe para el agente.
+
+## Quiz
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué es el workspace en OpenClaw?",
+      options: [
+        { id: "a", text: "Un directorio temporal." },
+        { id: "b", text: "La casa del agente: donde vive su estado y sus archivos." },
+        { id: "c", text: "Un repositorio git remoto." },
+        { id: "d", text: "Una base de datos." }
+      ],
+      correct: "b",
+      explanation: "El workspace es la casa del agente: donde vive su estado y sus archivos. Lo que no está en el workspace no existe para el agente."
+    },
+    {
+      id: "q2",
+      stem: "¿Qué son los archivos bootstrap?",
+      options: [
+        { id: "a", text: "Archivos de log." },
+        { id: "b", text: "Archivos que se inyectan en el contexto del agente al arrancar." },
+        { id: "c", text: "Archivos de caché." },
+        { id: "d", text: "Archivos temporales." }
+      ],
+      correct: "b",
+      explanation: "Los archivos bootstrap se inyectan en el contexto del agente al arrancar. Son distintos de los archivos que el agente crea."
+    },
+    {
+      id: "q3",
+      stem: "¿Qué es el backup git del workspace?",
+      options: [
+        { id: "a", text: "Un backup en la nube." },
+        { id: "b", text: "Un repositorio git privado que respalda el workspace." },
+        { id: "c", text: "Un backup en cinta." },
+        { id: "d", text: "Un snapshot de la base de datos." }
+      ],
+      correct: "b",
+      explanation: "El backup git es un repositorio git privado que respalda el workspace. Es privado, no se publica."
+    }
+  ]}
+/>
+
 ## Fuentes
 
 OpenClaw. (s. f.). *Agent workspace*. https://docs.openclaw.ai/concepts/agent-workspace

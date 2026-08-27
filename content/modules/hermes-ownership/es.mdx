@@ -168,6 +168,53 @@ Desktop y TUI siguen listados en el mapa oficial y siguen fuera de este pack. La
 
 Las URLs oficiales de esta lección son el [mapa de ownership](https://hermes-agent.nousresearch.com/docs/developer-guide/codebase-ownership) y la [visión de arquitectura](https://hermes-agent.nousresearch.com/docs/developer-guide/architecture). Lean ambas antes de la siguiente clase. La cintura es más fácil de respetar cuando se han visto los seis puntos de entrada desde fuera.
 
+## Caso — el PR que tocaba dos subsistemas
+
+Un contribuidor cambió una tool y un adaptador de plataforma en el mismo PR. La revisión se atascó porque los tests de ambos subsistemas fallaban por separado. El mapa de ownership existe para eso: cuando intervienen dos subsistemas, la cintura se paga en cada llamada y los tests viven al lado de su código.
+
+## Quiz
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué es el mapa de ownership de Hermes?",
+      options: [
+        { id: "a", text: "Una lista de quién es dueño de cada archivo." },
+        { id: "b", text: "Un mapa de subsistemas que dice qué tests espejan qué código y dónde vive cada pieza." },
+        { id: "c", text: "Un documento de licencias." },
+        { id: "d", text: "Un registro de contribuidores." }
+      ],
+      correct: "b",
+      explanation: "El mapa de ownership encuadra los subsistemas y sus tests. Los tests espejan el código; gana el que los mantiene juntos."
+    },
+    {
+      id: "q2",
+      stem: "¿Dónde viven los tests según el mapa?",
+      options: [
+        { id: "a", text: "En un directorio central separado." },
+        { id: "b", text: "Al lado del código que prueban." },
+        { id: "c", text: "En el CI, sin relación con el código." },
+        { id: "d", text: "En la documentación." }
+      ],
+      correct: "b",
+      explanation: "Los tests viven al lado del código que prueban. Cuando intervienen dos subsistemas, cada uno mantiene sus tests junto a su implementación."
+    },
+    {
+      id: "q3",
+      stem: "¿Qué significa que la cintura se paga en cada llamada?",
+      options: [
+        { id: "a", text: "Que el código central es gratis." },
+        { id: "b", text: "Que cada rama en el código central añade coste a todas las llamadas, por eso se mantiene estrecha." },
+        { id: "c", text: "Que las llamadas API cuestan dinero." },
+        { id: "d", text: "Que el mantenimiento es caro." }
+      ],
+      correct: "b",
+      explanation: "La cintura (core) se paga en cada llamada: cada rama especial añade coste a todas. Por eso el mapa pide mantenerla estrecha y mover la lógica a plugins."
+    }
+  ]}
+/>
+
 ## Fuentes
 
 Nous Research. (s. f.). *Codebase ownership map*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/codebase-ownership

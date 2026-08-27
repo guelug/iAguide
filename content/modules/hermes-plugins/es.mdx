@@ -180,6 +180,53 @@ Middleware frente a hooks, una vez más: los hooks observan; el middleware de re
 
 Los Portable Agent Plugins v1 siguen siendo un adaptador de compatibilidad. Habilitar uno otorga full-trust. Hermes valida en local y no descarga esquemas JSON al cargar. No traten `plugin.json` como reemplazo del `plugin.yaml` nativo.
 
+## Caso — el plugin que quería override
+
+Un plugin intentó sobrescribir una tool del core con ctx.register_tool(..., override=True) sin consentimiento. La capability tools.override no estaba concedida y el registro lo rechazó. Las capabilities y el consentimiento de override existen para que un plugin no pueda silenciar una tool del core por accidente.
+
+## Quiz
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué es register(ctx) en Hermes?",
+      options: [
+        { id: "a", text: "Un endpoint HTTP." },
+        { id: "b", text: "La cintura de los plugins: la API de contexto por la que un plugin se registra sin bifurcar run_agent.py." },
+        { id: "c", text: "Un script de instalación." },
+        { id: "d", text: "Una base de datos." }
+      ],
+      correct: "b",
+      explanation: "register(ctx) es la cintura de los plugins: la API de contexto por la que un plugin extiende el agente sin tocar el core."
+    },
+    {
+      id: "q2",
+      stem: "¿Qué son las capabilities?",
+      options: [
+        { id: "a", text: "Límites de tokens." },
+        { id: "b", text: "Permisos que el plugin puede pedir, como tools.override, y que requieren consentimiento." },
+        { id: "c", text: "Versiones de Python." },
+        { id: "d", text: "Nombres de archivos." }
+      ],
+      correct: "b",
+      explanation: "Las capabilities son permisos que el plugin puede solicitar. tools.override, por ejemplo, exige consentimiento explícito."
+    },
+    {
+      id: "q3",
+      stem: "¿Dónde se descubre un plugin?",
+      options: [
+        { id: "a", text: "Solo en el directorio del proyecto." },
+        { id: "b", text: "En user, proyecto y pip: el descubrimiento cubre varias ubicaciones." },
+        { id: "c", text: "Solo en PyPI." },
+        { id: "d", text: "En la base de datos de sesiones." }
+      ],
+      correct: "b",
+      explanation: "El descubrimiento de plugins cubre user, proyecto y pip. El manifiesto, doctor y estado durable completan el ciclo de vida."
+    }
+  ]}
+/>
+
 ## Fuentes
 
 Nous Research. (s. f.). *Build a Hermes plugin*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/plugins

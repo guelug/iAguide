@@ -164,6 +164,53 @@ This lesson is not:
 
 It is the claim that those topics all construct the same class.
 
+## Case — the host that resurrected a partial assistant
+
+A custom API-server host streamed tokens to a browser and, when the client disconnected, appended the partial assistant "so the user could resume." The next provider call returned 400 for alternation: two assistant messages in a row. The interruptible principle from the architecture page is not optional for library hosts: the discarded HTTP result never becomes a history row.
+
+## Quiz
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "What do the six Hermes hosts share?",
+      options: [
+        { id: "a", text: "Only the project name." },
+        { id: "b", text: "The same AIAgent class in run_agent.py: CLI, gateway, ACP, batch runner, API server, and Python library." },
+        { id: "c", text: "Each host has its own hand-written loop." },
+        { id: "d", text: "Nothing: they are six different products." }
+      ],
+      correct: "b",
+      explanation: "CLI, Gateway, ACP, the batch runner, the API server, and the Python library all call the same AIAgent class. Architecture by Nous Research is the map of that shared waist."
+    },
+    {
+      id: "q2",
+      stem: "What happens to the discarded HTTP result on interrupt?",
+      options: [
+        { id: "a", text: "It is saved as a draft to resume." },
+        { id: "b", text: "It never becomes a history row: the loop abandons the HTTP thread and does not inject a partial assistant." },
+        { id: "c", text: "It becomes a system message." },
+        { id: "d", text: "It depends on the provider." }
+      ],
+      correct: "b",
+      explanation: "The loop abandons the HTTP thread on interrupt and does not inject a partial assistant. A host that writes tokens to a socket as they arrive must treat /stop as dropping the in-flight row."
+    },
+    {
+      id: "q3",
+      stem: "What is gateway-level preemption?",
+      options: [
+        { id: "a", text: "A bug in the WhatsApp adapter." },
+        { id: "b", text: "A host policy on top of the interruptible invariant: a second message while a turn is running." },
+        { id: "c", text: "A way to cancel the whole gateway." },
+        { id: "d", text: "A method of the AIAgent class." }
+      ],
+      correct: "b",
+      explanation: "Gateway-level preemption (a second WhatsApp message while a turn runs) is a host policy on top of the invariant. The class owns the fact that the discarded HTTP result is never a row."
+    }
+  ]}
+/>
+
 ## Sources
 
 Nous Research. (n.d.). *Architecture*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/architecture

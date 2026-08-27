@@ -168,6 +168,53 @@ Desktop and TUI remain listed on the official map and remain out of this pack. D
 
 The official URLs for this lesson are the [ownership map](https://hermes-agent.nousresearch.com/docs/developer-guide/codebase-ownership) and the [architecture overview](https://hermes-agent.nousresearch.com/docs/developer-guide/architecture). Read both before the next class. The waist is easier to respect when you have seen the six entry points from the outside.
 
+## Case — the PR that touched two subsystems
+
+A contributor changed a tool and a platform adapter in the same PR. Review stalled because both subsystems' tests failed separately. The ownership map exists for that: when two subsystems intervene, the waist is paid on every call and tests live next to their code.
+
+## Quiz
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "What is the Hermes ownership map?",
+      options: [
+        { id: "a", text: "A list of who owns each file." },
+        { id: "b", text: "A subsystem map saying which tests mirror which code and where each piece lives." },
+        { id: "c", text: "A license document." },
+        { id: "d", text: "A contributor registry." }
+      ],
+      correct: "b",
+      explanation: "The ownership map frames the subsystems and their tests. Tests mirror the code; the one who keeps them together wins."
+    },
+    {
+      id: "q2",
+      stem: "Where do tests live per the map?",
+      options: [
+        { id: "a", text: "In a central separate directory." },
+        { id: "b", text: "Next to the code they test." },
+        { id: "c", text: "In CI, unrelated to the code." },
+        { id: "d", text: "In the documentation." }
+      ],
+      correct: "b",
+      explanation: "Tests live next to the code they test. When two subsystems intervene, each keeps its tests beside its implementation."
+    },
+    {
+      id: "q3",
+      stem: "What does the waist being paid on every call mean?",
+      options: [
+        { id: "a", text: "That the core code is free." },
+        { id: "b", text: "That every branch in the core adds cost to all calls, which is why it stays narrow." },
+        { id: "c", text: "That API calls cost money." },
+        { id: "d", text: "That maintenance is expensive." }
+      ],
+      correct: "b",
+      explanation: "The waist (core) is paid on every call: each special branch adds cost to all. That is why the map asks to keep it narrow and move logic to plugins."
+    }
+  ]}
+/>
+
 ## Sources
 
 Nous Research. (n.d.). *Codebase ownership map*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/codebase-ownership

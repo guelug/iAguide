@@ -161,6 +161,53 @@ Citen *Session pruning* y *Session attachment* como hermanas, no como aliases de
 
 Esta leccion se detiene en routing, dmScope, groupScope, rutas sqlite, incognito y mantenimiento. Daily e idle reset continuan despues.
 
+## Caso — el mensaje que fue a la sesión equivocada
+
+Un mensaje de grupo llegó y el enrutado lo mandó a la sesión de DM. El agente respondió con contexto privado en un canal público. La lección: sqlite posee el hilo y el enrutado decide a qué sesión va cada mensaje. El aislamiento de DM y el enrutado de grupos son dos reglas distintas.
+
+## Quiz
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué posee el hilo de la sesión en OpenClaw?",
+      options: [
+        { id: "a", text: "Un archivo de texto." },
+        { id: "b", text: "SQLite: la base de datos posee el hilo de la sesión." },
+        { id: "c", text: "La memoria del proceso." },
+        { id: "d", text: "Un servicio externo." }
+      ],
+      correct: "b",
+      explanation: "SQLite posee el hilo de la sesión. El enrutado decide a qué sesión va cada mensaje entrante."
+    },
+    {
+      id: "q2",
+      stem: "¿Qué es el aislamiento de DM?",
+      options: [
+        { id: "a", text: "Cifrar los mensajes directos." },
+        { id: "b", text: "Que cada DM tiene su propia sesión, separada de los grupos." },
+        { id: "c", text: "Borrar los DM antiguos." },
+        { id: "d", text: "Compartir contexto entre DMs." }
+      ],
+      correct: "b",
+      explanation: "El aislamiento de DM garantiza que cada conversación directa tiene su propia sesión, separada de los grupos."
+    },
+    {
+      id: "q3",
+      stem: "¿Qué son las sesiones incógnito?",
+      options: [
+        { id: "a", text: "Sesiones cifradas." },
+        { id: "b", text: "Sesiones que no persisten el hilo, para tareas desechables." },
+        { id: "c", text: "Sesiones de otro usuario." },
+        { id: "d", text: "Sesiones de solo lectura." }
+      ],
+      correct: "b",
+      explanation: "Las sesiones incógnito no persisten el hilo: sirven para tareas desechables sin dejar rastro en el historial."
+    }
+  ]}
+/>
+
 ## Fuentes
 
 OpenClaw. (s. f.). *Session management*. https://docs.openclaw.ai/concepts/session

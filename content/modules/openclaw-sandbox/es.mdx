@@ -161,6 +161,53 @@ Citen Elevated Mode para el hatch de exec.
 
 Citen Tools overview para grupos en la capa de inventario.
 
+## Caso — el comando que escapó del sandbox
+
+Un agente pidió ejecutar un comando con write y el sandbox lo denegó. La política de tools no lo permitía. La lección: sandbox, tool policy y elevated son tres controles con tres respuestas. Deny siempre gana; elevated no restaura una tool denegada.
+
+## Quiz
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Cuáles son los tres controles del sandbox?",
+      options: [
+        { id: "a", text: "CPU, memoria y disco." },
+        { id: "b", text: "Sandbox, tool policy y elevated: dónde corren las tools, qué tools existen y el modo solo-exec." },
+        { id: "c", text: "Red, usuario y contraseña." },
+        { id: "d", text: "Logs, métricas y trazas." }
+      ],
+      correct: "b",
+      explanation: "Los tres controles son sandbox (dónde corren las tools), tool policy (qué tools existen) y elevated (solo-exec)."
+    },
+    {
+      id: "q2",
+      stem: "¿Qué son los grupos dentro de la política de sandbox?",
+      options: [
+        { id: "a", text: "Grupos de usuarios." },
+        { id: "b", text: "Agrupaciones de tools con permisos: group:runtime sostiene exec, group:fs sostiene write." },
+        { id: "c", text: "Grupos de servidores." },
+        { id: "d", text: "Grupos de idiomas." }
+      ],
+      correct: "b",
+      explanation: "Los grupos agrupan tools con permisos: group:runtime sostiene exec, group:fs sostiene write. Denegar write con exec permitido es posible."
+    },
+    {
+      id: "q3",
+      stem: "¿Qué significa que deny siempre gana?",
+      options: [
+        { id: "a", text: "Que deny es más rápido." },
+        { id: "b", text: "Que una denegación no se revierte con elevated: elevated no restaura una tool denegada." },
+        { id: "c", text: "Que deny es opcional." },
+        { id: "d", text: "Que deny solo aplica a write." }
+      ],
+      correct: "b",
+      explanation: "Deny siempre gana: elevated no restaura una tool denegada. La denegación es definitiva dentro de esa política."
+    }
+  ]}
+/>
+
 ## Fuentes
 
 OpenClaw. (s. f.). *Sandbox vs tool policy vs elevated*. https://docs.openclaw.ai/gateway/sandbox-vs-tool-policy-vs-elevated

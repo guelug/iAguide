@@ -167,6 +167,53 @@ License y author en el frontmatter son para procedencia del hub, no para texto d
 
 Citen Creating Skills por URL en cada pull request de skill.
 
+## Caso — la skill que pedía secretos
+
+Un equipo escribió una skill que leía una API key del frontmatter. La página lo prohíbe: los secretos no van en el frontmatter ni en ficheros de credenciales de la skill. La skill se reescribió para leer la clave del entorno, y el secreto dejó de viajar en el repo.
+
+## Quiz
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué es una skill en Hermes?",
+      options: [
+        { id: "a", text: "Un plugin compilado." },
+        { id: "b", text: "Instrucciones más tools existentes: el modo preferido de añadir capacidades sin cambiar código." },
+        { id: "c", text: "Un modelo afinado." },
+        { id: "d", text: "Un script de shell." }
+      ],
+      correct: "b",
+      explanation: "Las skills son el modo preferido de añadir capacidades: instrucciones (SKILL.md) más tools existentes, sin cambiar código."
+    },
+    {
+      id: "q2",
+      stem: "¿Qué es el frontmatter de una skill?",
+      options: [
+        { id: "a", text: "Un adorno opcional." },
+        { id: "b", text: "El contrato: nombre, descripción y metadatos que el sistema lee para cargar la skill." },
+        { id: "c", text: "El código de la skill." },
+        { id: "d", text: "La documentación de usuario." }
+      ],
+      correct: "b",
+      explanation: "El frontmatter es el contrato: nombre, descripción y metadatos. El sistema lo lee para decidir cuándo y cómo cargar la skill."
+    },
+    {
+      id: "q3",
+      stem: "¿Dónde NO deben ir los secretos?",
+      options: [
+        { id: "a", text: "En el entorno del proceso." },
+        { id: "b", text: "En el frontmatter ni en ficheros de credenciales de la skill." },
+        { id: "c", text: "En el gestor de secretos del sistema." },
+        { id: "d", text: "En variables de entorno." }
+      ],
+      correct: "b",
+      explanation: "Los secretos no van en el frontmatter ni en ficheros de credenciales de la skill. Van en el entorno o en el gestor de secretos."
+    }
+  ]}
+/>
+
 ## Fuentes
 
 Nous Research. (s. f.). *Creating skills*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/creating-skills

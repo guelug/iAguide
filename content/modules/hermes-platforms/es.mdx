@@ -193,6 +193,53 @@ URL oficial: [Adding a Platform Adapter](https://hermes-agent.nousresearch.com/d
 
 Auditoría de paridad antes de un PR builtin: busquen cada archivo `.py` / `.md` / `.ts` que mencione una plataforma madura (el ejemplo oficial usa `bluebubbles`), luego el nombre nuevo, y traten cada archivo que falte como un hueco potencial — enumeración frente a referencia específica de plataforma (Nous Research, *Adding a Platform Adapter*, s. f.).
 
+## Caso — LINE y la UX de LLM lento
+
+Un adaptador de LINE mostraba el indicador de escritura mientras el LLM pensaba, y los usuarios veían "escribiendo..." durante minutos. El caso documentado: la UX de plataforma debe separar el tiempo de pensamiento del tiempo de respuesta. El adaptador no es solo transporte, es experiencia.
+
+## Quiz
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué hace un adaptador de plataforma?",
+      options: [
+        { id: "a", text: "Solo traduce mensajes entre idiomas." },
+        { id: "b", text: "Conecta Hermes a un servicio de mensajería externo para que los usuarios hablen con el agente." },
+        { id: "c", text: "Cifra el tráfico de red." },
+        { id: "d", text: "Almacena los mensajes." }
+      ],
+      correct: "b",
+      explanation: "Un adaptador conecta Hermes a un servicio de mensajería (Telegram, Discord, WeCom, IRC...). No es cifrado ni almacenamiento."
+    },
+    {
+      id: "q2",
+      stem: "¿Cuál es el camino preferido para una plataforma nueva?",
+      options: [
+        { id: "a", text: "Bifurcar run_agent.py y añadir un caso especial." },
+        { id: "b", text: "Plugin primero: registrarse a través de la API de contexto sin tocar el core." },
+        { id: "c", text: "Escribir un proxy HTTP." },
+        { id: "d", text: "Usar un script de shell." }
+      ],
+      correct: "b",
+      explanation: "El camino preferido es plugin primero: el adaptador se registra vía la API de contexto, sin bifurcar el core. El core solo define BasePlatformAdapter."
+    },
+    {
+      id: "q3",
+      stem: "¿Qué guarda el enablement de un adaptador?",
+      options: [
+        { id: "a", text: "La versión del adaptador." },
+        { id: "b", text: "Env, auth y lock: si falta la variable, la autenticación o el token está en uso, el adaptador no se activa." },
+        { id: "c", text: "El idioma de la plataforma." },
+        { id: "d", text: "El número de usuarios." }
+      ],
+      correct: "b",
+      explanation: "El guard de enablement comprueba env, auth y lock. Sin esos tres, el adaptador no se activa, aunque esté instalado."
+    }
+  ]}
+/>
+
 ## Fuentes
 
 Nous Research. (s. f.). *Adding a platform adapter*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/adding-platform-adapters

@@ -181,6 +181,53 @@ No importen modos de cola de OpenClaw (`steer`, `followup`, `collect`, `interrup
 
 **Caso.** Un usuario de WhatsApp envía un segundo mensaje mientras Hermes aún llama al proveedor. El guardia de nivel 1 del gateway encola el mensaje y pone el evento de interrupción; se abandona el hilo HTTP; el mensaje nuevo se convierte en la siguiente fila user de `run_conversation`. Si añadieran los tokens en vuelo, tendrían dos assistants seguidos y la siguiente llamada al proveedor fallaría. La lección del gateway cubre el guardia de dos niveles; esta lección explica por qué el bucle debe tirar la respuesta en vuelo.
 
+## Caso — el streaming que rompió la alternancia
+
+Un host de librería hacía streaming con stream_delta_callback y, al interrumpir, guardaba el assistant parcial "para reanudar". La siguiente llamada daba 400 por dos assistant seguidos. El bucle abandona el hilo HTTP al interrumpir y no inyecta un assistant parcial: los callbacks son la UI, no el bucle.
+
+## Quiz
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué es run_conversation en Hermes?",
+      options: [
+        { id: "a", text: "Un script aparte para pruebas." },
+        { id: "b", text: "La cintura del bucle: ensambla el system prompt, elige el modo de API, ejecuta tools y persiste." },
+        { id: "c", text: "Un endpoint HTTP." },
+        { id: "d", text: "Un plugin de terceros." }
+      ],
+      correct: "b",
+      explanation: "run_conversation es la cintura del bucle en run_agent.py: ensambla el prompt, elige el modo de API, ejecuta tools y persiste el transcript."
+    },
+    {
+      id: "q2",
+      stem: "¿Qué significa interrumpir en el bucle?",
+      options: [
+        { id: "a", text: "Pausar y reanudar la misma llamada." },
+        { id: "b", text: "Abandonar el hilo HTTP y no inyectar un assistant parcial en el transcript." },
+        { id: "c", text: "Guardar el resultado parcial para continuar después." },
+        { id: "d", text: "Reiniciar la conversación." }
+      ],
+      correct: "b",
+      explanation: "Interrumpir significa abandonar el hilo HTTP. El resultado descartado nunca se convierte en fila de historial, para no romper la alternancia."
+    },
+    {
+      id: "q3",
+      stem: "¿Qué papel tienen los callbacks?",
+      options: [
+        { id: "a", text: "Son el bucle en sí." },
+        { id: "b", text: "Son la UI del bucle: reciben eventos, pero no deciden el flujo." },
+        { id: "c", text: "Reemplazan al modelo." },
+        { id: "d", text: "Persisten el estado." }
+      ],
+      correct: "b",
+      explanation: "Los callbacks son la UI, no el bucle. Reciben eventos (tokens, tool calls) pero el flujo lo decide run_conversation."
+    }
+  ]}
+/>
+
 ## Fuentes
 
 Nous Research. (s. f.). *Agent loop internals*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop

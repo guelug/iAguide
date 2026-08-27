@@ -181,6 +181,53 @@ Do not import OpenClaw queue modes (`steer`, `followup`, `collect`, `interrupt`)
 
 **Case.** A WhatsApp user sends a second message while Hermes is still calling the provider. Level-1 gateway guard queues the message and sets the interrupt event; the HTTP thread is abandoned; the new message becomes the next `run_conversation` user row. If you instead appended the in-flight tokens, you would have two assistants in a row and the next provider call would fail. The gateway lesson covers the two-level guard; this lesson is why the loop must drop the in-flight response.
 
+## Case — the streaming that broke alternation
+
+A library host streamed with stream_delta_callback and, on interrupt, saved the partial assistant "to resume." The next call returned 400 for two assistants in a row. The loop abandons the HTTP thread on interrupt and does not inject a partial assistant: callbacks are the UI, not the loop.
+
+## Quiz
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "What is run_conversation in Hermes?",
+      options: [
+        { id: "a", text: "A separate script for testing." },
+        { id: "b", text: "The waist of the loop: assembles the system prompt, picks the API mode, runs tools, and persists." },
+        { id: "c", text: "An HTTP endpoint." },
+        { id: "d", text: "A third-party plugin." }
+      ],
+      correct: "b",
+      explanation: "run_conversation is the waist of the loop in run_agent.py: it assembles the prompt, picks the API mode, runs tools, and persists the transcript."
+    },
+    {
+      id: "q2",
+      stem: "What does interrupting mean in the loop?",
+      options: [
+        { id: "a", text: "Pausing and resuming the same call." },
+        { id: "b", text: "Abandoning the HTTP thread and not injecting a partial assistant into the transcript." },
+        { id: "c", text: "Saving the partial result to continue later." },
+        { id: "d", text: "Restarting the conversation." }
+      ],
+      correct: "b",
+      explanation: "Interrupting means abandoning the HTTP thread. The discarded result never becomes a history row, so alternation stays valid."
+    },
+    {
+      id: "q3",
+      stem: "What role do callbacks play?",
+      options: [
+        { id: "a", text: "They are the loop itself." },
+        { id: "b", text: "They are the loop's UI: they receive events but do not decide the flow." },
+        { id: "c", text: "They replace the model." },
+        { id: "d", text: "They persist state." }
+      ],
+      correct: "b",
+      explanation: "Callbacks are the UI, not the loop. They receive events (tokens, tool calls) but run_conversation decides the flow."
+    }
+  ]}
+/>
+
 ## Sources
 
 Nous Research. (n.d.). *Agent loop internals*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop

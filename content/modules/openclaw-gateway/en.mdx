@@ -161,6 +161,53 @@ The macOS app exposes widget-panel commands under canvas.* in addition to camera
 
 Start in the foreground first. Add launchd or systemd only after hello-ok is healthy (OpenClaw, Gateway architecture, n.d.).
 
+## Case — the gateway that restarted itself
+
+A team watched the gateway fall every few hours. The log showed a crash-loop from an adapter that did not close the connection. The waist is a process: if an adapter does not respect the connection lifecycle, the whole process pays the price.
+
+## Quiz
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "What is OpenClaw's waist?",
+      options: [
+        { id: "a", text: "A load balancer." },
+        { id: "b", text: "A single long-lived Gateway process that owns the agent and the connections." },
+        { id: "c", text: "A messaging plugin." },
+        { id: "d", text: "An HTTP proxy." }
+      ],
+      correct: "b",
+      explanation: "A single long-lived Gateway owns the agent and the connections. It is not a load balancer or a proxy."
+    },
+    {
+      id: "q2",
+      stem: "What is pairing and local trust?",
+      options: [
+        { id: "a", text: "An encryption system." },
+        { id: "b", text: "The mechanism by which a client proves it is trusted before talking to the gateway." },
+        { id: "c", text: "A way to share files." },
+        { id: "d", text: "A user authentication method." }
+      ],
+      correct: "b",
+      explanation: "Pairing establishes local trust: a client proves it is trusted before talking to the gateway. It is the front door."
+    },
+    {
+      id: "q3",
+      stem: "What is protocol typing?",
+      options: [
+        { id: "a", text: "The Python version." },
+        { id: "b", text: "The message contract between the gateway and its clients, with defined types." },
+        { id: "c", text: "The language of messages." },
+        { id: "d", text: "The log format." }
+      ],
+      correct: "b",
+      explanation: "Protocol typing defines the message contract between the gateway and its clients. Without types, errors appear at runtime."
+    }
+  ]}
+/>
+
 ## Sources
 
 OpenClaw. (n.d.). *Gateway architecture*. https://docs.openclaw.ai/concepts/architecture

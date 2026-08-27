@@ -183,6 +183,53 @@ Esta leccion se detiene en el supervisor, los dos huecos, las tres politicas, lo
 
 El lock de snapshot existe para que un handler sync de tool nunca haga await de la tarea asyncio. Ensenar ese lock como "usen tools async" es incorrecto. La pagina eligio un snapshot congelado a proposito (Nous Research, *Browser CDP Supervisor*, s. f.).
 
+## Caso — el snapshot que no vio el login
+
+Un agente de scraping capturaba el DOM antes de que el login terminara. El snapshot parecía válido, pero el botón de sesión no existía aún. El CDPSupervisor no es un screenshot: es un protocolo vivo. Si el snapshot no espera el estado correcto, el agente actúa sobre una página que ya no es la que cree.
+
+## Quiz
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué es el CDPSupervisor de Hermes?",
+      options: [
+        { id: "a", text: "Un screenshot estático que se toma una vez por página." },
+        { id: "b", text: "Un supervisor sobre el protocolo CDP que gestiona el ciclo de vida del browser, backends y política de diálogos." },
+        { id: "c", text: "Un proxy HTTP para peticiones web normales." },
+        { id: "d", text: "Un plugin de terceros sin relación con Hermes." }
+      ],
+      correct: "b",
+      explanation: "El CDPSupervisor envuelve Chrome DevTools Protocol: gestiona el ciclo de vida, los backends (Browserbase, local, etc.) y la política de diálogos. No es un screenshot."
+    },
+    {
+      id: "q2",
+      stem: "¿Por qué un snapshot no cierra los dos huecos que sí cierra el supervisor?",
+      options: [
+        { id: "a", text: "Porque el snapshot es más lento." },
+        { id: "b", text: "Porque el snapshot es una foto puntual: no ve eventos, no espera estados y no gestiona diálogos ni conexiones vivas." },
+        { id: "c", text: "Porque el snapshot solo funciona en Chrome." },
+        { id: "d", text: "Porque el snapshot no guarda imágenes." }
+      ],
+      correct: "b",
+      explanation: "Un snapshot es una foto puntual del DOM. El supervisor es un protocolo vivo: ve eventos, espera estados, gestiona diálogos y conexiones. Los huecos que un snapshot no cierra son exactamente esos."
+    },
+    {
+      id: "q3",
+      stem: "¿Qué hace la política de diálogos del supervisor?",
+      options: [
+        { id: "a", text: "Bloquea todos los alert() sin excepción." },
+        { id: "b", text: "Decide cómo se manejan alert, confirm y prompt según la política configurada, en lugar de dejar que el agente se cuelgue." },
+        { id: "c", text: "Traduce los diálogos a otro idioma." },
+        { id: "d", text: "Los ignora por completo." }
+      ],
+      correct: "b",
+      explanation: "La política de diálogos define el comportamiento ante alert/confirm/prompt. Sin ella, un dialog abierto puede colgar al agente esperando una interacción que nadie hará."
+    }
+  ]}
+/>
+
 ## Fuentes
 
 Nous Research. (s. f.). *Browser CDP supervisor*. Guia de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/browser-supervisor

@@ -161,6 +161,53 @@ See also Session permission modes for session roots and escalation reviewers.
 
 See also Exec for host command policy that is not elevated.
 
+## Case — the command that escaped the sandbox
+
+An agent asked to run a command with write and the sandbox denied it. The tool policy did not allow it. The lesson: sandbox, tool policy, and elevated are three controls with three responses. Deny always wins; elevated does not restore a denied tool.
+
+## Quiz
+
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "What are the three sandbox controls?",
+      options: [
+        { id: "a", text: "CPU, memory, and disk." },
+        { id: "b", text: "Sandbox, tool policy, and elevated: where tools run, which tools exist, and the exec-only mode." },
+        { id: "c", text: "Network, username, and password." },
+        { id: "d", text: "Logs, metrics, and traces." }
+      ],
+      correct: "b",
+      explanation: "The three controls are sandbox (where tools run), tool policy (which tools exist), and elevated (exec-only)."
+    },
+    {
+      id: "q2",
+      stem: "What are groups inside the sandbox policy?",
+      options: [
+        { id: "a", text: "User groups." },
+        { id: "b", text: "Tool groupings with permissions: group:runtime holds exec, group:fs holds write." },
+        { id: "c", text: "Server groups." },
+        { id: "d", text: "Language groups." }
+      ],
+      correct: "b",
+      explanation: "Groups group tools with permissions: group:runtime holds exec, group:fs holds write. Denying write with exec allowed is possible."
+    },
+    {
+      id: "q3",
+      stem: "What does deny always wins mean?",
+      options: [
+        { id: "a", text: "That deny is faster." },
+        { id: "b", text: "That a denial is not reversed by elevated: elevated does not restore a denied tool." },
+        { id: "c", text: "That deny is optional." },
+        { id: "d", text: "That deny only applies to write." }
+      ],
+      correct: "b",
+      explanation: "Deny always wins: elevated does not restore a denied tool. The denial is final within that policy."
+    }
+  ]}
+/>
+
 ## Sources
 
 OpenClaw. (n.d.). *Sandbox vs tool policy vs elevated*. https://docs.openclaw.ai/gateway/sandbox-vs-tool-policy-vs-elevated
