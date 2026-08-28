@@ -141,7 +141,6 @@ export default function Visual() {
             <Tag position={[2.4, 0.35, 0.2]} tone="rose">{t.observe}</Tag>
             <Wire points={[[2.0, -0.25, 0], [1.0, -0.25, 0]]} color={P.rose} dashed opacity={0.5} />
             <Halo position={[2.4, -0.25, 0]} radius={0.4} color={P.rose} opacity={0.5} spin={0.4} />
-            <Tag position={[0, -1.3, 0.2]} tone="rose">{t.stale_plan}</Tag>
           </>
         )}
 
@@ -229,6 +228,11 @@ export default function Visual() {
             <Tag position={[1.2, -0.05, 0.2]} tone="teal" size="xs">{t.write_confirmed}</Tag>
           </>
         )}
+        {/* The cost of the pattern on screen. This is the point of the
+            figure, so it is drawn the same way for all five. */}
+        <Tag position={[0, -1.95, 0]} tone="rose" size="xs" center>
+          {fail[mode]}
+        </Tag>
       </Stage>
     </Figure>
   );

@@ -58,14 +58,14 @@ export default function Visual() {
     >
       <Stage className="h-full w-full" maxDpr={1.75} camera={{ position: [0, 0.35, 7.5], fov: 40 }}>
         <Turntable speed={0.035} tilt={0.1}>
-          <Scene active={step} t={t} />
+          <Scene active={step} />
         </Turntable>
       </Stage>
     </Figure>
   );
 }
 
-function Scene({ active, t }: { active: Step; t: Record<string, string> }) {
+function Scene({ active }: { active: Step }) {
   return (
     <group>
       {active === "residual" ? <ResidualScene /> : null}

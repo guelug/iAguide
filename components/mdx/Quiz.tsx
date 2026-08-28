@@ -39,7 +39,6 @@ export function Quiz({ questions }: { questions: Question[] }) {
       <div className="divide-y divide-line/50">
         {questions.map((q, i) => {
           const isCorrect = submitted && answers[q.id] === q.correct;
-          const isWrong = submitted && answers[q.id] && answers[q.id] !== q.correct;
           return (
             <div key={q.id} className="px-4 py-4">
               <p className="mb-2 text-sm font-medium text-ink">

@@ -161,18 +161,12 @@ export default function Visual() {
             <Tag position={[2.0, 1.78, 0.15]} tone="amber" size="xs">{t.chosen}</Tag>
             <Slab position={[2.0, 0.7, 0]} size={[1.4, 0.5, 0.1]} color={P.rose} fill={0.18} />
             <Tag position={[2.0, 0.32, 0.15]} tone="rose" size="xs">{t.rejected}</Tag>
-            {/* ref policy */}
-            <Wire
-              points={Array.from({ length: 16 }, (_, i) => [
-                -3.0 + i * 0.4,
-                -0.6,
-                0,
-              ])}
-              color={P.lineStrong}
-              opacity={0.55}
-              width={1.4}
-            />
-            <Tag position={[-3.2, -0.7, 0.15]} tone="muted" size="xs">{t.ref}</Tag>
+            {/* The frozen reference, and the policy that has drifted from
+                it — the gap between these two curves is the KL term. */}
+            <Wire points={refCurve} color={P.lineStrong} opacity={0.6} width={1.4} dashed />
+            <Wire points={policyCurve} color={P.teal} opacity={0.9} width={2} />
+            <Tag position={[-3.4, -0.95, 0.15]} tone="muted" size="xs">{t.ref}</Tag>
+            <Tag position={[-3.4, 0.05, 0.15]} tone="teal" size="xs">{t.policy}</Tag>
             {/* policy shifts up at chosen, down at rejected */}
             <Node3D position={chosenDot} color={P.amber} radius={0.13} pulse={0.5} />
             <Flow

@@ -99,7 +99,6 @@ export default function Visual() {
   const probs = [0.34, 0.06, 0.48, 0.10, 0.02];
 
   // matmul dims
-  const nRows = 3;
   const nCols = 3;
 
   return (

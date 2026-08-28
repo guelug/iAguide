@@ -227,7 +227,7 @@ export default function Visual() {
             {[0.6, 0.3].map((baseY, i) => (
               <group key={i}>
                 <Wire
-                  points={adamSteps.map(([x, y], j) => [x, baseY + (i === 0 ? -j * 0.06 : j * 0.04), 0] as [number, number, number])}
+                  points={adamSteps.map(([x], j) => [x, baseY + (i === 0 ? -j * 0.06 : j * 0.04), 0] as [number, number, number])}
                   color={i === 0 ? P.teal : P.amber}
                   opacity={0.6}
                   width={1.4}
