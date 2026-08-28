@@ -1,28 +1,127 @@
 "use client";
-
 import { useState } from "react";
 import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
-import { Halo, Motes, Node3D, PointerTilt, Ribbon, Slab, Tag } from "@/components/three/atoms";
+import { Flow, Halo, Motes, Node3D, PointerTilt, Ribbon, Slab, Tag } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
 import { useCopy } from "@/lib/useCopy";
 
-type Mode = "map" | "loop" | "moe";
+type Mode = "layers" | "train" | "api";
 const COPY = {
-  en: { title: "four paths, one harness", hint: "map · loop · active parameters", map: "map", loop: "harness loop", moe: "MoE", foundations: "foundations", harness: "harness", training: "training", metal: "metal", user: "user", thread: "thread", model: "model", tools: "tools", memory: "memory", total: "48B total", active: "3B active" },
-  es: { title: "cuatro vías, un arnés", hint: "mapa · bucle · parámetros activos", map: "mapa", loop: "bucle del arnés", moe: "MoE", foundations: "fundamentos", harness: "arnés", training: "entrenamiento", metal: "metal", user: "usuario", thread: "hilo", model: "modelo", tools: "tools", memory: "memoria", total: "48B totales", active: "3B activos" },
+  en: {
+    title: "name the layer before you blame it",
+    hint: "product · train vs use · file vs API",
+    layers: "layers",
+    train: "train / use",
+    api: "file / API",
+    product: "product",
+    harness: "harness",
+    model: "model",
+    weights: "weights",
+    chat: "chat",
+    lora: "LoRA",
+    disk: "on disk",
+    rent: "per token",
+  },
+  es: {
+    title: "nombra la capa antes de culpar",
+    hint: "producto · entrenar / usar · archivo / API",
+    layers: "capas",
+    train: "entrenar / usar",
+    api: "archivo / API",
+    product: "producto",
+    harness: "arnés",
+    model: "modelo",
+    weights: "pesos",
+    chat: "chat",
+    lora: "LoRA",
+    disk: "en disco",
+    rent: "por token",
+  },
 };
 
-export default function Visual() {
+export default function Visual2() {
   const t = useCopy(COPY);
-  const [mode, setMode] = useState<Mode>("map");
-  return <Figure label={t.title} hint={t.hint} legend={[{ color: P.teal, label: t.foundations }, { color: P.violet, label: t.harness }, { color: P.amber, label: t.training }]} controls={<Switcher value={mode} onChange={setMode} options={[{ value: "map", label: t.map, tone: P.teal }, { value: "loop", label: t.loop, tone: P.violet }, { value: "moe", label: t.moe, tone: P.amber }]} ariaLabel={t.title} />}>
-    <Stage className="h-full w-full" camera={{ position: [0, 0.3, 8.6], fov: 37 }}>
-      <Motes count={100} radius={7} opacity={0.3} /><PointerTilt amount={0.07}>
-        {mode === "map" && <>{[[t.foundations, P.teal, -1.8], [t.harness, P.violet, 0], [t.training, P.amber, 1.8], [t.metal, P.rose, 0]].map(([label, color, x], i) => <group key={label as string}><Slab position={[x as number, i === 3 ? -0.7 : 0.25, 0]} size={[1.35, i === 3 ? 0.65 : 0.8, 0.12]} color={color as string} fill={0.24} /><Tag position={[x as number, i === 3 ? -0.25 : 0.8, 0.15]} tone={(["teal", "violet", "amber", "rose"] as const)[i]} size="xs">{label as string}</Tag>{i < 3 && <Ribbon points={[[x as number + 0.7, 0.25, 0], [x as number + 1.05, 0.25, 0]]} color={color as string} radius={0.035} opacity={0.75} />}</group>)}</>}
-        {mode === "loop" && <><Halo position={[0, 0.1, 0]} radius={1.35} color={P.violet} opacity={0.3} spin={0.12} /><Node3D position={[0, 0.1, 0]} color={P.violet} radius={0.22} pulse={0.35} /><Tag position={[0, 0.7, 0.15]} tone="violet">{t.model}</Tag>{[[t.user, P.teal, -1.7, 0.1], [t.thread, P.amber, 0, -1.0], [t.tools, P.rose, 1.7, 0.1]].map(([label, color, x, y], i) => <group key={label as string}><Node3D position={[x as number, y as number, 0]} color={color as string} radius={0.15} matte /><Tag position={[x as number, (y as number) + 0.35, 0.15]} tone={(["teal", "amber", "rose"] as const)[i]} size="xs">{label as string}</Tag><Ribbon points={[[x as number * 0.55, y as number * 0.45, 0], [x as number * 0.9, y as number * 0.9, 0]]} color={color as string} radius={0.035} opacity={0.75} /></group>)}</>}
-        {mode === "moe" && <><Slab position={[-1.5, 0.2, 0]} size={[1.8, 1.25, 0.12]} color={P.teal} fill={0.2} /><Tag position={[-1.5, 0.85, 0.15]} tone="teal">{t.memory}</Tag><Ribbon points={[[-0.4, 0.2, 0], [0.4, 0.2, 0]]} color={P.amber} radius={0.05} opacity={0.85} /><Slab position={[1.5, 0.2, 0]} size={[1.8, 1.25, 0.12]} color={P.amber} fill={0.24} /><Tag position={[1.5, 0.85, 0.15]} tone="amber">{t.active}</Tag><Tag position={[0, -0.75, 0.15]} tone="muted" size="xs">{t.total} · atención densa</Tag></>}
-      </PointerTilt>
-    </Stage>
-  </Figure>;
+  const [mode, setMode] = useState<Mode>("layers");
+  return (
+    <Figure
+      label={t.title}
+      hint={t.hint}
+      legend={[
+        { color: P.teal, label: t.product },
+        { color: P.violet, label: t.harness },
+        { color: P.amber, label: t.model },
+      ]}
+      controls={
+        <Switcher
+          value={mode}
+          onChange={setMode}
+          options={[
+            { value: "layers", label: t.layers, tone: P.teal },
+            { value: "train", label: t.train, tone: P.violet },
+            { value: "api", label: t.api, tone: P.amber },
+          ]}
+          ariaLabel={t.title}
+        />
+      }
+    >
+      <Stage className="h-full w-full" camera={{ position: [0, 0.3, 8.6], fov: 37 }}>
+        <Motes count={90} radius={7} opacity={0.28} />
+        <PointerTilt amount={0.07}>
+          {mode === "layers" && (
+            <>
+              {[
+                [t.product, P.teal, "teal", -1.8, 1.15],
+                [t.harness, P.violet, "violet", 0, 0.85],
+                [t.model, P.amber, "amber", 1.8, 0.55],
+              ].map(([label, color, tone, x, h], i) => (
+                <group key={label as string}>
+                  <Slab position={[x as number, -0.35 + (h as number) / 2, 0]} size={[1.5, h as number, 0.12]} color={color as string} fill={0.24} />
+                  <Tag position={[x as number, 0.8, 0.15]} tone={(["teal", "violet", "amber"] as const)[i]} size="xs">
+                    {label as string}
+                  </Tag>
+                </group>
+              ))}
+              <Tag position={[0, -0.92, 0.15]} tone="muted" size="xs">
+                {t.product} → {t.harness} → {t.model}
+              </Tag>
+            </>
+          )}
+          {mode === "train" && (
+            <>
+              <Slab position={[-1.7, 0.15, 0]} size={[1.6, 1.05, 0.12]} color={P.rose} fill={0.22} />
+              <Tag position={[-1.7, 0.8, 0.15]} tone="rose" size="xs">
+                {t.lora}
+              </Tag>
+              <Ribbon points={[[-0.8, 0.15, 0], [0.8, 0.15, 0]]} color={P.violet} radius={0.045} opacity={0.8} />
+              <Slab position={[1.7, 0.15, 0]} size={[1.6, 1.05, 0.12]} color={P.teal} fill={0.22} />
+              <Tag position={[1.7, 0.8, 0.15]} tone="teal" size="xs">
+                {t.chat}
+              </Tag>
+              <Tag position={[0, -0.92, 0.15]} tone="muted" size="xs">
+                {t.lora} cambia números · {t.chat} no
+              </Tag>
+            </>
+          )}
+          {mode === "api" && (
+            <>
+              <Node3D position={[-1.7, 0.15, 0]} color={P.teal} radius={0.22} pulse={0.3} />
+              <Tag position={[-1.7, 0.8, 0.15]} tone="teal" size="xs">
+                {t.disk}
+              </Tag>
+              <Flow points={[[-0.85, 0.15, 0], [0.85, 0.15, 0]]} color={P.amber} count={5} />
+              <Halo position={[1.7, 0.15, 0]} radius={0.55} color={P.amber} opacity={0.4} spin={0.14} />
+              <Node3D position={[1.7, 0.15, 0]} color={P.amber} radius={0.18} />
+              <Tag position={[1.7, 0.8, 0.15]} tone="amber" size="xs">
+                {t.rent}
+              </Tag>
+              <Tag position={[0, -0.92, 0.15]} tone="muted" size="xs">
+                {t.weights} en casa o alquilados
+              </Tag>
+            </>
+          )}
+        </PointerTilt>
+      </Stage>
+    </Figure>
+  );
 }

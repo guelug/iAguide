@@ -18,6 +18,8 @@ Culpar «a ChatGPT» de un fallo es como culpar «al navegador» cuando la pági
 
 Una misma app puede cambiar de modelo sin que la pantalla cambie. Un mismo modelo puede vivir en diez apps. Si no separas las tres, vas a depurar la planta equivocada durante meses.
 
+<VisualSlot id="orientation:2" caption="Producto, arnés y modelo son plantas distintas. Entrenar cambia números; el chat no. El archivo puede estar en disco o alquilarse por token." />
+
 ## Qué es un modelo
 
 Un <Term id="model">modelo de lenguaje</Term> es un archivo grande de números (los <Term id="weights">pesos</Term>) más una receta para usarlos. No es un programa que alguien escribió línea a línea con `if` y `else`. Nadie sentó a un ingeniero a teclear «si te preguntan la capital de Francia, responde París». El modelo **aprendió** a continuar texto porque vio cantidades brutales de texto y ajustó esos números hasta predecir bien el siguiente trozo.
@@ -96,6 +98,8 @@ El entrenamiento tiene **fecha de corte**. El archivo no lee el periódico esta 
 
 Cuando la tarea es contar letras, hacer aritmética larga, o citar una ley con número de artículo, no le pidas al motor que «se fije». Dale una herramienta o un texto fuente. El cerebro predice ids, no grafemas.
 
+<VisualSlot id="orientation:3" caption="Una palabra no es una pieza. El modelo elige el siguiente token hasta el EOS. Inventar es continuar con fluidez cuando no hay una fila que consultar." />
+
 ## Prompt, roles, ventana, amnesia
 
 El **prompt** es el texto que le das en esta pasada. El modelo no lo «recuerda» de ayer. Solo ve lo que cabe en la <Term id="context-window">ventana de contexto</Term> **ahora**.
@@ -113,7 +117,7 @@ La ventana es un presupuesto, no un archivador. System, tools, historial y lo qu
 
 Los pesos son lo que el modelo **es**. El prompt es lo que **ve ahora**. Confundirlos es el error de quien cree que un system prompt de 20 páginas «reentrena» al modelo. No. Le da más texto a completar. A veces ayuda. A veces solo gasta ventana.
 
-<VisualSlot id="orientation:2" caption="Tres vistas del tema: mapa, mecanismo y trade-off. Interactivas y en español." />
+<VisualSlot id="orientation:4" caption="Los roles viajan en una sola cadena. La ventana es un presupuesto. Un agente es un bucle: el modelo escribe la petición y el código la corre." />
 
 ## La misma pregunta, distinta respuesta
 
