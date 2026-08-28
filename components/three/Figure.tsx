@@ -13,7 +13,7 @@ export function Figure({
   legend,
   controls,
   children,
-  height = "h-[320px] md:h-[420px]",
+  height = "h-[360px] md:h-[460px]",
   flush = false,
 }: {
   label?: string;
