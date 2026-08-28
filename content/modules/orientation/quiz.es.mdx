@@ -2,51 +2,51 @@
   questions={[
     {
       id: "q1",
-      stem: "¿Qué es un modelo de lenguaje, en la práctica?",
+      stem: "Abres ChatGPT y ves una respuesta. ¿Qué estás viendo?",
       options: [
-        { id: "a", text: "Una base de datos de preguntas y respuestas." },
-        { id: "b", text: "Un archivo de pesos (números aprendidos) más una receta para puntuar el siguiente token. No es un programa de reglas escritas a mano." },
-        { id: "c", text: "El chat que ves en la pantalla." },
-        { id: "d", text: "Una API de un proveedor." }
+        { id: "a", text: "El modelo, y nada más." },
+        { id: "b", text: "Un producto (cuenta, límites, interfaz) que llama a un arnés, que a su vez llama a un archivo de pesos. Las tres capas se pueden cambiar por separado." },
+        { id: "c", text: "Una base de datos de preguntas frecuentes." },
+        { id: "d", text: "Siempre el mismo archivo, para siempre." }
       ],
       correct: "b",
-      explanation: "El modelo es el artefacto: pesos más la operación de puntuar el siguiente token. El chat, la API y el arnés son capas alrededor. Cambias el archivo; el bucle puede seguir."
+      explanation: "La pantalla es el producto. El código que arma el prompt y muestra el texto es el arnés. El modelo es el archivo. Culpar «a ChatGPT» de un fallo no te dice en qué planta está el bug."
     },
     {
       id: "q2",
-      stem: "¿Qué es un token?",
+      stem: "¿Qué es un modelo de lenguaje, en la práctica?",
       options: [
-        { id: "a", text: "Siempre una palabra." },
-        { id: "b", text: "Un trozo de texto convertido en un entero del vocabulario. A veces es una palabra, a veces un fragmento, un signo o un pedazo de código. El modelo lee y escribe tokens, no caracteres." },
-        { id: "c", text: "Un carácter Unicode." },
-        { id: "d", text: "Una frase completa." }
+        { id: "a", text: "Una base de datos de preguntas y respuestas." },
+        { id: "b", text: "Un archivo de pesos (números aprendidos, los parámetros) más una receta para puntuar el siguiente token. «7B» habla de tamaño, no de una nota de inteligencia." },
+        { id: "c", text: "El chat que ves en la pantalla." },
+        { id: "d", text: "Una API de un proveedor, por definición." }
       ],
       correct: "b",
-      explanation: "El tokenizador parte el texto en piezas aprendidas. Cuenta tokens cuando pienses en coste o contexto. El español y el código suelen gastar más que el inglés."
+      explanation: "Los parámetros son los números que el entrenamiento ajustó. Un 7B en 16 bits ronda 14 GB. El chat y la API son capas alrededor. Puedes tener el archivo en disco o alquilarlo por token."
     },
     {
       id: "q3",
-      stem: "Cuando un modelo «responde», ¿qué está haciendo?",
+      stem: "Alguien dice: «le enseñé en el chat, ya lo sabe». ¿Qué pasó de verdad?",
       options: [
-        { id: "a", text: "Busca la respuesta en una tabla y la copia." },
-        { id: "b", text: "Piensa en silencio y luego dicta un párrafo entero." },
-        { id: "c", text: "Puntúa el siguiente token, lo emite, lo añade a la secuencia y repite hasta que para." },
-        { id: "d", text: "Consulta internet por defecto." }
+        { id: "a", text: "Los pesos se actualizaron con esa conversación." },
+        { id: "b", text: "Nada: el modelo no aprende al usarlo. Solo ve lo que el arnés vuelva a pegar en el prompt. Entrenar o un LoRA sí cambian números; el chat no." },
+        { id: "c", text: "El system prompt reentrenó el archivo." },
+        { id: "d", text: "A partir de ahora recuerda todo entre sesiones, siempre." }
       ],
-      correct: "c",
-      explanation: "Toda la generación es siguiente-token. El «razonamiento» visible también son tokens. No hay un paso aparte de consulta salvo que el arnés llame a una herramienta."
+      correct: "b",
+      explanation: "Usar (inferencia) deja los pesos quietos. La «memoria» del hilo es texto concatenado. Si no lo pegas, no está. Fine-tune y LoRA viven en la vía de entrenamiento."
     },
     {
       id: "q4",
-      stem: "¿Qué distingue el prompt de los pesos?",
+      stem: "El modelo afirma con seguridad un dato que no estaba en el entrenamiento. ¿Qué ocurrió?",
       options: [
-        { id: "a", text: "Son lo mismo: el prompt reentrena al modelo." },
-        { id: "b", text: "Los pesos son lo que el modelo es (el archivo aprendido). El prompt es lo que ve ahora, dentro de una ventana de contexto que es un presupuesto, no un archivador." },
-        { id: "c", text: "El prompt vive en disco y los pesos se teclean cada turno." },
-        { id: "d", text: "El prompt solo existe en ChatGPT." }
+        { id: "a", text: "Se rompió una base de datos interna." },
+        { id: "b", text: "Consultó internet por defecto y copió mal." },
+        { id: "c", text: "Hizo su trabajo: completar con el siguiente token plausible. Eso es alucinar. La voz segura no es un medidor de verdad; si el dato es de hoy, el arnés tiene que ir a buscarlo y pegarlo." },
+        { id: "d", text: "Temperatura 0 lo habría vuelto cierto." }
       ],
-      correct: "b",
-      explanation: "Un system prompt largo no reentrena nada: gasta ventana. Los pesos cambian con entrenamiento o un adapter. El prompt cambia cada turno."
+      correct: "c",
+      explanation: "No hay un cajón de hechos. Hay hábitos de continuación. Temperatura 0 solo reduce el azar. Una tool o un texto fuente son cómo metes un hecho en el prompt."
     }
   ]}
 />

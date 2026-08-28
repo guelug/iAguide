@@ -9,11 +9,11 @@
   },
   "summary": {
     "en": "What this course is, how to read the map, and the four tracks you can walk.",
-    "es": "Qué es un modelo, qué es un token, cómo responde, y luego el mapa de las cuatro vías."
+    "es": "Chat frente a modelo, pesos, tokens, inferencia, alucinación, ventana y el mapa de las cuatro vías."
   },
   "status": "complete",
   "prereqs": [],
-  "durationMin": 16,
+  "durationMin": 28,
   "tags": [
     "map",
     "outcomes"

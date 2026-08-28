@@ -1,85 +1,160 @@
 ## Para quién es esta página
 
-Si ya sabes qué es un token, cómo predice un modelo el siguiente y por qué el contexto es una ventana, puedes saltar al [mapa](/es/course). Esta lección es el porche para quien abre el curso sin ese vocabulario.
+Si ya sabes qué es un token, cómo predice un modelo el siguiente, por qué el contexto es una ventana y por qué ChatGPT no *es* el modelo, puedes saltar al [mapa](/es/course). Esta lección es el porche. El resto del curso asume que lo has cruzado.
 
 iAguide explica cómo funcionan los sistemas de IA **en la práctica**, no cómo se vende un chat. El campo se mueve: un CLI cambia de nombre, una ficha se reescribe, un número cierto en una GPU es mentira en otra. Cuando damos una cifra, la marcamos como regla práctica o la omitimos.
 
-<VisualSlot caption="Cuatro vías en un mapa: fundamentos, arnés, entrenamiento, metal. Las particularidades de frameworks viven dentro del arnés — no como quinta vía." />
+<VisualSlot caption="Cuatro vías en un mapa: fundamentos, arnés, entrenamiento, metal. Las particularidades de frameworks viven dentro del arnés, no como quinta vía." />
+
+## El chat no es el modelo
+
+Cuando abres ChatGPT, Claude, Gemini o una app local, ves un producto: una caja de texto, un hilo, a veces un micrófono. Por debajo hay al menos tres cosas distintas:
+
+1. **El modelo**: un archivo de números. Es lo que «habla».
+2. **El arnés**: el programa que arma lo que el modelo ve, llama al modelo, muestra la respuesta, a veces ejecuta herramientas. Lo escriben humanos.
+3. **El producto**: cuentas, límites, interfaz, facturación, filtros. ChatGPT es un producto. El modelo que usa OpenAI esa semana es un archivo (o varios) que no te dejan descargar.
+
+Culpar «a ChatGPT» de un fallo es como culpar «al navegador» cuando la página está mal. Puede ser el modelo, el prompt, el código alrededor, o un límite de la app. El curso te enseña a nombrar la capa.
+
+Una misma app puede cambiar de modelo sin que la pantalla cambie. Un mismo modelo puede vivir en diez apps. Si no separas las tres, vas a depurar la planta equivocada durante meses.
 
 ## Qué es un modelo
 
 Un <Term id="model">modelo de lenguaje</Term> es un archivo grande de números (los <Term id="weights">pesos</Term>) más una receta para usarlos. No es un programa que alguien escribió línea a línea con `if` y `else`. Nadie sentó a un ingeniero a teclear «si te preguntan la capital de Francia, responde París». El modelo **aprendió** a continuar texto porque vio cantidades brutales de texto y ajustó esos números hasta predecir bien el siguiente trozo.
 
-Eso tiene tres consecuencias que no se van:
+Cada número que se ajustó es un <Term id="parameter">parámetro</Term>. Cuando lees «Llama 8B» o «un 7B», la B es mil millones de parámetros. No es un ranking de inteligencia. Es el tamaño del archivo, más o menos. Un 7B en 16 bits ocupa del orden de 14 GB en disco. Un 70B, diez veces eso. El número no te dice si miente menos. Te dice si cabe en tu máquina.
 
-1. El modelo no «sabe» en el sentido de una base de datos. No hay una fila `capital(Francia)=París`. Hay un hábito estadístico: después de cierta secuencia, «París» suele ser un buen siguiente paso.
-2. Si el hábito se entrenó mal, o el texto de entrenamiento era basura, el modelo lo reproduce con la misma seguridad con la que acierta. La voz segura no es una prueba.
-3. Cambiar de modelo es cambiar de archivo. El chat que lo envuelve puede ser el mismo.
+Consecuencias que no se van:
 
-Un modelo **instruct** o **chat** es el mismo tipo de máquina, afinada para contestar en turnos («usuario», «asistente») en vez de completar un párrafo de novela. Sigue prediciendo el siguiente trozo. Solo que el trozo ahora parece una respuesta.
+El modelo no «sabe» como una base de datos. No hay una fila `capital(Francia)=París`. Hay un hábito estadístico: después de cierta secuencia, «París» suele ser un buen siguiente paso.
 
-Los pesos ocupan disco. Un 7B en 16 bits pesa del orden de 14 GB. Un 70B no cabe en un portátil corriente. Más adelante el curso habla de cuantizar (guardar esos números con menos bits) para que quepan. Hoy basta con: **el modelo es un artefacto, no una API mágica.**
+Si el hábito se entrenó mal, o el texto de entrenamiento era basura, el modelo lo reproduce con la misma seguridad con la que acierta. La voz segura no es una prueba.
+
+Cambiar de modelo es cambiar de archivo. El chat que lo envuelve puede ser el mismo.
+
+Un modelo **base** completa texto, como si siguiera un párrafo. Un modelo **instruct** o **chat** es el mismo tipo de máquina, afinada para contestar en turnos (usuario, asistente) en vez de completar una novela. Sigue prediciendo el siguiente trozo. Solo que el trozo ahora parece una respuesta. Si le pides chat a un base crudo, a menudo sigue el prompt como si fuera el inicio de un artículo. No está roto. Está haciendo su trabajo original.
 
 <Callout>
 Si alguien te dice «el modelo decidió X», traduce: produjo tokens que, una vez leídos, significan X. La decisión, si hay una, suele estar en el código que llama al modelo, no en los pesos.
 </Callout>
 
+## Entrenar no es usar
+
+Hay dos momentos en la vida de esos números.
+
+**Entrenar** (o ajustar) es cambiar los pesos. Hace falta texto, tiempo de GPU, y alguien que sepa no destrozar lo que el modelo ya hacía. El preentrenamiento de un modelo grande no cabe en un portátil. Un ajuste pequeño sí puede. Eso vive en la vía de entrenamiento.
+
+**Usar** (inferencia) es dejar los pesos quietos y pedirles el siguiente token. Es lo que hace un chat, un API, Ollama, vLLM. Casi todo lo que ves como usuario es inferencia. El archivo no aprende de tu conversación. Si mañana le preguntas otra vez, no «se acuerda» salvo que el arnés vuelva a pegar el hilo en el prompt.
+
+Un system prompt de veinte páginas no entrena nada. Gasta ventana. Un LoRA sí cambia (o añade) números. Por eso «le enseñé en el chat» y «le hice fine-tune» no son la misma frase.
+
+## Archivo o API
+
+Dos maneras de hablar con un modelo, y se confunden todo el rato.
+
+**Pesos abiertos**: descargas el archivo (o varios), lo corres en una máquina que controlas. Llama, Qwen, Mistral, Gemma, muchos Hermes. La licencia importa: «abierto» no siempre significa «haz lo que quieras». Los datos de entrenamiento casi nunca vienen en la caja.
+
+**API**: envías texto a un servidor de otro. OpenAI, Anthropic, Google, Groq, un endpoint de Hugging Face. No tocas el archivo. Pagas por tokens. El proveedor puede cambiar el modelo detrás del mismo nombre. Tu código sigue igual; el comportamiento, no.
+
+Las dos sirven. Un agente en producción a menudo mezcla: un modelo barato por API para clasificar, un modelo local para datos que no quieres subir. El error es tratar la API como si fueran *tus* pesos, o tratar el archivo local como si no tuviera coste (electricidad, VRAM, tiempo).
+
+Hoy basta con: **el modelo es un artefacto**. A veces lo tienes en disco. A veces lo alquilas por token.
+
 ## Qué es un token
 
 El modelo no ve letras ni palabras. Ve <Term id="token">tokens</Term>: trozos de texto convertidos en enteros. Un tokenizador parte «Hola, ¿qué tal?» en piezas. A veces una pieza es una palabra. A veces es una sílaba, un espacio con una letra, un signo, un fragmento de código.
 
-No hace falta memorizar el vocabulario. Hace falta el hábito: **cuenta tokens, no caracteres**, cuando pienses en coste, límite de contexto o velocidad. Una página de prosa suele ser unos cientos de tokens. Un JSON de 12 KB o un log de 200 líneas puede ser miles sin parecer «largo» a tu ojo.
+El tokenizador **viaja con el modelo**. No es un extra que puedes cambiar «porque este otro parte mejor el español». Cámbialo y tienes otro modelo, aunque los tensores te suenen iguales. La lección de [tokenización](/es/m/tokenization) entra en plantillas y tokens especiales. Aquí: el modelo lee y escribe enteros de un vocabulario fijo.
 
-El inglés suele caer cerca de 0,7–1 palabra por token. El español, con tildes y conjugaciones, a menudo gasta más. El código y las URLs, todavía más. La lección siguiente, [el idioma de los modelos](/es/m/language-of-models), entra en el tokenizador, la ventana y el muestreo. Aquí solo hace falta: el modelo lee y escribe tokens.
+Hábito, no constante: **cuenta tokens, no caracteres**, cuando pienses en coste, límite de contexto o velocidad. Una página de prosa suele ser unos cientos de tokens. Un JSON de 12 KB o un log de 200 líneas puede ser miles sin parecer «largo» a tu ojo.
+
+El inglés suele caer cerca de 0,7–1 palabra por token. El español, con tildes y conjugaciones, a menudo gasta más. El código y las URLs, todavía más. Por eso un límite de «128k de contexto» no es 128.000 palabras. Es 128.000 piezas. En español caben menos frases de las que tu oído espera.
+
+Las APIs cobran de los dos lados: tokens que **entran** (tu prompt, el hilo, las tools) y tokens que **salen** (la respuesta). Una respuesta corta con un prompt enorme puede salir más cara que una respuesta larga con un prompt corto. Mide las dos columnas.
 
 ## Cómo responde
 
-Dada la secuencia hasta ahora, el modelo puntúa **cada** entrada de su vocabulario como candidata a siguiente token. Elige una (la más probable, o una al azar según una temperatura). La añade a la secuencia. Repite.
+Dada la secuencia hasta ahora, el modelo puntúa **cada** entrada de su vocabulario. Esas puntuaciones crudas se llaman logits; [las matemáticas que sí necesitas](/es/m/maths-you-need) las convierten en probabilidades. Elige una pieza (la más probable, o una al azar según una temperatura). La añade a la secuencia. Repite.
 
-Eso es toda la generación. Planificar, «razonar», llamar a una herramienta: también son tokens. No hay un segundo cerebro que piensa en silencio y luego dicta. Si ves un bloque de pensamiento, son tokens extra que alguien entrenó al modelo a emitir antes de la respuesta.
+Eso es toda la generación. Planificar, «razonar», llamar a una herramienta: también son tokens. No hay un segundo cerebro que piensa en silencio y luego dicta. Si ves un bloque de pensamiento, son tokens extra que alguien entrenó al modelo a emitir *antes* de la respuesta visible.
 
-Por eso un chat parece una conversación y por debajo es siempre lo mismo: **continuar**. Si cortas a mitad, el modelo no «se queda a medias en una idea»; se queda a medias en una secuencia.
+La generación **para** cuando el modelo emite un token de fin (EOS), o cuando el arnés corta por un máximo que pusiste tú. Si cortas a mitad, el modelo no «se queda a medias en una idea». Se queda a medias en una secuencia.
+
+Por eso un chat parece una conversación y por debajo es siempre lo mismo: **continuar**.
 
 <Myth>
 «El modelo entiende la pregunta y luego busca la respuesta.» Lee la pregunta como tokens, la mezcla con lo que ya hay en el contexto, y emite el siguiente token. La comprensión, si quieres llamarla así, está en esa mezcla. No hay un paso aparte de consulta.
 </Myth>
 
-## Prompt, contexto, pesos
+## Por qué inventa
 
-El **prompt** es el texto que le das: tu mensaje, a veces un system prompt, a veces el hilo hasta aquí. El modelo no lo «recuerda» de ayer. Solo ve lo que cabe en la <Term id="context-window">ventana de contexto</Term> de **esta** pasada.
+Un modelo no tiene un cajón de hechos con fecha. Tiene hábitos de continuación. Si el hábito dice que después de «el primer hombre en la Luna fue» suele venir «Armstrong», acierta. Si le preguntas algo que no estaba en el entrenamiento, o que cambió ayer, **sigue emitiendo tokens que suenan bien**. Eso es una <Term id="hallucination">alucinación</Term>: no un virus, no un bug de base de datos. Es el mismo motor haciendo su trabajo sin una fila que consultar.
 
-La ventana es un presupuesto, no un archivador. System prompt, herramientas, historial y lo que está escribiendo ahora mismo compiten por los mismos tokens. Cuando se llena, algo tiene que salir: recortas, resumes o empiezas otro hilo.
+La voz segura es parte del estilo que aprendió. No es un medidor de verdad. Temperatura 0 (siempre el token más probable) tampoco convierte el texto en cierto. Solo lo hace menos aleatorio. Un error con confianza sigue siendo un error.
 
-Los pesos son lo que el modelo **es**. El prompt es lo que el modelo **ve ahora**. Confundirlos es el error de quien cree que un system prompt de 20 páginas «reentrena» al modelo. No. Le da más texto a completar. A veces ayuda. A veces solo gasta ventana.
+El entrenamiento tiene **fecha de corte**. El archivo no lee el periódico esta mañana. Si necesita un dato de hoy, el arnés tiene que ir a buscarlo (una tool, una página, una base tuya) y **pegarlo en el prompt**. Si no lo pegas, el modelo completa con lo que sea plausible.
+
+Cuando la tarea es contar letras, hacer aritmética larga, o citar una ley con número de artículo, no le pidas al motor que «se fije». Dale una herramienta o un texto fuente. El cerebro predice ids, no grafemas.
+
+## Prompt, roles, ventana, amnesia
+
+El **prompt** es el texto que le das en esta pasada. El modelo no lo «recuerda» de ayer. Solo ve lo que cabe en la <Term id="context-window">ventana de contexto</Term> **ahora**.
+
+Una conversación de chat no es un objeto mágico. Antes de cada llamada, el arnés **concatena** lo que va a ver el modelo: a menudo un mensaje de sistema, luego turnos de usuario y asistente, a veces resultados de herramientas. El modelo lee esa cadena entera. No tiene un cajón aparte llamado «esta charla».
+
+Roles que vas a ver:
+
+- **system**: instrucciones permanentes. Tono, límites, lista de tools. Viaja en cada llamada. Cada línea extra es contexto.
+- **user**: lo que escribiste.
+- **assistant**: lo que el modelo ya dijo (y a veces el formato de una tool).
+- **tool**: lo que devolvió un programa después de que el modelo pidiera una función.
+
+La ventana es un presupuesto, no un archivador. System, tools, historial y lo que está escribiendo ahora mismo compiten por los mismos tokens. 4k es estrecho (un cuento corto). 32k da para un hilo de trabajo. 128k parece infinito hasta que pegas un PDF y un system prompt gordo. Cuando se llena, algo tiene que salir: recortas, resumes o empiezas otro hilo. Eso lo hace el arnés. El modelo no «olvida» por madurez. Se le acaba el presupuesto.
+
+Los pesos son lo que el modelo **es**. El prompt es lo que **ve ahora**. Confundirlos es el error de quien cree que un system prompt de 20 páginas «reentrena» al modelo. No. Le da más texto a completar. A veces ayuda. A veces solo gasta ventana.
 
 <VisualSlot id="orientation:2" caption="Tres vistas del tema: mapa, mecanismo y trade-off. Interactivas y en español." />
+
+## La misma pregunta, distinta respuesta
+
+Si pides siempre el token más probable (temperatura 0, greedy), con el mismo prompt y un runtime estable suele repetir. Si muestreás, no. El modelo no «cambia de opinión». Está sacando otra pieza de la misma urna.
+
+Algunos kernels de GPU ni siquiera son bit-estables entre dos ejecuciones. Si necesitas que un test dé siempre el mismo JSON, temperatura 0, semilla fija, y aun así trata el drift como posible. La lección [el idioma de los modelos](/es/m/language-of-models) abre temperatura, top-p y top-k. Aquí basta: **aleatorio no es creativo, y determinista no es honesto.**
+
+## Un chat no es un agente
+
+Un chat: tú escribes, el modelo completa, tú lees. Un **agente**, en este curso, es un bucle: el modelo puede pedir una herramienta (buscar, leer un archivo, ejecutar código), el arnés la corre, pega el resultado, y el modelo continúa.
+
+La petición de herramienta también son tokens. El modelo no «ejecuta» nada. Escribe algo con forma de `get_weather(ciudad="Santander")`. Si nadie parsea eso y llama a un programa, tienes un párrafo bonito. No un agente.
+
+Por eso pegar HuggingChat a una cafetera y llamarlo agente no basta. Hace falta el bucle. Vive en [el arnés](/es/m/the-harness) y en [dummy agent](/es/m/dummy-agent). Hoy solo el corte: **el motor completa; la agencia es código alrededor.**
 
 ## Tres plantas, no una sopa
 
 Casi toda confusión sobre IA es una confusión de capa. Alguien culpa al modelo de un bug del código, o al código de un muro de memoria.
 
-- **El modelo** — los pesos. Se entrenan, no se programan. Puntúan el siguiente token.
-- **El arnés** — el bucle alrededor: arma el prompt, llama al modelo, ejecuta herramientas si las pidió, guarda el hilo. Lo escriben humanos, en código normal. Ahí viven casi todos los bugs.
-- **El silicio** — hay que leer los pesos para usarlos. El tamaño de memoria decide qué cabe; el ancho de banda, a qué velocidad «piensa».
+- **El modelo**: los pesos. Se entrenan, no se programan. Puntúan el siguiente token.
+- **El arnés**: el bucle alrededor. Arma el prompt, llama al modelo, ejecuta tools si las pidió, guarda el hilo. Lo escriben humanos, en código normal. Ahí viven casi todos los bugs.
+- **El silicio**: hay que leer los pesos para usarlos. El tamaño de memoria decide qué cabe; el ancho de banda, a qué velocidad «piensa».
 
-El curso está montado para que sepas en qué planta estás. Hermes, OpenClaw o ChatGPT son productos. El modelo es un archivo. El arnés es el bucle. No son la misma cosa con otro logo.
+Hermes, OpenClaw o ChatGPT son productos. El modelo es un archivo. El arnés es el bucle. No son la misma cosa con otro logo.
 
 ## El mapa, ahora que hay vocabulario
 
 Cuatro vías. Recórrelas en orden o salta cuando ya sepas el porche.
 
-- **Fundamentos** — el lenguaje de los modelos. Tokens, atención, embeddings. Empieza aquí.
-- **Arnés** — el bucle alrededor del modelo. Tools, sesiones, cachés, permisos.
-- **Entrenamiento** — de dónde salen los pesos: pretrain, SFT, LoRA, preferencias.
-- **Metal** — hacerlos correr: cuantización, hardware, throughput, factura.
+- **Fundamentos**: el lenguaje de los modelos. Tokens, atención, embeddings. Sigue aquí.
+- **Arnés**: el bucle alrededor del modelo. Tools, sesiones, cachés, permisos.
+- **Entrenamiento**: de dónde salen los pesos. Pretrain, SFT, LoRA, preferencias.
+- **Metal**: hacerlos correr. Cuantización, hardware, throughput, factura.
 
 Las particularidades de frameworks (smolagents, LangGraph, LlamaIndex, Hermes, OpenClaw) viven **dentro** del arnés. No son una quinta vía.
 
-Más adelante verás dos palabras de operador, **prefill** y **decode**: primero el modelo ingiere el prompt, luego escribe token a token. No las necesitas para terminar esta página. Aparecen cuando hablemos de latencia y de dinero.
+Más adelante verás dos palabras de operador, prefill y decode: primero el modelo ingiere el prompt, luego escribe token a token. No las necesitas para terminar esta página. Aparecen cuando hablemos de latencia y de dinero.
 
 ## Cómo leer una lección
 
-Cada lección dura 8–20 minutos. Los diagramas son un lienzo, no un carnaval. Las palabras con subrayado de puntos saltan al glosario.
+Cada lección dura 8–20 minutos, salvo este porche, que pide más. Los diagramas son un lienzo, no un carnaval. Las palabras con subrayado de puntos saltan al glosario.
 
 Los comandos son esquemas: el binario y la idea. Las flags se mueven. Pega en la terminal solo después de leer el `--help` actual.
 
@@ -103,14 +178,17 @@ Currículo de 2026. Si una página discrepa de la herramienta que tienes en el P
 Un alumno abrió cinco librerías de agentes antes de escribir un `while` con un `runTool` falso. Tenía marcadores. No tenía un bucle. Empieza por qué es un modelo y cómo responde; colecciona dialectos después.
 
 <Steps>
+<Step title="Producto, arnés, modelo">
+La pantalla no es el archivo. Nombra la capa antes de culpar.
+</Step>
 <Step title="Qué es un modelo">
-Un archivo de pesos más una receta. No un programa con reglas escritas a mano.
+Pesos más una receta. Los parámetros son el tamaño. Entrenar cambia el archivo; usar no.
 </Step>
-<Step title="Qué es un token">
-La unidad que el modelo lee y escribe. Cuenta tokens, no caracteres.
+<Step title="Tokens y continuación">
+Lee y escribe enteros. Responder es el siguiente, una y otra vez, hasta que para.
 </Step>
-<Step title="Cómo responde">
-Siguiente token, una y otra vez, hasta que para.
+<Step title="Ventana y tools">
+El hilo se pega cada vez. Una tool es texto que alguien más ejecuta.
 </Step>
 <Step title="Luego el mapa">
 Fundamentos, arnés, entrenamiento, metal. Elige la vía; no colecciones logos.
@@ -119,12 +197,16 @@ Fundamentos, arnés, entrenamiento, metal. Elige la vía; no colecciones logos.
 
 ## Lista práctica
 
-1. Un modelo son pesos entrenados, no un buscador con opiniones.
-2. Un token es un trozo de texto convertido en un entero. El modelo no ve palabras.
-3. Responder es predecir el siguiente token y repetir.
-4. El prompt es lo que ve ahora. Los pesos son lo que es. La ventana es un presupuesto.
-5. Tres plantas: modelo, arnés, silicio. No las mezcles al depurar.
-6. Cuatro vías en el mapa. Esta página es el porche, no el almacén.
+1. El chat es un producto. El modelo es un archivo. El arnés es el código alrededor.
+2. Un modelo son pesos entrenados, no un buscador con opiniones. «8B» es tamaño, no nota.
+3. Entrenar cambia números. Usar (inferencia) los deja quietos.
+4. Archivo en disco o API por token. No son el mismo contrato.
+5. Un token es un trozo convertido en entero. Cuenta tokens, no caracteres. El español suele gastar más.
+6. Responder es predecir el siguiente token y repetir. El pensamiento visible también son tokens.
+7. Inventar es el mismo motor sin una fila que consultar. La voz segura no mide verdad.
+8. El prompt es lo que ve ahora. Los pesos son lo que es. La ventana es un presupuesto. No hay memoria entre llamadas salvo lo que vuelvas a pegar.
+9. Un agente es un bucle con tools. El modelo solo escribe la petición.
+10. Tres plantas: modelo, arnés, silicio. Cuatro vías en el mapa. Esta página es el porche.
 
 ## Fuentes
 

@@ -9,7 +9,7 @@
   },
   "summary": {
     "en": "Tokens, logits, sampling, prefill and decode — the vocabulary every other module assumes.",
-    "es": "Tokens, logits, muestreo, prefill y decode: el vocabulario que dan por sabido los demás módulos."
+    "es": "Tokens, logits, muestreo, prefill y decode: el vocabulario de operador que asume el resto del curso."
   },
   "status": "complete",
   "prereqs": [
