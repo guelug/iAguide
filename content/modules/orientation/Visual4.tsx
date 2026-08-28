@@ -1,9 +1,9 @@
 "use client";
 import { useState } from "react";
-import { ContactShadows, RoundedBox } from "@react-three/drei";
+import { RoundedBox } from "@react-three/drei";
 import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
-import { Flow, Halo, Motes, Node3D, PointerTilt, Ribbon, Slab, Tag, Wire } from "@/components/three/atoms";
+import { Flow, Halo, Motes, Node3D, PointerTilt, Ribbon, ShadowBlob, Slab, Tag, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
 import { useCopy } from "@/lib/useCopy";
 
@@ -166,7 +166,7 @@ export default function Visual4() {
           {mode === "roles" && <RolesScene t={t} />}
           {mode === "window" && <WindowScene t={t} />}
           {mode === "agent" && <AgentScene t={t} />}
-          <ContactShadows position={[0, -1.05, 0]} opacity={0.15} scale={7} blur={3} far={2.4} color={P.ink} />
+          <ShadowBlob position={[0, -1.02, 0]} scale={4.2} opacity={0.07} />
           <Tag position={[0, -1.28, 0.15]} tone="muted" size="xs" center>
             {note}
           </Tag>

@@ -1,9 +1,9 @@
 "use client";
 import { useState } from "react";
-import { ContactShadows, RoundedBox } from "@react-three/drei";
+import { RoundedBox } from "@react-three/drei";
 import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
-import { Flow, Halo, Motes, Node3D, PointerTilt, Ribbon, Slab, Tag, Wire } from "@/components/three/atoms";
+import { Flow, Halo, Motes, Node3D, PointerTilt, Ribbon, ShadowBlob, Slab, Tag, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
 import { useCopy } from "@/lib/useCopy";
 
@@ -54,11 +54,11 @@ function TokenScene({ t }: { t: (typeof COPY)["es"] }) {
   ];
   return (
     <>
-      <Slab position={[-1.6, 0.55, -0.35]} size={[2.6, 0.5, 0.1]} color={P.inkSoft} fill={0.1} rim={0.5} />
-      <Tag position={[-1.6, 0.98, -0.3]} tone="muted" size="xs" center>
+      <Slab position={[-0.1, 0.55, -0.35]} size={[2.6, 0.5, 0.1]} color={P.inkSoft} fill={0.1} rim={0.5} />
+      <Tag position={[-0.1, 0.98, -0.3]} tone="muted" size="xs" center>
         {t.word}
       </Tag>
-      <Flow points={[[-0.9, 0.42, -0.3], [-0.4, 0.16, -0.1], [0, 0, 0]]} color={P.inkSoft} count={3} size={0.035} lineOpacity={0.3} />
+      <Flow points={[[-0.1, 0.42, -0.3], [-0.1, 0.16, -0.1], [-0.1, 0, 0]]} color={P.inkSoft} count={3} size={0.035} lineOpacity={0.3} />
       {chips.map((chip, i) => (
         <group key={i} position={[chip.x, -0.18, 0.15]}>
           <RoundedBox args={[chip.w, 0.42, 0.24]} radius={0.07} smoothness={4}>
@@ -165,7 +165,7 @@ export default function Visual3() {
           {mode === "token" && <TokenScene t={t} />}
           {mode === "next" && <NextScene t={t} />}
           {mode === "invent" && <InventScene t={t} />}
-          <ContactShadows position={[0, -1.05, 0]} opacity={0.15} scale={7} blur={3} far={2.4} color={P.ink} />
+          <ShadowBlob position={[0, -1.02, 0]} scale={4.2} opacity={0.07} />
           <Tag position={[0, -0.95, 0.15]} tone="muted" size="xs" center>
             {note}
           </Tag>

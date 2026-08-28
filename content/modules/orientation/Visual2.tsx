@@ -1,9 +1,8 @@
 "use client";
 import { useState } from "react";
-import { ContactShadows } from "@react-three/drei";
 import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
-import { Flow, Halo, Lattice, Motes, Node3D, PointerTilt, Ribbon, Slab, Tag } from "@/components/three/atoms";
+import { Flow, Halo, Lattice, Motes, Node3D, PointerTilt, Ribbon, ShadowBlob, Slab, Tag } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
 import { useCopy } from "@/lib/useCopy";
 
@@ -54,7 +53,7 @@ function LayersScene({ t }: { t: (typeof COPY)["es"] }) {
     { label: t.product, color: P.teal, tone: "teal", y: 0.62 },
   ];
   return (
-    <group rotation={[-0.42, 0, 0]}>
+    <group rotation={[-0.42, 0, 0]} position={[0, 0.12, 0]}>
       {layers.map((layer) => (
         <group key={layer.label}>
           <Slab position={[0, layer.y, 0]} size={[3.4, 0.16, 1.7]} color={layer.color} fill={0.3} />
@@ -159,7 +158,7 @@ export default function Visual2() {
           {mode === "layers" && <LayersScene t={t} />}
           {mode === "train" && <TrainScene t={t} />}
           {mode === "api" && <ApiScene t={t} />}
-          <ContactShadows position={[0, -1.05, 0]} opacity={0.15} scale={7} blur={3} far={2.4} color={P.ink} />
+          <ShadowBlob position={[0, -1.02, 0]} scale={4.2} opacity={0.07} />
           <Tag position={[0, -0.95, 0.15]} tone="muted" size="xs" center>
             {note}
           </Tag>

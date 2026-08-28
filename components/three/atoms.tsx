@@ -467,6 +467,31 @@ export function Halo({
 /* ------------------------------------------------------------------ labels */
 
 /**
+ * A hand-drawn ground shadow: a soft flat ellipse under a subject. Cheaper
+ * and more predictable than shadow-map contact shadows, which smear into a
+ * solid grey band at low glancing camera angles.
+ */
+export function ShadowBlob({
+  position = [0, 0, 0] as V3,
+  scale = 1,
+  color = P.ink,
+  opacity = 0.1,
+}: {
+  position?: V3;
+  /** X radius multiplier; the blob keeps a 1:0.42 ellipse ratio. */
+  scale?: number;
+  color?: string;
+  opacity?: number;
+}) {
+  return (
+    <mesh position={position} rotation={[-Math.PI / 2, 0, 0]} scale={[scale, scale * 0.42, 1]}>
+      <circleGeometry args={[0.5, 40]} />
+      <meshBasicMaterial color={color} transparent opacity={opacity} depthWrite={false} />
+    </mesh>
+  );
+}
+
+/**
  * A DOM label anchored to a 3D point. Real text: selectable, translatable,
  * and readable by a screen reader, which SDF text in the canvas is not.
  */

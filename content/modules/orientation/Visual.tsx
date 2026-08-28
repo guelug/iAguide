@@ -1,12 +1,12 @@
 "use client";
 
-import { ContactShadows, RoundedBox } from "@react-three/drei";
+import { RoundedBox } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useRef, useState, type ReactNode } from "react";
 import { Group, MathUtils } from "three";
 import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
-import { Flow, Halo, Motes, Node3D, PointerTilt, Ribbon, Slab, Tag, Wire } from "@/components/three/atoms";
+import { Flow, Halo, Motes, Node3D, PointerTilt, Ribbon, ShadowBlob, Slab, Tag, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
 import { useCopy } from "@/lib/useCopy";
 
@@ -79,7 +79,6 @@ function Pedestal({ color, active }: { color: string; active: boolean }) {
 function FoundationsIcon({ active }: { active: boolean }) {
   return (
     <>
-      <Pedestal color={P.teal} active={active} />
       <Node3D position={[0, 0.03, 0]} color={P.teal} radius={0.21} pulse={active ? 0.3 : 0} />
       <Halo position={[0, 0.03, 0]} radius={0.38} color={P.teal} opacity={active ? 0.78 : 0.34} spin={0.22} />
       <Halo position={[0, 0.03, 0]} radius={0.47} color={P.tealDeep} opacity={active ? 0.36 : 0.16} rotation={[0, Math.PI / 2, Math.PI / 5]} spin={-0.12} />
@@ -94,7 +93,6 @@ function HarnessIcon({ active }: { active: boolean }) {
   const satellites: [number, number, number][] = [[-0.43, 0.24, 0], [0.43, 0.24, 0], [-0.43, -0.14, 0], [0.43, -0.14, 0]];
   return (
     <>
-      <Pedestal color={P.violet} active={active} />
       <RoundedBox position={[0, 0.05, 0]} args={[0.46, 0.46, 0.34]} radius={0.09} smoothness={4}>
         <meshStandardMaterial color={P.violet} roughness={0.3} metalness={0.12} />
       </RoundedBox>
@@ -111,7 +109,6 @@ function HarnessIcon({ active }: { active: boolean }) {
 function TrainingIcon({ active }: { active: boolean }) {
   return (
     <>
-      <Pedestal color={P.amber} active={active} />
       {[0, 1, 2, 3].map((i) => (
         <RoundedBox key={i} position={[0, -0.17 + i * 0.16, -i * 0.025]} args={[0.78 - i * 0.08, 0.1, 0.48]} radius={0.035} smoothness={3}>
           <meshStandardMaterial color={i === 3 ? P.amber : P.amberWash} roughness={0.4} metalness={i === 3 ? 0.08 : 0} />
@@ -127,7 +124,6 @@ function MetalIcon({ active }: { active: boolean }) {
   const pins = [-0.34, -0.12, 0.12, 0.34];
   return (
     <>
-      <Pedestal color={P.rose} active={active} />
       <RoundedBox position={[0, 0.05, 0]} args={[0.74, 0.54, 0.16]} radius={0.07} smoothness={4}>
         <meshStandardMaterial color={P.inkSoft} roughness={0.3} metalness={0.3} />
       </RoundedBox>
@@ -199,6 +195,8 @@ export default function Visual() {
                     document.body.style.cursor = "auto";
                   }}
                 >
+                  <Pedestal color={track.color} active={active} />
+                  <ShadowBlob position={[0, -0.53, 0]} scale={1.5} opacity={active ? 0.13 : 0.08} />
                   <Focus active={active}>
                     {track.id === "foundations" ? <FoundationsIcon active={active} /> : null}
                     {track.id === "harness" ? <HarnessIcon active={active} /> : null}
@@ -211,7 +209,7 @@ export default function Visual() {
                 </group>
               );
             })}
-            <ContactShadows position={[0, -0.56, 0]} opacity={0.16} scale={5.6} blur={3} far={2.4} color={P.ink} />
+            <ShadowBlob position={[0, -0.56, 0]} scale={4.6} opacity={0.06} />
           </group>
           <Slab position={[0, -1.17, 0]} size={[4.5, 0.38, 0.04]} color={TRACKS.find((track) => track.id === mode)?.color ?? P.teal} fill={0.08} rim={0.34} />
           <Tag position={[0, -1.16, 0.08]} tone={TRACKS.find((track) => track.id === mode)?.tone ?? "teal"} size="xs" center>
