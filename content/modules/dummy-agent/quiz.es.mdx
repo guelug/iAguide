@@ -1,0 +1,52 @@
+<Quiz
+  questions={[
+    {
+      id: "dummy-agent-1",
+      stem: "Qué es un agente, antes de que exista una biblioteca",
+      options: [
+        { id: "a", text: "Un LLM con un system prompt simpático" },
+        { id: "b", text: "Un bucle pensamiento-acción-observación que puede llamar herramientas" },
+        { id: "c", text: "Un fine-tune de function calling" },
+        { id: "d", text: "Un RAG con un retriever siempre encendido" },
+      ],
+      correct: "b",
+      explanation: "La Unidad 1 define al agente por el ciclo Thought-Action-Observation más herramientas, no por el modelo ni por un adapter. Un chat sin bucle no es un agente.",
+    },
+    {
+      id: "dummy-agent-2",
+      stem: "Cuál es la diferencia clave entre una herramienta y una acción",
+      options: [
+        { id: "a", text: "No hay diferencia: son sinónimos" },
+        { id: "b", text: "La herramienta es la capacidad en el catálogo; la acción es la llamada de este turno" },
+        { id: "c", text: "La acción es el código; la herramienta es el JSON" },
+        { id: "d", text: "Las herramientas las escribe el modelo; las acciones, el humano" },
+      ],
+      correct: "b",
+      explanation: "La herramienta (tool) se describe una vez, en texto, para que el modelo sepa que existe. La acción es la instancia: este Thought eligió esta tool con estos argumentos.",
+    },
+    {
+      id: "dummy-agent-3",
+      stem: "Qué es una Observation en el ciclo dummy",
+      options: [
+        { id: "a", text: "El siguiente pensamiento del modelo, más honesto" },
+        { id: "b", text: "Un log que tú añades: el resultado de ejecutar la acción en el entorno" },
+        { id: "c", text: "La métrica de un juez LLM" },
+        { id: "d", text: "El contenido del system prompt" },
+      ],
+      correct: "b",
+      explanation: "Observation es el entorno hablando: stdout, JSON de una API, error. Se concatena al hilo de mensajes. No la genera el LLM.",
+    },
+    {
+      id: "dummy-agent-4",
+      stem: "Qué se niega a ser la dummy agent library de la Unidad 1",
+      options: [
+        { id: "a", text: "Un parseo de Thought/Action en unas veinte líneas" },
+        { id: "b", text: "Un framework con memoria, planner y sandbox" },
+        { id: "c", text: "Un motor serverless para el LLM" },
+        { id: "d", text: "Un log de mensajes que hace de memoria" },
+      ],
+      correct: "b",
+      explanation: "La lección dummy es el bucle desnudo. Memoria, planner y sandbox son el harness. Si copias smolagents encima, ya no estás midiendo el ciclo.",
+    },
+  ]}
+/>

@@ -1,0 +1,52 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Por qué ReAct gana sobre Plan-and-Execute en la mayoría de los casos?",
+      options: [
+        { id: "a", text: "Es más moderno." },
+        { id: "b", text: "Porque entrelaza pensamiento y acción: cada paso observa el resultado antes de comprometerse. Plan-and-Execute gasta tokens en un plan que puede estar mal si las observaciones divergen." },
+        { id: "c", text: "Es lo que recomienda el proveedor." },
+        { id: "d", text: "Es más fácil de implementar." }
+      ],
+      correct: "b",
+      explanation: "ReAct entrelaza pensamiento y observación. Cada paso ve el resultado antes de decidir el siguiente. Plan-and-Execute tiene un plan upfront que no se adapta a observaciones inesperadas. ReAct gana en adaptabilidad con un coste de tokens similar o menor."
+    },
+    {
+      id: "q2",
+      stem: "Un subagente ejecuta una búsqueda ruidosa para el padre. ¿Cuál es el trade-off real?",
+      options: [
+        { id: "a", text: "Es gratis." },
+        { id: "b", text: "Aislamiento: el padre ve un resumen, no 40 archivos de grep. Coste: pagas otro prefill (paralelo y cacheable si el system prompt del hijo es estable). Úsalo cuando el padre se ahogaría, no como pack de personalidad." },
+        { id: "c", text: "Es más rápido siempre." },
+        { id: "d", text: "Mejora la calidad." }
+      ],
+      correct: "b",
+      explanation: "El subagente aísla ruido pero cuesta otro prefill. Si el system prompt del hijo es idéntico byte a byte, la caché de prefijo lo amortigua; si no, pagas prefill completo. Usar cuando el padre se ahogaría (muchos resultados), no como pack de personalidad."
+    },
+    {
+      id: "q3",
+      stem: "¿Cuándo un LangGraph (grafo) es mejor que un ReAct puro?",
+      options: [
+        { id: "a", text: "Siempre, los grafos son 'serios'." },
+        { id: "b", text: "Cuando el flujo tiene branches genuinos (aprobación humana, escalación), estado persistente entre turnos, o un checkpoint explícito. Fuera de eso, ReAct es suficiente; un grafo es ceremonia." },
+        { id: "c", text: "Cuando el modelo es pequeño." },
+        { id: "d", text: "Cuando hay más de tres tools." }
+      ],
+      correct: "b",
+      explanation: "Grafo cuando el bucle no basta: aprobación humana (nodo explícito), branches que un while no modela limpio, estado entre turnos que el transcript no captura. Si tu flujo es lineal con reintentos, ReAct. El grafo no es mejor; es apropiado para ciertos flujos."
+    },
+    {
+      id: "q4",
+      stem: "¿Qué falla con 'memoria durable tratada como política'?",
+      options: [
+        { id: "a", text: "Consume mucha RAM." },
+        { id: "b", text: "El modelo obedece instrucciones de hace N sesiones sin saber que son viejas. La memoria es contenido, no system prompt; etiquetar fecha de origen y exigir citarla antes de actuar es la fix." },
+        { id: "c", text: "Se pierde en reinicios." },
+        { id: "d", text: "Es más lento." }
+      ],
+      correct: "b",
+      explanation: "La memoria durable es contenido, no política. Si el modelo la obedece sin verificar, ejecuta instrucciones obsoletas. La fix: etiquetar fecha de origen, tratar como contenido, y exigir al modelo citar el origen antes de actuar sobre un hecho que no viene del system prompt."
+    }
+  ]}
+/>

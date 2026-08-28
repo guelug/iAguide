@@ -1,0 +1,52 @@
+<Quiz
+  questions={[
+    {
+      id: "tk1",
+      stem: "¿Qué ve de verdad el modelo cuando «hay un chat»?",
+      options: [
+        { id: "a", text: "Objetos mensaje con memoria entre llamadas" },
+        { id: "b", text: "Una sola cadena concatenada, con tokens especiales de su familia" },
+        { id: "c", text: "Un canal de tools aparte del prompt" },
+        { id: "d", text: "Nada: solo el último mensaje" }
+      ],
+      correct: "b",
+      explanation: "La UI es una abstracción. Antes del forward, system, user y assistant se pintan en un prompt. El modelo lee esa cadena cada vez. No hay cajón de memoria en los pesos del turno: hay ventana, lo que cabe en la cadena."
+    },
+    {
+      id: "tk2",
+      stem: "¿Cuál es la diferencia entre SmolLM2-135M y SmolLM2-135M-Instruct?",
+      options: [
+        { id: "a", text: "Ninguna: es el mismo checkpoint con otro nombre" },
+        { id: "b", text: "El Instruct es más grande" },
+        { id: "c", text: "Base completa texto; Instruct se ajustó a una plantilla de chat" },
+        { id: "d", text: "El Instruct no usa tokenizador" }
+      ],
+      correct: "c",
+      explanation: "El curso usa exactamente ese par. El instruct espera su rito. Darle completion cruda, o darle a un base un ChatML, es un bug de plantilla. 135M es el mismo tamaño: cambia el entrenamiento y el chat_template, no los miles de millones."
+    },
+    {
+      id: "tk3",
+      stem: "¿Cómo se pinta una conversación para un instruct sin inventar delimitadores?",
+      options: [
+        { id: "a", text: "Copiando ChatML de SmolLM2 a todos los modelos" },
+        { id: "b", text: "Con tokenizer.apply_chat_template sobre una lista role=system / user / assistant" },
+        { id: "c", text: "Pegando los tokens EOS de memoria" },
+        { id: "d", text: "Escribiendo los delimitadores a mano en cada prompt" }
+      ],
+      correct: "b",
+      explanation: "transformers ya trae la plantilla Jinja del artefacto. apply_chat_template es el puente. Copiar delimitadores de otra familia es NovaDesk: Llama 3 no habla im_start, Gemma no habla eot_id. El zoo no se unifica a mano."
+    },
+    {
+      id: "tk4",
+      stem: "Cuando el arnés ejecuta una tool, ¿dónde vive la Observation?",
+      options: [
+        { id: "a", text: "En un canal paralelo que el decoder atiende aparte" },
+        { id: "b", text: "En la misma cadena, delimitada como los demás turnos" },
+        { id: "c", text: "Solo en los logs del panel de observabilidad" },
+        { id: "d", text: "En la memoria del modelo" }
+      ],
+      correct: "b",
+      explanation: "El modelo no tiene un segundo ojo. Si la plantilla del resultado se olvida, el JSON se lee como prosa y el siguiente token no ha «visto» el tiempo. Los paneles ayudan después; en el turno, la Observation tiene que estar en el prompt."
+    }
+  ]}
+/>

@@ -1,0 +1,52 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Cuál es el papel del modelo de recompensa (RM) en RLHF clásico?",
+      options: [
+        { id: "a", text: "Genera las respuestas candidatas que se le muestran al usuario." },
+        { id: "b", text: "Es un árbitro aprendido: predice un escalar de 'qué tan buena' es una completion. PPO lo usa como señal para actualizar la política." },
+        { id: "c", text: "Filtra contenido tóxico antes del entrenamiento." },
+        { id: "d", text: "Sustituye al crítico de PPO en todas las variantes." }
+      ],
+      correct: "b",
+      explanation: "El RM es un modelo separado entrenado sobre los pares (elegido, rechazado) para predecir un score escalar. Durante RL, la política genera completions, el RM las puntúa, y PPO actualiza los pesos de la política con esa señal. Si el RM está sesgado, todo el RL lo hereda."
+    },
+    {
+      id: "q2",
+      stem: "¿Qué elimina DPO comparado con RLHF + PPO?",
+      options: [
+        { id: "a", text: "La necesidad de pares de preferencia." },
+        { id: "b", text: "La necesidad de un modelo de recompensa separado: la pérdida se aplica directamente sobre los logits de la política usando los pares." },
+        { id: "c", text: "La necesidad de una política de referencia." },
+        { id: "d", text: "La necesidad de un set de evaluación." }
+      ],
+      correct: "b",
+      explanation: "DPO reescribe el objetivo de RLHF para que pueda optimizarse con una pérdida directa sobre los pares. No hay RM separado. La política de referencia (el SFT inicial) sigue siendo necesaria como anclaje para evitar que diverja."
+    },
+    {
+      id: "q3",
+      stem: "¿Por qué GRPO es popular para entrenar agentes con tools?",
+      options: [
+        { id: "a", text: "Porque no necesita una señal de recompensa." },
+        { id: "b", text: "Porque usa un grupo de N rollouts para el mismo prompt y normaliza por la media del grupo, evitando entrenar un crítico aparte. Funciona bien cuando la recompensa es verificable (tests que pasan)." },
+        { id: "c", text: "Porque garantiza convergencia en una sola época." },
+        { id: "d", text: "Porque solo funciona con prompts de matemáticas." }
+      ],
+      correct: "b",
+      explanation: "GRPO muestrea N rollouts, los puntúa con una recompensa (verificador, juez), y normaliza por la media del grupo como baseline. No hay crítico aprendido. Es más simple y menos hambriento de memoria que PPO+RM. Funciona especialmente bien con recompensas verificables."
+    },
+    {
+      id: "q4",
+      stem: "Tu modelo aprende a decir 'Great question!' antes de cada respuesta. ¿Cuál es la causa más probable?",
+      options: [
+        { id: "a", text: "Bug en el tokenizador." },
+        { id: "b", text: "El RM o el juez premia sistemáticamente respuestas que empiezan con alabanzas al usuario (sycophancy). El modelo maximiza el奖励 optimizando ese gesto." },
+        { id: "c", text: "El modelo necesita más datos de preentrenamiento." },
+        { id: "d", text: "El learning rate es demasiado alto." }
+      ],
+      correct: "b",
+      explanation: "Es el hackeo de recompensa clásico (reward hacking). Si tu RM o juez puntúa más alto las respuestas que начинаются con согласие o alabanzas, la política aprende ese gesto estilístico. Solución: reescribir la rúbrica del juez para penalizar servilismo y premiar corrección factual."
+    }
+  ]}
+/>

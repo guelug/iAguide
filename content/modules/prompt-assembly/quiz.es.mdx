@@ -1,0 +1,52 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Cuáles son los tres niveles principales de vida útil en un prompt, más el canal efímero?",
+      options: [
+        { id: "a", text: "Solo system y user." },
+        { id: "b", text: "Stable (identidad, tools, skills), context (proyecto), volatile (memoria, perfil), y el canal efímero para metadata que cambia cada turno (timestamp, session_id)." },
+        { id: "c", text: "System, user, assistant." },
+        { id: "d", text: "Solo volatile." }
+      ],
+      correct: "b",
+      explanation: "Stable: identidad, herramientas, índice de skills — idéntico byte a byte entre turnos. Context: proyecto/workspace — cambia entre proyectos. Volatile: memoria, perfil — snapshot congelado al inicio de sesión. Efímero: metadata por turno (timestamp, session_id) que va por debajo del breakpoint de caché para no invalidar el bloque estable."
+    },
+    {
+      id: "q2",
+      stem: "Tu sistema añade `timestamp: <now>` al inicio del system prompt cada turno. ¿Qué pasa?",
+      options: [
+        { id: "a", text: "Funciona bien." },
+        { id: "b", text: "Cada turno el prefijo cambia, la caché muere, la factura se duplica. Mueve el timestamp al turno user o al nivel efímero (bajo el breakpoint)." },
+        { id: "c", text: "Mejora el rendimiento." },
+        { id: "d", text: "El modelo se entrena." }
+      ],
+      correct: "b",
+      explanation: "La caché de prefijo es byte-a-byte. Un timestamp que cambia cada turno cambia el prefijo y la caché muere. Mueve el timestamp al primer turno del usuario, o al nivel efímero (bajo el último breakpoint). El modelo no necesita la hora en el system prompt — la infiere del contexto."
+    },
+    {
+      id: "q3",
+      stem: "Cambio de modelo a mitad de sesión dispara el coste de input. ¿Por qué?",
+      options: [
+        { id: "a", text: "El modelo nuevo es más caro." },
+        { id: "b", text: "La identidad del modelo entra en la clave de caché del proveedor. El system prompt 'parece igual' pero el header cambió; la región estable falla caché. La fix es header separado — la identidad del modelo va en el API call, no en el system prompt." },
+        { id: "c", text: "El usuario lo pidió." },
+        { id: "d", text: "Es un bug." }
+      ],
+      correct: "b",
+      explanation: "La cache key incluye la identidad del modelo. Si el sistema no la separa del prompt estable, cambiar de modelo invalida la caché completa. La fix arquitectónica: la identidad del modelo vive en el header del API call; el system prompt no sabe qué modelo corre. El arnés lo sabe."
+    },
+    {
+      id: "q4",
+      stem: "¿Por qué un snapshot de memoria se sirve 'congelado' durante toda la sesión?",
+      options: [
+        { id: "a", text: "Es un requisito del proveedor." },
+        { id: "b", text: "Porque la memoria cambia entre sesiones, no dentro. Si el snapshot re-se lee del disco cada turno, puede mutar (otro proceso escribe, clock skew) e invalidar la caché. Congelar al boot garantiza estabilidad del tier volatile." },
+        { id: "c", text: "El usuario lo pidió." },
+        { id: "d", text: "Es más rápido." }
+      ],
+      correct: "b",
+      explanation: "El tier volatile es por sesión, no por turno. Si el arnés re-lée el snapshot cada turno, un cambio externo (otro proceso, clock skew) podría mutar el contenido sin que el modelo se entere, y la caché de prefijo muere. Congelar al boot garantiza que el tier se mantiene estable durante toda la sesión."
+    }
+  ]}
+/>

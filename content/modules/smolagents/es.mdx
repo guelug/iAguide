@@ -188,59 +188,6 @@ smolagents codifica el bucle dummy. `MultiStepAgent` escribe memoria, muestrea, 
 
 ## Cuestionario (Unidad 2.1)
 
-<Quiz
-  questions={[
-    {
-      id: "smolagents-1",
-      stem: "CodeAgent frente a ToolCallingAgent: cuál es el corte real",
-      options: [
-        { id: "a", text: "CodeAgent es más listo; ToolCallingAgent es más barato" },
-        { id: "b", text: "CodeAgent escribe acciones como código; ToolCallingAgent las escribe como JSON / function-calling" },
-        { id: "c", text: "Uno vive en el Hub; el otro, en LangGraph" },
-        { id: "d", text: "No hay diferencia: smolagents solo tiene CodeAgent" },
-      ],
-      correct: "b",
-      explanation: "smolagents documenta dos formas de Action: snippets de código (CodeAgent) frente a blobs JSON (ToolCallingAgent). El bucle MultiStepAgent es el mismo.",
-    },
-    {
-      id: "smolagents-2",
-      stem: "Los imports de un CodeAgent son",
-      options: [
-        { id: "a", text: "Libres: Python es Python" },
-        { id: "b", text: "Una allowlist, no un flag de comodidad" },
-        { id: "c", text: "Los mismos que pip freeze del host" },
-        { id: "d", text: "Solo math y json, siempre" },
-      ],
-      correct: "b",
-      explanation: "La unidad enseña additional_authorized_imports como contrato. Sin allowlist, el agente importa lo que hay en el host (el caso PartyKit).",
-    },
-    {
-      id: "smolagents-3",
-      stem: "MultiStepAgent en smolagents es",
-      options: [
-        { id: "a", text: "Un planner aparte, con su propio LLM" },
-        { id: "b", text: "El bucle dummy con un log y tools registradas" },
-        { id: "c", text: "Un grafo LangGraph embebido" },
-        { id: "d", text: "Un workflow de LlamaIndex" },
-      ],
-      correct: "b",
-      explanation: "La lección lo dice sin metáfora: MultiStepAgent es Thought-Action-Observation más un log. El planner extra es un flag, no otro producto.",
-    },
-    {
-      id: "smolagents-4",
-      stem: "Qué publica de verdad agent.share() al Hub",
-      options: [
-        { id: "a", text: "El LLM entero afinado" },
-        { id: "b", text: "El receta del agente (tools, prompt, tipo), no los pesos del modelo" },
-        { id: "c", text: "Las claves API usadas en el run" },
-        { id: "d", text: "El leaderboard de GAIA" },
-      ],
-      correct: "b",
-      explanation: "share sube la definición para que otro pueda reconstruir el bucle. Los pesos siguen en el proveedor del modelo.",
-    },
-  ]}
-/>
-
 ## Fuentes
 
 Burtenshaw, B., Thomas, J., Simonini, T. y Paniego, S. (s. f.). *Hugging Face Agents Course* (Apache-2.0). https://huggingface.co/learn/agents-course · https://github.com/huggingface/agents-course

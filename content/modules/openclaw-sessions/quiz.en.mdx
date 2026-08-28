@@ -1,0 +1,40 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "What owns the session thread in OpenClaw?",
+      options: [
+        { id: "a", text: "A text file." },
+        { id: "b", text: "SQLite: the database owns the session thread." },
+        { id: "c", text: "Process memory." },
+        { id: "d", text: "An external service." }
+      ],
+      correct: "b",
+      explanation: "SQLite owns the session thread. Routing decides which session each incoming message goes to."
+    },
+    {
+      id: "q2",
+      stem: "What is DM isolation?",
+      options: [
+        { id: "a", text: "Encrypting direct messages." },
+        { id: "b", text: "Each DM having its own session, separate from groups." },
+        { id: "c", text: "Deleting old DMs." },
+        { id: "d", text: "Sharing context between DMs." }
+      ],
+      correct: "b",
+      explanation: "DM isolation guarantees each direct conversation has its own session, separate from groups."
+    },
+    {
+      id: "q3",
+      stem: "What are incognito sessions?",
+      options: [
+        { id: "a", text: "Encrypted sessions." },
+        { id: "b", text: "Sessions that do not persist the thread, for disposable tasks." },
+        { id: "c", text: "Another user's sessions." },
+        { id: "d", text: "Read-only sessions." }
+      ],
+      correct: "b",
+      explanation: "Incognito sessions do not persist the thread: they serve disposable tasks without leaving a trace in history."
+    }
+  ]}
+/>

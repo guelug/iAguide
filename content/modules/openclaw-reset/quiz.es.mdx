@@ -1,0 +1,40 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué es un reset en OpenClaw?",
+      options: [
+        { id: "a", text: "Actualizar el timestamp de la sesión." },
+        { id: "b", text: "Una operación concreta que termina la sesión, con global más overrides." },
+        { id: "c", text: "Borrar el workspace." },
+        { id: "d", text: "Reiniciar el gateway." }
+      ],
+      correct: "b",
+      explanation: "El reset es una operación concreta que termina la sesión. La frescura (updatedAt) no es un reset."
+    },
+    {
+      id: "q2",
+      stem: "¿Cuántas formas hay de terminar una sesión?",
+      options: [
+        { id: "a", text: "Una." },
+        { id: "b", text: "Cuatro, según la página de session management." },
+        { id: "c", text: "Dos." },
+        { id: "d", text: "Ninguna: las sesiones no terminan." }
+      ],
+      correct: "b",
+      explanation: "La página documenta cuatro formas de terminar una sesión. El reset es una de ellas, no la única."
+    },
+    {
+      id: "q3",
+      stem: "¿Qué pasa con los jobs bindeados y archivos al reset?",
+      options: [
+        { id: "a", text: "Nada: se conservan siempre." },
+        { id: "b", text: "El reset afecta a los jobs bindeados y a los archivos según la configuración global y los overrides." },
+        { id: "c", text: "Se borran siempre." },
+        { id: "d", text: "Se mueven a otro directorio." }
+      ],
+      correct: "b",
+      explanation: "El reset afecta a jobs bindeados y archivos según la configuración global y los overrides. No es un borrado ciego."
+    }
+  ]}
+/>

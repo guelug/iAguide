@@ -144,59 +144,6 @@ El RAG agéntico es retrieve como herramienta, no como destino. La gala necesita
 
 ## Cuestionario (Unidad 3)
 
-<Quiz
-  questions={[
-    {
-      id: "agentic-rag-1",
-      stem: "RAG clásico frente a RAG agéntico",
-      options: [
-        { id: "a", text: "Agéntico usa un modelo más grande" },
-        { id: "b", text: "El clásico recupera siempre; el agéntico decide si recuperar, con qué tool y cuándo parar" },
-        { id: "c", text: "Agéntico no usa embeddings" },
-        { id: "d", text: "Clásico es LlamaIndex; agéntico es smolagents" },
-      ],
-      correct: "b",
-      explanation: "La gala de Alfred no dispara el retriever en cada turno. El agente elige la tool (historias, web, tiempo, stats).",
-    },
-    {
-      id: "agentic-rag-2",
-      stem: "Las tools de la gala (historias, web, tiempo, Hub) deben verse como",
-      options: [
-        { id: "a", text: "Un prompt largo con todas las bios" },
-        { id: "b", text: "Una allowlist: el agente solo puede esas capacidades" },
-        { id: "c", text: "Un fine-tune de function calling" },
-        { id: "d", text: "GAIA nivel 3" },
-      ],
-      correct: "b",
-      explanation: "La unidad construye tools y luego el agente. Lo que no está en la lista no existe. Pegar bios es RAG naive y además inyectable.",
-    },
-    {
-      id: "agentic-rag-3",
-      stem: "El fallo que parece RAG funcionando es",
-      options: [
-        { id: "a", text: "Un 429 del proveedor" },
-        { id: "b", text: "Inyección: la bio recuperada manda sobre las instrucciones del sistema" },
-        { id: "c", text: "Un embedding desactualizado" },
-        { id: "d", text: "Usar Chroma en vez de FAISS" },
-      ],
-      correct: "b",
-      explanation: "El caso GalaFlow: el retriever devuelve texto que el modelo obedece como si fuera el system prompt. Evalúa eso, no solo recall.",
-    },
-    {
-      id: "agentic-rag-4",
-      stem: "Una pregunta de eval que casa con la gala",
-      options: [
-        { id: "a", text: "Cualquier trivia de Wikipedia" },
-        { id: "b", text: "Una que exija la tool correcta (historia de invitado frente a tiempo frente a Hub)" },
-        { id: "c", text: "Un JSON schema de bonus 1" },
-        { id: "d", text: "Un combate Pokémon" },
-      ],
-      correct: "b",
-      explanation: "Si la eval no distingue tools, un RAG naive saca la misma nota. Diseña preguntas que fallen si siempre recuperas bios.",
-    },
-  ]}
-/>
-
 ## Fuentes
 
 Burtenshaw, B., Thomas, J., Simonini, T. y Paniego, S. (s. f.). Hugging Face Agents Course (Apache-2.0). https://huggingface.co/learn/agents-course · https://github.com/huggingface/agents-course

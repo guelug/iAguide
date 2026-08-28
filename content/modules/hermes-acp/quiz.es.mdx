@@ -1,0 +1,40 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué es el adaptador ACP de Hermes?",
+      options: [
+        { id: "a", text: "Un protocolo de red separado del agente." },
+        { id: "b", text: "Un servidor stdio que envuelve el AIAgent y expone métodos JSON-RPC para que un editor hable con él." },
+        { id: "c", text: "Un plugin de OpenClaw que no tiene relación con Hermes." },
+        { id: "d", text: "Un flag de CLI que imprime la versión." }
+      ],
+      correct: "b",
+      explanation: "ACP es un servidor stdio: el editor lanza el binario, habla JSON-RPC por stdin/stdout, y el adaptador envuelve el AIAgent. Los flags --check y --version corren antes de arrancar el servidor; no son métodos de sesión."
+    },
+    {
+      id: "q2",
+      stem: "¿Qué guarda el SessionManager por sesión?",
+      options: [
+        { id: "a", text: "Solo el historial de mensajes." },
+        { id: "b", text: "El modelo actual, el cwd y el estado de la sesión ACP." },
+        { id: "c", text: "Las claves API de todos los proveedores." },
+        { id: "d", text: "Nada: cada llamada es stateless." }
+      ],
+      correct: "b",
+      explanation: "El SessionManager guarda el modelo actual por sesión y el cwd viaja con el id de sesión ACP a los overrides de terminal y fichero. Cambiar de modelo es un método de sesión, no un reinicio del servidor."
+    },
+    {
+      id: "q3",
+      stem: "¿Por qué el cwd de ACP no es un os.chdir global?",
+      options: [
+        { id: "a", text: "Porque el cwd no existe en ACP." },
+        { id: "b", text: "Porque el cwd es de alcance de tarea: viaja con el id de sesión a los overrides, y un prompt posterior conserva ese cwd hasta que el manager registra una actualización." },
+        { id: "c", text: "Porque el cwd lo decide el editor, no el agente." },
+        { id: "d", text: "Porque cambiar el cwd global rompería el servidor." }
+      ],
+      correct: "b",
+      explanation: "La unión del directorio de trabajo es de alcance de tarea. El cwd del editor viaja con el id de sesión ACP a los overrides de terminal y fichero; no es un os.chdir global de proceso."
+    }
+  ]}
+/>

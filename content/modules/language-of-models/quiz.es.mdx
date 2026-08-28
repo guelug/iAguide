@@ -1,0 +1,40 @@
+<Quiz
+ questions={[
+  {
+    id: "q1",
+    stem: "¿Cuántos tokens suele gastar un texto en inglés por palabra, en un tokenizador BPE moderno?",
+    options: [
+      { id: "a", text: "Exacto: 1 token = 1 palabra" },
+      { id: "b", text: "Alrededor de 0,7–1 token por palabra; el código, las URLs y los alfabetos no latinos se desvían mucho" },
+      { id: "c", text: "10 tokens por palabra de media" },
+      { id: "d", text: "Un número fijo independiente del idioma" }
+    ],
+    correct: "b",
+    explanation: "Los tokenizadores BPE aprenden a trocear por frecuencia. El inglés cae cerca de 0,7–1 token por palabra. El español con tildes y conjugaciones, el código y los alfabetos no latinos gastan más tokens por la misma cantidad de caracteres. Mide tokens, no caracteres, cuando pienses en coste y contexto."
+  },
+  {
+    id: "q2",
+    stem: "¿Qué tres arquitecturas de transformer existen y para qué sirve cada una?",
+    options: [
+      { id: "a", text: "Encoder, decoder, encoder-decoder: el encoder emite embeddings (BERT); el decoder predice el siguiente token (Llama, GPT); el encoder-decoder mapea secuencias (T5, BART)" },
+      { id: "b", text: "Solo existe el decoder, los otros son proyectos cancelados" },
+      { id: "c", text: "Encoder es para visión, decoder es para texto, encoder-decoder no se usa" },
+      { id: "d", text: "Las tres son sinónimos, no hay diferencia" }
+    ],
+    correct: "a",
+    explanation: "El curso de Hugging Face separa: encoder (BERT-clase) para embeddings; decoder-only (Llama, Gemma, GPT) para generación autoregresiva; encoder-decoder (T5, BART) para mapeo de secuencia a secuencia. Los agentes suelen apoyarse en un chat/instruct decoder porque consume plantillas conversacionales y emite los tokens de tool-call."
+  },
+  {
+    id: "q3",
+    stem: "¿Por qué una página de prosa puede costar miles de tokens aunque 'no parezca larga'?",
+    options: [
+      { id: "a", text: "Porque los tokens son caracteres Unicode" },
+      { id: "b", text: "Porque un JSON, un stack trace o un log largo trocean en muchos tokens por palabra; la página visualmente corta puede esconder una densidad de tokens alta" },
+      { id: "c", text: "Porque los navegadores añaden tokens ocultos" },
+      { id: "d", text: "Porque los modelos cobran un impuesto fijo por página" }
+    ],
+    correct: "b",
+    explanation: "Coste por millón de tokens, no por carácter. Un stack trace, un JSON formateado o un log de 200 líneas pueden gastar miles de tokens sin 'verse' largos. La regla: mide con el tokenizer que usará el modelo (o un `tiktoken` equivalente), no con un contador de palabras."
+  }
+ ]}
+/>

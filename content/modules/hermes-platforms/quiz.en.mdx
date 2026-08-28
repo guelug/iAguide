@@ -1,0 +1,40 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "What does a platform adapter do?",
+      options: [
+        { id: "a", text: "Only translates messages between languages." },
+        { id: "b", text: "Connects Hermes to an external messaging service so users can talk to the agent." },
+        { id: "c", text: "Encrypts network traffic." },
+        { id: "d", text: "Stores messages." }
+      ],
+      correct: "b",
+      explanation: "An adapter connects Hermes to a messaging service (Telegram, Discord, WeCom, IRC...). It is not encryption or storage."
+    },
+    {
+      id: "q2",
+      stem: "What is the preferred path for a new platform?",
+      options: [
+        { id: "a", text: "Fork run_agent.py and add a special case." },
+        { id: "b", text: "Plugin first: register through the context API without touching core." },
+        { id: "c", text: "Write an HTTP proxy." },
+        { id: "d", text: "Use a shell script." }
+      ],
+      correct: "b",
+      explanation: "The preferred path is plugin first: the adapter registers through the context API without forking core. Core only defines BasePlatformAdapter."
+    },
+    {
+      id: "q3",
+      stem: "What does an adapter's enablement guard check?",
+      options: [
+        { id: "a", text: "The adapter version." },
+        { id: "b", text: "Env, auth, and lock: if the variable is missing, auth fails, or the token is in use, the adapter does not activate." },
+        { id: "c", text: "The platform language." },
+        { id: "d", text: "The number of users." }
+      ],
+      correct: "b",
+      explanation: "The enablement guard checks env, auth, and lock. Without all three, the adapter does not activate, even if installed."
+    }
+  ]}
+/>

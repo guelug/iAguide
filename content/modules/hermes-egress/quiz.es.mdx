@@ -1,0 +1,40 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Por qué el sandbox no debe guardar claves reales?",
+      options: [
+        { id: "a", text: "Porque ocupan espacio en disco." },
+        { id: "b", text: "Porque un agente con prompt injection puede leerlas y exfiltrarlas; el egress separa el entorno del agente de las credenciales." },
+        { id: "c", text: "Porque las claves caducan rápido." },
+        { id: "d", text: "Porque el sandbox no tiene red." }
+      ],
+      correct: "b",
+      explanation: "El sandbox sostiene las claves reales de API de upstream. Un agente con prompt injection puede leerlas. El egress es la valla que separa el entorno del agente de las credenciales."
+    },
+    {
+      id: "q2",
+      stem: "¿Qué es el token swap?",
+      options: [
+        { id: "a", text: "Cambiar la clave por otra más barata." },
+        { id: "b", text: "Sustituir las credenciales reales por tokens de alcance limitado dentro del sandbox." },
+        { id: "c", text: "Rotar las claves cada hora." },
+        { id: "d", text: "Compartir claves entre perfiles." }
+      ],
+      correct: "b",
+      explanation: "El token swap sustituye las credenciales reales por tokens de alcance limitado dentro del sandbox, reduciendo el daño si se filtran."
+    },
+    {
+      id: "q3",
+      stem: "¿Por qué se deniegan los CIDRs de IMDS?",
+      options: [
+        { id: "a", text: "Porque IMDS es lento." },
+        { id: "b", text: "Porque IMDS expone credenciales de la nube; un agente comprometido podría pedirlas si el egress no las bloqueara." },
+        { id: "c", text: "Porque IMDS no es compatible con Docker." },
+        { id: "d", text: "Porque IMDS solo existe en AWS." }
+      ],
+      correct: "b",
+      explanation: "IMDS (Instance Metadata Service) expone credenciales de la nube. El egress bloquea esos CIDRs para que un agente comprometido no pueda pedirlas."
+    }
+  ]}
+/>

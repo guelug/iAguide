@@ -1,0 +1,52 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Por qué la similitud coseno en embeddings es una puntuación y no una prueba de relevancia?",
+      options: [
+        { id: "a", text: "Porque los embeddings pueden mentir." },
+        { id: "b", text: "Porque mide ángulo entre vectores en un espacio entrenado para algo distinto (predecir siguiente token o aproximar relevancia con datos limitados). Dos textos pueden ser cercanos y no responder la pregunta, o lejanos y responderla." },
+        { id: "c", text: "Porque el coseno siempre vale 1." },
+        { id: "d", text: "Porque los embeddings solo funcionan en inglés." }
+      ],
+      correct: "b",
+      explanation: "El embedding aproxima relevancia con un modelo entrenado sobre datos parciales. Dos textos pueden compartir tema y tener coseno alto sin responder la pregunta; dos textos que responden pueden tener coseno bajo. Por eso el reranker (cross-encoder) es la pieza que decide."
+    },
+    {
+      id: "q2",
+      stem: "¿Por qué la búsqueda híbrida (BM25 + vectores + reranker) suele ganar a las tres por separado?",
+      options: [
+        { id: "a", text: "Porque usa más GPU." },
+        { id: "b", text: "Porque BM25 captura códigos, jerga exacta y nombres propios (donde los vectores fallan); los vectores capturan paráfrasis y conceptos generales (donde BM25 falla); el reranker decide el orden final. Cada uno cubre un punto débil de los otros." },
+        { id: "c", text: "Porque los embeddings son malos." },
+        { id: "d", text: "Porque los modelos generativos necesitan keywords." }
+      ],
+      correct: "b",
+      explanation: "BM25 = códigos, jerga exacta, keywords. Vectores = paráfrasis, conceptos, sinonimia. Reranker = cross-encoder entrenado para decir 'este candidato responde a esta query'. Cada técnica cubre lo que las otras fallan. La combinación es lo que da el salto de recall."
+    },
+    {
+      id: "q3",
+      stem: "¿En qué se diferencian las tres geometrías (empujar, recuperar-y-leer, bucle agéntico)?",
+      options: [
+        { id: "a", text: "Empujar pega el corpus en el prompt. Recuperar-y-leer siempre recupera top-k antes de generar. Agéntico da al modelo una tool de retrieve y deja que decida si buscar, cuándo y cómo." },
+        { id: "b", text: "Solo cambia el modelo de embeddings." },
+        { id: "c", text: "Solo cambia la cantidad de tokens generados." },
+        { id: "d", text: "Solo cambia el idioma del corpus." }
+      ],
+      correct: "a",
+      explanation: "Las tres geometrías son tres controles de flujo distintos sobre los mismos archivos. Empujar = prompt fijo, sin retrieval dinámico. Recuperar-y-leer = retrieval obligatorio, generador detrás. Agéntico = retrieval opcional, modelo decide. Cada una tiene su sweet spot y su coste."
+    },
+    {
+      id: "q4",
+      stem: "Cambias de chunking 'cada 500 tokens' a 'cada párrafo completo con overlap de 1 frase'. ¿Por qué el recall mejora en consultas multi-frase?",
+      options: [
+        { id: "a", text: "Porque el modelo de embeddings es mejor." },
+        { id: "b", text: "Porque los párrafos respetan fronteras semánticas y el overlap captura frases que cruzan bordes. Antes, una frase que unía dos chunks quedaba partida y el retrieval devolvía solo uno de los dos." },
+        { id: "c", text: "Porque los embeddings se entrenan en párrafos." },
+        { id: "d", text: "Porque el reranker funciona mejor con párrafos." }
+      ],
+      correct: "b",
+      explanation: "El corte por tokens ignora la estructura. Una frase que une dos ideas puede quedar partida, y el retrieval devuelve solo el chunk con la mitad. Cortar por párrafos + overlap captura mejor las unidades semánticas. Es ingeniería de corpus, no de modelo."
+    }
+  ]}
+/>

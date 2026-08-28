@@ -1,0 +1,52 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Por qué un job de arnés debe tener sesión fresca?",
+      options: [
+        { id: "a", text: "Para ahorrar memoria." },
+        { id: "b", text: "Para no contaminar el transcript del usuario activo, para no invalidar la caché de prefijo del chat, y para que el job opere sobre datos que el usuario actual nunca aprobó para este turno." },
+        { id: "c", text: "Para que el modelo no se confunda." },
+        { id: "d", text: "Es un requisito del proveedor." }
+      ],
+      correct: "b",
+      explanation: "Sesión fresca evita tres bugs: (1) el siguiente turno del usuario ve contenido del job, (2) el job muta el prefijo y rompe la caché del chat vivo, (3) el job opera sobre datos que el usuario actual no aprobó. La práctica es: el job tiene su propia sesión, perfil y prefijo."
+    },
+    {
+      id: "q2",
+      stem: "Dos réplicas del scheduler ejecutan el mismo job porque no hay lock. ¿Qué pasa?",
+      options: [
+        { id: "a", text: "Nada — el job es idempotente." },
+        { id: "b", text: "El usuario recibe el resumen dos veces, inbox_triage envía cada email dos veces. El lock distribuido (SQLite/Redis) con TTL es el fix." },
+        { id: "c", text: "El modelo decide." },
+        { id: "d", text: "Se nota inmediatamente." }
+      ],
+      correct: "b",
+      explanation: "Sin lock distribuido, dos workers ven el mismo next_run y ejecutan el job dos veces. El usuario recibe duplicados, las tools idempotentes se invocan dos veces (y las que no lo son rompen). El fix es un lock con TTL — SQLite (UPDATE ... WHERE locked_until < now) o Redis (SET NX EX)."
+    },
+    {
+      id: "q3",
+      stem: "Un job diario '0 9 * * *' en hora local del servidor se ejecuta una hora más tarde de lo que el usuario espera. ¿Por qué?",
+      options: [
+        { id: "a", text: "Bug del scheduler." },
+        { id: "b", text: "Zona horaria implícita. El servidor está en UTC; el usuario espera hora local. Documentar la zona siempre y normalizar a UTC internamente." },
+        { id: "c", text: "El job se atrasó." },
+        { id: "d", text: "El usuario se equivocó." }
+      ],
+      correct: "b",
+      explanation: "'0 9 * * *' significa 09:00 en alguna zona. Si el server es UTC y el usuario es CET, hay una hora de diferencia. La práctica: declarar la zona explícita por job (campo tz), normalizar a UTC internamente, y mostrarla en logs."
+    },
+    {
+      id: "q4",
+      stem: "¿Por qué la entrega del job debe ser outbound, no espejada en el chat del usuario?",
+      options: [
+        { id: "a", text: "Es más bonito." },
+        { id: "b", text: "Porque espejada, contamina el transcript del usuario (alternancia rota, contenido raro), invalida la caché de prefijo del chat vivo, y confunde al siguiente turno. La entrega correcta es email / webhook / archivo." },
+        { id: "c", text: "Porque el chat no soporta mensajes largos." },
+        { id: "d", text: "Es un requisito legal." }
+      ],
+      correct: "b",
+      explanation: "Espejar el output del job en el chat del usuario rompe alternancia (400 del proveedor), invalida la caché de prefijo (el job muta el contexto), y confunde al usuario. La entrega correcta es outbound: email, webhook, archivo en una ruta conocida, log centralizado."
+    }
+  ]}
+/>

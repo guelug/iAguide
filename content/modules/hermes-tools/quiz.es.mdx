@@ -1,0 +1,40 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué es el registro de tools de Hermes?",
+      options: [
+        { id: "a", text: "Un archivo de configuración." },
+        { id: "b", text: "Un rack central: funciones auto-registradas, agrupadas en toolsets y ejecutadas por un registro." },
+        { id: "c", text: "Una base de datos de plugins." },
+        { id: "d", text: "Un script de instalación." }
+      ],
+      correct: "b",
+      explanation: "Las tools son funciones auto-registradas, agrupadas en toolsets y ejecutadas por un registro central. Tools Runtime es la página primaria."
+    },
+    {
+      id: "q2",
+      stem: "¿Qué hace check_fn?",
+      options: [
+        { id: "a", text: "Comprueba la versión de la tool." },
+        { id: "b", text: "Oculta la tool al modelo cuando faltan requisitos, como una clave API." },
+        { id: "c", text: "Valida los argumentos en runtime." },
+        { id: "d", text: "Mide la latencia." }
+      ],
+      correct: "b",
+      explanation: "check_fn decide si la tool existe para el modelo. Si falta un requisito (clave, backend), la tool se oculta en lugar de fallar en runtime."
+    },
+    {
+      id: "q3",
+      stem: "¿Cómo se resuelven los toolsets?",
+      options: [
+        { id: "a", text: "Por orden alfabético." },
+        { id: "b", text: "Por listas explícitas enabled/disabled y presets de plataforma." },
+        { id: "c", text: "Por el modelo activo." },
+        { id: "d", text: "Por el idioma de la sesión." }
+      ],
+      correct: "b",
+      explanation: "Los toolsets se resuelven por listas explícitas enabled/disabled y presets de plataforma. El camino de dispatch decide qué tool corre."
+    }
+  ]}
+/>

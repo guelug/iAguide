@@ -1,0 +1,40 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "Which browser profiles does OpenClaw distinguish?",
+      options: [
+        { id: "a", text: "Chrome and Firefox." },
+        { id: "b", text: "openclaw, user, and chrome: the agent's, the human's, and the dedicated one." },
+        { id: "c", text: "Local and remote." },
+        { id: "d", text: "Browsing and download." }
+      ],
+      correct: "b",
+      explanation: "OpenClaw distinguishes openclaw (the agent's), user (the human's), and chrome (dedicated). Isolation depends on not mixing them."
+    },
+    {
+      id: "q2",
+      stem: "Why should the agent not use the user profile?",
+      options: [
+        { id: "a", text: "Because it is slower." },
+        { id: "b", text: "Because it would touch the human's tabs and sessions; isolation is the guarantee." },
+        { id: "c", text: "Because it has no permissions." },
+        { id: "d", text: "Because Chrome forbids it." }
+      ],
+      correct: "b",
+      explanation: "The user profile is the human's. If the agent uses it, it can touch tabs, sessions, and data that are not its own. The dedicated profile is the isolation guarantee."
+    },
+    {
+      id: "q3",
+      stem: "What does the browser plugin control?",
+      options: [
+        { id: "a", text: "Only load speed." },
+        { id: "b", text: "The control plane and ports: what the agent can do and how it connects." },
+        { id: "c", text: "The language of pages." },
+        { id: "d", text: "The human's history." }
+      ],
+      correct: "b",
+      explanation: "The plugin controls the control plane and ports: what the agent can do and how the browser connects."
+    }
+  ]}
+/>

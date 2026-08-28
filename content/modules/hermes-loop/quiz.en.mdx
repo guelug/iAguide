@@ -1,0 +1,40 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "What is run_conversation in Hermes?",
+      options: [
+        { id: "a", text: "A separate script for testing." },
+        { id: "b", text: "The waist of the loop: assembles the system prompt, picks the API mode, runs tools, and persists." },
+        { id: "c", text: "An HTTP endpoint." },
+        { id: "d", text: "A third-party plugin." }
+      ],
+      correct: "b",
+      explanation: "run_conversation is the waist of the loop in run_agent.py: it assembles the prompt, picks the API mode, runs tools, and persists the transcript."
+    },
+    {
+      id: "q2",
+      stem: "What does interrupting mean in the loop?",
+      options: [
+        { id: "a", text: "Pausing and resuming the same call." },
+        { id: "b", text: "Abandoning the HTTP thread and not injecting a partial assistant into the transcript." },
+        { id: "c", text: "Saving the partial result to continue later." },
+        { id: "d", text: "Restarting the conversation." }
+      ],
+      correct: "b",
+      explanation: "Interrupting means abandoning the HTTP thread. The discarded result never becomes a history row, so alternation stays valid."
+    },
+    {
+      id: "q3",
+      stem: "What role do callbacks play?",
+      options: [
+        { id: "a", text: "They are the loop itself." },
+        { id: "b", text: "They are the loop's UI: they receive events but do not decide the flow." },
+        { id: "c", text: "They replace the model." },
+        { id: "d", text: "They persist state." }
+      ],
+      correct: "b",
+      explanation: "Callbacks are the UI, not the loop. They receive events (tokens, tool calls) but run_conversation decides the flow."
+    }
+  ]}
+/>

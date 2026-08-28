@@ -175,59 +175,6 @@ LlamaIndex es ReAct con forma de recuperación. LlamaHub es cómo instalas las p
 
 ## Cuestionario (Unidad 2.2)
 
-<Quiz
-  questions={[
-    {
-      id: "llamaindex-1",
-      stem: "LlamaHub es",
-      options: [
-        { id: "a", text: "Un cargador mágico que entiende cualquier PDF" },
-        { id: "b", text: "Un registro de conectores, no un parser omnisciente" },
-        { id: "c", text: "El QueryEngine por defecto" },
-        { id: "d", text: "Un agente ReAct" },
-      ],
-      correct: "b",
-      explanation: "LlamaHub lista readers e integraciones. Tú eliges el conector y sus límites. No hay magia de PDF.",
-    },
-    {
-      id: "llamaindex-2",
-      stem: "Un QueryEngine de LlamaIndex es ya un agente",
-      options: [
-        { id: "a", text: "Sí: si hay LLM, hay agente" },
-        { id: "b", text: "No: consultar un índice no es Thought-Action-Observation con tools" },
-        { id: "c", text: "Sí, porque usa embeddings" },
-        { id: "d", text: "Solo si persistes Chroma" },
-      ],
-      correct: "b",
-      explanation: "La unidad separa interfaces de consulta (retriever, query engine) de agentes (function-calling, ReAct, workflow). Embeddings no conceden bucle.",
-    },
-    {
-      id: "llamaindex-3",
-      stem: "Un workflow en LlamaIndex es",
-      options: [
-        { id: "a", text: "Un agente escondido con otro nombre" },
-        { id: "b", text: "Un grafo de eventos y pasos, no un ReAct disfrazado" },
-        { id: "c", text: "Un CodeAgent de smolagents" },
-        { id: "d", text: "Obligatorio para cualquier tool" },
-      ],
-      correct: "b",
-      explanation: "Workflows: eventos, ramas, estado. Puedes meter un agente en un paso. El workflow no es el agente.",
-    },
-    {
-      id: "llamaindex-4",
-      stem: "En LlamaIndex, FunctionTool / QueryEngineTool / etc. comparten",
-      options: [
-        { id: "a", text: "El mismo embedding" },
-        { id: "b", text: "Un contrato de tool: nombre, descripción, llamada" },
-        { id: "c", text: "El mismo LLM" },
-        { id: "d", text: "LlamaHub" },
-      ],
-      correct: "b",
-      explanation: "Cuatro tipos, un contrato. El agente las ve como tools, da igual si por debajo hay una función o un query engine.",
-    },
-  ]}
-/>
-
 ## Fuentes
 
 Burtenshaw, B., Thomas, J., Simonini, T. y Paniego, S. (s. f.). *Hugging Face Agents Course* (Apache-2.0). https://huggingface.co/learn/agents-course · https://github.com/huggingface/agents-course

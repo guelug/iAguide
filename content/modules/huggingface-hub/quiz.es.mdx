@@ -1,0 +1,40 @@
+<Quiz
+ questions={[
+  {
+    id: "q1",
+    stem: "¿Cómo se almacenan los pesos de un modelo en el Hugging Face Hub?",
+    options: [
+      { id: "a", text: "Como ficheros planos en object storage S3 convencional" },
+      { id: "b", text: "Como repositorio Git con blobs grandes servidos por Xet: chunks con direccionamiento por contenido, de modo que subidas y bajadas se saltan los bytes que ya tienes" },
+      { id: "c", text: "Como base de datos relacional accesible vía SQL" },
+      { id: "d", text: "Como imágenes Docker inmutables" }
+    ],
+    correct: "b",
+    explanation: "El Hub combina repos Git (versionado, PRs, diffs) con Xet, que trocea los ficheros grandes en chunks únicos. El resultado: `git clone` sigue funcionando, pero un shard safetensors de 50 GB ya no se descarga completo si el cliente ya tiene sus chunks. La página del backend de almacenamiento Xet del Hub lo describe así."
+  },
+  {
+    id: "q2",
+    stem: "¿Qué token de Hugging Face se debe usar para una app que descarga modelos y los sirve desde Inference Providers?",
+    options: [
+      { id: "a", text: "Un token write con todos los permisos, por flexibilidad" },
+      { id: "b", text: "Un token fine-grained con el permiso exacto \"Make calls to Inference Providers\" en el scope necesario, rotado cuando hay una fuga" },
+      { id: "c", text: "La contraseña de la cuenta del Hub" },
+      { id: "d", text: "El mismo token del notebook del autor compartido en el README" }
+    ],
+    correct: "b",
+    explanation: "El Hub documenta tokens fine-grained con permisos mínimos. Inference Providers necesita un token que pueda llamar a la API; un token write es sobredimensionado y multiplica el daño de una filtración. Un token por app, revocado al primer indicio de fuga. La página de User Access Tokens lo describe."
+  },
+  {
+    id: "q3",
+    stem: "¿Cuántos Spaces Gradio gratis puede alojar una cuenta personal según el índice del Hub?",
+    options: [
+      { id: "a", text: "Ninguno: Gradio siempre requiere plan de pago" },
+      { id: "b", text: "Hasta dos Spaces Gradio en ZeroGPU, según la sección Spaces del índice del Hub; los Spaces estáticos siguen siendo gratis" },
+      { id: "c", text: "Ilimitados, porque el Hub es gratis" },
+      { id: "d", text: "Cinco Spaces Gradio con CPU, pero ninguno con GPU" }
+    ],
+    correct: "b",
+    explanation: "El índice del Hub documenta que Gradio y Docker corren en compute de pago, con la excepción explícita: cuentas personales gratuitas en regla pueden alojar hasta dos Spaces Gradio en ZeroGPU. Los Spaces HTML estático siguen siendo gratis. No inventes una tercera excepción."
+  }
+ ]}
+/>

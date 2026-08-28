@@ -1,0 +1,40 @@
+<Quiz
+ questions={[
+  {
+    id: "q1",
+    stem: "What does Anthropic say about Claude Code with a Pro plan?",
+    options: [
+      { id: "a", text: "Claude Code works with any plan, including Pro, via OAuth" },
+      { id: "b", text: "Claude Code with OAuth needs Max plus purchased extra-usage credits; Pro is not a supported OAuth path" },
+      { id: "c", text: "Claude Code with Pro works if you set an environment variable" },
+      { id: "d", text: "Claude Code with Pro only runs in CI" }
+    ],
+    correct: "b",
+    explanation: "Anthropic documents the OAuth path for Claude Code with a Max plan plus purchased extra-usage credits. Pro has no OAuth path: if you want Claude Code on Pro, you use `ANTHROPIC_API_KEY` (pay-per-token, independent of the plan). Treating 'Pro sounds like Max' is the typical 'harness is broken' ticket."
+  },
+  {
+    id: "q2",
+    stem: "What is `claude agents` for, per Anthropic's docs?",
+    options: [
+      { id: "a", text: "Listing remote agents from the marketplace" },
+      { id: "b", text: "Opening Agent View: a screen to dispatch and watch multiple sessions in parallel on isolated worktrees, still marked as a research preview" },
+      { id: "c", text: "Configuring Anthropic OAuth without opening a browser" },
+      { id: "d", text: "Deploying the agent to production on a cluster" }
+    ],
+    correct: "b",
+    explanation: "Anthropic describes `claude agents` as the entry to Agent View: dispatch several tasks in parallel, peek/attach to one, keep the rest alive. Anthropic labels it a research preview. Each session runs on its own worktree under `.claude/worktrees/`, isolated from the working repo."
+  },
+  {
+    id: "q3",
+    stem: "What model does OpenAI document as the default for code generation on the Responses API?",
+    options: [
+      { id: "a", text: "`gpt-5.3-codex`, always" },
+      { id: "b", text: "`gpt-5.6`, with `gpt-5.3-codex` only for code-agent tasks when the vendor recommends it" },
+      { id: "c", text: "Any model is fine; there is no default" },
+      { id: "d", text: "`gpt-5-mini`" }
+    ],
+    correct: "b",
+    explanation: "OpenAI recommends the most recent general-purpose model for most code generation via the Responses API. `gpt-5.3-codex` exists for code-agent work but is not the documented default. Pin the model name the docs print, not an older one you saved in a gist."
+  }
+ ]}
+/>

@@ -175,49 +175,6 @@ In a throwaway directory, create `.hermes.md` with one sentence and `AGENTS.md` 
 
 A team put the current date and time in the system prompt on every turn. The cached prefix never hit, prefill was paid in full on every call, and the bill doubled without anyone touching the model. The Prompt Assembly lesson: what changes per turn belongs in the ephemeral layers, not in the stable prefix.
 
-## Quiz
-
-<Quiz
-  questions={[
-    {
-      id: "q1",
-      stem: "What does Hermes separate when assembling the prompt?",
-      options: [
-        { id: "a", text: "Nothing: everything is concatenated the same way each turn." },
-        { id: "b", text: "The cached system-prompt state from the ephemeral additions made at API-call time." },
-        { id: "c", text: "The user prompt from the system prompt, nothing more." },
-        { id: "d", text: "English messages from Spanish ones." }
-      ],
-      correct: "b",
-      explanation: "Hermes deliberately separates the cached prefix (stable, reusable) from the ephemeral layers that change per turn. Putting volatile data in the prefix kills the cache and makes prefill more expensive."
-    },
-    {
-      id: "q2",
-      stem: "Where does SOUL.md live in the assembly?",
-      options: [
-        { id: "a", text: "In the session database." },
-        { id: "b", text: "In the cached prefix, as part of the agent's stable identity." },
-        { id: "c", text: "Only in the first turn of each conversation." },
-        { id: "d", text: "In a separate file the model downloads by URL." }
-      ],
-      correct: "b",
-      explanation: "SOUL.md is stable identity: it goes into the cached prefix. Platform hints and project context stay in their own tier; they are not mixed with identity."
-    },
-    {
-      id: "q3",
-      stem: "Why do platform hints not go in the prefix?",
-      options: [
-        { id: "a", text: "Because they are secrets that must not persist." },
-        { id: "b", text: "Because they change by platform and moment, so they belong in the ephemeral call layers." },
-        { id: "c", text: "Because the prefix cannot hold text." },
-        { id: "d", text: "Because the model ignores them." }
-      ],
-      correct: "b",
-      explanation: "Platform hints (per-channel response style) vary by call. If they entered the prefix, they would invalidate the cache for every channel. They stay in the ephemeral tier."
-    }
-  ]}
-/>
-
 ## Sources
 
 Nous Research. (n.d.). *Prompt assembly*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/prompt-assembly

@@ -230,49 +230,6 @@ Una tarjeta de 24 GB no es candidata. Punto.
 
 Un equipo de soporte corre `moonshotai/Kimi-Linear-48B-A3B-Instruct` con vLLM 0.25 sobre 4× L40S (48 GB cada una). Configuran `max-model-len=131072` "porque la receta dice 1M con YaRN". A 4k tokens por sesión el sistema aguanta. A 96k tokens por sesión el proceso muere con `OutOfMemoryError` en `CUDA OOM`. El equipo añade otra GPU, vuelve a OOM. Diagnóstico real: KV cache crece lineal con el contexto y `max-model-len`; con 4 GPUs a 96k el presupuesto de HBM para KV ya supera la capacidad combinada, y el scheduler de vLLM no avisa hasta que falla la asignación. Bajan `max-model-len=32768`, miden `KV cache usage` con `vllm bench`, fijan un `max_num_seqs=8`, y el sistema entra en régimen. La lección es vieja pero la vuelven a aprender: `max-model-len` no es una aspiración, es el contrato de memoria. Si necesitas 96k en producción, dimensiona GPUs a esa cifra con la receta de la model card, no la del foro que dice "yo lo corrí a 200k". Y mide con `vllm bench` antes de admitir tráfico.
 
-## Quiz
-
-<Quiz
- questions={[
-  {
-    id: "q1",
-    stem: "¿Qué hace `max-model-len` en una receta vLLM como la de Kimi Linear?",
-    options: [
-      { id: "a", text: "Es la longitud máxima de la respuesta generada, ignorando el prompt" },
-      { id: "b", text: "Es el presupuesto total de tokens (prompt + generación) que el motor acepta por petición, y define la huella de KV cache por slot" },
-      { id: "c", text: "Es el número de peticiones concurrentes" },
-      { id: "d", text: "Es la longitud máxima de la cola de prompts" }
-    ],
-    correct: "b",
-    explanation: "`max-model-len` es el contrato de memoria. La KV cache por slot crece en proporción a esta cifra (y a `max_num_seqs`). Si subes el número sin medir con `vllm bench`, el motor hará OOM al primer lote largo. La model card y la receta vLLM lo nombran explícitamente."
-  },
-  {
-    id: "q2",
-    stem: "¿Por qué la receta vLLM pide `vllm >= 0.25` para Kimi Linear?",
-    options: [
-      { id: "a", text: "Es una cota inferior de marketing sin motivo técnico" },
-      { id: "b", text: "Porque los kernels KDA y la calibración FP8 de la caché KV se integraron en esa versión; motores anteriores pueden cargar el checkpoint pero sin las optimizaciones del paper" },
-      { id: "c", text: "Porque Kimi Linear solo existe como binario pre-compilado para 0.25" },
-      { id: "d", text: "Porque 0.25 es la versión de Python requerida por el tokenizer" }
-    ],
-    correct: "b",
-    explanation: "La página de ejecución de Qwen3.8 (la misma política aplica a Kimi Linear) documenta `vLLM >= 0.25` como el corte donde los kernels KDA y la calibración FP8 de la caché KV están soportados. Versiones anteriores cargan el checkpoint con resultados; las optimizaciones del paper no aparecen hasta esa versión."
-  },
-  {
-    id: "q3",
-    stem: "¿Por qué una sola tarjeta de 24 GB no es candidata para servir Kimi Linear 48B?",
-    options: [
-      { id: "a", text: "Porque vLLM no soporta 24 GB en absoluto" },
-      { id: "b", text: "Porque el checkpoint solo (sin caché, sin activaciones) ya excede los 24 GB; necesitas tensor-parallelism entre varias GPUs para alojar pesos y KV cache" },
-      { id: "c", text: "Porque los 3B activos necesitan exactamente 24 GB" },
-      { id: "d", text: "Porque Kimi Linear solo corre en NVIDIA H100" }
-    ],
-    correct: "b",
-    explanation: "El checkpoint 48B (en BF16 ocupa ~96 GB) más la KV cache y las activaciones del batch activo superan con creces 24 GB. La receta documenta multi-GPU obligatoria (tensor-parallel). En tarjetas de 24 GB sí corre el quant NVFP4 sobre Qwen3.8-27B; ese es un producto distinto, no Kimi Linear 48B."
-  }
- ]}
-/>
-
 ## Fuentes
 
 - Kimi Team. (2025). *Kimi Linear: An expressive, efficient attention architecture* (arXiv:2510.26692). https://arxiv.org/abs/2510.26692

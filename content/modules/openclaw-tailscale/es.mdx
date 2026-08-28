@@ -165,49 +165,6 @@ Citen Discovery cuando la pregunta es como los clientes encuentran la URL del Ga
 
 Un equipo activó Tailscale Funnel para un gateway y expuso el servicio a internet sin querer. La lección: Serve frente a Funnel frente a bind son tres modos distintos. Conserven bind loopback; que Tailscale exponga solo lo que debe.
 
-## Quiz
-
-<Quiz
-  questions={[
-    {
-      id: "q1",
-      stem: "¿Qué modos de exposición distingue OpenClaw en Tailscale?",
-      options: [
-        { id: "a", text: "HTTP y HTTPS." },
-        { id: "b", text: "Serve, Funnel y bind: cada uno expone a un alcance distinto." },
-        { id: "c", text: "Local y remoto." },
-        { id: "d", text: "Público y privado." }
-      ],
-      correct: "b",
-      explanation: "Serve, Funnel y bind son tres modos con alcances distintos. Funnel expone a internet; Serve a la tailnet; bind al loopback."
-    },
-    {
-      id: "q2",
-      stem: "¿Qué son los headers de identidad?",
-      options: [
-        { id: "a", text: "Headers de caché." },
-        { id: "b", text: "Headers que solo llegan con Serve, no con Funnel." },
-        { id: "c", text: "Headers de compresión." },
-        { id: "d", text: "Headers de idioma." }
-      ],
-      correct: "b",
-      explanation: "Los headers de identidad solo llegan con Serve. Con Funnel no viajan, lo que cambia cómo se autentica al cliente."
-    },
-    {
-      id: "q3",
-      stem: "¿Por qué conservar bind loopback?",
-      options: [
-        { id: "a", text: "Porque es más rápido." },
-        { id: "b", text: "Porque limita el servicio al propio host; exponer más de lo necesario es una superficie de ataque." },
-        { id: "c", text: "Porque es obligatorio." },
-        { id: "d", text: "Porque no requiere red." }
-      ],
-      correct: "b",
-      explanation: "Bind loopback limita el servicio al propio host. Exponer más de lo necesario (Funnel) amplía la superficie de ataque."
-    }
-  ]}
-/>
-
 <VisualSlot id="openclaw-tailscale:2" caption="Tres vistas del tema: mapa, mecanismo y trade-off — interactivas y en español." />
 
 ## Fuentes

@@ -1,0 +1,40 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "What is a node in OpenClaw?",
+      options: [
+        { id: "a", text: "A second Gateway." },
+        { id: "b", text: "A companion device (macOS, iOS, watchOS, Android) that connects to the Gateway." },
+        { id: "c", text: "An independent server." },
+        { id: "d", text: "A plugin." }
+      ],
+      correct: "b",
+      explanation: "A node is a companion device that connects to the Gateway. It is not a second Gateway: it is a peripheral."
+    },
+    {
+      id: "q2",
+      stem: "What happens with a version gap?",
+      options: [
+        { id: "a", text: "Nothing: versions do not matter." },
+        { id: "b", text: "The node may not understand new commands; pairing or the command policy fails." },
+        { id: "c", text: "The gateway restarts." },
+        { id: "d", text: "The node updates itself." }
+      ],
+      correct: "b",
+      explanation: "The version gap breaks compatibility: the node may not understand new commands. The command policy fails at the door."
+    },
+    {
+      id: "q3",
+      stem: "What are the two gates of the command policy?",
+      options: [
+        { id: "a", text: "Authentication and encryption." },
+        { id: "b", text: "Two checks a command must pass before running on the node." },
+        { id: "c", text: "Two servers." },
+        { id: "d", text: "Two languages." }
+      ],
+      correct: "b",
+      explanation: "The command policy has two gates: two checks a command must pass before running on the node."
+    }
+  ]}
+/>

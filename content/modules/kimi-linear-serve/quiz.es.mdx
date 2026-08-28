@@ -1,0 +1,40 @@
+<Quiz
+ questions={[
+  {
+    id: "q1",
+    stem: "¿Qué hace `max-model-len` en una receta vLLM como la de Kimi Linear?",
+    options: [
+      { id: "a", text: "Es la longitud máxima de la respuesta generada, ignorando el prompt" },
+      { id: "b", text: "Es el presupuesto total de tokens (prompt + generación) que el motor acepta por petición, y define la huella de KV cache por slot" },
+      { id: "c", text: "Es el número de peticiones concurrentes" },
+      { id: "d", text: "Es la longitud máxima de la cola de prompts" }
+    ],
+    correct: "b",
+    explanation: "`max-model-len` es el contrato de memoria. La KV cache por slot crece en proporción a esta cifra (y a `max_num_seqs`). Si subes el número sin medir con `vllm bench`, el motor hará OOM al primer lote largo. La model card y la receta vLLM lo nombran explícitamente."
+  },
+  {
+    id: "q2",
+    stem: "¿Por qué la receta vLLM pide `vllm >= 0.25` para Kimi Linear?",
+    options: [
+      { id: "a", text: "Es una cota inferior de marketing sin motivo técnico" },
+      { id: "b", text: "Porque los kernels KDA y la calibración FP8 de la caché KV se integraron en esa versión; motores anteriores pueden cargar el checkpoint pero sin las optimizaciones del paper" },
+      { id: "c", text: "Porque Kimi Linear solo existe como binario pre-compilado para 0.25" },
+      { id: "d", text: "Porque 0.25 es la versión de Python requerida por el tokenizer" }
+    ],
+    correct: "b",
+    explanation: "La página de ejecución de Qwen3.8 (la misma política aplica a Kimi Linear) documenta `vLLM >= 0.25` como el corte donde los kernels KDA y la calibración FP8 de la caché KV están soportados. Versiones anteriores cargan el checkpoint con resultados; las optimizaciones del paper no aparecen hasta esa versión."
+  },
+  {
+    id: "q3",
+    stem: "¿Por qué una sola tarjeta de 24 GB no es candidata para servir Kimi Linear 48B?",
+    options: [
+      { id: "a", text: "Porque vLLM no soporta 24 GB en absoluto" },
+      { id: "b", text: "Porque el checkpoint solo (sin caché, sin activaciones) ya excede los 24 GB; necesitas tensor-parallelism entre varias GPUs para alojar pesos y KV cache" },
+      { id: "c", text: "Porque los 3B activos necesitan exactamente 24 GB" },
+      { id: "d", text: "Porque Kimi Linear solo corre en NVIDIA H100" }
+    ],
+    correct: "b",
+    explanation: "El checkpoint 48B (en BF16 ocupa ~96 GB) más la KV cache y las activaciones del batch activo superan con creces 24 GB. La receta documenta multi-GPU obligatoria (tensor-parallel). En tarjetas de 24 GB sí corre el quant NVFP4 sobre Qwen3.8-27B; ese es un producto distinto, no Kimi Linear 48B."
+  }
+ ]}
+/>

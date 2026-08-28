@@ -165,49 +165,6 @@ Citen MCP serve cuando un harness deba hablar a conversaciones de canal sin ACP.
 
 Un equipo conectó su editor al bridge ACP de OpenClaw pero esperaba el spawn de acpx. El bridge expone el agente local; el spawn lanza un agente nuevo. Mezclar las dos direcciones es el error clásico: el editor mostraba un agente que no era el que respondía.
 
-## Quiz
-
-<Quiz
-  questions={[
-    {
-      id: "q1",
-      stem: "¿Cuáles son las dos direcciones ACP de OpenClaw?",
-      options: [
-        { id: "a", text: "HTTP y WebSocket." },
-        { id: "b", text: "Bridge (openclaw acp) y spawn (acpx / /acp): una expone el agente local, la otra lanza uno nuevo." },
-        { id: "c", text: "Cliente y servidor." },
-        { id: "d", text: "Local y remoto." }
-      ],
-      correct: "b",
-      explanation: "Bridge expone el agente local al editor; spawn lanza un agente nuevo. Son dos direcciones distintas del mismo protocolo."
-    },
-    {
-      id: "q2",
-      stem: "¿Qué es bind here frente a thread?",
-      options: [
-        { id: "a", text: "Dos nombres para lo mismo." },
-        { id: "b", text: "Bind here ata la sesión ACP al hilo actual; thread la ata a un hilo concreto." },
-        { id: "c", text: "Bind here es local, thread es remoto." },
-        { id: "d", text: "Bind here es para archivos, thread para mensajes." }
-      ],
-      correct: "b",
-      explanation: "Bind here ata la sesión ACP al hilo actual; thread la ata a un hilo concreto. La elección cambia dónde vive la conversación."
-    },
-    {
-      id: "q3",
-      stem: "¿Qué hace el bridge ACP?",
-      options: [
-        { id: "a", text: "Compila el agente." },
-        { id: "b", text: "Expone el agente local de OpenClaw a un cliente ACP, como un editor." },
-        { id: "c", text: "Cifra el tráfico." },
-        { id: "d", text: "Traduce entre idiomas." }
-      ],
-      correct: "b",
-      explanation: "El bridge expone el agente local a un cliente ACP. El spawn, en cambio, lanza un agente nuevo."
-    }
-  ]}
-/>
-
 <VisualSlot id="openclaw-acp:2" caption="Tres vistas del tema: mapa, mecanismo y trade-off — interactivas y en español." />
 
 ## Fuentes

@@ -165,49 +165,6 @@ The particularity sentence again: policy runs before the model call.
 
 An agent could not find a tool the team had installed. The tool policy filters by profile and allow/deny: the tool existed, but the profile did not see it. The lesson: tools, skills, and plugins are three different names, and policy decides what each profile sees.
 
-## Quiz
-
-<Quiz
-  questions={[
-    {
-      id: "q1",
-      stem: "How does OpenClaw distinguish tools, skills, and plugins?",
-      options: [
-        { id: "a", text: "Nothing: they are synonyms." },
-        { id: "b", text: "Three different names: tools execute, skills instruct, plugins extend." },
-        { id: "c", text: "Only the language changes." },
-        { id: "d", text: "Only the location changes." }
-      ],
-      correct: "b",
-      explanation: "Tools, skills, and plugins are three different names: tools execute, skills instruct, plugins extend. They are not synonyms."
-    },
-    {
-      id: "q2",
-      stem: "What does the tool policy filter?",
-      options: [
-        { id: "a", text: "Only performance." },
-        { id: "b", text: "Profiles and then allow/deny: what each profile sees and what is allowed." },
-        { id: "c", text: "Only language." },
-        { id: "d", text: "Only version." }
-      ],
-      correct: "b",
-      explanation: "The policy filters by profile and then by allow/deny. A tool can exist and still be invisible to a profile."
-    },
-    {
-      id: "q3",
-      stem: "What are group shorthands?",
-      options: [
-        { id: "a", text: "Command aliases." },
-        { id: "b", text: "Shortcuts to refer to tool groups in the policy." },
-        { id: "c", text: "Short file names." },
-        { id: "d", text: "Environment variables." }
-      ],
-      correct: "b",
-      explanation: "Group shorthands are shortcuts to refer to tool groups in the policy, instead of listing every tool."
-    }
-  ]}
-/>
-
 ## Sources
 
 

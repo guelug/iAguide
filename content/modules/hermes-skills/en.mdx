@@ -171,49 +171,6 @@ Cite Creating Skills by URL in every skill pull request.
 
 A team wrote a skill that read an API key from the frontmatter. The page forbids it: secrets do not go in the frontmatter or in the skill's credential files. The skill was rewritten to read the key from the environment, and the secret stopped travelling in the repo.
 
-## Quiz
-
-<Quiz
-  questions={[
-    {
-      id: "q1",
-      stem: "What is a skill in Hermes?",
-      options: [
-        { id: "a", text: "A compiled plugin." },
-        { id: "b", text: "Instructions plus existing tools: the preferred way to add capabilities without changing code." },
-        { id: "c", text: "A fine-tuned model." },
-        { id: "d", text: "A shell script." }
-      ],
-      correct: "b",
-      explanation: "Skills are the preferred way to add capabilities: instructions (SKILL.md) plus existing tools, without changing code."
-    },
-    {
-      id: "q2",
-      stem: "What is a skill's frontmatter?",
-      options: [
-        { id: "a", text: "An optional decoration." },
-        { id: "b", text: "The contract: name, description, and metadata the system reads to load the skill." },
-        { id: "c", text: "The skill's code." },
-        { id: "d", text: "The user documentation." }
-      ],
-      correct: "b",
-      explanation: "The frontmatter is the contract: name, description, and metadata. The system reads it to decide when and how to load the skill."
-    },
-    {
-      id: "q3",
-      stem: "Where should secrets NOT go?",
-      options: [
-        { id: "a", text: "In the process environment." },
-        { id: "b", text: "In the frontmatter or the skill's credential files." },
-        { id: "c", text: "In the system's secret manager." },
-        { id: "d", text: "In environment variables." }
-      ],
-      correct: "b",
-      explanation: "Secrets do not go in the frontmatter or the skill's credential files. They go in the environment or the secret manager."
-    }
-  ]}
-/>
-
 ## Sources
 
 Nous Research. (n.d.). *Creating skills*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/creating-skills

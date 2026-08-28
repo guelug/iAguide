@@ -187,49 +187,6 @@ The snapshot lock exists so a sync tool handler never awaits the asyncio task. T
 
 A scraping agent captured the DOM before the login finished. The snapshot looked valid, but the session button did not exist yet. The CDPSupervisor is not a screenshot: it is a live protocol. If the snapshot does not wait for the right state, the agent acts on a page that is no longer the one it thinks.
 
-## Quiz
-
-<Quiz
-  questions={[
-    {
-      id: "q1",
-      stem: "What is the Hermes CDPSupervisor?",
-      options: [
-        { id: "a", text: "A static screenshot taken once per page." },
-        { id: "b", text: "A supervisor over the CDP protocol that manages browser lifecycle, backends, and dialog policy." },
-        { id: "c", text: "An HTTP proxy for normal web requests." },
-        { id: "d", text: "A third-party plugin with no relation to Hermes." }
-      ],
-      correct: "b",
-      explanation: "The CDPSupervisor wraps Chrome DevTools Protocol: it manages lifecycle, backends (Browserbase, local, etc.), and dialog policy. It is not a screenshot."
-    },
-    {
-      id: "q2",
-      stem: "Why does a snapshot not close the two gaps the supervisor does?",
-      options: [
-        { id: "a", text: "Because the snapshot is slower." },
-        { id: "b", text: "Because the snapshot is a point-in-time photo: it does not see events, wait for states, or manage dialogs and live connections." },
-        { id: "c", text: "Because the snapshot only works in Chrome." },
-        { id: "d", text: "Because the snapshot does not save images." }
-      ],
-      correct: "b",
-      explanation: "A snapshot is a point-in-time photo of the DOM. The supervisor is a live protocol: it sees events, waits for states, and manages dialogs and connections. Those are exactly the gaps a snapshot leaves open."
-    },
-    {
-      id: "q3",
-      stem: "What does the supervisor's dialog policy do?",
-      options: [
-        { id: "a", text: "Blocks every alert() without exception." },
-        { id: "b", text: "Decides how alert, confirm, and prompt are handled per the configured policy, instead of letting the agent hang." },
-        { id: "c", text: "Translates dialogs into another language." },
-        { id: "d", text: "Ignores them completely." }
-      ],
-      correct: "b",
-      explanation: "The dialog policy defines behavior for alert/confirm/prompt. Without it, an open dialog can hang the agent waiting for an interaction nobody will perform."
-    }
-  ]}
-/>
-
 ## Sources
 
 Nous Research. (n.d.). *Browser CDP supervisor*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/browser-supervisor

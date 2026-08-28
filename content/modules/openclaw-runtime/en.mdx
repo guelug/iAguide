@@ -174,49 +174,6 @@ This lesson stops at runtime families, Codex name split, selection order, and th
 
 A team configured a Codex runtime and expected the embedded loop. The log showed another runtime. The lesson: the embedded loop is the default and runtime ownership decides who controls the loop. Confusing the two runtime families is how you debug the wrong layer.
 
-## Quiz
-
-<Quiz
-  questions={[
-    {
-      id: "q1",
-      stem: "What is an agent runtime in OpenClaw?",
-      options: [
-        { id: "a", text: "A language model." },
-        { id: "b", text: "A component that owns an agent loop: the embedded loop is the default." },
-        { id: "c", text: "A messaging plugin." },
-        { id: "d", text: "An HTTP server." }
-      ],
-      correct: "b",
-      explanation: "An agent runtime owns an agent loop. The embedded loop is the default; there are two runtime families."
-    },
-    {
-      id: "q2",
-      stem: "What do the Codex surfaces share?",
-      options: [
-        { id: "a", text: "The same model." },
-        { id: "b", text: "The name, but not the ownership: different runtimes can use the Codex name." },
-        { id: "c", text: "The same code." },
-        { id: "d", text: "The same configuration." }
-      ],
-      correct: "b",
-      explanation: "The Codex surfaces share the name, but not the runtime ownership. You have to look at which one is in use."
-    },
-    {
-      id: "q3",
-      stem: "What does runtime ownership decide?",
-      options: [
-        { id: "a", text: "The language of messages." },
-        { id: "b", text: "Who controls the agent loop." },
-        { id: "c", text: "The log format." },
-        { id: "d", text: "The Python version." }
-      ],
-      correct: "b",
-      explanation: "Runtime ownership decides who controls the agent loop. Runtime selection determines which family is used."
-    }
-  ]}
-/>
-
 ## Sources
 
 OpenClaw. (n.d.). *Agent runtimes*. https://docs.openclaw.ai/concepts/agent-runtimes

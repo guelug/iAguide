@@ -1,0 +1,40 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué es run_conversation en Hermes?",
+      options: [
+        { id: "a", text: "Un script aparte para pruebas." },
+        { id: "b", text: "La cintura del bucle: ensambla el system prompt, elige el modo de API, ejecuta tools y persiste." },
+        { id: "c", text: "Un endpoint HTTP." },
+        { id: "d", text: "Un plugin de terceros." }
+      ],
+      correct: "b",
+      explanation: "run_conversation es la cintura del bucle en run_agent.py: ensambla el prompt, elige el modo de API, ejecuta tools y persiste el transcript."
+    },
+    {
+      id: "q2",
+      stem: "¿Qué significa interrumpir en el bucle?",
+      options: [
+        { id: "a", text: "Pausar y reanudar la misma llamada." },
+        { id: "b", text: "Abandonar el hilo HTTP y no inyectar un assistant parcial en el transcript." },
+        { id: "c", text: "Guardar el resultado parcial para continuar después." },
+        { id: "d", text: "Reiniciar la conversación." }
+      ],
+      correct: "b",
+      explanation: "Interrumpir significa abandonar el hilo HTTP. El resultado descartado nunca se convierte en fila de historial, para no romper la alternancia."
+    },
+    {
+      id: "q3",
+      stem: "¿Qué papel tienen los callbacks?",
+      options: [
+        { id: "a", text: "Son el bucle en sí." },
+        { id: "b", text: "Son la UI del bucle: reciben eventos, pero no deciden el flujo." },
+        { id: "c", text: "Reemplazan al modelo." },
+        { id: "d", text: "Persisten el estado." }
+      ],
+      correct: "b",
+      explanation: "Los callbacks son la UI, no el bucle. Reciben eventos (tokens, tool calls) pero el flujo lo decide run_conversation."
+    }
+  ]}
+/>

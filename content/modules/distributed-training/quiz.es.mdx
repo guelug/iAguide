@@ -1,0 +1,52 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué estrategia replica el modelo entero en cada GPU y solo reparte los datos?",
+      options: [
+        { id: "a", text: "Tensor parallel." },
+        { id: "b", text: "Pipeline parallel." },
+        { id: "c", text: "Data parallel (DDP)." },
+        { id: "d", text: "Expert parallel." }
+      ],
+      correct: "c",
+      explanation: "Data parallel (DDP) replica el modelo entero en cada GPU y reparte el batch entre ellas. Al final del paso se promedian los gradientes (all-reduce). Es simple y escala bien mientras el modelo quepa en una sola GPU. Memoria no escala con el número de GPUs."
+    },
+    {
+      id: "q2",
+      stem: "¿Qué hace ZeRO-3 / FSDP?",
+      options: [
+        { id: "a", text: "Replica el optimizador en cada GPU." },
+        { id: "b", text: "Parte los pesos, los gradientes y el estado del optimizador entre las GPUs, eliminando la redundancia de memoria del data parallel." },
+        { id: "c", text: "Divide las capas en etapas secuenciales." },
+        { id: "d", text: "Parte las cabezas de atención entre GPUs." }
+      ],
+      correct: "b",
+      explanation: "ZeRO-3 / FSDP parte los tres componentes (pesos, gradientes, optimizador) entre las GPUs. Cada GPU tiene solo 1/N. A cambio, hace all-gather y reduce-scatter bajo demanda. Permite entrenar modelos enormes con menos GPUs totales, a costa de más comunicación."
+    },
+    {
+      id: "q3",
+      stem: "¿Por qué tensor parallel exige NVLink y no vale con PCIe?",
+      options: [
+        { id: "a", text: "Porque TP solo funciona con GPUs NVIDIA." },
+        { id: "b", text: "Porque TP sincroniza cada capa (all-reduce) en cada forward; el ancho de banda de PCIe (~32 GB/s por enlace) lo convierte en cuello de botella, mientras NVLink (600+ GB/s) no." },
+        { id: "c", text: "Porque PCIe no soporta fp16." },
+        { id: "d", text: "Porque TP necesita Infiniband obligatorio." }
+      ],
+      correct: "b",
+      explanation: "TP requiere sincronización densa entre GPUs en cada forward y cada backward. PCIe Gen4 anda por 32 GB/s por enlace, NVLink por 600+ GB/s. La diferencia es de un orden de magnitud. TP con PCIe es matemáticamente posible pero prácticamente inusable para modelos grandes."
+    },
+    {
+      id: "q4",
+      stem: "Tienes 8× RTX 4090 en una placa con PCIe y quieres entrenar un 70B. ¿Cuál es el primer problema real?",
+      options: [
+        { id: "a", text: "No hay suficiente VRAM total." },
+        { id: "b", text: "El bus PCIe no soporta TP decente; necesitas NVLink, NVSwitch o cambiar a un esquema FSDP/PP con menos comunicación síncrona." },
+        { id: "c", text: "Las RTX 4090 no soportan fp16." },
+        { id: "d", text: "El CUDA no funciona con tantas GPUs." }
+      ],
+      correct: "b",
+      explanation: "La VRAM total sí podría bastar (8× 24 GB = 192 GB), pero el problema dominante es la comunicación. Con PCIe, TP se vuelve cuello de botella; con FSDP, la comunicación sigue siendo alta pero menos síncrona. La opción realista es FSDP o 1F1B pipeline parallel con bus mejorado."
+    }
+  ]}
+/>

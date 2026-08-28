@@ -166,49 +166,6 @@ Two doors. One sqlite file. Device pairing is not node command approval.
 
 A team deployed a node and pairing never completed. The setup code was generated, but nobody scanned it in time and it expired. Pairing is two gates: capability approval and device confirmation. Without both, there is no node.
 
-## Quiz
-
-<Quiz
-  questions={[
-    {
-      id: "q1",
-      stem: "What are the two pairing gates?",
-      options: [
-        { id: "a", text: "Username and password." },
-        { id: "b", text: "Capability approval and device confirmation." },
-        { id: "c", text: "Two servers." },
-        { id: "d", text: "Two languages." }
-      ],
-      correct: "b",
-      explanation: "Pairing is two gates: the node's capability approval and the device confirmation. Without both, there is no node."
-    },
-    {
-      id: "q2",
-      stem: "What is DM pairing?",
-      options: [
-        { id: "a", text: "A marketing direct message." },
-        { id: "b", text: "The pairing flow that happens through a direct message with the agent." },
-        { id: "c", text: "A type of encryption." },
-        { id: "d", text: "A database." }
-      ],
-      correct: "b",
-      explanation: "DM pairing is the pairing flow that happens through a direct message with the agent, typical of messaging channels."
-    },
-    {
-      id: "q3",
-      stem: "What are setup codes and QR?",
-      options: [
-        { id: "a", text: "Payment methods." },
-        { id: "b", text: "Mechanisms to start device pairing, with expiration." },
-        { id: "c", text: "Log formats." },
-        { id: "d", text: "Session types." }
-      ],
-      correct: "b",
-      explanation: "Setup codes and QR start device pairing. They expire: if nobody uses them in time, they must be regenerated."
-    }
-  ]}
-/>
-
 ## Sources
 
 OpenClaw. (n.d.). *Pairing*. https://docs.openclaw.ai/channels/pairing

@@ -89,7 +89,12 @@
     "top": "Volver arriba",
     "wipTitle": "En escritura",
     "wipBody": "Este módulo está esbozado pero sin terminar. Aparece en el mapa para que veas dónde encaja.",
-    "keyTerms": "Términos que aparecen aquí"
+    "keyTerms": "Términos que aparecen aquí",
+    "quizTitle": "Cuestionario",
+    "quizKicker": "Comprobar",
+    "quizLede": "Tres o cuatro preguntas sobre esta lección. El progreso se queda en este navegador.",
+    "quizCta": "Abrir el cuestionario en su propia página. La lección se queda aquí, sin el bloque al final.",
+    "backToLesson": "Volver a la lección"
   },
   "glossary": {
     "title": "Glosario",

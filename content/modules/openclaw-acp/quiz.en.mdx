@@ -1,0 +1,40 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "What are the two ACP directions in OpenClaw?",
+      options: [
+        { id: "a", text: "HTTP and WebSocket." },
+        { id: "b", text: "Bridge (openclaw acp) and spawn (acpx / /acp): one exposes the local agent, the other launches a new one." },
+        { id: "c", text: "Client and server." },
+        { id: "d", text: "Local and remote." }
+      ],
+      correct: "b",
+      explanation: "Bridge exposes the local agent to the editor; spawn launches a new agent. They are two directions of the same protocol."
+    },
+    {
+      id: "q2",
+      stem: "What is bind here versus thread?",
+      options: [
+        { id: "a", text: "Two names for the same thing." },
+        { id: "b", text: "Bind here attaches the ACP session to the current thread; thread attaches it to a specific thread." },
+        { id: "c", text: "Bind here is local, thread is remote." },
+        { id: "d", text: "Bind here is for files, thread for messages." }
+      ],
+      correct: "b",
+      explanation: "Bind here attaches the ACP session to the current thread; thread attaches it to a specific thread. The choice changes where the conversation lives."
+    },
+    {
+      id: "q3",
+      stem: "What does the ACP bridge do?",
+      options: [
+        { id: "a", text: "Compiles the agent." },
+        { id: "b", text: "Exposes the local OpenClaw agent to an ACP client, like an editor." },
+        { id: "c", text: "Encrypts traffic." },
+        { id: "d", text: "Translates between languages." }
+      ],
+      correct: "b",
+      explanation: "The bridge exposes the local agent to an ACP client. The spawn, by contrast, launches a new agent."
+    }
+  ]}
+/>

@@ -1,0 +1,52 @@
+<Quiz
+  questions={[
+    {
+      id: "observability-1",
+      stem: "Un turno de agente, en observabilidad, es",
+      options: [
+        { id: "a", text: "Un print en la consola" },
+        { id: "b", text: "Una traza: spans del LLM, tools, errores, tokens" },
+        { id: "c", text: "El system prompt" },
+        { id: "d", text: "El certificado de HF" },
+      ],
+      correct: "b",
+      explanation: "La unidad pide traces, no folklore. Si no puedes abrir el turno, no estás observando.",
+    },
+    {
+      id: "observability-2",
+      stem: "Qué va primero, según la unidad",
+      options: [
+        { id: "a", text: "A/B en producción con usuarios reales" },
+        { id: "b", text: "Evaluación offline con un set que tú controlas" },
+        { id: "c", text: "Un juez LLM sin rúbrica" },
+        { id: "d", text: "Subir la temperatura" },
+      ],
+      correct: "b",
+      explanation: "Offline primero (casos fijos, asserts). Online después (latencia, errores, feedback). Invertir el orden te hace optimizar ruido.",
+    },
+    {
+      id: "observability-3",
+      stem: "El acierto de un agente lo define",
+      options: [
+        { id: "a", text: "El proveedor del modelo" },
+        { id: "b", text: "Tú: la métrica y, si hay juez, su nombre y su rúbrica" },
+        { id: "c", text: "El like del usuario únicamente" },
+        { id: "d", text: "El color verde de Langfuse" },
+      ],
+      correct: "b",
+      explanation: "«El acierto lo defines tú; los jueces, los nombras.» Un thumbs-up es un canal de feedback, no la métrica.",
+    },
+    {
+      id: "observability-4",
+      stem: "Cinco llamadas al LLM en un turno son",
+      options: [
+        { id: "a", text: "Normal, no se mira" },
+        { id: "b", text: "Un bucle de coste que tienes que ver en la traza" },
+        { id: "c", text: "Señal de que hace falta LoRA" },
+        { id: "d", text: "El planning_interval correcto" },
+      ],
+      correct: "b",
+      explanation: "La unidad enseña a leer coste y latencia junto a errores. Cinco completions pueden ser un retry silencioso.",
+    },
+  ]}
+/>

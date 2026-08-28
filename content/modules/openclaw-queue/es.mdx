@@ -172,49 +172,6 @@ Esta leccion se detiene en lanes, los cuatro modos, debounce/cap/drop y el orden
 
 Un agente con auto-reply recibía dos mensajes seguidos y el segundo se ejecutaba antes de que el primero terminara. La cola de comandos existe para eso: un escritor por lane de sesión. Sin la cola, las corridas se pisaban y el estado se corrompía.
 
-## Quiz
-
-<Quiz
-  questions={[
-    {
-      id: "q1",
-      stem: "¿Qué serializa la cola de comandos de OpenClaw?",
-      options: [
-        { id: "a", text: "Los archivos del workspace." },
-        { id: "b", text: "Las corridas de auto-reply de una misma sesión, con un escritor por lane." },
-        { id: "c", text: "Los mensajes de red." },
-        { id: "d", text: "Los logs del gateway." }
-      ],
-      correct: "b",
-      explanation: "La cola serializa las corridas de auto-reply de una misma sesión. Un escritor por lane evita que dos corridas se pisen."
-    },
-    {
-      id: "q2",
-      stem: "¿Qué opciones tiene la cola?",
-      options: [
-        { id: "a", text: "Solo FIFO." },
-        { id: "b", text: "Debounce, cap y drop: controlar cuándo, cuántas y qué se descarta." },
-        { id: "c", text: "Solo prioridad." },
-        { id: "d", text: "Solo timeout." }
-      ],
-      correct: "b",
-      explanation: "Las opciones de la cola incluyen debounce, cap y drop: controlan cuándo se ejecuta, cuántas corridas caben y qué se descarta."
-    },
-    {
-      id: "q3",
-      stem: "¿Qué es steer y streaming en la cola?",
-      options: [
-        { id: "a", text: "Dos tipos de sesión." },
-        { id: "b", text: "Mecanismos para redirigir una corrida en curso y para ver los tokens mientras llegan." },
-        { id: "c", text: "Dos formatos de log." },
-        { id: "d", text: "Dos idiomas." }
-      ],
-      correct: "b",
-      explanation: "Steer redirige una corrida en curso; streaming muestra los tokens mientras llegan. Ambos viven dentro del modelo de cola."
-    }
-  ]}
-/>
-
 <VisualSlot id="openclaw-queue:2" caption="Tres vistas del tema: mapa, mecanismo y trade-off — interactivas y en español." />
 
 ## Fuentes

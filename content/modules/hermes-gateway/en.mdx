@@ -168,49 +168,6 @@ Read [*Gateway Internals*](https://hermes-agent.nousresearch.com/docs/developer-
 
 Two gateway processes tried to use the same platform token at once. The token lock stopped it: a token can only be in use by one process. Without that lock, two replicas would answer the same chat and duplicate messages.
 
-## Quiz
-
-<Quiz
-  questions={[
-    {
-      id: "q1",
-      stem: "What is the Hermes Gateway?",
-      options: [
-        { id: "a", text: "A generic HTTP proxy." },
-        { id: "b", text: "The long-lived process that sits in front of 20+ platforms and routes every incoming event into a single AIAgent loop." },
-        { id: "c", text: "A load balancer for APIs." },
-        { id: "d", text: "A messaging plugin." }
-      ],
-      correct: "b",
-      explanation: "The Gateway is the long-lived process connecting messaging platforms to the AIAgent loop. It is not an HTTP proxy or a load balancer."
-    },
-    {
-      id: "q2",
-      stem: "What do the two sequential guards do?",
-      options: [
-        { id: "a", text: "Check server status and version." },
-        { id: "b", text: "Filter which messages enter the loop and which commands are allowed, in order." },
-        { id: "c", text: "Encrypt and decrypt messages." },
-        { id: "d", text: "Translate between platforms." }
-      ],
-      correct: "b",
-      explanation: "The two sequential guards filter incoming messages and commands before they reach the loop. Authorization is evaluated in order."
-    },
-    {
-      id: "q3",
-      stem: "What is the token lock for?",
-      options: [
-        { id: "a", text: "Rotating keys automatically." },
-        { id: "b", text: "Ensuring a token is only in use by one process, so two replicas do not answer the same chat." },
-        { id: "c", text: "Encrypting messages at rest." },
-        { id: "d", text: "Limiting the number of users." }
-      ],
-      correct: "b",
-      explanation: "The token lock prevents two processes from using the same platform token at once. Without it, two replicas would duplicate responses."
-    }
-  ]}
-/>
-
 ## Sources
 
 Nous Research. (n.d.). *Gateway internals*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals

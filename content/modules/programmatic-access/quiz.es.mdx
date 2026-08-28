@@ -1,0 +1,52 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "Un plugin de VS Code necesita completar código en el editor. ¿Qué socket debería usar?",
+      options: [
+        { id: "a", text: "HTTP OpenAI-compat, porque es el más común." },
+        { id: "b", text: "ACP sobre stdio, porque el IDE ya entiende JSON-RPC, sin red, y maneja sesiones / cancel nativamente." },
+        { id: "c", text: "WebSocket, porque es bidireccional." },
+        { id: "d", text: "In-process, porque es lo más rápido." }
+      ],
+      correct: "b",
+      explanation: "VS Code (y editores similares) ya exponen un canal JSON-RPC con sesiones, permission requests y cancel. Hablar HTTP ahí es reinventar un dialecto. ACP es la elección obvia para IDEs."
+    },
+    {
+      id: "q2",
+      stem: "¿Qué tres obligaciones mínimas tiene un adaptador sobre el bucle?",
+      options: [
+        { id: "a", text: "Login, OAuth, refresh tokens." },
+        { id: "b", text: "Stream, cancel, errores. El adaptador entrega tokens cuando existen, propaga cancel al bucle, y reporta errores con semántica (no strings)." },
+        { id: "c", text: "Logging, métricas, tracing." },
+        { id: "d", text: "Validación de input, rate limiting, retry." }
+      ],
+      correct: "b",
+      explanation: "Stream (entregar tokens sin acumular), cancel (matar la request al recibir /stop), y errores (reportar con semántica) son los tres. El resto (logging, auth) es ortogonal. Un adaptador sin esas tres está reinventando un dialecto."
+    },
+    {
+      id: "q3",
+      stem: "Un adaptador concatena medio JSON de tool_call en el chat cuando el usuario cancela. ¿Por qué es un bug?",
+      options: [
+        { id: "a", text: "El usuario verá JSON a medias en el chat." },
+        { id: "b", text: "La alternancia user / assistant queda rota; la próxima llamada devuelve 400 del proveedor. No commitir contenido parcial es la diferencia entre sobrevivir un cancel y romperse." },
+        { id: "c", text: "El modelo no entiende JSON parcial." },
+        { id: "d", text: "El bucle cierra antes de tiempo." }
+      ],
+      correct: "b",
+      explanation: "Commitir un assistant parcial con tool_call incompleto rompe la alternancia. El siguiente turno del usuario llega a un proveedor que ve un assistant a medias y devuelve 400. El fix es descartar el contenido parcial y dejar solo la marca de cancel en el transcript."
+    },
+    {
+      id: "q4",
+      stem: "¿Por qué importa que el test del bucle sea in-process?",
+      options: [
+        { id: "a", text: "Es lo único que se puede automatizar." },
+        { id: "b", text: "Permite comparar el resultado del bucle con el del adaptador HTTP/WS. Si divergen, el adaptador (no el bucle) está mal — y se testea sin red." },
+        { id: "c", text: "Es más rápido en GPU." },
+        { id: "d", text: "Es el único protocolo soportado por todos los modelos." }
+      ],
+      correct: "b",
+      explanation: "In-process es el ground truth. Un test del adaptador HTTP/WS compara contra el resultado in-process del mismo thread + message. Si divergen, el adaptador está mal. Esto evita el bug clásico de 'el bucle cambió y nadie probó el cliente.'"
+    }
+  ]}
+/>

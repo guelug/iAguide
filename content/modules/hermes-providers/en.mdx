@@ -180,49 +180,6 @@ Local servers need enough context for agent use. Hermes rejects windows below 64
 
 A team configured a provider key in the production profile and another in development. The resolver picked the saved one, and staging calls used the prod key. Key scope is a fence: each profile resolves its own runtime, and mixing them is how credentials leak.
 
-## Quiz
-
-<Quiz
-  questions={[
-    {
-      id: "q1",
-      stem: "What do the five Hermes hosts share?",
-      options: [
-        { id: "a", text: "Only the project name." },
-        { id: "b", text: "A provider runtime resolver: CLI, gateway, cron, ACP, and auxiliary calls." },
-        { id: "c", text: "Each host has its own hand-written resolver." },
-        { id: "d", text: "Nothing: they are five different products." }
-      ],
-      correct: "b",
-      explanation: "CLI, gateway, cron, ACP, and auxiliary model calls share a provider runtime resolver. Provider Runtime Resolution is the reference page."
-    },
-    {
-      id: "q2",
-      stem: "What wins in the resolver's precedence?",
-      options: [
-        { id: "a", text: "The environment variable always." },
-        { id: "b", text: "The saved config choice, unless explicitly overridden." },
-        { id: "c", text: "The cheapest provider." },
-        { id: "d", text: "The last one configured." }
-      ],
-      correct: "b",
-      explanation: "Precedence: the saved choice wins unless explicitly overridden. hermes model and /model show the same resolved catalog."
-    },
-    {
-      id: "q3",
-      stem: "Why is key scope a fence?",
-      options: [
-        { id: "a", text: "Because keys take space." },
-        { id: "b", text: "Because each profile resolves its own runtime; mixing keys between profiles leaks credentials." },
-        { id: "c", text: "Because keys expire." },
-        { id: "d", text: "Because the resolver does not read them." }
-      ],
-      correct: "b",
-      explanation: "Key scope is a fence: each profile resolves its own runtime. Mixing keys between profiles is how credentials leak."
-    }
-  ]}
-/>
-
 ## Sources
 
 Nous Research. (n.d.). *Provider runtime resolution*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/provider-runtime

@@ -223,49 +223,6 @@ Zhang, B., & Sennrich, R. (2019). Root mean square layer normalization. *Advance
 
 A serving team gets a vLLM profile dump for Kimi Linear 48B. Every residual layer reads ~24d out of HBM. First instinct: "that is AttnRes, those are per-layer activations." They want to "optimise" by swapping the mixer for a plain residual at serve time. They pull the paper, read Appendix B, and discover the checkpoint **was not trained with Full AttnRes** — it was Block with `N ≈ 8`. That 24d was not dense softmax; it was Algorithm 1's two-phase schedule measuring the block cache at the **worst** segment. They switch the metric to the right segment, re-profile, and the tax drops under 2%. Operational takeaway: never read a profiler without knowing which checkpoint you serve and which mixer version it was trained on. Substituting AttnRes for a plain add "to simplify" in production breaks the graph the model learned to expect.
 
-## Quiz
-
-<Quiz
- questions={[
-  {
-    id: "q1",
-    stem: "Why does online softmax in the two-phase loop work for Block AttnRes?",
-    options: [
-      { id: "a", text: "It computes softmax over the N block summaries without materialising an L × L score matrix: one pass keeps running max and denominator, a second pass with the query recombines" },
-      { id: "b", text: "It swaps softmax for sigmoid because sigmoid is cheaper to compute" },
-      { id: "c", text: "It trains the query `w_l` with zero gradients" },
-      { id: "d", text: "It lets you skip RMSNorm on the keys at serve time" }
-    ],
-    correct: "a",
-    explanation: "Block AttnRes runs softmax over ~10 sources (N summaries plus the partial). The online softmax trick (Milakov & Gimelshein, 2018) keeps `m` (max) and `d` (sum of exp) per row on the first pass, then recombines with the query on the second. No dense L × L matrix is materialised; cost stays linear in N."
-  },
-  {
-    id: "q2",
-    stem: "What does Figure 3 of the paper say about the cross-stage cache?",
-    options: [
-      { id: "a", text: "The pipeline must resend every previous layer every step" },
-      { id: "b", text: "Only the completed block summary and the running partial are forwarded, not the per-layer outputs inside the block" },
-      { id: "c", text: "The attention KV cache must be spilled to CPU between stages" },
-      { id: "d", text: "RMSNorm is cached separately from the AttnRes keys" }
-    ],
-    correct: "b",
-    explanation: "Figure 3 describes the per-stage cache: each virtual stage only needs the last consolidated summary `b_n` and the current partial, not each layer's individual output. That is what keeps Block's comm at `O(N d)` instead of Full's `O(L d)`."
-  },
-  {
-    id: "q3",
-    stem: "If your Kimi Linear checkpoint was trained with Block AttnRes, what do you do at serve time?",
-    options: [
-      { id: "a", text: "Pass `--attnres` to the engine to enable the mixer" },
-      { id: "b", text: "Swap softmax for a plain residual add to save I/O" },
-      { id: "c", text: "Serve the graph the checkpoint already carries: the mixer lives inside the model, no flag, and the engine already honours the two-phase schedule" },
-      { id: "d", text: "Convert the checkpoint to FP8 first to shrink the AttnRes cache" }
-    ],
-    correct: "c",
-    explanation: "`moonshotai/Kimi-Linear-48B-A3B-Instruct` carries AttnRes inside the graph, like RMSNorm or SwiGLU. The engine that loads it honours the schedule. Adding flags or \"simplifying\" the residual breaks the graph the model learned. What you actually do: measure TPOT on the right profiler segment and confirm the residual tax sits near 2%."
-  }
- ]}
-/>
-
 ## Sources
 
 - Kimi Team. (2026). *Attention residuals* (arXiv:2603.15031) §4 and Appendix B. https://arxiv.org/abs/2603.15031

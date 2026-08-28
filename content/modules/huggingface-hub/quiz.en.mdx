@@ -1,0 +1,40 @@
+<Quiz
+ questions={[
+  {
+    id: "q1",
+    stem: "How are a model's weights stored on the Hugging Face Hub?",
+    options: [
+      { id: "a", text: "As flat files on conventional S3-style object storage" },
+      { id: "b", text: "As a Git repo with large blobs served by Xet: chunks with content addressing, so uploads and downloads skip the bytes you already have" },
+      { id: "c", text: "As a relational database accessible via SQL" },
+      { id: "d", text: "As immutable Docker images" }
+    ],
+    correct: "b",
+    explanation: "The Hub combines Git repos (versioned, PRs, diffs) with Xet, which chunks large files into unique pieces. The result: `git clone` still works, but a 50 GB safetensors shard does not fully download if the client already has its chunks. The Hub's Xet storage backend page describes it that way."
+  },
+  {
+    id: "q2",
+    stem: "Which Hugging Face token should an app use to download models and call Inference Providers?",
+    options: [
+      { id: "a", text: "A write token with every permission, for flexibility" },
+      { id: "b", text: "A fine-grained token with exactly the \"Make calls to Inference Providers\" permission in the needed scope, rotated on any leak signal" },
+      { id: "c", text: "The Hub account password" },
+      { id: "d", text: "The author's notebook token pasted in the README" }
+    ],
+    correct: "b",
+    explanation: "The Hub documents fine-grained tokens with minimal permissions. Inference Providers need a token that can call the API; a write token is over-scoped and multiplies the blast radius of a leak. One token per app, revoke on first leak hint. The User Access Tokens page describes this."
+  },
+  {
+    id: "q3",
+    stem: "How many free Gradio Spaces can a personal account host, per the Hub's index?",
+    options: [
+      { id: "a", text: "None: Gradio always requires a paid plan" },
+      { id: "b", text: "Up to two Gradio Spaces on ZeroGPU, per the Spaces section of the Hub's index; static HTML Spaces stay free" },
+      { id: "c", text: "Unlimited, because the Hub is free" },
+      { id: "d", text: "Five Gradio Spaces with CPU, but none with GPU" }
+    ],
+    correct: "b",
+    explanation: "The Hub index documents that Gradio and Docker run on paid compute, with the explicit exception: personal free accounts in good standing can host up to two Gradio Spaces on ZeroGPU. Static HTML Spaces stay free. Do not invent a third exception."
+  }
+ ]}
+/>

@@ -1,0 +1,52 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué distingue prefill de decode en el bucle del arnés?",
+      options: [
+        { id: "a", text: "Son lo mismo." },
+        { id: "b", text: "Prefill procesa el prompt en paralelo por capa (compute-heavy, cacheable, coste proporcional al prefijo). Decode genera un token a la vez, secuencialmente (memory-bandwidth-heavy, coste proporcional a la KV)." },
+        { id: "c", text: "Decode es paralelo." },
+        { id: "d", text: "Prefill es más caro por token." }
+      ],
+      correct: "b",
+      explanation: "Prefill = batch sobre el prompt, GPU saturada compute. Decode = un token por paso, GPU saturada memory bandwidth. Distinto coste, distinta latencia, distinta caché. Cuando optimizas el arnés, decides cuál de las dos estás atacando."
+    },
+    {
+      id: "q2",
+      stem: "Modelo 48B-A3B en el arnés: ¿cuál es la implicación correcta?",
+      options: [
+        { id: "a", text: "El coste por token es el de un denso 48B." },
+        { id: "b", text: "Coste por FLOPs token es el de un denso 3B (~3B activos); memoria de disco dominada por los 48B totales. La atención sobre la KV sigue siendo densa — el contexto largo sigue siendo caro." },
+        { id: "c", text: "El A3B no tiene KV cache." },
+        { id: "d", text: "Es gratis." }
+      ],
+      correct: "b",
+      explanation: "MoE A3B: memoria por totales (48B), FLOPs por activos (3B). El FFN disperso abarata el cómputo; la atención no. Tu arnés debería ser modelo-agnóstico, pero tu estimador de coste debe distinguir FLOPs activos de memoria de disco — no confundirlos."
+    },
+    {
+      id: "q3",
+      stem: "¿Por qué el arnés es producto y el modelo es commodity?",
+      options: [
+        { id: "a", text: "Porque sí." },
+        { id: "b", text: "Porque el modelo se cambia en una config (mientras sea el mismo arnés). El bucle, los permisos, los skills, el gateway, los jobs — eso es código tuyo que cuesta semanas cambiar. Si tu arnés está bien abstraído, cambias de modelo en un día." },
+        { id: "c", text: "Porque el modelo es gratis." },
+        { id: "d", text: "Es marketing." }
+      ],
+      correct: "b",
+      explanation: "El modelo se commodity: el mismo MoE 48B-A3B lo hospedan varios vendors. Cambiar de vendor o modelo es config. El arnés es producto: el bucle, las tools, los permisos, los skills — código tuyo que tarda semanas en migrar. Por eso la abstracción del modelo (un solo punto que lo conoce) es la palanca más barata."
+    },
+    {
+      id: "q4",
+      stem: "Si tu latencia de primer token sube sin que el modelo haya cambiado, ¿dónde mirar primero?",
+      options: [
+        { id: "a", text: "Es un bug del modelo." },
+        { id: "b", text: "Prefill más largo. Mira el tamaño del prefijo (system prompt + cola + tools visibles). Si creció, hay dos causas: prefijo cacheable que dejó de acertar, o prefijo estable que se infló (skills añadidos, system prompt que creció)." },
+        { id: "c", text: "Es la red." },
+        { id: "d", text: "Es la RAM." }
+      ],
+      correct: "b",
+      explanation: "Latencia del primer token = prefill. Si sube sin cambio de modelo, el prefill paga más tokens. Dos causas comunes: (1) caché de prefijo rota por un cambio byte-a-byte, (2) prefijo estable que se infló (skills nuevos, system prompt que creció). El dashboard te dice cuál."
+    }
+  ]}
+/>

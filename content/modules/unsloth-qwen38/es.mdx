@@ -309,49 +309,6 @@ Fuentes oficiales: [guía de train Qwen3.8](https://unsloth.ai/docs/models/qwen3
 
 Un equipo monta RL GRPO sobre Qwen3.8-27B Instruct con un dataset propio de mates. Primer run con `max_steps=300`. A los 200 steps la recompensa promedio sigue clavada en 0.0. Piden ayuda al foro; les dicen "espera más". Suben a `max_steps=1000` y reentrenan. A los 800 steps sigue en 0.0 con varianza casi cero. Sospechan bug del trainer. Diagnóstico real: la guía RL de Unsloth es explícita — GRPO muestrea **G** respuestas por pregunta, las puntúa con una **recompensa verificable** y construye ventajas con Z-score. Si la probabilidad de una respuesta correcta bajo el checkpoint **Instruct** ya es ~0, **nunca verás un rollout bueno** y la línea base se queda en 0. Su dataset mezclaba respuestas numéricas y preguntas de respuesta libre; el reward parser solo reconocía el formato numérico, así que la mayoría de rollouts caían en reward=0 con varianza nula. Tres arreglos. Primero, empezar desde un checkpoint Instruct, no desde un Base — la receta lo asume y no lo repite. Segundo, depurar el reward con `print(reward_fn(question, sample))` sobre 20 ejemplos a mano, no con GRPO. Tercero, recortar el dataset a lo que el reward sabe puntuar, no añadir más volumen para "ver si sube". Con esas tres, la recompensa empezó a moverse a los 250 steps. Lección: GRPO sin recompensa verificable, o con reward que no parsea, es teatro caro.
 
-## Quiz
-
-<Quiz
- questions={[
-  {
-    id: "q1",
-    stem: "¿Por qué GRPO cabe en una sola GPU según la guía RL de Unsloth?",
-    options: [
-      { id: "a", text: "Porque GRPO no usa PyTorch" },
-      { id: "b", text: "Porque GRPO muestrea G respuestas, las puntúa con una recompensa verificable y construye ventajas con Z-score; no hay modelo de valor ni modelo de recompensa aprendido al estilo PPO" },
-      { id: "c", text: "Porque GRPO corre en CPU" },
-      { id: "d", text: "Porque GRPO entrena con cuantización 1-bit" }
-    ],
-    correct: "b",
-    explanation: "GRPO (Group Relative Policy Optimization) elimina el modelo de valor del PPO clásico. Las ventajas se calculan por Z-score dentro del grupo de G muestras, así que el coste extra por paso es despreciable comparado con el forward del propio modelo. RLVR = recompensa **verificable** (mates, código, una rúbrica de chequeos pequeños). Si la recompensa no es checkable, GRPO no te salva."
-  },
-  {
-    id: "q2",
-    stem: "¿Por qué Unsloth recomienda arrancar GRPO desde un checkpoint Instruct, no Base?",
-    options: [
-      { id: "a", text: "Porque los Instruct son más pequeños" },
-      { id: "b", text: "Porque si la probabilidad de una respuesta correcta es ~0 bajo el modelo inicial, GRPO nunca verá un rollout bueno y la línea base se quedará en reward 0 sin señal" },
-      { id: "c", text: "Porque los Base no caben en 24GB" },
-      { id: "d", text: "Porque los Instruct vienen con la plantilla de chat" }
-    ],
-    correct: "b",
-    explanation: "GRPO necesita al menos **algunos** rollouts buenos para construir una distribución con varianza. Empezar desde Base hace que casi todo rollout tenga reward 0; el Z-score de un grupo uniforme es ruido. Empezar desde Instruct da una distribución ya sesgada hacia el formato y la gramática esperada."
-  },
-  {
-    id: "q3",
-    stem: "¿Qué seis celdas del notebook conversacional de Kaggle Qwen3.8 deberías cambiar para tu propio dataset?",
-    options: [
-      { id: "a", text: "Las seis celdas de instalación del entorno" },
-      { id: "b", text: "(1) ruta del dataset / `load_dataset`, (2) la celda que renderiza `text` con la plantilla de chat Qwen, (3) `finetune_vision_layers`, (4) `max_seq_length`, (5) `max_steps` o epochs, (6) `output_dir` y la celda de exportación" },
-      { id: "c", text: "Solo la primera celda" },
-      { id: "d", text: "Solo la última celda de guardado" }
-    ],
-    correct: "b",
-    explanation: "El [notebook conversacional de Kaggle](https://github.com/unslothai/notebooks/blob/main/nb/Kaggle-Qwen3.8_(27B)-Conversational.ipynb) tiene seis celdas que un usuario real cambia para su JSONL y `max_seq_length=2048`. Si no puedes nombrar seis celdas, no tienes un dataset — tienes una intuición."
-  }
- ]}
-/>
-
 <VisualSlot id="unsloth-qwen38:2" caption="Tres vistas del tema: mapa, mecanismo y trade-off — interactivas y en español." />
 
 ## Fuentes

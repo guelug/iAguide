@@ -1,0 +1,40 @@
+<Quiz
+ questions={[
+  {
+    id: "q1",
+    stem: "¿Cuál es la diferencia estructural entre un LLM y un modelo de difusión latente de imagen?",
+    options: [
+      { id: "a", text: "Son la misma arquitectura con distintos datos de entrenamiento" },
+      { id: "b", text: "El LLM predice el siguiente token autoregresivamente; el modelo de imagen itera denoise sobre un latente comprimido partiendo de ruido, con un UNet o DiT más CLIP y un VAE" },
+      { id: "c", text: "El modelo de imagen no tiene encoder de texto" },
+      { id: "d", text: "El LLM es transformer y el modelo de imagen es convolucional puro" }
+    ],
+    correct: "b",
+    explanation: "Un LLM genera texto token a token en paralelo durante el prefill y uno a uno durante el decode. Un generador abierto de imagen (SD 1.5, SDXL, Flux) hace denoise iterativo en el espacio latente: empieza con ruido, predice ruido (o velocidad), y avanza unos pasos hasta dejar el latente en la variedad que el VAE sabe decodificar. CLIP traduce el prompt; el VAE pasa del latente a píxeles."
+  },
+  {
+    id: "q2",
+    stem: "¿Por qué Comfy-Org insiste en descargar los pesos por separado?",
+    options: [
+      { id: "a", text: "Porque la app no tiene acceso a internet por defecto" },
+      { id: "b", text: "Porque los checkpoints ocupan muchos GB y la instalación de la app es pequeña: los modelos son ficheros de pesos que pones en `ComfyUI/models/` (checkpoints, VAEs, LoRAs, ControlNets, upscalers), eliges el fichero en el nodo Load correspondiente" },
+      { id: "c", text: "Porque ComfyUI solo funciona con checkpoints descargados de CivitAI" },
+      { id: "d", text: "Porque los modelos se eliminan al cerrar la app" }
+    ],
+    correct: "b",
+    explanation: "La página Models de Comfy-Org dice: la instalación de la app es pequeña; los modelos son ficheros que **no vienen incluidos por defecto**. Los bajas, los pones bajo `ComfyUI/models/<tipo>/`, y los eliges en el nodo Load que toca. Sin checkpoint no hay modelo. Sin VAE no hay decodificación latente→RGB."
+  },
+  {
+    id: "q3",
+    stem: "¿Qué problema tiene cargar un `.ckpt` antiguo en ComfyUI?",
+    options: [
+      { id: "a", text: "Los `.ckpt` no se pueden cargar en absoluto" },
+      { id: "b", text: "Los `.ckpt` usan pickle para serializar; Python documenta pickle como no seguro, así que un `.ckpt` puede ejecutar código arbitrario al cargarse si el autor del modelo lo empaquetó así" },
+      { id: "c", text: "Los `.ckpt` son incompatibles con SD 1.5" },
+      { id: "d", text: "Los `.ckpt` ocupan más VRAM que los `.safetensors` aunque pesen igual" }
+    ],
+    correct: "b",
+    explanation: "`safetensors` guarda solo tensores y valida hashes; no ejecuta código. `.ckpt` usa pickle, que la PSF describe como no seguro. Comfy-Org recomienda `.safetensors` por esa razón. Si necesitas un `.ckpt`, conviértelo con `tools/convert.py` o audita el log de carga antes."
+  }
+ ]}
+/>

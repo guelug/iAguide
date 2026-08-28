@@ -167,49 +167,6 @@ Official URL: [Context Compression and Caching](https://hermes-agent.nousresearc
 
 A support agent compacted every 20 turns and the summary lost the customer's name. The team blamed the model. The cause was the cache key: compacting changes the prefix, so the prompt cache is invalidated by construction. It was not the summary, it was the prefix design.
 
-## Quiz
-
-<Quiz
-  questions={[
-    {
-      id: "q1",
-      stem: "What does Hermes use to manage long context?",
-      options: [
-        { id: "a", text: "Only truncating the oldest messages." },
-        { id: "b", text: "A dual system of compression and Anthropic prompt caching." },
-        { id: "c", text: "Restarting the conversation every so many turns." },
-        { id: "d", text: "Sending the whole history unchanged." }
-      ],
-      correct: "b",
-      explanation: "Hermes uses a dual system: context compression and prompt caching. In-place compaction is the default, with a four-phase algorithm."
-    },
-    {
-      id: "q2",
-      stem: "Why does compacting kill the cache by construction?",
-      options: [
-        { id: "a", text: "Because the cache only works with short prompts." },
-        { id: "b", text: "Because the prefix changes: the cache key depends on content, and a new summary invalidates the previous prefix." },
-        { id: "c", text: "Because the cache is disabled when compacting." },
-        { id: "d", text: "Because the provider forbids it." }
-      ],
-      correct: "b",
-      explanation: "The prefix cache depends on exact content. When you compact, the prefix changes and the cache is invalidated. That is an inherent cost, not a bug."
-    },
-    {
-      id: "q3",
-      stem: "Which compression setting actually matters?",
-      options: [
-        { id: "a", text: "The UI theme color." },
-        { id: "b", text: "The trigger threshold, the compressor, and the pluggable engine." },
-        { id: "c", text: "The log file name." },
-        { id: "d", text: "The Python version." }
-      ],
-      correct: "b",
-      explanation: "What matters is the threshold that triggers compression, the default compressor, and the pluggable engine. The rest is cosmetic."
-    }
-  ]}
-/>
-
 ## Sources
 
 Nous Research. (n.d.). *Context compression and caching*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/context-compression-and-caching

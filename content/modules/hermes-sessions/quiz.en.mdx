@@ -1,0 +1,40 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "What is state.db in Hermes?",
+      options: [
+        { id: "a", text: "A configuration database." },
+        { id: "b", text: "The transcript: session metadata, full message history, and model config in SQLite." },
+        { id: "c", text: "A model cache." },
+        { id: "d", text: "A plugin registry." }
+      ],
+      correct: "b",
+      explanation: "state.db persists session metadata, the full message history, and model configuration in SQLite at ~/.hermes/state.db."
+    },
+    {
+      id: "q2",
+      stem: "How does session_search work?",
+      options: [
+        { id: "a", text: "With an in-memory search." },
+        { id: "b", text: "With FTS5, SQLite's full-text index." },
+        { id: "c", text: "With an external service." },
+        { id: "d", text: "With grep over files." }
+      ],
+      correct: "b",
+      explanation: "session_search uses FTS5, SQLite's full-text index. That is why history searches are fast."
+    },
+    {
+      id: "q3",
+      stem: "What is lineage versus in-place?",
+      options: [
+        { id: "a", text: "Two names for the same thing." },
+        { id: "b", text: "Lineage creates child sessions pointing to the previous one; in-place rewrites the same session." },
+        { id: "c", text: "Lineage deletes the previous session." },
+        { id: "d", text: "In-place creates a copy." }
+      ],
+      correct: "b",
+      explanation: "Lineage creates child sessions pointing to the previous one (useful for branches); in-place rewrites the same session. Write contention uses a short timeout."
+    }
+  ]}
+/>

@@ -1,0 +1,52 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "Una página con un dashboard autenticado. ¿Qué herramienta?",
+      options: [
+        { id: "a", text: "web_extract, porque es lo más rápido." },
+        { id: "b", text: "Browser con un node que tiene cookies sembradas, porque el dashboard requiere sesión y JS." },
+        { id: "c", text: "curl con la cookie pegada." },
+        { id: "d", text: "In-process HTTP sin estado." }
+      ],
+      correct: "b",
+      explanation: "Un dashboard autenticado necesita cookies de sesión y ejecución JS. web_extract falla en auth y JS. Curl pegando cookies no maneja tokens expirados, CSRF, ni contenido dinámico. Browser + node con perfil sembrado es la elección correcta."
+    },
+    {
+      id: "q2",
+      stem: "Tu arnés abre un dialog `alert('confirm')` y nunca termina. ¿Por qué?",
+      options: [
+        { id: "a", text: "El browser colgó." },
+        { id: "b", text: "El arnés no tiene un handler explícito para dialogs. El browser queda esperando a que alguien (humano o código) acepte/deniegue. Sin handler, el turno se cuelga." },
+        { id: "c", text: "El modelo no sabe qué hacer." },
+        { id: "d", text: "El timeout no está configurado." }
+      ],
+      correct: "b",
+      explanation: "CDP necesita que el arnés registre un handler para Page.javascriptDialogOpening. Sin él, el browser espera eternamente. La solución es handler explícito con default razonable (auto-dismiss popups, deny alerts no esperados)."
+    },
+    {
+      id: "q3",
+      stem: "¿Por qué un browser tool es la tool más cara del catálogo?",
+      options: [
+        { id: "a", text: "Porque cobra por uso." },
+        { id: "b", text: "Porque combina latencia alta (navegar + JS), prefill caro (screenshots / HTML), y cleanup costoso (browser no cerrado consume RAM). Tres líneas de coste en cada llamada." },
+        { id: "c", text: "Porque usa GPU." },
+        { id: "d", text: "Porque requiere JavaScript." }
+      ],
+      correct: "b",
+      explanation: "Browser tool paga latencia (segundos a minutos), prefill (screenshots grandes, HTML completo), y memoria (browser no cerrado consume RAM). Las tres líneas juntas hacen del browser la tool más cara. Por eso acotar salida, TTL agresivo, y headless por defecto no son detalles."
+    },
+    {
+      id: "q4",
+      stem: "Un dump_html devuelve 500k caracteres al contexto. ¿Qué pasa?",
+      options: [
+        { id: "a", text: "El modelo lo lee y contesta bien." },
+        { id: "b", text: "El prefill de esa tool_call cuesta más que el prefill del system prompt. La atención se diluye en 500k caracteres de HTML, y el modelo ignora el 95%." },
+        { id: "c", text: "El modelo decide solo." },
+        { id: "d", text: "Es lo esperado, los modelos manejan HTML." }
+      ],
+      correct: "b",
+      explanation: "500k caracteres de HTML al contexto es un budget bomb. El prefill de esa tool_call solo domina la factura. La atención se diluye y el modelo ignora casi todo. Devuelve el accessibility tree (pequeño, semántico) o el HTML al filesystem con un id, no al contexto."
+    }
+  ]}
+/>

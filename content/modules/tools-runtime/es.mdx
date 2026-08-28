@@ -154,29 +154,6 @@ Si el JSON de arguments viene mal formado (comillas rotas, tipos equivocados), e
 
 **Lección.** Nombres únicos, override explícito con consentimiento, log del ganador. Hermes rechaza sombrear sin `override=True`. OpenClaw filtra por perfil. No asumas que «el último que se registra es el mejor».
 
-<Quiz
- questions={[
-  { id: "t1", stem: "¿Cuál es la diferencia entre un skill y un plugin en el runtime de tools?", options: [
-   { id: "a", text: "Un skill son instrucciones que usan tools existentes; un plugin registra un callable nuevo" },
-   { id: "b", text: "Son lo mismo" },
-   { id: "c", text: "Un plugin es más rápido que un skill" },
-   { id: "d", text: "Un skill necesita compilarse, un plugin no" }
-  ], correct: "a", explanation: "Un skill es una receta (SKILL.md) que usa herramientas que ya existen. Un plugin registra código nuevo (un callable) a través de la API de contexto." },
-  { id: "t2", stem: "¿Por qué un modelo A3B (48B total, ~3B activos) necesita tanta VRAM como uno dense de 48B?", options: [
-   { id: "a", text: "Porque la memoria debe cargar los 48B parámetros totales, aunque solo 3B se activen por token" },
-   { id: "b", text: "Porque el A3B es menos eficiente" },
-   { id: "c", text: "No necesita tanta VRAM, solo carga 3B" },
-   { id: "d", text: "Porque la atención siempre es dense sobre la caché KV" }
-  ], correct: "a", explanation: "La VRAM almacena TODOS los parámetros del modelo, activos o no. Un MoE 48B-A3B ocupa ~96 GB en BF16 como cualquier dense de 48B. La ventaja del A3B está en los FLOPs por token, no en el footprint de memoria." },
-  { id: "t3", stem: "¿Qué pasa si omites el paso de política (allow/deny) en el runtime de tools?", options: [
-   { id: "a", text: "El modelo puede ejecutar cualquier tool que nombre, incluyendo las peligrosas" },
-   { id: "b", text: "Nada, el modelo ya es seguro por defecto" },
-   { id: "c", text: "Las tools simplemente no funcionan" },
-   { id: "d", text: "El runtime lanza un error" }
-  ], correct: "a", explanation: "Sin política, el registro y el despacho ejecutan lo que sea. Si el modelo nombra `run_shell` y está en el registro, se ejecuta. La política es la puerta que separa «puedo nombrarlo» de «puedo ejecutarlo»." },
- ]}
-/>
-
 <VisualSlot id="tools-runtime:2" caption="Tres vistas del tema: mapa, mecanismo y trade-off — interactivas y en español." />
 
 ## Fuentes

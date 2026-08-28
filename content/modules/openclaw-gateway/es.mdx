@@ -165,49 +165,6 @@ El cliente de referencia Node acompana ese schema (OpenClaw, Gateway protocol, s
 
 Un equipo veía el gateway caerse cada pocas horas. El log mostraba un crash-loop por un adaptador que no cerraba la conexión. La cintura es un proceso: si un adaptador no respeta el ciclo de vida de conexión, el proceso entero paga el precio.
 
-## Quiz
-
-<Quiz
-  questions={[
-    {
-      id: "q1",
-      stem: "¿Qué es la cintura de OpenClaw?",
-      options: [
-        { id: "a", text: "Un balanceador de carga." },
-        { id: "b", text: "Un único proceso Gateway longevo que posee el agente y las conexiones." },
-        { id: "c", text: "Un plugin de mensajería." },
-        { id: "d", text: "Un proxy HTTP." }
-      ],
-      correct: "b",
-      explanation: "Un único Gateway longevo posee el agente y las conexiones. No es un balanceador ni un proxy."
-    },
-    {
-      id: "q2",
-      stem: "¿Qué es el pairing y la confianza local?",
-      options: [
-        { id: "a", text: "Un sistema de cifrado." },
-        { id: "b", text: "El mecanismo por el que un cliente demuestra que es de confianza antes de hablar con el gateway." },
-        { id: "c", text: "Una forma de compartir archivos." },
-        { id: "d", text: "Un método de autenticación de usuarios." }
-      ],
-      correct: "b",
-      explanation: "El pairing establece confianza local: un cliente demuestra que es de confianza antes de hablar con el gateway. Es la puerta de entrada."
-    },
-    {
-      id: "q3",
-      stem: "¿Qué es el tipado de protocolo?",
-      options: [
-        { id: "a", text: "La versión de Python." },
-        { id: "b", text: "El contrato de mensajes entre el gateway y sus clientes, con tipos definidos." },
-        { id: "c", text: "El idioma de los mensajes." },
-        { id: "d", text: "El formato de los logs." }
-      ],
-      correct: "b",
-      explanation: "El tipado de protocolo define el contrato de mensajes entre el gateway y sus clientes. Sin tipos, los errores aparecen en runtime."
-    }
-  ]}
-/>
-
 <VisualSlot id="openclaw-gateway:2" caption="Tres vistas del tema: mapa, mecanismo y trade-off — interactivas y en español." />
 
 ## Fuentes

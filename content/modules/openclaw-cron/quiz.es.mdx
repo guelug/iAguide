@@ -1,0 +1,40 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Dónde vive el scheduler de OpenClaw?",
+      options: [
+        { id: "a", text: "En cada agente." },
+        { id: "b", text: "En el Gateway: las automations son el scheduler builtin." },
+        { id: "c", text: "En un servicio externo." },
+        { id: "d", text: "En el cliente CLI." }
+      ],
+      correct: "b",
+      explanation: "Las automations son el scheduler builtin de OpenClaw y viven en el Gateway. No en cada agente."
+    },
+    {
+      id: "q2",
+      stem: "¿Qué incluyen los kinds de schedule?",
+      options: [
+        { id: "a", text: "Solo la hora." },
+        { id: "b", text: "El tipo de schedule y la timezone." },
+        { id: "c", text: "El modelo a usar." },
+        { id: "d", text: "El canal de entrega." }
+      ],
+      correct: "b",
+      explanation: "Los kinds de schedule incluyen el tipo (cron, intervalo, etc.) y la timezone. Sin timezone, el job dispara en UTC."
+    },
+    {
+      id: "q3",
+      stem: "¿Qué estilos de sesión soportan las automations?",
+      options: [
+        { id: "a", text: "Solo main." },
+        { id: "b", text: "Aislada (isolated) y main, según el job." },
+        { id: "c", text: "Solo isolated." },
+        { id: "d", text: "Ninguno: no usan sesión." }
+      ],
+      correct: "b",
+      explanation: "Las automations soportan sesión isolated o main. La elección cambia si el job comparte el hilo principal o corre aparte."
+    }
+  ]}
+/>

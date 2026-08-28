@@ -1,0 +1,40 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué es la compactación en OpenClaw?",
+      options: [
+        { id: "a", text: "Borrar la sesión." },
+        { id: "b", text: "Resumir el contexto cuando se acerca al límite de la ventana, con auto, manual y flush." },
+        { id: "c", text: "Comprimir los archivos del workspace." },
+        { id: "d", text: "Reiniciar el agente." }
+      ],
+      correct: "b",
+      explanation: "La compactación resume el contexto cuando se acerca al límite de la ventana. Tiene modos auto, manual y flush."
+    },
+    {
+      id: "q2",
+      stem: "¿Qué es el safeguard de calidad?",
+      options: [
+        { id: "a", text: "Un antivirus." },
+        { id: "b", text: "Una comprobación de que el resumen conserva lo esencial antes de descartar el contexto original." },
+        { id: "c", text: "Un límite de tokens." },
+        { id: "d", text: "Una firma digital." }
+      ],
+      correct: "b",
+      explanation: "El safeguard de calidad verifica que el resumen conserva lo esencial antes de descartar el contexto original. Sin él, la compactación puede perder estado crítico."
+    },
+    {
+      id: "q3",
+      stem: "¿Qué diferencia hay entre compactación y pruning?",
+      options: [
+        { id: "a", text: "Ninguna." },
+        { id: "b", text: "La compactación resume; el pruning recorta o elimina mensajes antiguos." },
+        { id: "c", text: "El pruning resume; la compactación borra." },
+        { id: "d", text: "La compactación es manual, el pruning automático." }
+      ],
+      correct: "b",
+      explanation: "La compactación resume el contexto; el pruning recorta o elimina mensajes antiguos. Son operaciones distintas con efectos distintos."
+    }
+  ]}
+/>

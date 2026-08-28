@@ -166,49 +166,6 @@ That accident is expensive: builtins ship with every install, plugins do not.
 
 A team registered a tool without a check_fn and with a missing API key. The model asked for it, the registry ran it, and it failed with 401. The lesson: check_fn hides the tool from the model when requirements are missing. If the tool should not exist without a key, check_fn must hide it, not let it fail at runtime.
 
-## Quiz
-
-<Quiz
-  questions={[
-    {
-      id: "q1",
-      stem: "What is the Hermes tool registry?",
-      options: [
-        { id: "a", text: "A configuration file." },
-        { id: "b", text: "A central rack: self-registered functions, grouped into toolsets, executed by a registry." },
-        { id: "c", text: "A plugin database." },
-        { id: "d", text: "An install script." }
-      ],
-      correct: "b",
-      explanation: "Tools are self-registered functions, grouped into toolsets, and executed by a central registry. Tools Runtime is the primary page."
-    },
-    {
-      id: "q2",
-      stem: "What does check_fn do?",
-      options: [
-        { id: "a", text: "Checks the tool version." },
-        { id: "b", text: "Hides the tool from the model when requirements are missing, like an API key." },
-        { id: "c", text: "Validates arguments at runtime." },
-        { id: "d", text: "Measures latency." }
-      ],
-      correct: "b",
-      explanation: "check_fn decides whether the tool exists for the model. If a requirement is missing (key, backend), the tool is hidden instead of failing at runtime."
-    },
-    {
-      id: "q3",
-      stem: "How are toolsets resolved?",
-      options: [
-        { id: "a", text: "Alphabetically." },
-        { id: "b", text: "By explicit enabled/disabled lists and platform presets." },
-        { id: "c", text: "By the active model." },
-        { id: "d", text: "By the session language." }
-      ],
-      correct: "b",
-      explanation: "Toolsets are resolved by explicit enabled/disabled lists and platform presets. The dispatch path decides which tool runs."
-    }
-  ]}
-/>
-
 ## Sources
 
 Nous Research. (n.d.). *Tools runtime*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/tools-runtime

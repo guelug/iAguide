@@ -165,49 +165,6 @@ Cite Background Tasks for the ledger that every automation run creates.
 
 A team configured a daily cron at 9:00 without a timezone. The job fired at 9:00 UTC, which was 11:00 in their zone. OpenClaw's scheduler lives in the Gateway and schedule kinds include timezone: without it, the briefing arrived two hours late.
 
-## Quiz
-
-<Quiz
-  questions={[
-    {
-      id: "q1",
-      stem: "Where does OpenClaw's scheduler live?",
-      options: [
-        { id: "a", text: "In each agent." },
-        { id: "b", text: "In the Gateway: automations are the builtin scheduler." },
-        { id: "c", text: "In an external service." },
-        { id: "d", text: "In the CLI client." }
-      ],
-      correct: "b",
-      explanation: "Automations are OpenClaw's builtin scheduler and live in the Gateway. Not in each agent."
-    },
-    {
-      id: "q2",
-      stem: "What do schedule kinds include?",
-      options: [
-        { id: "a", text: "Only the time." },
-        { id: "b", text: "The schedule type and the timezone." },
-        { id: "c", text: "The model to use." },
-        { id: "d", text: "The delivery channel." }
-      ],
-      correct: "b",
-      explanation: "Schedule kinds include the type (cron, interval, etc.) and the timezone. Without a timezone, the job fires in UTC."
-    },
-    {
-      id: "q3",
-      stem: "Which session styles do automations support?",
-      options: [
-        { id: "a", text: "Only main." },
-        { id: "b", text: "Isolated and main, depending on the job." },
-        { id: "c", text: "Only isolated." },
-        { id: "d", text: "None: they do not use sessions." }
-      ],
-      correct: "b",
-      explanation: "Automations support isolated or main sessions. The choice changes whether the job shares the main thread or runs apart."
-    }
-  ]}
-/>
-
 ## Sources
 
 OpenClaw. (n.d.). *Automations*. https://docs.openclaw.ai/automation/cron-jobs

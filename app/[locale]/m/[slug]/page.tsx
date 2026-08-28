@@ -14,7 +14,7 @@ import { MODULES, getModule, getNext, getPrev, localize } from "@/content/module
 import { TRACK_BY_ID } from "@/content/tracks";
 import { Link } from "@/i18n/navigation";
 import { routing, type Locale } from "@/i18n/routing";
-import { lessonPath, mdxComponents } from "@/lib/mdx";
+import { lessonPath, mdxComponents, quizPath } from "@/lib/mdx";
 import { extractToc } from "@/lib/toc";
 
 export function generateStaticParams() {
@@ -65,6 +65,13 @@ export default async function LessonPage({
   const toc = extractToc(source);
   const terms = GLOSSARY.filter((g) => g.module === mod.slug);
   const empty = source.trim().length === 0;
+  let hasQuiz = false;
+  try {
+    await fs.access(quizPath(mod.slug, loc));
+    hasQuiz = true;
+  } catch {
+    hasQuiz = false;
+  }
 
   return (
     <>
@@ -162,6 +169,21 @@ export default async function LessonPage({
             </div>
           </aside>
         </div>
+
+        {hasQuiz ? (
+          <div className="mt-16 max-w-3xl">
+            <Link
+              href={`/m/${mod.slug}/quiz`}
+              className="group block rounded-2xl border border-violet/30 bg-violet-wash px-5 py-5 no-underline transition-colors hover:border-violet/60"
+            >
+              <span className="block font-mono text-[0.62rem] tracking-[0.2em] uppercase text-violet">
+                {t("quizKicker")}
+              </span>
+              <span className="mt-2 block font-display text-2xl text-ink">{t("quizTitle")}</span>
+              <span className="mt-2 block text-sm leading-relaxed text-ink-soft">{t("quizCta")}</span>
+            </Link>
+          </div>
+        ) : null}
 
         {/* ---------------------------------------------------------- nav */}
         <nav className="mt-20 grid gap-4 border-t border-line pt-8 md:grid-cols-2">

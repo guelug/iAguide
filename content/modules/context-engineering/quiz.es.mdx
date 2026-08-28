@@ -1,0 +1,52 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué cachea realmente la caché KV en un transformer?",
+      options: [
+        { id: "a", text: "Las preferencias personales del usuario entre sesiones." },
+        { id: "b", text: "Las keys y values de atención de los tokens ya procesados — dentro de una sola generación." },
+        { id: "c", text: "Los bytes del system prompt para reusar entre peticiones." },
+        { id: "d", text: "Un resumen de conversaciones pasadas." }
+      ],
+      correct: "b",
+      explanation: "La caché KV guarda las keys/values de atención de tokens ya vistos dentro de una generación. No persiste entre peticiones; ese es el trabajo de la caché de prompt/prefijo. No recuerda al usuario; ese es el trabajo de la memoria."
+    },
+    {
+      id: "q2",
+      stem: "Modelo Mixture-of-Experts 48B-A3B: ¿cuál es cierta?",
+      options: [
+        { id: "a", text: "Activa los 48B parámetros por token pero usa menos memoria que un denso 7B." },
+        { id: "b", text: "Activa ~3B parámetros por token; el coste por token está más cerca del de un denso 3B que del de un denso 48B, aunque el archivo en disco sea del tamaño de 48B." },
+        { id: "c", text: "Siempre es más barato que un denso 3B porque se almacenan menos parámetros." },
+        { id: "d", text: "A3B significa que activa 48B parámetros pero solo almacena 3B." }
+      ],
+      correct: "b",
+      explanation: "Los modelos MoE mantienen todos los expertos en disco (coste de memoria = totales) pero enrutan cada token a un subconjunto pequeño (coste de FLOPs = activos). Un 48B-A3B tiene ~3B parámetros activos, así que el cómputo por token está más cerca de un denso 3B que de un denso 48B. El tamaño en disco sigue siendo ~48B."
+    },
+    {
+      id: "q3",
+      stem: "¿Por qué empujar 40 archivos markdown de skills en el system prompt suele doler?",
+      options: [
+        { id: "a", text: "Hace al modelo más confiado pero más lento decodificando." },
+        { id: "b", text: "Revienta la caché de prefijo con cada cambio, diluye la atención, y la tercera skill nunca es alcanzable." },
+        { id: "c", text: "El modelo tiene un límite duro de 10 bloques markdown por prompt." },
+        { id: "d", text: "Las skills solo son efectivas cuando se cargan vía el hub de skills." }
+      ],
+      correct: "b",
+      explanation: "Empujar sube el coste de prefill en cada turno, diluye la atención entre el ruido, y cualquier cambio pequeño en una skill revienta la caché de prompt de las 40. Sustituir los cuerpos por nombres en un índice más una tool `load_skill(name)` arregla las tres cosas."
+    },
+    {
+      id: "q4",
+      stem: "¿Qué coste está dominado por prefill y cuál por decode?",
+      options: [
+        { id: "a", text: "Un system prompt estable largo está dominado por decode; una respuesta larga del asistente está dominada por prefill." },
+        { id: "b", text: "Un system prompt estable largo está dominado por prefill (pagado en paralelo en cada turno); una respuesta larga del asistente está dominada por decode (pagado secuencialmente, token a token)." },
+        { id: "c", text: "Ambos están dominados por prefill, ya que la atención domina." },
+        { id: "d", text: "Ambos están dominados por decode, ya que la generación es secuencial." }
+      ],
+      correct: "b",
+      explanation: "Prefill es trabajo en paralelo sobre el prompt y los tokens previos — un prefijo estable largo lo paga en cada turno. Decode es generación secuencial token a token — una respuesta larga lo paga una vez. Presupuesto distinto, optimización distinta."
+    }
+  ]}
+/>

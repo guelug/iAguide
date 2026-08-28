@@ -175,49 +175,6 @@ This lesson stops at lanes, the four modes, debounce/cap/drop, and cancellation 
 
 An agent with auto-reply received two messages in a row and the second ran before the first finished. The command queue exists for that: one writer per session lane. Without the queue, runs stepped on each other and state corrupted.
 
-## Quiz
-
-<Quiz
-  questions={[
-    {
-      id: "q1",
-      stem: "What does OpenClaw's command queue serialize?",
-      options: [
-        { id: "a", text: "Workspace files." },
-        { id: "b", text: "Auto-reply runs of the same session, with one writer per lane." },
-        { id: "c", text: "Network messages." },
-        { id: "d", text: "Gateway logs." }
-      ],
-      correct: "b",
-      explanation: "The queue serializes auto-reply runs of the same session. One writer per lane prevents two runs from stepping on each other."
-    },
-    {
-      id: "q2",
-      stem: "What options does the queue have?",
-      options: [
-        { id: "a", text: "Only FIFO." },
-        { id: "b", text: "Debounce, cap, and drop: control when, how many, and what gets discarded." },
-        { id: "c", text: "Only priority." },
-        { id: "d", text: "Only timeout." }
-      ],
-      correct: "b",
-      explanation: "Queue options include debounce, cap, and drop: they control when a run executes, how many fit, and what gets discarded."
-    },
-    {
-      id: "q3",
-      stem: "What are steer and streaming in the queue?",
-      options: [
-        { id: "a", text: "Two session types." },
-        { id: "b", text: "Mechanisms to redirect a running run and to see tokens as they arrive." },
-        { id: "c", text: "Two log formats." },
-        { id: "d", text: "Two languages." }
-      ],
-      correct: "b",
-      explanation: "Steer redirects a running run; streaming shows tokens as they arrive. Both live inside the queue model."
-    }
-  ]}
-/>
-
 ## Sources
 
 OpenClaw. (n.d.). *Command queue*. https://docs.openclaw.ai/concepts/queue

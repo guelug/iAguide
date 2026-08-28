@@ -1,0 +1,40 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué es el protocolo del Gateway de OpenClaw?",
+      options: [
+        { id: "a", text: "Un formato JSON libre." },
+        { id: "b", text: "El protocolo WS del Gateway: frames, no JSON ad hoc, con tres sobres." },
+        { id: "c", text: "Un protocolo HTTP REST." },
+        { id: "d", text: "Un formato binario propietario." }
+      ],
+      correct: "b",
+      explanation: "El protocolo WS del Gateway es el único plano: frames con tres sobres (handshake, roles, scopes). No es JSON ad hoc."
+    },
+    {
+      id: "q2",
+      stem: "¿Qué son los tres sobres?",
+      options: [
+        { id: "a", text: "Cifrado, firma y compresión." },
+        { id: "b", text: "Handshake, roles y scopes: las capas que definen quién habla y con qué permisos." },
+        { id: "c", text: "Tres versiones del protocolo." },
+        { id: "d", text: "Tres tipos de mensaje." }
+      ],
+      correct: "b",
+      explanation: "Los tres sobres son handshake, roles y scopes: definen quién habla y con qué permisos. Sin ellos, el frame no se acepta."
+    },
+    {
+      id: "q3",
+      stem: "¿Qué es el versionado y las constantes de cliente?",
+      options: [
+        { id: "a", text: "La versión de Python." },
+        { id: "b", text: "El contrato de versiones y constantes que el cliente debe respetar para hablar con el gateway." },
+        { id: "c", text: "El idioma de los mensajes." },
+        { id: "d", text: "El formato de los logs." }
+      ],
+      correct: "b",
+      explanation: "El versionado y las constantes de cliente definen el contrato que el cliente debe respetar. Un cliente con versión vieja puede quedar fuera."
+    }
+  ]}
+/>

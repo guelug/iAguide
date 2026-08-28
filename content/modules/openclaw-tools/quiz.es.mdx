@@ -1,0 +1,40 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué distingue OpenClaw entre tools, skills y plugins?",
+      options: [
+        { id: "a", text: "Nada: son sinónimos." },
+        { id: "b", text: "Tres nombres distintos: tools ejecutan, skills instruyen, plugins extienden." },
+        { id: "c", text: "Solo cambia el idioma." },
+        { id: "d", text: "Solo cambia la ubicación." }
+      ],
+      correct: "b",
+      explanation: "Tools, skills y plugins son tres nombres distintos: tools ejecutan, skills instruyen, plugins extienden. No son sinónimos."
+    },
+    {
+      id: "q2",
+      stem: "¿Qué filtra la política de tools?",
+      options: [
+        { id: "a", text: "Solo el rendimiento." },
+        { id: "b", text: "Perfiles y luego allow/deny: qué ve cada perfil y qué se permite." },
+        { id: "c", text: "Solo el idioma." },
+        { id: "d", text: "Solo la versión." }
+      ],
+      correct: "b",
+      explanation: "La política filtra por perfil y luego por allow/deny. Una tool puede existir y no ser visible para un perfil."
+    },
+    {
+      id: "q3",
+      stem: "¿Qué son los shorthands de grupo?",
+      options: [
+        { id: "a", text: "Alias de comandos." },
+        { id: "b", text: "Atajos para referirse a grupos de tools en la política." },
+        { id: "c", text: "Nombres cortos de archivos." },
+        { id: "d", text: "Variables de entorno." }
+      ],
+      correct: "b",
+      explanation: "Los shorthands de grupo son atajos para referirse a grupos de tools en la política, en lugar de listar cada tool."
+    }
+  ]}
+/>

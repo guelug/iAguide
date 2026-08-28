@@ -1,0 +1,64 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "Tu A3B 48B/3B en FP16 ocupa 96 GB. En Q4_K_M, ¿cuánto ocupa aproximadamente y por qué?",
+      options: [
+        { id: "a", text: "~12 GB, porque solo activas 3B por token." },
+        { id: "b", text: "~24-28 GB, porque tienes que cargar los 48B de expertos. Los activos son para velocidad, no para capacidad." },
+        { id: "c", text: "~96 GB. La cuantización no reduce memoria en MoE." },
+        { id: "d", text: "~3 GB, porque solo un experto está activo." }
+      ],
+      correct: "b",
+      explanation: "Los expertos tienen que estar todos en memoria porque el router puede mandar a cualquiera. A 0.6 bytes/parámetro, 48B × 0.6 = ~28 GB. La cifra de activos sirve para predecir FLOPs y velocidad de decode, no para dimensionar VRAM. Es la trampa de marketing más repetida en MoE."
+    },
+    {
+      id: "q2",
+      stem: "¿Por qué el decode se beneficia más de la cuantización que el prefill?",
+      options: [
+        { id: "a", text: "Porque el decode genera un token nuevo cada vez y relee los pesos enteros para producir uno solo. Pesos más pequeños = menos bytes que mover por token = más tokens/segundo. El prefill, en cambio, está limitado por FLOPs, no por bytes." },
+        { id: "b", text: "Porque el decode usa el GPU y el prefill usa la CPU." },
+        { id: "c", text: "Porque el decode es más fácil de paralelizar." },
+        { id: "d", text: "Falso: ambas fases se benefician exactamente igual." }
+      ],
+      correct: "a",
+      explanation: "El decode es memory-bandwidth-bound: el cuello es bytes/segundo entre memoria y unidades de cómputo. Reducir los bytes por peso (Q4 vs FP16) duplica el ancho de banda efectivo por token. El prefill es compute-bound: el cuello son FLOPs. La cuantización le ayuda menos proporcionalmente."
+    },
+    {
+      id: "q3",
+      stem: "Tienes una 4090 con 24 GB de VRAM y quieres correr un dense 8B Q4 (~5 GB de pesos) con contexto 64k. ¿Qué pasa?",
+      options: [
+        { id: "a", text: "Cabe sin problemas." },
+        { id: "b", text: "La KV a 64k en un 8B GQA es ~4-8 GB. Pesos + KV + overhead ≈ 12-15 GB. Cabe, pero con poco margen. Si subes a 128k, la KV se acerca a 8-16 GB y no entra." },
+        { id: "c", text: "No cabe ni a 4k." },
+        { id: "d", text: "Solo cabe si quitas la cuantización." }
+      ],
+      correct: "b",
+      explanation: "La regla práctica: pesos + KV_pico + 3 GB de overhead. Con un 8B Q4 y contexto 64k, eso es ~5 + ~6 + ~3 = ~14 GB. Cabe en 24 GB. A 128k la KV sube a 8-16 GB y ya no entra. La lección: el contexto que la ficha anuncia no es el contexto que puedes usar — es el contexto que la KV aguanta si tienes hardware de sobra."
+    },
+    {
+      id: "q4",
+      stem: "Memoria unificada de Apple Silicon de 64 GB: ¿es equivalente a una GPU de 64 GB?",
+      options: [
+        { id: "a", text: "Sí, porque CPU y GPU comparten el mismo pool." },
+        { id: "b", text: "No: el ancho de banda es ~5x menor que el de una 4090, no hay ecosistema CUDA, y macOS + navegador se quedan con un trozo. Es otro computador que corre muchos de los mismos modelos, no una GPU disfrazada." },
+        { id: "c", text: "Solo si activas el 'modo GPU' en Preferencias." },
+        { id: "d", text: "Sí, si el modelo es MLX." }
+      ],
+      correct: "b",
+      explanation: "Unified memory = un pool compartido, no = una GPU rápida. El bandwidth típico de Apple Silicon (200-400 GB/s) está muy por debajo de la VRAM dedicada de una 4090 (~1 TB/s). Y macOS se queda con su parte. Los MLX-specific kernels aprovechan mejor, pero el techo sigue siendo bandwidth, no capacidad."
+    },
+    {
+      id: "q5",
+      stem: "Tu proceso se mata al cargar el modelo aunque `ls -lh` dice 8 GB y tienes 12 GB libres. ¿Por qué?",
+      options: [
+        { id: "a", text: "El archivo está corrupto." },
+        { id: "b", text: "El runtime (CUDA/Metal) y el allocator reservan 1-3 GB. Las activaciones pico del prefill pueden picar a varios GB. La fragmentación se come otro trozo. Los '8 GB' del archivo no son los '8 GB' residentes." },
+        { id: "c", text: "Porque usas FP16." },
+        { id: "d", text: "El sistema operativo rechaza el modelo." }
+      ],
+      correct: "b",
+      explanation: "El overhead invisible (CUDA context, allocator, activaciones del prefill) puede sumar 2-4 GB fácil. Una cuantización que duplica el archivo en memoria durante la carga añade otro tanto. La métrica útil es VRAM residente después del primer prefill, no el tamaño del archivo en disco."
+    }
+  ]}
+/>

@@ -1,0 +1,52 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué hace exactamente LoRA?",
+      options: [
+        { id: "a", text: "Reentrena todos los parámetros del modelo." },
+        { id: "b", text: "Aprende dos matrices pequeñas A (k×r) y B (r×d) cuya diferencia ΔW = (α/r)·BA se suma a la matriz congelada W; solo A y B reciben gradientes y estado del optimizador." },
+        { id: "c", text: "Cuantiza el modelo a 4 bits para siempre." },
+        { id: "d", text: "Entrena un modelo desde cero." }
+      ],
+      correct: "b",
+      explanation: "LoRA congela W y aprende A (k×r) y B (r×d), de modo que la matriz efectiva es W + (α/r)BA. Como r es pequeño (4–64), A y B tienen muchísimos menos parámetros que W, y solo ellos reciben gradientes y estado del optimizador. Al final puedes fusionarlos o servirlos por separado."
+    },
+    {
+      id: "q2",
+      stem: "Tu LoRA sobre un modelo 7B en fp16 con r=16, alpha=32, módulos=q/v_proj. Aproximadamente, ¿cuántos parámetros entrenables?",
+      options: [
+        { id: "a", text: "7B (todos)." },
+        { id: "b", text: "≈ 4–16 millones (depende de capas y dimensiones); muchísimos menos que 7B porque solo A y B de cada capa." },
+        { id: "c", text: "70 mil millones." },
+        { id: "d", text: "No se puede saber." }
+      ],
+      correct: "b",
+      explanation: "Para cada capa con d=4096 y r=16, A y B son 4096·16 + 16·4096 = 131k parámetros. Con ~32 capas y solo q/v_proj (dos matrices por capa), son ~8M parámetros. Algunos millones, no miles de millones. Por eso LoRA entrena en GPUs pequeñas."
+    },
+    {
+      id: "q3",
+      stem: "¿Por qué es crítico usar exactamente la misma plantilla de chat en SFT y en inferencia?",
+      options: [
+        { id: "a", text: "Por estética." },
+        { id: "b", text: "Porque el modelo aprende los tokens especiales (system, user, assistant) durante el SFT; si cambias la plantilla en producción, los tokens no coinciden y el modelo degrada mucho." },
+        { id: "c", text: "Es un requisito de Hugging Face." },
+        { id: "d", text: "Solo afecta al rendimiento." }
+      ],
+      correct: "b",
+      explanation: "Los modelos instruct se entrenan con delimitadores específicos (ChatML usa <|im_start|>system<|im_sep|>...; Llama-3 usa <|begin_of_text|><|start_header_id|>...). Si cambias la plantilla en inferencia, el modelo ve tokens que no aprendió y no sabe dónde comienza su respuesta. La degradación es severa."
+    },
+    {
+      id: "q4",
+      stem: "Acabas de entrenar un LoRA y tu eval reservado ha bajado respecto al SFT base. ¿Cuál es la causa más probable?",
+      options: [
+        { id: "a", text: "El modelo base estaba roto." },
+        { id: "b", text: "Sobreajuste: el modelo aprendió los datos de entrenamiento pero perdió capacidad general. Soluciones: mezclar datos generales, bajar épocas, subir eval temprano (early stopping), o bajar el rango LoRA." },
+        { id: "c", text: "El adapter está cuantizado." },
+        { id: "d", text: "El tokenizer cambió." }
+      ],
+      correct: "b",
+      explanation: "Si el eval reservado baja después de SFT, lo más común es sobreajuste: el modelo memorizó los datos de entrenamiento y olvidó comportamiento general. Las contramedidas son mezclar datos generales (10–30%), early stopping con tu set de eval, reducir épocas, o bajar el rango del LoRA."
+    }
+  ]}
+/>

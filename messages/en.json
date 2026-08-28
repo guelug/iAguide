@@ -89,7 +89,12 @@
     "top": "Back to top",
     "wipTitle": "Being written",
     "wipBody": "This module is scaffolded but not finished. The map shows it so you can see where it goes.",
-    "keyTerms": "Terms introduced here"
+    "keyTerms": "Terms introduced here",
+    "quizTitle": "Quiz",
+    "quizKicker": "Check",
+    "quizLede": "A few questions on this lesson. Progress stays in this browser.",
+    "quizCta": "Open the quiz on its own page. The lesson stays here, without the long block at the end.",
+    "backToLesson": "Back to the lesson"
   },
   "glossary": {
     "title": "Glossary",

@@ -182,61 +182,6 @@ Un equipo de OCR construyó un agente que recibía un PDF multipágina como imá
 
 Un modelo visión-lenguaje veía una captura de pantalla y describía un botón que no estaba ahí. El problema: el vision encoder producía embeddings con alta varianza para regiones vacías; el LLM, en cross-attention, llenaba los huecos. Solución: entrenar el modelo con un *objetivo de grounding* (predecir las coordenadas exactas del elemento descrito) además de la descripción libre.
 
-## Quiz rápido
-
-<Quiz
-  questions={[
-    {
-      id: "q1",
-      stem: "¿Cómo convierte un Vision Transformer (ViT) una imagen en tokens?",
-      options: [
-        { id: "a", text: "Usa un LSTM capa por capa sobre los píxeles." },
-        { id: "b", text: "Divide la imagen en parches (por ejemplo 16×16), aplana cada uno, los proyecta con una capa lineal a vectores de dimensión d_model, y los trata como secuencia." },
-        { id: "c", text: "Genera una descripción en texto y la tokeniza." },
-        { id: "d", text: "Aplica convolución 1×1 sobre toda la imagen." }
-      ],
-      correct: "b",
-      explanation: "ViT parte la imagen en una cuadrícula de parches de tamaño fijo, aplana cada parche y lo proyecta linealmente al espacio del transformer. El resultado es una secuencia de vectores que el transformer procesa con self-attention, igual que si fueran tokens de texto."
-    },
-    {
-      id: "q2",
-      stem: "¿Para qué sirve CLIP en un pipeline multimodal?",
-      options: [
-        { id: "a", text: "Genera imágenes nuevas a partir de texto." },
-        { id: "b", text: "Aprende un espacio compartido donde texto e imagen están alineados: útil para retrieval, filtrado de datasets y clasificación zero-shot, pero NO para generar descripciones largas." },
-        { id: "c", text: "Comprime audio." },
-        { id: "d", text: "Tokeniza texto en sub-palabras." }
-      ],
-      correct: "b",
-      explanation: "CLIP entrena dos torres (imagen y texto) con objetivo contrastivo: el embedding de la imagen correcta se acerca al embedding de su caption. Sirve para buscar imágenes con texto o clasificar zero-shot. No genera texto a partir de imágenes; para eso necesitas un modelo generativo."
-    },
-    {
-      id: "q3",
-      stem: "¿Qué es un flow matching y en qué se diferencia de la difusión clásica?",
-      options: [
-        { id: "a", text: "Es lo mismo que la difusión, con distinto nombre." },
-        { id: "b", text: "Es un marco general que aprende un campo vectorial entre ruido y datos; permite solvers con menos pasos y es más estable de entrenar que la difusión clásica (DDPM). SD3 y Flux lo usan." },
-        { id: "c", text: "Es una técnica solo para vídeo." },
-        { id: "d", text: "Es un tipo de RNN." }
-      ],
-      correct: "b",
-      explanation: "Flow matching es un marco que incluye la difusión como caso particular. Aprende directamente el campo vectorial entre la distribución de ruido y la distribución de datos, lo que permite solvers más rápidos (4–20 pasos en vez de 50–1000) y un entrenamiento más estable. SD3, Flux y otros modelos recientes lo adoptan."
-    },
-    {
-      id: "q4",
-      stem: "Tu agente de navegador guarda cada captura de pantalla en el contexto. ¿Por qué es un problema?",
-      options: [
-        { id: "a", text: "Las imágenes no se pueden comprimir." },
-        { id: "b", text: "Las imágenes consumen muchos tokens (196–2880 cada una) y llenan la ventana de contexto rápido; el agente pierde capacidad de razonar y puede entrar en bucles mirando capturas irrelevantes." },
-        { id: "c", text: "El navegador prohíbe guardar capturas." },
-        { id: "d", text: "Las imágenes se ven mal." }
-      ],
-      correct: "b",
-      explanation: "Cada imagen convertida en tokens visuales consume 196–2880 tokens del LLM. Si guardas todas las capturas, en pocos pasos el contexto se llena, el agente pierde la ventana para razonar, y suele entrar en bucles re-observando pantallas irrelevantes. La práctica es descartar capturas viejas o reemplazarlas por resúmenes comprimidos."
-    }
-  ]}
-/>
-
 <VisualSlot id="multimodal:2" caption="Tres vistas del tema: mapa, mecanismo y trade-off — interactivas y en español." />
 
 ## Fuentes

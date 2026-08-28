@@ -180,49 +180,6 @@ Los servidores locales necesitan contexto suficiente para uso de agente. Hermes 
 
 Un equipo configuró una clave de proveedor en el perfil de producción y otra en el de desarrollo. El resolvedor eligió la guardada, y las llamadas de staging usaban la clave de prod. El alcance de claves es una valla: cada perfil resuelve su propio runtime, y mezclarlos es cómo se filtran credenciales.
 
-## Quiz
-
-<Quiz
-  questions={[
-    {
-      id: "q1",
-      stem: "¿Qué comparten los cinco hosts de Hermes?",
-      options: [
-        { id: "a", text: "Solo el nombre del proyecto." },
-        { id: "b", text: "Un resolvedor de runtime de proveedores: CLI, gateway, cron, ACP y llamadas auxiliares." },
-        { id: "c", text: "Cada host tiene su propio resolvedor escrito a mano." },
-        { id: "d", text: "Nada: son cinco productos distintos." }
-      ],
-      correct: "b",
-      explanation: "CLI, gateway, cron, ACP y las llamadas auxiliares comparten un resolvedor de runtime de proveedores. Provider Runtime Resolution es la página de referencia."
-    },
-    {
-      id: "q2",
-      stem: "¿Qué gana en la precedencia del resolvedor?",
-      options: [
-        { id: "a", text: "La variable de entorno siempre." },
-        { id: "b", text: "La elección guardada en config, salvo override explícito." },
-        { id: "c", text: "El proveedor más barato." },
-        { id: "d", text: "El último que se configuró." }
-      ],
-      correct: "b",
-      explanation: "La precedencia: la elección guardada gana, salvo override explícito. hermes model y /model muestran el mismo catálogo resuelto."
-    },
-    {
-      id: "q3",
-      stem: "¿Por qué el alcance de claves es una valla?",
-      options: [
-        { id: "a", text: "Porque las claves ocupan espacio." },
-        { id: "b", text: "Porque cada perfil resuelve su propio runtime; mezclar claves entre perfiles filtra credenciales." },
-        { id: "c", text: "Porque las claves caducan." },
-        { id: "d", text: "Porque el resolvedor no las lee." }
-      ],
-      correct: "b",
-      explanation: "El alcance de claves es una valla: cada perfil resuelve su propio runtime. Mezclar claves entre perfiles es cómo se filtran credenciales."
-    }
-  ]}
-/>
-
 <VisualSlot id="hermes-providers:2" caption="Tres vistas del tema: mapa, mecanismo y trade-off — interactivas y en español." />
 
 ## Fuentes

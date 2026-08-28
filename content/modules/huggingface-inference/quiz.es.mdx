@@ -1,0 +1,40 @@
+<Quiz
+ questions={[
+  {
+    id: "q1",
+    stem: "¿Cuál de los cuatro productos de inferencia de Hugging Face descarga los pesos al cliente?",
+    options: [
+      { id: "a", text: "Inference Providers" },
+      { id: "b", text: "Inference Endpoints" },
+      { id: "c", text: "Transformers local con `pipeline` o `AutoModel.from_pretrained`: los shards viven en la caché del Hub y los ejecuta tu GPU (o CPU)" },
+      { id: "d", text: "Ninguno, todos son serverless" }
+    ],
+    correct: "c",
+    explanation: "Transformers local es el único de los cuatro que pone los pesos en tu máquina. Inference Providers es serverless, Endpoints es hardware dedicado que Hugging Face opera, y Jobs corre un script Docker en GPU/TPU del Hub. El catálogo de proveedores cambia; el que ejecuta tu GPU lo decides tú con `device_map`."
+  },
+  {
+    id: "q2",
+    stem: "¿Qué hace el sufijo `:fastest` en una llamada a Inference Providers?",
+    options: [
+      { id: "a", text: "Fuerza al partner más barato sin importar latencia" },
+      { id: "b", text: "Indica al router que elija el partner con menor latencia estimada para ese modelo en ese momento; no garantiza SLA" },
+      { id: "c", text: "Reserva una GPU dedicada por 24 horas" },
+      { id: "d", text: "Salta la cola y entra directo al modelo" }
+    ],
+    correct: "b",
+    explanation: "El sufijo `:fastest` es una pista al router, no una promesa: el partner que el router elige varía según latencia medida. Para cargas batch o reproducibles, fija un proveedor explícito en lugar del router. La página de Inference Providers lo describe como una API unificada con forma OpenAI."
+  },
+  {
+    id: "q3",
+    stem: "¿Cómo difiere `hf jobs run` de una llamada a Inference Providers?",
+    options: [
+      { id: "a", text: "`hf jobs run` ejecuta un script Docker en GPUs del Hub (compute por horas), no un round-trip de chat; Inference Providers es API serverless de chat/embeddings/visión" },
+      { id: "b", text: "Son lo mismo, solo cambia el nombre" },
+      { id: "c", text: "`hf jobs run` solo corre en CPU; Inference Providers solo en GPU" },
+      { id: "d", text: "`hf jobs run` requiere un plan Enterprise" }
+    ],
+    correct: "a",
+    explanation: "`hf jobs run` lanza un script (un script Docker) en hardware del Hub para trabajos por lote: fine-tuning, evaluación, una descarga masiva. Inference Providers es la API unificada con forma OpenAI para chat, embeddings, visión, etc. La página de la CLI documenta ambos como productos separados."
+  }
+ ]}
+/>

@@ -1,0 +1,40 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué es state.db en Hermes?",
+      options: [
+        { id: "a", text: "Una base de datos de configuración." },
+        { id: "b", text: "El transcript: metadatos de sesión, historial completo de mensajes y configuración de modelo en SQLite." },
+        { id: "c", text: "Un caché de modelos." },
+        { id: "d", text: "Un registro de plugins." }
+      ],
+      correct: "b",
+      explanation: "state.db persiste metadatos de sesión, el historial completo de mensajes y la configuración de modelo en SQLite en ~/.hermes/state.db."
+    },
+    {
+      id: "q2",
+      stem: "¿Cómo funciona session_search?",
+      options: [
+        { id: "a", text: "Con una búsqueda en memoria." },
+        { id: "b", text: "Con FTS5, el índice de texto completo de SQLite." },
+        { id: "c", text: "Con un servicio externo." },
+        { id: "d", text: "Con grep sobre archivos." }
+      ],
+      correct: "b",
+      explanation: "session_search usa FTS5, el índice de texto completo de SQLite. Por eso las búsquedas sobre el historial son rápidas."
+    },
+    {
+      id: "q3",
+      stem: "¿Qué es el linaje frente a in-place?",
+      options: [
+        { id: "a", text: "Dos nombres para lo mismo." },
+        { id: "b", text: "El linaje crea sesiones hijas que apuntan a la anterior; in-place reescribe la misma sesión." },
+        { id: "c", text: "El linaje borra la sesión anterior." },
+        { id: "d", text: "In-place crea una copia." }
+      ],
+      correct: "b",
+      explanation: "El linaje crea sesiones hijas que apuntan a la anterior (útil para ramas); in-place reescribe la misma sesión. La contención de escritura usa un timeout corto."
+    }
+  ]}
+/>

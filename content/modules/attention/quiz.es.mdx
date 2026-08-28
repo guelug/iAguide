@@ -1,0 +1,52 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Por qué la raíz cuadrada de d aparece en la fórmula de atención?",
+      options: [
+        { id: "a", text: "Para que las puntuaciones quepan en fp16." },
+        { id: "b", text: "Para escalar los productos punto antes del softmax: sin ella, los logits explotan al crecer d, los softmax se vuelven one-hot, y los gradientes se anulan." },
+        { id: "c", text: "Es un detalle decorativo del paper original." },
+        { id: "d", text: "Para ahorrar memoria." }
+      ],
+      correct: "b",
+      explanation: "Los productos punto crecen con la dimensionalidad. Sin la raíz, los logits tienen varianza proporcional a d, el softmax se concentra en el argmax y los gradientes desaparecen en el resto de las keys. La raíz mantiene la escala bajo control y permite entrenar."
+    },
+    {
+      id: "q2",
+      stem: "¿Qué gana Grouped Query Attention (GQA) frente a Multi-Head Attention (MHA) tradicional?",
+      options: [
+        { id: "a", text: "Mayor calidad en todos los benchmarks." },
+        { id: "b", text: "Reduce drásticamente la memoria de la caché KV (las cabezas comparten grupos de K/V) con una caída de calidad mínima. Es lo que usa Llama 3." },
+        { id: "c", text: "Permite ventanas de contexto arbitrariamente grandes." },
+        { id: "d", text: "Hace que el modelo entrene más rápido en GPU." }
+      ],
+      correct: "b",
+      explanation: "GQA divide las cabezas en grupos: cada grupo comparte K y V. Memoria de caché KV ≈ n_grupos/n_cabezas respecto a MHA. La calidad baja muy poco. Llama 2 70B, Llama 3, Mistral, etc. usan GQA. No es lo mismo que Multi-Query (1 grupo) ni que MHA (n grupos)."
+    },
+    {
+      id: "q3",
+      stem: "Modelo 7B con 32 capas, 32 cabezas KV, dimensión 128, fp16, contexto de 8k tokens. ¿Cuánta memoria extra necesita solo para la caché KV?",
+      options: [
+        { id: "a", text: "≈ 1 GB." },
+        { id: "b", text: "≈ 1 MB." },
+        { id: "c", text: "≈ 16 MB." },
+        { id: "d", text: "≈ 32 GB." }
+      ],
+      correct: "a",
+      explanation: "2 (K+V) × 32 capas × 32 cabezas × 128 dim × 8000 tokens × 2 bytes (fp16) ≈ 4 GB para esa configuración exacta; variando parámetros cabe en el orden de 1–4 GB. Lo importante es que la caché KV crece linealmente con la longitud del contexto y se acumula por capa y por cabeza. Multiplica por 16 para 128k."
+    },
+    {
+      id: "q4",
+      stem: "¿Por qué la máscara causal es obligatoria en un decoder generativo?",
+      options: [
+        { id: "a", text: "Por una limitación técnica de CUDA." },
+        { id: "b", text: "Porque el modelo aprende P(token_i | tokens_{<i}). Si viera el futuro, aprendería a reescribir, no a generar." },
+        { id: "c", text: "Para ahorrar memoria." },
+        { id: "d", text: "Para acelerar el entrenamiento." }
+      ],
+      correct: "b",
+      explanation: "La distribución objetivo es condicionada al pasado. Sin máscara causal, el modelo ve la respuesta que viene después durante el entrenamiento y aprende a copiarla en lugar de predecirla. En inferencia, cuando ya no hay futuro, el modelo degenera. La máscara es el contrato que define el problema."
+    }
+  ]}
+/>

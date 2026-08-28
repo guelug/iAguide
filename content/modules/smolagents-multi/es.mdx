@@ -182,59 +182,6 @@ Los smolagents anidados son bucles dummy anidados. El aislamiento es la virtud; 
 
 ## Cuestionario (smolagents: multi, retrieval, visión)
 
-<Quiz
-  questions={[
-    {
-      id: "smolagents-multi-1",
-      stem: "En smolagents, la recuperación debe ser",
-      options: [
-        { id: "a", text: "El primer salto obligatorio de cada turno" },
-        { id: "b", text: "Una herramienta que el agente decide llamar" },
-        { id: "c", text: "Un índice LlamaIndex escondido" },
-        { id: "d", text: "Un prompt con los PDF pegados" },
-      ],
-      correct: "b",
-      explanation: "La unidad trata retrieval como tool, no como pipeline fijo. Si recuperas siempre, no es un agente: es RAG clásico.",
-    },
-    {
-      id: "smolagents-multi-2",
-      stem: "Visión en smolagents: el corte que importa",
-      options: [
-        { id: "a", text: "Cualquier modelo ve imágenes si pegas un data URI" },
-        { id: "b", text: "Hay que distinguir imágenes al inicio del run frente a imágenes que entran en el log" },
-        { id: "c", text: "Solo funciona con GPT-4o" },
-        { id: "d", text: "La visión sustituye a las tools" },
-      ],
-      correct: "b",
-      explanation: "La lección separa imágenes de sistema (al arrancar) de las que el entorno observa después. Mezclarlas es el caso Sightline.",
-    },
-    {
-      id: "smolagents-multi-3",
-      stem: "Qué tiene prohibido hacer el manager en un sistema multi-agente smolagents",
-      options: [
-        { id: "a", text: "Llamar al worker" },
-        { id: "b", text: "Hacer el trabajo del worker (buscar, ejecutar código, ver) en vez de delegar" },
-        { id: "c", text: "Escribir final_answer" },
-        { id: "d", text: "Tener un prompt" },
-      ],
-      correct: "b",
-      explanation: "Si el manager ejecuta las tools del hijo, el anidado es teatro. El manager coordina; el worker actúa.",
-    },
-    {
-      id: "smolagents-multi-4",
-      stem: "final_answer_checks son",
-      options: [
-        { id: "a", text: "Adorno de la demo" },
-        { id: "b", text: "Tests sobre la respuesta final, no un segundo LLM juez" },
-        { id: "c", text: "El leaderboard de GAIA" },
-        { id: "d", text: "Un planning_interval más bajo" },
-      ],
-      correct: "b",
-      explanation: "Son predicados que tú escribes (formato, rango, prohibiciones). No sustituyen evaluación offline.",
-    },
-  ]}
-/>
-
 <VisualSlot id="smolagents-multi:2" caption="Tres vistas del tema: mapa, mecanismo y trade-off — interactivas y en español." />
 
 ## Fuentes

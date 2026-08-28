@@ -1,0 +1,40 @@
+<Quiz
+ questions={[
+  {
+    id: "q1",
+    stem: "How many tokens does English text usually cost per word under a modern BPE tokenizer?",
+    options: [
+      { id: "a", text: "Exact: 1 token = 1 word" },
+      { id: "b", text: "Roughly 0.7–1 token per word; code, URLs, and non-Latin scripts deviate a lot" },
+      { id: "c", text: "10 tokens per word on average" },
+      { id: "d", text: "A fixed number independent of the language" }
+    ],
+    correct: "b",
+    explanation: "BPE tokenizers learn to chunk by frequency. English sits around 0.7–1 token per word. Code, URLs, and non-Latin scripts spend more tokens per the same amount of characters. Count tokens, not characters, when you think about cost and context."
+  },
+  {
+    id: "q2",
+    stem: "What three transformer architectures exist, and what is each for?",
+    options: [
+      { id: "a", text: "Encoder, decoder, encoder-decoder: the encoder emits embeddings (BERT); the decoder predicts the next token (Llama, GPT); the encoder-decoder maps sequence to sequence (T5, BART)" },
+      { id: "b", text: "Only the decoder exists; the others are cancelled projects" },
+      { id: "c", text: "Encoder is for vision, decoder is for text, encoder-decoder is unused" },
+      { id: "d", text: "All three are synonyms, there is no difference" }
+    ],
+    correct: "a",
+    explanation: "Hugging Face's course splits: encoder (BERT-class) for embeddings; decoder-only (Llama, Gemma, GPT) for autoregressive generation; encoder-decoder (T5, BART) for sequence-to-sequence. Agents typically rely on a chat/instruct decoder because it consumes conversational templates and emits the tool-call tokens."
+  },
+  {
+    id: "q3",
+    stem: "Why can a page of prose cost thousands of tokens even when it does not 'look long'?",
+    options: [
+      { id: "a", text: "Because tokens are Unicode characters" },
+      { id: "b", text: "Because a JSON dump, stack trace, or long log chunks into many tokens per word; a visually short page can hide a high token density" },
+      { id: "c", text: "Because browsers add hidden tokens" },
+      { id: "d", text: "Because models charge a flat per-page fee" }
+    ],
+    correct: "b",
+    explanation: "Cost is per million tokens, not per character. A stack trace, a formatted JSON, or a 200-line log can burn thousands of tokens without looking long. Rule of thumb: measure with the model's tokenizer (or an equivalent `tiktoken`), not a word counter."
+  }
+ ]}
+/>

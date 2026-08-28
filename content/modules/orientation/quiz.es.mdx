@@ -1,0 +1,52 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué es un modelo de lenguaje, en la práctica?",
+      options: [
+        { id: "a", text: "Una base de datos de preguntas y respuestas." },
+        { id: "b", text: "Un archivo de pesos (números aprendidos) más una receta para puntuar el siguiente token. No es un programa de reglas escritas a mano." },
+        { id: "c", text: "El chat que ves en la pantalla." },
+        { id: "d", text: "Una API de un proveedor." }
+      ],
+      correct: "b",
+      explanation: "El modelo es el artefacto: pesos más la operación de puntuar el siguiente token. El chat, la API y el arnés son capas alrededor. Cambias el archivo; el bucle puede seguir."
+    },
+    {
+      id: "q2",
+      stem: "¿Qué es un token?",
+      options: [
+        { id: "a", text: "Siempre una palabra." },
+        { id: "b", text: "Un trozo de texto convertido en un entero del vocabulario. A veces es una palabra, a veces un fragmento, un signo o un pedazo de código. El modelo lee y escribe tokens, no caracteres." },
+        { id: "c", text: "Un carácter Unicode." },
+        { id: "d", text: "Una frase completa." }
+      ],
+      correct: "b",
+      explanation: "El tokenizador parte el texto en piezas aprendidas. Cuenta tokens cuando pienses en coste o contexto. El español y el código suelen gastar más que el inglés."
+    },
+    {
+      id: "q3",
+      stem: "Cuando un modelo «responde», ¿qué está haciendo?",
+      options: [
+        { id: "a", text: "Busca la respuesta en una tabla y la copia." },
+        { id: "b", text: "Piensa en silencio y luego dicta un párrafo entero." },
+        { id: "c", text: "Puntúa el siguiente token, lo emite, lo añade a la secuencia y repite hasta que para." },
+        { id: "d", text: "Consulta internet por defecto." }
+      ],
+      correct: "c",
+      explanation: "Toda la generación es siguiente-token. El «razonamiento» visible también son tokens. No hay un paso aparte de consulta salvo que el arnés llame a una herramienta."
+    },
+    {
+      id: "q4",
+      stem: "¿Qué distingue el prompt de los pesos?",
+      options: [
+        { id: "a", text: "Son lo mismo: el prompt reentrena al modelo." },
+        { id: "b", text: "Los pesos son lo que el modelo es (el archivo aprendido). El prompt es lo que ve ahora, dentro de una ventana de contexto que es un presupuesto, no un archivador." },
+        { id: "c", text: "El prompt vive en disco y los pesos se teclean cada turno." },
+        { id: "d", text: "El prompt solo existe en ChatGPT." }
+      ],
+      correct: "b",
+      explanation: "Un system prompt largo no reentrena nada: gasta ventana. Los pesos cambian con entrenamiento o un adapter. El prompt cambia cada turno."
+    }
+  ]}
+/>

@@ -1,0 +1,40 @@
+<Quiz
+ questions={[
+  {
+    id: "q1",
+    stem: "¿Qué dos productos de Unsloth ofrecen GPU gratis según el index de notebooks?",
+    options: [
+      { id: "a", text: "Colab y Kaggle; Kaggle ofrece 30 horas y 2× Tesla T4 según la página de notebooks" },
+      { id: "b", text: "Colab y AWS" },
+      { id: "c", text: "Solo Kaggle" },
+      { id: "d", text: "Paperspace y Vast" }
+    ],
+    correct: "a",
+    explanation: "El [índice de notebooks](https://unsloth.ai/docs/get-started/unsloth-notebooks) y el repo [unslothai/notebooks](https://github.com/unslothai/notebooks) listan notebooks de **Colab** y de **Kaggle**. Kaggle, según Unsloth, es un producto de Google tipo Colab con 30 horas de GPU y 2× Tesla T4. Los limites exactos los pone cada plataforma."
+  },
+  {
+    id: "q2",
+    stem: "¿Cuál es el flujo correcto al pasar de un modelo entrenado a producción?",
+    options: [
+      { id: "a", text: "Entrenar y luego convertir el checkpoint a GGUF para Ollama" },
+      { id: "b", text: "safetensors / bnb-4bit → entrenar → GGUF o merged_16bit para vLLM. Nunca GGUF → entrenar" },
+      { id: "c", text: "Descargar el GGUF y entrenar encima" },
+      { id: "d", text: "Convertir el GGUF a safetensors antes de entrenar" }
+    ],
+    correct: "b",
+    explanation: "La página de [guardar a GGUF](https://unsloth.ai/docs/basics/inference-and-deployment/saving-to-gguf) es **export**, no entrenamiento. El camino soportado es: safetensors / bnb-4bit → entrenar → GGUF (`q4_k_m`, `q8_0`, `f16`) o `merged_16bit` para vLLM. Entrenar sobre un GGUF no es un flujo documentado."
+  },
+  {
+    id: "q3",
+    stem: "¿Qué import hay que usar para un modelo con id de arquitectura reciente como Qwen3.8?",
+    options: [
+      { id: "a", text: "`from unsloth import FastLanguageModel` siempre" },
+      { id: "b", text: "`FastModel` para modelos multimodales y de id de arquitectura reciente (Qwen3.8 es uno); `FastLanguageModel` para los notebooks de texto más antiguos. Ambos exponen `from_pretrained` y `get_peft_model`" },
+      { id: "c", text: "Solo `transformers` directamente" },
+      { id: "d", text: "Solo `llama_cpp`" }
+    ],
+    correct: "b",
+    explanation: "Los notebooks de texto antiguos importan `FastLanguageModel`. Los modelos multimodales y con id de arquitectura reciente — Qwen3.8 es uno — importan `FastModel`. Los flags que de verdad conmutas (`max_seq_length`, `load_in_4bit`, `full_finetuning`) son las mismas ideas en ambas APIs. Mezclar APIs en un mismo notebook es mezclar parsers."
+  }
+ ]}
+/>

@@ -230,49 +230,6 @@ Zhu, D. et al. (2025). *Hyper-Connections* (arXiv:2409.19606).
 
 Un equipo de un lab hace fine-tune de un híbrido PreNorm profundo y ve cómo las normas de gradiente de los últimos bloques se desploman. Bajan el learning rate en esos bloques “para estabilizarlos”. Empeora. Diagnóstico real, no de paper: bajo PreNorm de pesos unitarios, la suma corriente crece como `O(L)` y los `f` tardíos ven una entrada diluida. Su gradiente “débil” no era flojera, era el agregador de profundidad haciendo su trabajo viejo. Aplican Block AttnRes (`N ≈ 8`), reinicializan el optimizador para esos parámetros `w_l` y RMSNorm nuevos, y vuelven a entrenar. La norma de gradiente de los bloques tardíos se acerca a la de los tempranos. GPQA-Diamond sube varios puntos. El LR nunca fue el problema; el mezclador sí. Lo que parecía “el bloque torpe” era lodo viejo del skip.
 
-## Quiz
-
-<Quiz
- questions={[
-  {
-    id: "q1",
-    stem: "¿Qué trabajo hace el residual además de dejar pasar el gradiente por identidad?",
-    options: [
-      { id: "a", text: "Comprime la salida previa en un vector latente aprendido" },
-      { id: "b", text: "Actúa como un agregador en profundidad con pesos unitarios soldados a 1, una suma uniforme de todas las capas anteriores" },
-      { id: "c", text: "Sustituye al MLP para ahorrar parámetros" },
-      { id: "d", text: "Solo normaliza magnitudes y no mezcla nada" }
-    ],
-    correct: "b",
-    explanation: "Desenrollando `h_l = h_{l-1} + f(h_{l-1})` se ve que cada capa recibe una suma uniforme de todas las anteriores con coeficientes fijos en 1. El residual es atención lineal en profundidad con las puertas clavadas. AttnRes cambia ese agregador por un softmax."
-  },
-  {
-    id: "q2",
-    stem: "¿Por qué AttnRes inicializa el vector query `w_l` a cero?",
-    options: [
-      { id: "a", text: "Para ahorrar memoria: una capa sin query no escribe nada" },
-      { id: "b", text: "Porque el paper obliga a no entrenar la query por capa" },
-      { id: "c", text: "Para que la atención inicial sea uniforme sobre las salidas previas, arrancando como un promedio del pasado y dejando que el entrenamiento aprenda qué profundidades sobreponderar" },
-      { id: "d", text: "Para que `w_l` se pueda entrenar después en producción con un flag" }
-    ],
-    correct: "c",
-    explanation: "Con `w_l = 0`, todos los logits iniciales son iguales, el softmax es uniforme y la capa arranca como un promedio. Una `w_l` aleatoria picuda haría el softmax temprano inestable. La init a cero es cortesía de entrenamiento, no flag de servicio: tras entrenar es solo un vector en el checkpoint."
-  },
-  {
-    id: "q3",
-    stem: "¿Qué resuelve Block AttnRes frente a Full AttnRes sin perder casi nada de calidad?",
-    options: [
-      { id: "a", text: "Block AttnRes cambia el softmax por un sigmoide para ahorrar I/O" },
-      { id: "b", text: "Block AttnRes parte las L capas en N resúmenes de bloque y aplica softmax sobre esos (~8) más el parcial en vuelo; reduce memoria y comunicación de O(L d) a O(N d) con casi la misma pérdida" },
-      { id: "c", text: "Block AttnRes elimina RMSNorm de las keys porque el agrupamiento lo hace innecesario" },
-      { id: "d", text: "Block AttnRes usa una sola cabeza multi-query en vez de softmax denso" }
-    ],
-    correct: "b",
-    explanation: "Full AttnRes materializa un softmax sobre todas las salidas previas (O(L² d) FLOPs, O(L d) memoria y comm). Block agrupa en N resúmenes (≈ 8) más el parcial en vuelo; la comm y la memoria caen a O(N d). En el paper, `S = 1, 2, 4, 8` se mueven todas cerca de la misma pérdida; `N ≈ 8` es una elección de infraestructura, no de magia."
-  }
- ]}
-/>
-
 ## Fuentes
 
 - Kimi Team. (2026). *Attention residuals* (arXiv:2603.15031). https://arxiv.org/abs/2603.15031

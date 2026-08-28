@@ -1,0 +1,52 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "Modelo MoE etiquetado 48B-A3B. ¿Cuál es cierta?",
+      options: [
+        { id: "a", text: "Activa los 48B parámetros por token pero usa menos memoria que un dense 7B." },
+        { id: "b", text: "Activa ~3B parámetros por token; el coste de cómputo por token es comparable a un dense 3B, pero el archivo en disco y la VRAM para servir son del tamaño de 48B." },
+        { id: "c", text: "Siempre es más barato que un dense 3B porque almacena menos parámetros." },
+        { id: "d", text: "A3B significa que activa 48B parámetros pero solo almacena 3B." }
+      ],
+      correct: "b",
+      explanation: "El sufijo A3B en 48B-A3B significa 'Active 3B'. El cálculo por token es como un dense 3B; el *almacenamiento* y la VRAM para servir son del tamaño del total (48B). El cuant se aplica a todos los expertos, no solo a los activos."
+    },
+    {
+      id: "q2",
+      stem: "¿Por qué un MoE 48B-A3B no corre en una sola GPU de 24 GB sin cuant?",
+      options: [
+        { id: "a", text: "Porque solo se calculan 3B parámetros y la GPU no sabe qué hacer con los otros 45B." },
+        { id: "b", text: "Porque los pesos de TODOS los expertos (los 48B) deben estar residentes para que el router pueda elegirlos; incluso los expertos no activos ocupan VRAM aunque no se calculen." },
+        { id: "c", text: "Porque el router necesita más VRAM que los expertos." },
+        { id: "d", text: "Porque los modelos MoE siempre requieren tensor parallel." }
+      ],
+      correct: "b",
+      explanation: "El router no sabe de antemano qué experto se activará; necesita poder acceder a todos. Los expertos dormidos ocupan VRAM aunque no se calculen sus FLOPs en ese token. Sin cuant o offload, necesitas VRAM para el total."
+    },
+    {
+      id: "q3",
+      stem: "¿Qué problema ataca la 'auxiliary loss' en una capa MoE?",
+      options: [
+        { id: "a", text: "El sobreajuste al tokenizador." },
+        { id: "b", text: "El colapso del router: que aprenda a mandar todos los tokens al mismo experto, perdiendo capacidad efectiva del modelo." },
+        { id: "c", text: "La fuga de PII en los datos." },
+        { id: "d", text: "El overfitting a datos sintéticos." }
+      ],
+      correct: "b",
+      explanation: "Sin presión, el router encuentra atajos y colapsa: la mayoría de tokens van al mismo experto. La auxiliary loss añade un término a la pérdida total que penaliza distribuciones desiguales y mantiene la utilización balanceada entre expertos."
+    },
+    {
+      id: "q4",
+      stem: "En Mixtral 8x7B (top-2), si el modelo total son ~47B y quieres servirlo en una sola GPU de 24 GB, ¿qué necesitas?",
+      options: [
+        { id: "a", text: "Nada; los 24 GB bastan porque solo se calculan ~13B por token." },
+        { id: "b", text: "Cuantización del modelo completo (4-bit o 3-bit) y posiblemente offload parcial; la VRAM requerida es proporcional al total, no a los activos." },
+        { id: "c", text: "Solo necesitas apagar la mitad de los expertos en runtime." },
+        { id: "d", text: "Una versión densa equivalente más pequeña del mismo modelo." }
+      ],
+      correct: "b",
+      explanation: "Los 47B totales tienen que estar residentes para que el router pueda elegirlos. A 4-bit, son ~24 GB; cabe justo. A 3-bit, sobra. El cuant se aplica a todos los expertos, y el cálculo de los activos ocurre dentro de esa VRAM."
+    }
+  ]}
+/>

@@ -1,0 +1,40 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "What is compaction in OpenClaw?",
+      options: [
+        { id: "a", text: "Deleting the session." },
+        { id: "b", text: "Summarizing context when it nears the window limit, with auto, manual, and flush modes." },
+        { id: "c", text: "Compressing workspace files." },
+        { id: "d", text: "Restarting the agent." }
+      ],
+      correct: "b",
+      explanation: "Compaction summarizes context when it nears the window limit. It has auto, manual, and flush modes."
+    },
+    {
+      id: "q2",
+      stem: "What is the quality safeguard?",
+      options: [
+        { id: "a", text: "An antivirus." },
+        { id: "b", text: "A check that the summary preserves the essentials before discarding the original context." },
+        { id: "c", text: "A token limit." },
+        { id: "d", text: "A digital signature." }
+      ],
+      correct: "b",
+      explanation: "The quality safeguard verifies the summary preserves the essentials before discarding the original context. Without it, compaction can lose critical state."
+    },
+    {
+      id: "q3",
+      stem: "What is the difference between compaction and pruning?",
+      options: [
+        { id: "a", text: "None." },
+        { id: "b", text: "Compaction summarizes; pruning trims or removes old messages." },
+        { id: "c", text: "Pruning summarizes; compaction deletes." },
+        { id: "d", text: "Compaction is manual, pruning automatic." }
+      ],
+      correct: "b",
+      explanation: "Compaction summarizes context; pruning trims or removes old messages. They are different operations with different effects."
+    }
+  ]}
+/>

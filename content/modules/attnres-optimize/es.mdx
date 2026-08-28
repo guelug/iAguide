@@ -227,49 +227,6 @@ Sirve con el motor que ya carga Kimi Linear. Mide TPOT. Si el impuesto residual 
 
 Un equipo de servicio recibe un volcado de perfil de un Kimi Linear 48B servido con vLLM. Cada capa residual marca ~24d en HBM. Su primer instinto: "eso es AttnRes, son las activaciones de cada capa". Quieren "optimizar" sustituyendo el mezclador por un residual plano en tiempo de servir. Piden el paper, leen Apéndice B, y descubren que el checkpoint **no se entrenó con Full AttnRes** — fue Block con `N ≈ 8`. Ese 24d no era softmax denso; era el schedule de dos fases del Algoritmo 1 midiendo la caché de bloques en el **peor** segmento. Cambian la métrica al segmento correcto, vuelven a perfilar, y el impuesto cae por debajo del 2%. La conclusión operativa: nunca leas un profiler sin tener a mano qué checkpoint estás sirviendo y qué versión del mezclador se entrenó. Sustituir AttnRes por un add residual "para simplificar" en producción es romper el grafo que el modelo aprendió a esperar.
 
-## Quiz
-
-<Quiz
- questions={[
-  {
-    id: "q1",
-    stem: "¿Por qué el softmax online en el bucle de dos fases sirve para Block AttnRes?",
-    options: [
-      { id: "a", text: "Permite calcular el softmax sobre los N resúmenes de bloque sin materializar la matriz L × L de scores: recorre dos pasadas (valor+normalizador, luego query), combinación lineal al final" },
-      { id: "b", text: "Sustituye el softmax por un sigmoide, que es más barato de calcular" },
-      { id: "c", text: "Sirve para entrenar la query `w_l` con cero gradientes" },
-      { id: "d", text: "Permite saltarse RMSNorm en las keys durante el serving" }
-    ],
-    correct: "a",
-    explanation: "Block AttnRes hace softmax sobre ~10 fuentes (N summaries más el parcial). El truco del online softmax (Milakov y Gimelshein, 2018) es una pasada que guarda `m` (max) y `d` (suma de exp) por fila, y una segunda pasada con la query que recombina. Sin materializar una matriz densa L × L, el coste sigue siendo lineal en N."
-  },
-  {
-    id: "q2",
-    stem: "¿Qué devuelve la Figura 3 del paper sobre la caché entre etapas?",
-    options: [
-      { id: "a", text: "Que el pipeline debe reenviar todas las capas previas cada paso" },
-      { id: "b", text: "Que solo se reenvía el resumen del bloque terminado y el parcial en vuelo, no las salidas de cada capa del bloque" },
-      { id: "c", text: "Que la caché KV de atención se debe volcar a CPU entre etapas" },
-      { id: "d", text: "Que la RMSNorm se cachea aparte de las claves de AttnRes" }
-    ],
-    correct: "b",
-    explanation: "La Figura 3 describe la caché por etapa: cada etapa virtual solo necesita el último resumen `b_n` consolidado y el parcial actual, no cada salida de capa individual. Eso es lo que hace que el comm de Block sea `O(N d)` y no `O(L d)` como Full."
-  },
-  {
-    id: "q3",
-    stem: "Si tu checkpoint Kimi Linear se entrenó con Block AttnRes, ¿qué haces al servirlo?",
-    options: [
-      { id: "a", text: "Pasas `--attnres` al motor para activar el mezclador" },
-      { id: "b", text: "Sustituyes el softmax por un add residual plano para ahorrar I/O" },
-      { id: "c", text: "Sirves el grafo que el checkpoint ya trae: el mezclador está dentro del modelo, sin flags, y el schedule de dos fases ya lo respeta el motor" },
-      { id: "d", text: "Conviertes el checkpoint a FP8 antes que nada para reducir la caché de AttnRes" }
-    ],
-    correct: "c",
-    explanation: "El checkpoint `moonshotai/Kimi-Linear-48B-A3B-Instruct` lleva AttnRes dentro del grafo, como RMSNorm o SwiGLU. El motor que lo carga respeta el schedule. Pasar flags extra o \"simplificar\" el residual rompe el grafo que el modelo aprendió. Lo que sí haces: medir TPOT en el segmento correcto del profiler y verificar que el impuesto residual queda cerca del 2%."
-  }
- ]}
-/>
-
 ## Fuentes
 
 - Kimi Team. (2026). *Attention residuals* (arXiv:2603.15031) §4 y Apéndice B. https://arxiv.org/abs/2603.15031

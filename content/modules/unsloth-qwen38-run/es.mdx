@@ -238,49 +238,6 @@ Fuentes oficiales: [guía de ejecución Qwen3.8](https://unsloth.ai/docs/models/
 
 Un equipo de despliegue baja un quant `UD-Q4_K_XL` de Qwen3.8-27B que llevan tres meses en su bucket S3. Lo meten en `unsloth run` con el Modelfile de siempre, lo apuntan a un servicio de producción con ~200 RPM, y miden perplexity sobre su eval interno. Sale 8.7. Lo cambian por el quant actual (`Dynamic 3.0` en `Qwen3.8-27B-GGUF`, mismo tamaño nominal) y baja a 7.9. Mismo bytes en disco, misma familia de quant, misma fecha en el commit log de la página: lo que cambió son los **pesos base** que Unsloth usó para construir el quant. La página de [Dynamic 3.0 GGUFs](https://unsloth.ai/docs/basics/dynamic-3.0-ggufs) del 19 de agosto dice que los 27B GGUFs usan ahora esa variante para "aproximadamente un 10% más de exactitud al mismo tamaño". Lo que el equipo llevaba en su bucket era la versión pre-Dynamic 3.0: misma ruta de download, mismo nombre de fichero, pero un checkpoint viejo. El fix fue tirar el quant antiguo, volver a bajar el actual y volver a medir. Tres consecuencias operativas. Primero, prefiere quants Unsloth actuales sobre un Q4 viejo en un disco, incluso si la URL coincide. Segundo, anota el commit hash del quant en el runbook, no solo el nombre del fichero. Tercero, automatiza el rebuild del bundle en cada release mayor de Unsloth para no acumular un quant pre-Dynamic 3.0 en producción.
 
-## Quiz
-
-<Quiz
- questions={[
-  {
-    id: "q1",
-    stem: "¿Qué hace el NVFP4 de Unsloth sobre Qwen3.8-27B?",
-    options: [
-      { id: "a", text: "Es un quant de 4-bit que corre ~1.5× más rápido que BF16 sobre NVIDIA Blackwell, con 92–97% de recuperación top-1 en las tablas de Unsloth, y usa vLLM >= 0.25" },
-      { id: "b", text: "Es un modelo nuevo de 4-bit parámetros entrenado desde cero" },
-      { id: "c", text: "Es un quant de 8-bit exclusivo para Mac" },
-      { id: "d", text: "Es el mismo BF16 renombrado" }
-    ],
-    correct: "a",
-    explanation: "El NVFP4 de Unsloth corre unas **1.5× más rápido que BF16** con 92–97% top-1 de recuperación, pensado para NVIDIA Blackwell (RTX serie 50, DGX Spark, B200, B300) en 24GB, con motor vLLM >= 0.25 y calibración FP8 de caché KV. El checkpoint es [`unsloth/Qwen3.8-27B-NVFP4`](https://huggingface.co/unsloth/Qwen3.8-27B-NVFP4)."
-  },
-  {
-    id: "q2",
-    stem: "¿Por qué la guía recomienda construir llama.cpp desde `ggml-org/llama.cpp` en vez de binarios pre-empaquetados?",
-    options: [
-      { id: "a", text: "Porque los binarios son privados" },
-      { id: "b", text: "Porque Unsloth documenta una rama `iq1-narrow` separada solo para los tipos 1-bit exóticos del 2.4T; para quants estándar como UD-Q4_K_XL en el 27B, el repo `ggml-org/llama.cpp` cubre el camino soportado" },
-      { id: "c", text: "Porque los binarios no soportan CUDA" },
-      { id: "d", text: "Porque llama.cpp es el único motor que corre en CPU" }
-    ],
-    correct: "b",
-    explanation: "El repo [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp) cubre los quants estándar. La rama `iq1-narrow` de Unsloth es para los tipos 1-bit exóticos del 2.4T; no la necesitas para UD-Q4_K_XL en el 27B. Mezclar repos al azar es cómo consigues quants no soportados por tu Modelfile."
-  },
-  {
-    id: "q3",
-    stem: "¿Qué cambió en los GGUFs del 27B con la actualización Dynamic V3.0 del 19 de agosto?",
-    options: [
-      { id: "a", text: "El tamaño del quant pasó de 4-bit a 8-bit" },
-      { id: "b", text: "Unsloth reconstruyó los quants sobre nuevos pesos base; según la página, alrededor de un 10% más de exactitud al mismo tamaño" },
-      { id: "c", text: "El nombre del fichero cambió de GGUF a Qwen" },
-      { id: "d", text: "El Modelfile deja de ser obligatorio" }
-    ],
-    correct: "b",
-    explanation: "La página de [Dynamic 3.0 GGUFs](https://unsloth.ai/docs/basics/dynamic-3.0-ggufs) documenta la actualización: quants del 27B ahora usan Dynamic V3.0, ~10% más de exactitud al mismo tamaño. Un quant viejo en tu bucket no se actualiza solo; baja el actual y vuelve a medir."
-  }
- ]}
-/>
-
 <VisualSlot id="unsloth-qwen38-run:2" caption="Tres vistas del tema: mapa, mecanismo y trade-off — interactivas y en español." />
 
 ## Fuentes

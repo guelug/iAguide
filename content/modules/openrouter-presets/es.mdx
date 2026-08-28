@@ -530,59 +530,6 @@ Un error de guardrail puede incluir patrones detectados, proveedor y modelo. No 
 El preset bueno no es el que tiene todos los switches encendidos. Es el que hace explícitas las decisiones que importan y deja fuera las capacidades que nadie puede justificar.
 </Callout>
 
-<Quiz
-  questions={[
-    {
-      id: "or1",
-      stem: "¿Qué diferencia hay entre max_price y preferred_max_latency?",
-      options: [
-        { id: "a", text: "Ambos son límites duros idénticos." },
-        { id: "b", text: "max_price impide usar rutas por encima del precio; la latencia es una preferencia de routing y no garantiza el SLO." },
-        { id: "c", text: "max_price mide tokens por segundo." },
-        { id: "d", text: "preferred_max_latency solo sirve para cuantización." }
-      ],
-      correct: "b",
-      explanation: "El precio máximo funciona como restricción de coste. Los umbrales de latencia y throughput priorizan endpoints, pero uno que no los cumple todavía puede usarse si no hay una alternativa válida."
-    },
-    {
-      id: "or2",
-      stem: "¿Qué ocurre cuando seleccionas varios modelos en un preset?",
-      options: [
-        { id: "a", text: "Se mezclan sus pesos en un modelo nuevo." },
-        { id: "b", text: "Se usan como modelos de respaldo según disponibilidad y restricciones." },
-        { id: "c", text: "Siempre se llaman los tres en paralelo." },
-        { id: "d", text: "Se convierten automáticamente en un classifier." }
-      ],
-      correct: "b",
-      explanation: "La selección múltiple sirve para fallbacks de modelo. No crea un ensemble ni implica tres llamadas paralelas por defecto."
-    },
-    {
-      id: "or3",
-      stem: "¿Qué hace un classifier beta?",
-      options: [
-        { id: "a", text: "Cambia el proveedor antes de que responda la petición." },
-        { id: "b", text: "Clasifica generaciones de forma asíncrona y añade etiquetas al registro para análisis." },
-        { id: "c", text: "Bloquea siempre los prompts sensibles." },
-        { id: "d", text: "Cuantiza los modelos del workspace." }
-      ],
-      correct: "b",
-      explanation: "El classifier se ejecuta después de la generación. No añade latencia a la respuesta original y, si falla, la generación sigue sin etiquetas."
-    },
-    {
-      id: "or4",
-      stem: "¿Qué significa require_parameters: true?",
-      options: [
-        { id: "a", text: "Obliga a OpenRouter a usar el modelo más caro." },
-        { id: "b", text: "Solo permite endpoints que soporten todos los parámetros enviados." },
-        { id: "c", text: "Activa reasoning en cualquier modelo." },
-        { id: "d", text: "Desactiva los fallbacks." }
-      ],
-      correct: "b",
-      explanation: "Con require_parameters, un proveedor que no implemente algún parámetro solicitado no debe ser elegido. Esto reduce sorpresas con tools, reasoning o formatos concretos."
-    }
-  ]}
-/>
-
 <VisualSlot id="openrouter-presets:2" caption="Tres vistas del tema: mapa, mecanismo y trade-off — interactivas y en español." />
 
 ## Fuentes

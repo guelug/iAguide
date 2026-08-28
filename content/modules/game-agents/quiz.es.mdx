@@ -1,0 +1,52 @@
+<Quiz
+  questions={[
+    {
+      id: "game-agents-1",
+      stem: "Un agente de combate Pokémon tiene que",
+      options: [
+        { id: "a", text: "Narrar el combate con prosa bonita" },
+        { id: "b", text: "Devolver una acción legal dado el estado (si no, el fallback aleatorio es la métrica)" },
+        { id: "c", text: "Ver el sprite por visión" },
+        { id: "d", text: "Afinar function calling" },
+      ],
+      correct: "b",
+      explanation: "La unidad: entra el estado, sale una acción del action space. Hydro Pump prohibido (RivalAI) es un agente que no es agente.",
+    },
+    {
+      id: "game-agents-2",
+      stem: "El muro que la unidad nombra al pasar de LLM a agente en juegos es",
+      options: [
+        { id: "a", text: "El precio de GPT" },
+        { id: "b", text: "Velocidad, autonomía, persistencia: el juego no espera a un chat" },
+        { id: "c", text: "La falta de embeddings" },
+        { id: "d", text: "No tener LangGraph" },
+      ],
+      correct: "b",
+      explanation: "Los juegos corren a ticks. Un LLM lento o sin estado no es un agente de juego, aunque hable.",
+    },
+    {
+      id: "game-agents-3",
+      stem: "TemplateAgent es",
+      options: [
+        { id: "a", text: "Un agente listo para producción" },
+        { id: "b", text: "Un hueco: tú rellenas cómo eliges la acción legal" },
+        { id: "c", text: "El manager de smolagents" },
+        { id: "d", text: "GAIA nivel 1" },
+      ],
+      correct: "b",
+      explanation: "La unidad te da el esqueleto LLMAgentBase / TemplateAgent. El producto es tu política, no el template.",
+    },
+    {
+      id: "game-agents-4",
+      stem: "El estado formateado en el battle agent es",
+      options: [
+        { id: "a", text: "Un system prompt de personalidad" },
+        { id: "b", text: "La Observation: HP, tipos, movimientos legales, clima" },
+        { id: "c", text: "El replay en vídeo" },
+        { id: "d", text: "Un índice de Pokédex en LlamaIndex" },
+      ],
+      correct: "b",
+      explanation: "Formatear el estado es construir la observación. Sin eso, el LLM inventa movimientos.",
+    },
+  ]}
+/>

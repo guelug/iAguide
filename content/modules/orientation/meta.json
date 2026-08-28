@@ -9,11 +9,11 @@
   },
   "summary": {
     "en": "What this course is, how to read the map, and the four tracks you can walk.",
-    "es": "Qué es este curso, cómo leer el mapa y las cuatro pistas que puedes recorrer."
+    "es": "Qué es un modelo, qué es un token, cómo responde, y luego el mapa de las cuatro vías."
   },
   "status": "complete",
   "prereqs": [],
-  "durationMin": 9,
+  "durationMin": 16,
   "tags": [
     "map",
     "outcomes"

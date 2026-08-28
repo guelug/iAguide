@@ -1,0 +1,52 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué hace un gateway que no hace un proxy HTTP?",
+      options: [
+        { id: "a", text: "Cobra dinero." },
+        { id: "b", text: "Mantiene conexiones, normaliza eventos, autoriza, rutea por sesión, ejecuta el agente, entrega con retries. Es un proceso con estado." },
+        { id: "c", text: "Es un load balancer." },
+        { id: "d", text: "Solo HTTP, igual que el proxy." }
+      ],
+      correct: "b",
+      explanation: "Un proxy HTTP no tiene estado: reenvía y olvida. Un gateway mantiene conexiones activas con cada plataforma, normaliza eventos heterogéneos a un modelo interno, autoriza, rutea por sesión persistente, ejecuta el bucle del agente, y entrega con retries. Siete trabajos, no dos."
+    },
+    {
+      id: "q2",
+      stem: "Tu gateway tiene 'open con wildcard' en producción. ¿Cuál es el riesgo real?",
+      options: [
+        { id: "a", text: "Ninguno, está bien para empezar." },
+        { id: "b", text: "Cualquiera puede hablar con el agente. Combinado con RAG sobre datos privados y herramientas con side-effect (email, shell, http_post), es la tríada letal completa. La auth deny por defecto con allowlist o pairing es la defensa." },
+        { id: "c", text: "Solo spam." },
+        { id: "d", text: "Es un bug menor." }
+      ],
+      correct: "b",
+      explanation: "Open con wildcard + RAG sobre datos privados + tools con side-effect compone la tríada letal. Cualquier chunk inyectado puede pedir exfiltración. Auth deny por defecto (allowlist o pairing one-shot) es el suelo. Open es solo para sandbox."
+    },
+    {
+      id: "q3",
+      stem: "Dos réplicas del gateway comparten el mismo token de Telegram. ¿Por qué es un problema?",
+      options: [
+        { id: "a", text: "Consume más memoria." },
+        { id: "b", text: "Ambas intentan mantener la conexión con Telegram. Los updates se pierden, llegan dos veces, o llegan en orden inverso. La solución es un lock por token (un solo dueño) o idempotency keys en la plataforma." },
+        { id: "c", text: "Es lo normal en sistemas distribuidos." },
+        { id: "d", text: "El proveedor lo prohíbe." }
+      ],
+      correct: "b",
+      explanation: "Telegram (y la mayoría de plataformas de chat) espera un único dueño del webhook o long-poll. Dos procesos compitiendo por updates se pisan. Solución: lock distribuido por token, o migrar a una plataforma con idempotency keys (Fewer retries, fewer duplicates)."
+    },
+    {
+      id: "q4",
+      stem: "¿Por qué el gateway debe loguear tokens_in, cache_hit y tools_called por turno?",
+      options: [
+        { id: "a", text: "Para cobrar al usuario." },
+        { id: "b", text: "Porque sin esos campos no puedes reproducir un bug. Una fila de log sin tokens ni cache_hit no te dice si el prefill fue fresco, si el modelo recibió lo que crees, o qué tools se ejecutaron." },
+        { id: "c", text: "Para debugging de UI." },
+        { id: "d", text: "No es necesario." }
+      ],
+      correct: "b",
+      explanation: "Reproducibilidad. Si un usuario reporta 'el agente no me escuchó', necesitas saber qué tokens llegaron al modelo (¿el prefijo era estable?), si hubo cache hit (¿se invalidó la caché?), y qué tools se ejecutaron. Sin esos campos, depurar es adivinar."
+    }
+  ]}
+/>

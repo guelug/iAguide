@@ -1,0 +1,52 @@
+<Quiz
+  questions={[
+    {
+      id: "function-calling-ft-1",
+      stem: "Cuándo SÍ afinar para function calling",
+      options: [
+        { id: "a", text: "Siempre: el adapter mágico arregla el bucle" },
+        { id: "b", text: "Cuando el modelo instruct no respeta el esquema y ya mediste el fallo en el harness" },
+        { id: "c", text: "En cuanto tienes un GPU" },
+        { id: "d", text: "Para sustituir las tools" },
+      ],
+      correct: "b",
+      explanation: "La bonus unit empieza en instruct, no en base, y avisa: a menudo no deberías afinar. Mide el parseo primero.",
+    },
+    {
+      id: "function-calling-ft-2",
+      stem: "Los roles nuevos que la unidad nombra de verdad",
+      options: [
+        { id: "a", text: "system, user, assistant únicamente" },
+        { id: "b", text: "Además, tool / function: el mensaje que cierra la observación de la llamada" },
+        { id: "c", text: "planner y critic" },
+        { id: "d", text: "image y audio" },
+      ],
+      correct: "b",
+      explanation: "Function calling añade el rol de la tool al hilo. Sin ese mensaje, el SFT enseña un diálogo cojo.",
+    },
+    {
+      id: "function-calling-ft-3",
+      stem: "LoRA en este bonus es",
+      options: [
+        { id: "a", text: "El producto final que sirves como agente" },
+        { id: "b", text: "El adapter que enseña el esquema; el producto sigue siendo el bucle" },
+        { id: "c", text: "Un sustituto de smolagents" },
+        { id: "d", text: "Obligatorio en 4-bit" },
+      ],
+      correct: "b",
+      explanation: "LoRA es el método. El agente sigue siendo Thought-Action-Observation. Servir el adapter sin harness no certifica nada.",
+    },
+    {
+      id: "function-calling-ft-4",
+      stem: "El dataset de function-calling es sobre todo",
+      options: [
+        { id: "a", text: "Párrafos de Wikipedia" },
+        { id: "b", text: "Plantillas de chat con llamadas y observaciones bien formadas" },
+        { id: "c", text: "Imágenes de Pokémon" },
+        { id: "d", text: "Traces de LangSmith sin filtrar" },
+      ],
+      correct: "b",
+      explanation: "Las plantillas de chat son el dataset. Basura en los roles = basura en los pesos.",
+    },
+  ]}
+/>

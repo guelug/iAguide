@@ -1,0 +1,40 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué usa Hermes para gestionar el contexto largo?",
+      options: [
+        { id: "a", text: "Solo truncar los mensajes más antiguos." },
+        { id: "b", text: "Un sistema dual de compresión y prompt caching de Anthropic." },
+        { id: "c", text: "Reiniciar la conversación cada cierto número de turnos." },
+        { id: "d", text: "Enviar todo el historial sin cambios." }
+      ],
+      correct: "b",
+      explanation: "Hermes usa un sistema dual: compresión del contexto y prompt caching. La compactación in-place es el default, con un algoritmo de cuatro fases."
+    },
+    {
+      id: "q2",
+      stem: "¿Por qué compactar mata la caché por construcción?",
+      options: [
+        { id: "a", text: "Porque la caché solo funciona con prompts cortos." },
+        { id: "b", text: "Porque el prefijo cambia: la clave de caché depende del contenido, y un resumen nuevo invalida el prefijo anterior." },
+        { id: "c", text: "Porque la caché se desactiva al compactar." },
+        { id: "d", text: "Porque el proveedor lo prohíbe." }
+      ],
+      correct: "b",
+      explanation: "La caché de prefijo depende del contenido exacto. Al compactar, el prefijo cambia y la caché se invalida. Es un coste inherente, no un bug."
+    },
+    {
+      id: "q3",
+      stem: "¿Qué configuración importa de verdad en la compresión?",
+      options: [
+        { id: "a", text: "El color del tema de la UI." },
+        { id: "b", text: "El umbral de activación, el compresor y el motor enchufable." },
+        { id: "c", text: "El nombre del archivo de log." },
+        { id: "d", text: "La versión de Python." }
+      ],
+      correct: "b",
+      explanation: "Importan el umbral que dispara la compresión, el compresor por defecto y el motor enchufable. El resto es cosmético."
+    }
+  ]}
+/>

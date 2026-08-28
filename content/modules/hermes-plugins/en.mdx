@@ -183,49 +183,6 @@ Portable Agent Plugins v1 remain a compatibility adapter. Enabling one grants fu
 
 A plugin tried to overwrite a core tool with ctx.register_tool(..., override=True) without consent. The tools.override capability was not granted and the registry rejected it. Capabilities and override consent exist so a plugin cannot silence a core tool by accident.
 
-## Quiz
-
-<Quiz
-  questions={[
-    {
-      id: "q1",
-      stem: "What is register(ctx) in Hermes?",
-      options: [
-        { id: "a", text: "An HTTP endpoint." },
-        { id: "b", text: "The plugin waist: the context API through which a plugin registers without forking run_agent.py." },
-        { id: "c", text: "An install script." },
-        { id: "d", text: "A database." }
-      ],
-      correct: "b",
-      explanation: "register(ctx) is the plugin waist: the context API through which a plugin extends the agent without touching core."
-    },
-    {
-      id: "q2",
-      stem: "What are capabilities?",
-      options: [
-        { id: "a", text: "Token limits." },
-        { id: "b", text: "Permissions a plugin can request, like tools.override, that require consent." },
-        { id: "c", text: "Python versions." },
-        { id: "d", text: "File names." }
-      ],
-      correct: "b",
-      explanation: "Capabilities are permissions a plugin can request. tools.override, for example, requires explicit consent."
-    },
-    {
-      id: "q3",
-      stem: "Where is a plugin discovered?",
-      options: [
-        { id: "a", text: "Only in the project directory." },
-        { id: "b", text: "In user, project, and pip: discovery covers several locations." },
-        { id: "c", text: "Only on PyPI." },
-        { id: "d", text: "In the session database." }
-      ],
-      correct: "b",
-      explanation: "Plugin discovery covers user, project, and pip. The manifest, doctor, and durable state complete the lifecycle."
-    }
-  ]}
-/>
-
 ## Sources
 
 Nous Research. (n.d.). *Build a Hermes plugin*. Hermes Agent developer guide. https://hermes-agent.nousresearch.com/docs/developer-guide/plugins

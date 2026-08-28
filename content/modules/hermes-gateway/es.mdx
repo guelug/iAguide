@@ -167,49 +167,6 @@ El fichero `gateway/run.py` es grande a propósito. Antes de parchearlo, localic
 
 Dos procesos del gateway intentaron usar el mismo token de plataforma a la vez. El bloqueo de token (token lock) lo impidió: un token solo puede estar en uso por un proceso. Sin ese lock, dos réplicas responderían al mismo chat y duplicarían mensajes.
 
-## Quiz
-
-<Quiz
-  questions={[
-    {
-      id: "q1",
-      stem: "¿Qué es el Gateway de Hermes?",
-      options: [
-        { id: "a", text: "Un proxy HTTP genérico." },
-        { id: "b", text: "El proceso longevo que se sienta delante de más de 20 plataformas y canaliza cada evento entrante hacia un único bucle AIAgent." },
-        { id: "c", text: "Un balanceador de carga para APIs." },
-        { id: "d", text: "Un plugin de mensajería." }
-      ],
-      correct: "b",
-      explanation: "El Gateway es el proceso longevo que conecta plataformas de mensajería con el bucle AIAgent. No es un proxy HTTP ni un balanceador."
-    },
-    {
-      id: "q2",
-      stem: "¿Qué hacen las dos guardias secuenciales?",
-      options: [
-        { id: "a", text: "Comprueban el estado del servidor y la versión." },
-        { id: "b", text: "Filtran qué mensajes entran al bucle y qué comandos se permiten, en orden." },
-        { id: "c", text: "Cifran y descifran los mensajes." },
-        { id: "d", text: "Traducen entre plataformas." }
-      ],
-      correct: "b",
-      explanation: "Las dos guardias secuenciales filtran los mensajes entrantes y los comandos antes de que lleguen al bucle. La autorización se evalúa en orden."
-    },
-    {
-      id: "q3",
-      stem: "¿Para qué sirve el bloqueo de token?",
-      options: [
-        { id: "a", text: "Para rotar las claves automáticamente." },
-        { id: "b", text: "Para que un token solo esté en uso por un proceso, evitando que dos réplicas respondan al mismo chat." },
-        { id: "c", text: "Para cifrar los mensajes en reposo." },
-        { id: "d", text: "Para limitar el número de usuarios." }
-      ],
-      correct: "b",
-      explanation: "El token lock impide que dos procesos usen el mismo token de plataforma a la vez. Sin él, dos réplicas duplicarían respuestas."
-    }
-  ]}
-/>
-
 <VisualSlot id="hermes-gateway:2" caption="Tres vistas del tema: mapa, mecanismo y trade-off — interactivas y en español." />
 
 ## Fuentes

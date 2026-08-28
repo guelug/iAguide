@@ -1,0 +1,40 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "What exposure modes does OpenClaw distinguish in Tailscale?",
+      options: [
+        { id: "a", text: "HTTP and HTTPS." },
+        { id: "b", text: "Serve, Funnel, and bind: each exposes to a different scope." },
+        { id: "c", text: "Local and remote." },
+        { id: "d", text: "Public and private." }
+      ],
+      correct: "b",
+      explanation: "Serve, Funnel, and bind are three modes with different scopes. Funnel exposes to the internet; Serve to the tailnet; bind to loopback."
+    },
+    {
+      id: "q2",
+      stem: "What are identity headers?",
+      options: [
+        { id: "a", text: "Cache headers." },
+        { id: "b", text: "Headers that only arrive with Serve, not with Funnel." },
+        { id: "c", text: "Compression headers." },
+        { id: "d", text: "Language headers." }
+      ],
+      correct: "b",
+      explanation: "Identity headers only arrive with Serve. With Funnel they do not travel, which changes how the client is authenticated."
+    },
+    {
+      id: "q3",
+      stem: "Why keep bind loopback?",
+      options: [
+        { id: "a", text: "Because it is faster." },
+        { id: "b", text: "Because it limits the service to the host itself; exposing more than needed is an attack surface." },
+        { id: "c", text: "Because it is mandatory." },
+        { id: "d", text: "Because it needs no network." }
+      ],
+      correct: "b",
+      explanation: "Bind loopback limits the service to the host itself. Exposing more than needed (Funnel) widens the attack surface."
+    }
+  ]}
+/>

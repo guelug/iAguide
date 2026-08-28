@@ -1,0 +1,64 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "Tienes una API con precio entrada cacheada $0.01/M, entrada nueva $0.10/M, salida $0.30/M. Tu sistema hace 2M tokens de entrada y 500k de salida al mes, con 40% de hit rate de caché. ¿Cuánto pagas de entrada al mes, aproximadamente?",
+      options: [
+        { id: "a", text: "$200 — todo a precio cacheado." },
+        { id: "b", text: "$140 — 800k tokens cacheados × $0.01 + 1.2M nuevos × $0.10 = $8 + $120 = $128." },
+        { id: "c", text: "$20 — solo el 40% que entra como nuevo." },
+        { id: "d", text: "$2000 — todo a precio nuevo." }
+      ],
+      correct: "b",
+      explanation: "40% de 2M = 800k cacheados a $0.01/M = $8. 60% de 2M = 1.2M nuevos a $0.10/M = $120. Total entrada: ~$128. Añade salida: 500k × $0.30/M = $150. Total: ~$278. Si crees que el hit rate sube a 80%, recalcula: 1.6M cacheados + 400k nuevos = $16 + $40 = $56 de entrada. La caché es el knob dominante."
+    },
+    {
+      id: "q2",
+      stem: "¿Por qué un MoE A3B 48B/3B NO cabe en una GPU de 12 GB?",
+      options: [
+        { id: "a", text: "Sí cabe, porque solo activa 3B por token." },
+        { id: "b", text: "No cabe: la memoria debe sostener los 48B de expertos. A 12 GB no entran ni en Q4 (~24 GB solo de pesos) ni en Q2 (~12 GB, al límite, sin KV). Los activos son para cómputo, no para capacidad." },
+        { id: "c", text: "Cabe si usas FP16." },
+        { id: "d", text: "Cabe si desactivas todos los expertos menos uno." }
+      ],
+      correct: "b",
+      explanation: "Los expertos que pueden activarse tienen que estar todos en memoria. Si el archivo es de 48B, necesitas 48 GB en FP16, ~24 GB en Q4, ~12 GB en Q2. Activar solo unos pocos reduce FLOPs (velocidad), no memoria (carga). Es la trampa de marketing más repetida en MoE."
+    },
+    {
+      id: "q3",
+      stem: "Tu hit rate de caché cae del 80% al 5% tras un deploy. ¿Qué suele haber pasado?",
+      options: [
+        { id: "a", text: "El modelo cambió de versión." },
+        { id: "b", text: "Algo al principio del prompt cambia entre peticiones: timestamp, orden de mensajes, descripción de tool, o una variable al frente. Mueve lo dinámico al final." },
+        { id: "c", text: "El proveedor subió los precios." },
+        { id: "d", text: "El modelo se entrenó con nuevos datos." }
+      ],
+      correct: "b",
+      explanation: "La caché es por prefijo: si los primeros N tokens cambian, todo lo de detrás se invalida. La receta es mover lo dinámico (timestamps, IDs de sesión, fechas) al final del prompt. Lo estable (system prompt, descripciones de tools, ejemplos) al principio."
+    },
+    {
+      id: "q4",
+      stem: "¿Cuándo *sí* tiene sentido correr un modelo en local en vez de en la API?",
+      options: [
+        { id: "a", text: "Cuando quieres ahorrar sin importar el volumen." },
+        { id: "b", text: "Cuando el coste mensual proyectado de la API supera la amortización de hardware + luz + tu tiempo en menos de 12-18 meses, o cuando los datos no pueden salir (regulación), o cuando necesitas latencia dura que el cloud más cercano no da." },
+        { id: "c", text: "Nunca: la API siempre es más barata." },
+        { id: "d", text: "Siempre que el modelo sea open-weights." }
+      ],
+      correct: "b",
+      explanation: "Local no es dogma. La API gana en uso bajo y esporádico porque amortizas hardware cero. Local gana en volumen sostenido, datos sensibles o latencia dura. Open-weights es necesario pero no suficiente: hay que mirar la cuenta."
+    },
+    {
+      id: "q5",
+      stem: "Quieres ahorrar en salida. ¿Qué optimización tiene más impacto primero?",
+      options: [
+        { id: "a", text: "Bajar la temperatura." },
+        { id: "b", text: "Recortar el system prompt y las tool descriptions — porque viven en *entrada*, que es donde está la masa del coste si tu arnés concatena cosas en cada turno. La salida se optimiza con guardrails, no con parámetros de sampling." },
+        { id: "c", text: "Cambiar el modelo a uno más chico." },
+        { id: "d", text: "Subir max_tokens." }
+      ],
+      correct: "b",
+      explanation: "En la mayoría de arneses con tools e historial, la entrada domina la factura. Recortar system prompts, fusionar descripciones de tools, deduplicar historial reduce tokens de entrada (que se facturan más veces por caché) antes de tocar nada de sampling. La salida se acorta con instrucciones claras, no con sampling parameters."
+    }
+  ]}
+/>

@@ -168,49 +168,6 @@ Es la reivindicación de que esos temas construyen la misma clase.
 
 Un host de API server propio hacía streaming de tokens a un navegador y, al desconectar el cliente, añadía el assistant parcial "para que el usuario pudiera reanudar". La siguiente llamada al proveedor daba 400 por alternancia: dos mensajes assistant seguidos. El principio interrumpible de la página de arquitectura no es opcional para hosts de librería: el resultado HTTP descartado nunca se convierte en fila de historial.
 
-## Quiz
-
-<Quiz
-  questions={[
-    {
-      id: "q1",
-      stem: "¿Qué comparten los seis hosts de Hermes?",
-      options: [
-        { id: "a", text: "Solo el nombre del proyecto." },
-        { id: "b", text: "La misma clase AIAgent en run_agent.py: CLI, gateway, ACP, batch runner, servidor API y librería Python." },
-        { id: "c", text: "Cada host tiene su propio bucle escrito a mano." },
-        { id: "d", text: "Nada: son seis productos distintos." }
-      ],
-      correct: "b",
-      explanation: "CLI, Gateway, ACP, el batch runner, el servidor API y la librería Python llaman a la misma clase AIAgent. Architecture de Nous Research es el mapa de esa cintura compartida."
-    },
-    {
-      id: "q2",
-      stem: "¿Qué pasa con el resultado HTTP descartado al interrumpir?",
-      options: [
-        { id: "a", text: "Se guarda como borrador para reanudar." },
-        { id: "b", text: "Nunca se convierte en una fila de historial: el bucle abandona el hilo HTTP y no inyecta un assistant parcial." },
-        { id: "c", text: "Se convierte en un mensaje de sistema." },
-        { id: "d", text: "Depende del proveedor." }
-      ],
-      correct: "b",
-      explanation: "El bucle abandona el hilo HTTP al interrumpir y no inyecta un assistant parcial. Un host que escribe tokens a un socket según llegan debe tratar /stop como tirar la fila en vuelo."
-    },
-    {
-      id: "q3",
-      stem: "¿Qué es la preempción a nivel gateway?",
-      options: [
-        { id: "a", text: "Un bug del adaptador de WhatsApp." },
-        { id: "b", text: "Una política de host encima del invariante interrumpible: un segundo mensaje mientras corre un turno." },
-        { id: "c", text: "Una forma de cancelar el gateway completo." },
-        { id: "d", text: "Un método de la clase AIAgent." }
-      ],
-      correct: "b",
-      explanation: "La preempción a nivel gateway (un segundo mensaje de WhatsApp mientras corre un turno) es una política de host encima del invariante. La clase posee el hecho de que el resultado HTTP descartado nunca es fila."
-    }
-  ]}
-/>
-
 <VisualSlot id="hermes-aiagent:2" caption="Tres vistas del tema: mapa, mecanismo y trade-off — interactivas y en español." />
 
 ## Fuentes

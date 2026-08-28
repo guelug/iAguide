@@ -165,49 +165,6 @@ This lesson stops at the file map, injection, attestation, and what stays out of
 
 An agent could not find a config file the team thought they had placed. It was outside the workspace, and the agent only sees its home. The lesson: the workspace is the agent's home; bootstrap files are injected, and what is NOT in the workspace does not exist for the agent.
 
-## Quiz
-
-<Quiz
-  questions={[
-    {
-      id: "q1",
-      stem: "What is the workspace in OpenClaw?",
-      options: [
-        { id: "a", text: "A temporary directory." },
-        { id: "b", text: "The agent's home: where its state and files live." },
-        { id: "c", text: "A remote git repository." },
-        { id: "d", text: "A database." }
-      ],
-      correct: "b",
-      explanation: "The workspace is the agent's home: where its state and files live. What is not in the workspace does not exist for the agent."
-    },
-    {
-      id: "q2",
-      stem: "What are bootstrap files?",
-      options: [
-        { id: "a", text: "Log files." },
-        { id: "b", text: "Files injected into the agent's context at startup." },
-        { id: "c", text: "Cache files." },
-        { id: "d", text: "Temporary files." }
-      ],
-      correct: "b",
-      explanation: "Bootstrap files are injected into the agent's context at startup. They are different from the files the agent creates."
-    },
-    {
-      id: "q3",
-      stem: "What is the workspace git backup?",
-      options: [
-        { id: "a", text: "A cloud backup." },
-        { id: "b", text: "A private git repository that backs up the workspace." },
-        { id: "c", text: "A tape backup." },
-        { id: "d", text: "A database snapshot." }
-      ],
-      correct: "b",
-      explanation: "The git backup is a private git repository that backs up the workspace. It is private, not published."
-    }
-  ]}
-/>
-
 ## Sources
 
 OpenClaw. (n.d.). *Agent workspace*. https://docs.openclaw.ai/concepts/agent-workspace

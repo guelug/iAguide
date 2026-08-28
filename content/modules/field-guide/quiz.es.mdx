@@ -1,0 +1,52 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Cuáles son los seis pasos de la guía de campo, en orden?",
+      options: [
+        { id: "a", text: "Comprar GPU, descargar modelo, fine-tunear, desplegar." },
+        { id: "b", text: "Ficha → memoria → quant → motor → quizá LoRA → arnés con permisos. Cada paso opcional según el caso." },
+        { id: "c", text: "Solo descargar modelo." },
+        { id: "d", text: "Solo LoRA." }
+      ],
+      correct: "b",
+      explanation: "Seis pasos en orden: elegir modelo (ficha), estimar memoria, cuantizar si hace falta, ejecutar en local, quizá LoRA, arnés con permisos. Cada paso es opcional según el caso (no todo el mundo necesita LoRA, no todo el mundo necesita quant). Pero el orden importa: saltarse la memoria antes de elegir lleva a OOM."
+    },
+    {
+      id: "q2",
+      stem: "¿Por qué 'nombre la capa, después el dialecto, después la herramienta'?",
+      options: [
+        { id: "a", text: "Para alargar la conversación." },
+        { id: "b", text: "Porque diagnosticar mal la capa cuesta un trimestre. Si crees que el problema es el dialecto (LangGraph, Hermes) pero el problema es metal (OOM en KV) o modelo (cuantización rota), cambias la herramienta equivocada y el bug sigue." },
+        { id: "c", text: "Porque el dialecto no importa." },
+        { id: "d", text: "Es marketing." }
+      ],
+      correct: "b",
+      explanation: "Diagnosticar mal la capa cuesta semanas. Una caída 'LangGraph está roto' resultó ser OOM en KV (metal). Cambiar de dialecto no arregla metal. La regla: primero la capa (modelo/arnés/metal), después el dialecto (Hermes/OpenClaw/smolagents), después la herramienta específica."
+    },
+    {
+      id: "q3",
+      stem: "¿Qué tres compras son 'compras equivocadas' comunes?",
+      options: [
+        { id: "a", text: "GPU, CPU, RAM." },
+        { id: "b", text: "Modelo más grande cuando basta un contexto más corto; librería de agentes cuando basta un while con runTool; plugin de RAG cuando basta una tool retrieve con índice simple." },
+        { id: "c", text: "Tres librerías de Python." },
+        { id: "d", text: "Tres vendors de cloud." }
+      ],
+      correct: "b",
+      explanation: "Tres compras malgastadas comunes: tamaño de modelo para compensar system prompt inflado; framework de agentes para un bucle que cabe en 20 líneas; plugin de RAG para una tool con un índice simple detrás. Cada una cuesta semanas. La regla: nombre la capa, después el dialecto, después la herramienta."
+    },
+    {
+      id: "q4",
+      stem: "¿Qué tres compras SÍ valen la pena antes de desplegar?",
+      options: [
+        { id: "a", text: "Tres dashboards." },
+        { id: "b", text: "Tests unit del bucle (sin GPU, sub-milisegundo), eval de 20 filas propias (con claves exact-match, tools fijadas), observación mínima por turno (cache_hit, tokens, tools, duration)." },
+        { id: "c", text: "Tres contratos con vendors." },
+        { id: "d", text: "Tres certificaciones." }
+      ],
+      correct: "b",
+      explanation: "Tres compras que valen la pena: test unit del bucle (sub-milisegundo, sin modelo), eval de 20 filas propias (no cinco), observación mínima por turno (cache_hit, tokens, tools_called, duration_ms). Cuestan un día; ahorran un trimestre de debugging a ciegas."
+    }
+  ]}
+/>

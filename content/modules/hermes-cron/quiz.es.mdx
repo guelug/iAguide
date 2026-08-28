@@ -1,0 +1,40 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué es el cron de Hermes?",
+      options: [
+        { id: "a", text: "Un wrapper de /usr/bin/cron sobre líneas de shell." },
+        { id: "b", text: "Ejecución de agente programada: un AIAgent fresco, skills opcionales, un prompt autocontenido y entrega." },
+        { id: "c", text: "Un demonio que corre scripts Python." },
+        { id: "d", text: "Una cola de mensajes de Telegram." }
+      ],
+      correct: "b",
+      explanation: "El cron de Hermes es ejecución de agente programada, no cron de shell. Cada job corre un AIAgent fresco con su propio prompt."
+    },
+    {
+      id: "q2",
+      stem: "¿Qué estados de ciclo de vida documenta el registro?",
+      options: [
+        { id: "a", text: "activo, inactivo, borrado." },
+        { id: "b", text: "scheduled, paused, completed, running." },
+        { id: "c", text: "nuevo, en cola, enviado." },
+        { id: "d", text: "abierto, cerrado, pendiente." }
+      ],
+      correct: "b",
+      explanation: "Los cuatro estados son el conjunto cerrado: scheduled (activo), paused (suspendido), completed (repeat agotado o one-shot disparado) y running (transitorio)."
+    },
+    {
+      id: "q3",
+      stem: "¿Qué impide que un job cree más jobs?",
+      options: [
+        { id: "a", text: "Una instrucción en el system prompt." },
+        { id: "b", text: "La guardia de recursión: el toolset cronjob está desactivado dentro de las sesiones cron." },
+        { id: "c", text: "Un límite de tokens por job." },
+        { id: "d", text: "La revisión humana de cada job." }
+      ],
+      correct: "b",
+      explanation: "La guardia de recursión desactiva el toolset cronjob dentro de las sesiones cron. Ese es el arreglo documentado, no un prompt."
+    }
+  ]}
+/>

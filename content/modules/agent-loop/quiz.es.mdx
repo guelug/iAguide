@@ -1,0 +1,22 @@
+<Quiz
+ questions={[
+  { id: "a1", stem: "¿Cuál es la diferencia clave entre prefill y decode en el bucle del agente?", options: [
+   { id: "a", text: "Prefill es secuencial, decode es paralelo" },
+   { id: "b", text: "Prefill procesa todo el prompt en paralelo (compute-bound); decode genera un token a la vez (memory-bandwidth-bound)" },
+   { id: "c", text: "No hay diferencia, son lo mismo" },
+   { id: "d", text: "Prefill usa menos memoria que decode" }
+  ], correct: "b", explanation: "El prefill es intensivo en cómputo y procesa todo el prompt en paralelo por capa. El decode es autoregresivo: un token cada vez, limitado por ancho de banda de memoria porque hay que leer los pesos enteros por cada token." },
+  { id: "a2", stem: "¿Por qué un bucle de agente con 10 rondas de tools multiplica el coste?", options: [
+   { id: "a", text: "Porque cada ronda paga un prefill nuevo (o un cache hit parcial)" },
+   { id: "b", text: "Porque el modelo se cansa" },
+   { id: "c", text: "Porque las tools son caras" },
+   { id: "d", text: "Porque el decode se acelera con cada ronda" }
+  ], correct: "a", explanation: "Cada vuelta en el bucle vuelve a llamar al modelo con el contexto actualizado. Eso significa otro prefill. Si el proveedor soporta prefix caching, el coste se reduce, pero sigue siendo una llamada nueva." },
+  { id: "a3", stem: "¿Qué diferencia a ReAct de Chain-of-Thought?", options: [
+   { id: "a", text: "ReAct usa tools y observaciones del entorno; CoT se queda dentro del modelo" },
+   { id: "b", text: "CoT usa tools, ReAct no" },
+   { id: "c", text: "Son exactamente lo mismo" },
+   { id: "d", text: "ReAct es más lento porque usa más tokens" }
+  ], correct: "a", explanation: "Chain-of-Thought es paso a paso interno (mates, lógica) sin herramientas. ReAct intercala Thought, Action y Observation, permitiendo que el modelo salga al entorno y vuelva con evidencia." },
+ ]}
+/>

@@ -34,3 +34,7 @@ export const mdxComponents = {
 export function lessonPath(slug: string, locale: string) {
   return `${process.cwd()}/content/modules/${slug}/${locale}.mdx`;
 }
+
+export function quizPath(slug: string, locale: string) {
+  return `${process.cwd()}/content/modules/${slug}/quiz.${locale}.mdx`;
+}

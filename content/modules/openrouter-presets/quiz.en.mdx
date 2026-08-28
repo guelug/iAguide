@@ -1,0 +1,52 @@
+<Quiz
+  questions={[
+    {
+      id: "or1",
+      stem: "What is the difference between max_price and preferred_max_latency?",
+      options: [
+        { id: "a", text: "Both are identical hard limits." },
+        { id: "b", text: "max_price prevents using routes above the price; latency is a routing preference and does not guarantee the SLO." },
+        { id: "c", text: "max_price measures tokens per second." },
+        { id: "d", text: "preferred_max_latency only applies to quantization." }
+      ],
+      correct: "b",
+      explanation: "The maximum price works as a cost constraint. Latency and throughput thresholds prioritize endpoints, but one that misses them can still be used if no valid alternative exists."
+    },
+    {
+      id: "or2",
+      stem: "What happens when you select several models in a preset?",
+      options: [
+        { id: "a", text: "Their weights are merged into a new model." },
+        { id: "b", text: "They are used as fallback models based on availability and restrictions." },
+        { id: "c", text: "All three are always called in parallel." },
+        { id: "d", text: "They automatically become a classifier." }
+      ],
+      correct: "b",
+      explanation: "Multiple selection is for model fallbacks. It does not create an ensemble or imply three parallel calls by default."
+    },
+    {
+      id: "or3",
+      stem: "What does a beta classifier do?",
+      options: [
+        { id: "a", text: "It changes the provider before the request responds." },
+        { id: "b", text: "It classifies generations asynchronously and adds labels to the record for analysis." },
+        { id: "c", text: "It always blocks sensitive prompts." },
+        { id: "d", text: "It quantizes the workspace models." }
+      ],
+      correct: "b",
+      explanation: "The classifier runs after generation. It adds no latency to the original response and, if it fails, the generation continues without labels."
+    },
+    {
+      id: "or4",
+      stem: "What does require_parameters: true mean?",
+      options: [
+        { id: "a", text: "It forces OpenRouter to use the most expensive model." },
+        { id: "b", text: "It only allows endpoints that support every parameter sent." },
+        { id: "c", text: "It enables reasoning on any model." },
+        { id: "d", text: "It disables fallbacks." }
+      ],
+      correct: "b",
+      explanation: "With require_parameters, a provider that does not implement a requested parameter should not be chosen. This reduces surprises with tools, reasoning, or specific formats."
+    }
+  ]}
+/>

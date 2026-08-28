@@ -220,59 +220,6 @@ Un equipo aplicó LoRA r=4 a una sola capa de atención de un 13B para clasifica
 
 Un equipo construyó un buscador con embeddings de un modelo multilingüe. En español, los rankings eran buenos; en inglés, parecían “al revés” — el documento correcto salía en la posición 5, no en la 1. La causa: estaban usando **distancia euclídea** sobre embeddings no normalizados, y el modelo multilingüe tenía magnitudes mayores para textos en inglés (probablemente por cobertura de vocabulario). Cambiaron a **similitud coseno** y los rankings volvieron a la normalidad. La métrica importa.
 
-<Quiz
-  questions={[
-    {
-      id: "q1",
-      stem: "¿Qué hace exactamente la 'temperatura' en el muestreo de un LLM?",
-      options: [
-        { id: "a", text: "Cambia los logits antes del softmax dividiéndolos por T. T→0 aproxima argmax (greedy); T→∞ aproxima uniforme." },
-        { id: "b", text: "Cambia el tamaño del modelo en memoria." },
-        { id: "c", text: "Cambia la arquitectura de atención." },
-        { id: "d", text: "Cambia el contexto máximo del modelo." }
-      ],
-      correct: "a",
-      explanation: "Temperatura es división de logits antes de softmax. T pequeña afila la distribución; T grande la aplana. T=0 técnicamente no es argmax exacto salvo en kernels que lo implementan como caso especial."
-    },
-    {
-      id: "q2",
-      stem: "En una capa lineal W de 4096×4096 con LoRA r=16, ¿cuántos parámetros entrenables tiene el adaptador?",
-      options: [
-        { id: "a", text: "16,7 millones (igual que W)." },
-        { id: "b", text: "≈ 131 mil (2 × 4096 × 16), unas 128 veces menos que W." },
-        { id: "c", text: "4096 (solo el rango)." },
-        { id: "d", text: "65 mil (la mitad de W)." }
-      ],
-      correct: "b",
-      explanation: "B es d×r y A es r×k. Para d=k=4096 y r=16: 4096×16 + 16×4096 = 131.072 parámetros entrenables. Es por qué QLoRA-más-LoRA cabe en una sola GPU y el ajuste completo de la misma capa, no."
-    },
-    {
-      id: "q3",
-      stem: "¿Por qué la entropía cruzada es la pérdida natural para entrenar un modelo de lenguaje?",
-      options: [
-        { id: "a", text: "Porque mide sorpresa: -log P(token correcto). Si el modelo ya le daba probabilidad alta, la pérdida es baja. Es literalmente 'qué tan sorprendido se queda el modelo por el token verdadero'." },
-        { id: "b", text: "Porque es la única función diferenciable." },
-        { id: "c", text: "Por razones históricas que ya no importan." },
-        { id: "d", text: "Porque el modelo no puede aprender nada más." }
-      ],
-      correct: "a",
-      explanation: "Cross-entropy entre la distribución predicha y el one-hot del token correcto se reduce a -log p_true. Es una medida directa de sorpresa. Minimizarla es exactamente 'asignar más probabilidad al token correcto'."
-    },
-    {
-      id: "q4",
-      stem: "Embeddings de un LLM: ¿por qué la similitud coseno suele ser mejor métrica que distancia euclídea?",
-      options: [
-        { id: "a", text: "Porque es más rápida de calcular." },
-        { id: "b", text: "Porque mide ángulo entre vectores, no magnitud. Si dos embeddings tienen magnitudes distintas pero direcciones similares (texto semánticamente cercano pero longitudes distintas), el coseno los ve parecidos; el euclídeo los penaliza." },
-        { id: "c", text: "Porque es lo que usan todas las APIs." },
-        { id: "d", text: "Porque los embeddings siempre están normalizados." }
-      ],
-      correct: "b",
-      explanation: "Los embeddings de pasaje tienen magnitudes que dependen del texto (longitud, vocabulario, estilo). Lo que importa para relevancia es la dirección. Coseno ignora la magnitud; euclídea la cuenta. Por eso coseno es el default en casi todas las APIs de embeddings."
-    }
-  ]}
-/>
-
 <VisualSlot id="maths-you-need:2" caption="Tres vistas del tema: mapa, mecanismo y trade-off — interactivas y en español." />
 
 <VisualSlot id="maths-you-need:3" caption="Las tres operaciones clave en fórmulas: producto punto y coseno, softmax y multiplicación de matrices." />

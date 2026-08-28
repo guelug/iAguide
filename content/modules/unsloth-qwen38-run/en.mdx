@@ -237,49 +237,6 @@ Official sources: [Qwen3.8 run guide](https://unsloth.ai/docs/models/qwen3.8) (a
 
 A deploy team downloads a `UD-Q4_K_XL` quant of Qwen3.8-27B that has been sitting in their S3 bucket for three months. They drop it into `unsloth run` with their usual Modelfile, point it at a production service running about 200 RPM, and measure perplexity on their internal eval. They get 8.7. They swap in the current quant (Dynamic 3.0 in `Qwen3.8-27B-GGUF`, same nominal size) and perplexity drops to 7.9. Same bytes on disk, same quant family, same date in the page's commit log: what changed are the **base weights** Unsloth used to build the quant. The [Dynamic 3.0 GGUFs](https://unsloth.ai/docs/basics/dynamic-3.0-ggufs) page from August 19 says the 27B GGUFs now use that variant for "approximately 10% more accuracy at the same size." What the team had in their bucket was the pre-Dynamic 3.0 build: same download path, same filename, but an old checkpoint. The fix was to drop the old quant, re-download the current one, and re-measure. Three operational consequences. First, prefer current Unsloth quants over an old Q4 sitting on a drive, even when the URL matches. Second, write the quant commit hash into the runbook, not just the filename. Third, automate the bundle rebuild on each Unsloth major release so you do not run a pre-Dynamic 3.0 quant in production.
 
-## Quiz
-
-<Quiz
- questions={[
-  {
-    id: "q1",
-    stem: "What does Unsloth's NVFP4 on Qwen3.8-27B do?",
-    options: [
-      { id: "a", text: "It is a 4-bit quant that runs about 1.5× faster than BF16 on NVIDIA Blackwell, with 92–97% top-1 recovery in Unsloth's tables, using vLLM >= 0.25" },
-      { id: "b", text: "It is a new 4-bit-parameter model trained from scratch" },
-      { id: "c", text: "It is a Mac-only 8-bit quant" },
-      { id: "d", text: "It is BF16 renamed" }
-    ],
-    correct: "a",
-    explanation: "Unsloth's NVFP4 runs about **1.5× faster than BF16** with 92–97% top-1 recovery, designed for NVIDIA Blackwell (RTX 50-series, DGX Spark, B200, B300) on 24GB, using vLLM >= 0.25 with FP8 KV-cache calibration. The checkpoint is [`unsloth/Qwen3.8-27B-NVFP4`](https://huggingface.co/unsloth/Qwen3.8-27B-NVFP4)."
-  },
-  {
-    id: "q2",
-    stem: "Why does the guide recommend building llama.cpp from `ggml-org/llama.cpp` instead of using pre-packaged binaries?",
-    options: [
-      { id: "a", text: "Because the binaries are private" },
-      { id: "b", text: "Because Unsloth documents a separate `iq1-narrow` branch only for the exotic 1-bit types of the 2.4T; for standard quants like UD-Q4_K_XL on the 27B, the `ggml-org/llama.cpp` repo covers the supported path" },
-      { id: "c", text: "Because the binaries do not support CUDA" },
-      { id: "d", text: "Because llama.cpp is the only engine that runs on CPU" }
-    ],
-    correct: "b",
-    explanation: "The [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp) repo covers standard quants. Unsloth's `iq1-narrow` branch is for the exotic 1-bit types of the 2.4T; you do not need it for UD-Q4_K_XL on the 27B. Mixing random repos is how you end up with quants your Modelfile does not support."
-  },
-  {
-    id: "q3",
-    stem: "What changed in the 27B GGUFs with the Dynamic V3.0 update of August 19?",
-    options: [
-      { id: "a", text: "The quant size moved from 4-bit to 8-bit" },
-      { id: "b", text: "Unsloth rebuilt the quants on new base weights; per the page, about 10% more accuracy at the same size" },
-      { id: "c", text: "The filename changed from GGUF to Qwen" },
-      { id: "d", text: "The Modelfile is no longer required" }
-    ],
-    correct: "b",
-    explanation: "The [Dynamic 3.0 GGUFs](https://unsloth.ai/docs/basics/dynamic-3.0-ggufs) page documents the update: 27B quants now use Dynamic V3.0, ~10% more accuracy at the same size. An old quant in your bucket does not auto-update; pull the current one and re-measure."
-  }
- ]}
-/>
-
 ## Sources
 
 - [Qwen3.8 run guide](https://unsloth.ai/docs/models/qwen3.8) and [qwen3.8.md](https://unsloth.ai/docs/models/qwen3.8.md)

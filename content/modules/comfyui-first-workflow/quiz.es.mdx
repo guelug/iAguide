@@ -1,0 +1,40 @@
+<Quiz
+ questions={[
+  {
+    id: "q1",
+    stem: "¿Cuál es el orden de nodos del primer flujo texto-a-imagen según Comfy-Org?",
+    options: [
+      { id: "a", text: "VAE Decode → KSampler → CLIP Text Encode → Load Checkpoint → Save Image" },
+      { id: "b", text: "Load Checkpoint → CLIP Text Encode (positivo y negativo) → KSampler → VAE Decode → Save Image, conectado por Queue Prompt" },
+      { id: "c", text: "CLIP Text Encode → Load Checkpoint → VAE Decode → KSampler → Save Image" },
+      { id: "d", text: "Save Image → VAE Decode → KSampler → Load Checkpoint → CLIP Text Encode" }
+    ],
+    correct: "b",
+    explanation: "El flujo texto-a-imagen documentado por Comfy-Org es: Load Checkpoint entrega MODEL/CLIP/VAE; CLIP Text Encode escribe los prompts positivo y negativo; KSampler corre con `steps=20, cfg=7, sampler=euler` por defecto del artículo 22492; VAE Decode pasa del latente a píxeles; Save Image persiste; Queue Prompt (`Ctrl+Enter`) lanza."
+  },
+  {
+    id: "q2",
+    stem: "¿Por qué guardar el workflow como PNG-con-metadatos no basta para repetir una imagen?",
+    options: [
+      { id: "a", text: "Porque los PNG se comprimen y pierden nodos" },
+      { id: "b", text: "Porque los metadatos no guardan el seed del KSampler, el hash del checkpoint, ni el fichero de LoRA exacto; sin cualquiera de los tres, la imagen cambia" },
+      { id: "c", text: "Porque ComfyUI solo lee el primer nodo del PNG" },
+      { id: "d", text: "Porque los nodos custom no se serializan nunca" }
+    ],
+    correct: "b",
+    explanation: "Los metadatos del PNG guardan el grafo y los nombres de fichero, no el estado del sampler. Para reproducir una imagen necesitas el grafo + el `seed` del KSampler + el checkpoint (o su hash) + el LoRA exacto. Exporta también el JSON con `Workflows → Export` y anota el seed en el nombre del fichero."
+  },
+  {
+    id: "q3",
+    stem: "¿Qué pasa al pulsar `Ctrl+Enter` (o `Cmd+Enter`) en ComfyUI?",
+    options: [
+      { id: "a", text: "Guarda el grafo actual como plantilla" },
+      { id: "b", text: "Lanza la Queue Prompt y ejecuta el grafo actual una vez (o en cola si ya hay prompts pendientes)" },
+      { id: "c", text: "Exporta el workflow como JSON" },
+      { id: "d", text: "Recarga todos los modelos desde disco" }
+    ],
+    correct: "b",
+    explanation: "`Ctrl+Enter` (`Cmd+Enter` en macOS) es el atajo que Comfy-Org y el artículo 22492 listan para ejecutar el grafo en cola. La cola se procesa en orden; cada lote escribe su imagen en `ComfyUI/output/`. Si hay prompts pendientes, los encola en vez de sustituirlos."
+  }
+ ]}
+/>

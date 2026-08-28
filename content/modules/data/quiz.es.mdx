@@ -1,0 +1,52 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Por qué la deduplicación es crítica antes de entrenar?",
+      options: [
+        { id: "a", text: "Reduce el coste de cómputo, nada más." },
+        { id: "b", text: "Evita que el modelo sobreajuste ejemplos repetidos (memorización) y que la pérdida parezca mejor de lo que es. También reduce el sesgo hacia el contenido duplicado." },
+        { id: "c", text: "Es un requisito legal en la UE." },
+        { id: "d", text: "Mejora la calidad del texto generado automáticamente." }
+      ],
+      correct: "b",
+      explanation: "La dedup ataca dos problemas a la vez: el modelo sobreajusta el contenido repetido (lo memoriza palabra por palabra), y las métricas de evaluación se inflan artificialmente. También reduce el tamaño del corpus, pero ése es un beneficio secundario."
+    },
+    {
+      id: "q2",
+      stem: "Tienes un benchmark de 200 preguntas para medir razonamiento. ¿Cuál es el primer paso antes de entrenar?",
+      options: [
+        { id: "a", text: "Ejecutar el benchmark con el modelo base para tener una baseline." },
+        { id: "b", text: "Buscar las preguntas (o sus respuestas) en el corpus de entrenamiento y medir solapamiento para detectar contaminación." },
+        { id: "c", text: "Subir el benchmark a un leaderboard público." },
+        { id: "d", text: "Dividir el benchmark en train y test." }
+      ],
+      correct: "b",
+      explanation: "Si tu evaluación contiene material casi literal del corpus, no estás midiendo capacidad: estás midiendo memorización. El primer paso de cualquier pipeline serio es buscar solapamiento y filtrar, reescribir, o documentar."
+    },
+    {
+      id: "q3",
+      stem: "Generas 50.000 ejemplos sintéticos con un modelo grande para entrenar un modelo más pequeño. ¿Qué riesgo principal tienes?",
+      options: [
+        { id: "a", text: "El modelo pequeño no va a converger." },
+        { id: "b", text: "El dataset sintético hereda los sesgos y errores del modelo profesor; si no filtras ni verificas, entrenas al alumno con basura vestida de buena prosa." },
+        { id: "c", text: "Los datos sintéticos son ilegales en la mayoría de jurisdicciones." },
+        { id: "d", text: "El modelo pequeño va a aprender a copiar literalmente al profesor." }
+      ],
+      correct: "b",
+      explanation: "El modelo profesor alucina, se equivoca con seguridad, y tiene sus puntos ciegos. Si no filtras y verificas los ejemplos sintéticos, entrenas al alumno con errores que se ven plausibles. Sintético necesita curaduría."
+    },
+    {
+      id: "q4",
+      stem: "Tu corpus de preentrenamiento incluye Common Crawl sin filtrar. ¿Cuál de estos problemas NO se resuelve con un filtro de calidad?",
+      options: [
+        { id: "a", text: "Spam y páginas vacías." },
+        { id: "b", text: "Texto en idiomas que no quieres." },
+        { id: "c", text: "Contaminación: tu benchmark aparece verbatim en el corpus." },
+        { id: "d", text: "Caracteres de encoding roto." }
+      ],
+      correct: "c",
+      explanation: "Los filtros de calidad atacan volumen, idioma, caracteres. La contaminación contra un benchmark concreto es un problema distinto: requiere comparar contra ese benchmark específico, normalmente con hashes o embeddings. Un filtro genérico no sabe qué benchmark usas tú."
+    }
+  ]}
+/>

@@ -8,6 +8,8 @@ export type GlossaryTerm = {
 };
 
 export const GLOSSARY: GlossaryTerm[] = [
+  { id: "model", module: "orientation", term: { en: "model", es: "modelo" }, def: { en: "A file of learned weights plus a recipe for scoring the next token. Not a hand-written program of rules.", es: "Un archivo de pesos aprendidos más una receta para puntuar el siguiente token. No es un programa de reglas escritas a mano." } },
+  { id: "weights", module: "orientation", term: { en: "weights", es: "pesos" }, def: { en: "The numbers that are the model. They live on disk. Changing them is training or an adapter, not a longer prompt.", es: "Los números que son el modelo. Viven en disco. Cambiarlos es entrenar o poner un adapter, no alargar el prompt." } },
   { id: "token", module: "language-of-models", term: { en: "token", es: "token" }, def: { en: "A chunk of text the model reads and writes. Not always a word: hello may be one token; a rare name may be several.", es: "Un trozo de texto que el modelo lee y escribe. No siempre es una palabra." } },
   { id: "context-window", module: "language-of-models", term: { en: "context window", es: "ventana de contexto" }, def: { en: "The maximum number of tokens the model can attend over in one pass — prompt plus generation so far.", es: "El número máximo de tokens sobre los que el modelo puede atender en una pasada: prompt más lo generado." } },
   { id: "embedding", module: "language-of-models", term: { en: "embedding", es: "embedding" }, def: { en: "A list of numbers that places a token (or a passage) in a space where nearby points mean related things.", es: "Una lista de números que sitúa un token (o un pasaje) en un espacio donde los puntos cercanos significan cosas afines." } },

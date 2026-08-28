@@ -1,0 +1,40 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "What is Hermes cron?",
+      options: [
+        { id: "a", text: "A wrapper of /usr/bin/cron over shell lines." },
+        { id: "b", text: "Scheduled agent execution: a fresh AIAgent, optional skills, a self-contained prompt, and delivery." },
+        { id: "c", text: "A daemon that runs Python scripts." },
+        { id: "d", text: "A Telegram message queue." }
+      ],
+      correct: "b",
+      explanation: "Hermes cron is scheduled agent execution, not shell cron. Each job runs a fresh AIAgent with its own prompt."
+    },
+    {
+      id: "q2",
+      stem: "Which lifecycle states does the record document?",
+      options: [
+        { id: "a", text: "active, inactive, deleted." },
+        { id: "b", text: "scheduled, paused, completed, running." },
+        { id: "c", text: "new, queued, sent." },
+        { id: "d", text: "open, closed, pending." }
+      ],
+      correct: "b",
+      explanation: "The four states are the closed set: scheduled (active), paused (suspended), completed (repeat exhausted or one-shot fired), and running (transient)."
+    },
+    {
+      id: "q3",
+      stem: "What stops a job from creating more jobs?",
+      options: [
+        { id: "a", text: "An instruction in the system prompt." },
+        { id: "b", text: "The recursion guard: the cronjob toolset is disabled inside cron sessions." },
+        { id: "c", text: "A per-job token limit." },
+        { id: "d", text: "Human review of every job." }
+      ],
+      correct: "b",
+      explanation: "The recursion guard disables the cronjob toolset inside cron sessions. That is the documented fix, not a prompt."
+    }
+  ]}
+/>

@@ -1,0 +1,40 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué es register(ctx) en Hermes?",
+      options: [
+        { id: "a", text: "Un endpoint HTTP." },
+        { id: "b", text: "La cintura de los plugins: la API de contexto por la que un plugin se registra sin bifurcar run_agent.py." },
+        { id: "c", text: "Un script de instalación." },
+        { id: "d", text: "Una base de datos." }
+      ],
+      correct: "b",
+      explanation: "register(ctx) es la cintura de los plugins: la API de contexto por la que un plugin extiende el agente sin tocar el core."
+    },
+    {
+      id: "q2",
+      stem: "¿Qué son las capabilities?",
+      options: [
+        { id: "a", text: "Límites de tokens." },
+        { id: "b", text: "Permisos que el plugin puede pedir, como tools.override, y que requieren consentimiento." },
+        { id: "c", text: "Versiones de Python." },
+        { id: "d", text: "Nombres de archivos." }
+      ],
+      correct: "b",
+      explanation: "Las capabilities son permisos que el plugin puede solicitar. tools.override, por ejemplo, exige consentimiento explícito."
+    },
+    {
+      id: "q3",
+      stem: "¿Dónde se descubre un plugin?",
+      options: [
+        { id: "a", text: "Solo en el directorio del proyecto." },
+        { id: "b", text: "En user, proyecto y pip: el descubrimiento cubre varias ubicaciones." },
+        { id: "c", text: "Solo en PyPI." },
+        { id: "d", text: "En la base de datos de sesiones." }
+      ],
+      correct: "b",
+      explanation: "El descubrimiento de plugins cubre user, proyecto y pip. El manifiesto, doctor y estado durable completan el ciclo de vida."
+    }
+  ]}
+/>

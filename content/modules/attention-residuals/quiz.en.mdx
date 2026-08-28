@@ -1,0 +1,40 @@
+<Quiz
+ questions={[
+  {
+    id: "q1",
+    stem: "What job does the residual do beyond letting the gradient pass through identity?",
+    options: [
+      { id: "a", text: "Compresses the previous output into a learned latent vector" },
+      { id: "b", text: "Acts as a depth-wise aggregator with unit weights welded to 1, a uniform sum of every previous layer" },
+      { id: "c", text: "Replaces the MLP to save parameters" },
+      { id: "d", text: "Only normalises magnitudes and does not mix anything" }
+    ],
+    correct: "b",
+    explanation: "Unrolling `h_l = h_{l-1} + f(h_{l-1})` shows each layer receives a uniform sum of all previous ones with coefficients fixed at 1. The residual is linear attention over depth with the gates nailed shut. AttnRes swaps that aggregator for a softmax."
+  },
+  {
+    id: "q2",
+    stem: "Why does AttnRes initialise the query vector `w_l` to zero?",
+    options: [
+      { id: "a", text: "To save memory: a layer without a query writes nothing" },
+      { id: "b", text: "Because the paper forbids training the per-layer query" },
+      { id: "c", text: "So the initial attention is uniform over previous outputs, starting as an average of the past and letting training learn which depths to over-weight" },
+      { id: "d", text: "So `w_l` can be tuned later in production with a flag" }
+    ],
+    correct: "c",
+    explanation: "With `w_l = 0` every initial logit is equal, the softmax is uniform, and the layer starts as an average. A random peaked `w_l` makes the early softmax unstable. Zero init is a training courtesy, not a service flag: after training it is just a vector in the checkpoint."
+  },
+  {
+    id: "q3",
+    stem: "What does Block AttnRes solve versus Full AttnRes without losing much quality?",
+    options: [
+      { id: "a", text: "Block AttnRes swaps softmax for sigmoid to save I/O" },
+      { id: "b", text: "Block AttnRes splits the L layers into N block summaries and applies softmax over those (~8) plus the running partial; memory and comm drop from O(L d) to O(N d) with nearly the same loss" },
+      { id: "c", text: "Block AttnRes removes RMSNorm from the keys because grouping makes it unnecessary" },
+      { id: "d", text: "Block AttnRes uses one multi-query head instead of dense softmax" }
+    ],
+    correct: "b",
+    explanation: "Full AttnRes materialises a softmax over every previous output (O(L² d) FLOPs, O(L d) memory and comm). Block groups into N summaries (≈ 8) plus the running partial; comm and memory drop to O(N d). In the paper `S = 1, 2, 4, 8` cluster around the same loss; `N ≈ 8` is an infrastructure choice, not magic."
+  }
+ ]}
+/>

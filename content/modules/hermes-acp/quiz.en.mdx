@@ -1,0 +1,40 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "What is the Hermes ACP adapter?",
+      options: [
+        { id: "a", text: "A separate network protocol with no relation to the agent." },
+        { id: "b", text: "A stdio server that wraps the AIAgent and exposes JSON-RPC methods so an editor can talk to it." },
+        { id: "c", text: "An OpenClaw plugin that has nothing to do with Hermes." },
+        { id: "d", text: "A CLI flag that prints the version." }
+      ],
+      correct: "b",
+      explanation: "ACP is a stdio server: the editor launches the binary, speaks JSON-RPC over stdin/stdout, and the adapter wraps the AIAgent. The --check and --version flags run before the server starts; they are not session methods."
+    },
+    {
+      id: "q2",
+      stem: "What does the SessionManager keep per session?",
+      options: [
+        { id: "a", text: "Only the message history." },
+        { id: "b", text: "The current model, the cwd, and the ACP session state." },
+        { id: "c", text: "The API keys of every provider." },
+        { id: "d", text: "Nothing: every call is stateless." }
+      ],
+      correct: "b",
+      explanation: "The SessionManager keeps the current model per session, and the cwd travels with the ACP session id to the terminal and file overrides. Changing models is a session method, not a server restart."
+    },
+    {
+      id: "q3",
+      stem: "Why is the ACP cwd not a global os.chdir?",
+      options: [
+        { id: "a", text: "Because cwd does not exist in ACP." },
+        { id: "b", text: "Because cwd is task-scoped: it travels with the session id to the overrides, and a later prompt keeps that cwd until the manager records an update." },
+        { id: "c", text: "Because the editor decides the cwd, not the agent." },
+        { id: "d", text: "Because changing the global cwd would break the server." }
+      ],
+      correct: "b",
+      explanation: "The working-directory union is task-scoped. The editor's cwd travels with the ACP session id to the terminal and file overrides; it is not a global process os.chdir."
+    }
+  ]}
+/>
