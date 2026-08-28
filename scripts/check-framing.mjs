@@ -83,6 +83,7 @@ const SCENES = [
   { name: "observability", fov: 40, dir: [0, 0.5, 6.9], min: [-3.7, -3.1, -0.3], max: [3.8, 2.4, 0.3] },
   { name: "training:4 landscape", fov: 38, dir: [3.4, 4.6, 6.2], min: [-4.2, -3.5, -3.1], max: [4.2, 1.6, 3.1] },
   { name: "embeddings:3 cones", fov: 42, dir: [3.2, 2.2, 4.4], min: [-2.8, -3.5, -2.8], max: [2.8, 2.6, 2.8] },
+  { name: "memory:3 budget", fov: 38, dir: [3.6, 2.4, 5.4], min: [-2.0, -2.7, -1.0], max: [3.6, 2.4, 1.0] },
 ];
 
 /** Canvas shapes the figures are actually rendered at. */

@@ -448,6 +448,7 @@ export const VISUALS_EXTRA: Record<
   "maths-you-need:2": () => import("./maths-you-need/Visual2"),
   "maths-you-need:3": () => import("./maths-you-need/Visual3"),
   "memory-hardware:2": () => import("./memory-hardware/Visual2"),
+  "memory-hardware:3": () => import("./memory-hardware/Visual3"),
   "mixture-of-experts:2": () => import("./mixture-of-experts/Visual2"),
   "model-zoo:2": () => import("./model-zoo/Visual2"),
   "multimodal:2": () => import("./multimodal/Visual2"),

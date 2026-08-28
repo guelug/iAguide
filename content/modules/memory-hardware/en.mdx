@@ -8,6 +8,8 @@
 
 ## Weights vs KV vs context
 
+<VisualSlot id="memory-hardware:3" />
+
 Weights are (mostly) a fixed tax once the model is loaded. The <Term id="kv-cache">KV cache</Term> grows with sequence length × layers × heads × … — the exact formula depends on architecture (GQA shrinks KV; some engines page it). Long context is a *memory* decision as much as a quality one.
 
 Activations during prefill spike and then fall. Fragmentation and CUDA context steal a slice you will not see in a naive `params × bytes` back-of-envelope.
