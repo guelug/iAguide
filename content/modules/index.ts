@@ -421,6 +421,7 @@ export const VISUALS_EXTRA: Record<
   "embeddings-and-retrieval:2": () => import("./embeddings-and-retrieval/Visual2"),
   "evaluation:2": () => import("./evaluation/Visual2"),
   "field-guide:2": () => import("./field-guide/Visual2"),
+  "field-guide:3": () => import("./field-guide/Visual3"),
   "gateway:2": () => import("./gateway/Visual2"),
   "hermes-acp:2": () => import("./hermes-acp/Visual2"),
   "hermes-aiagent:2": () => import("./hermes-aiagent/Visual2"),
@@ -469,6 +470,7 @@ export const VISUALS_EXTRA: Record<
   "prompt-assembly:2": () => import("./prompt-assembly/Visual2"),
   "quantization:2": () => import("./quantization/Visual2"),
   "quotas-and-pricing:2": () => import("./quotas-and-pricing/Visual2"),
+  "quotas-and-pricing:3": () => import("./quotas-and-pricing/Visual3"),
   "reinforcement-learning:2": () => import("./reinforcement-learning/Visual2"),
   "reinforcement-learning:3": () => import("./reinforcement-learning/Visual3"),
   "safety-and-injection:2": () => import("./safety-and-injection/Visual2"),
@@ -480,6 +482,7 @@ export const VISUALS_EXTRA: Record<
   "tools-runtime:2": () => import("./tools-runtime/Visual2"),
   "unsloth-qwen38:2": () => import("./unsloth-qwen38/Visual2"),
   "unsloth-qwen38-run:2": () => import("./unsloth-qwen38-run/Visual2"),
+  "unsloth-qwen38-run:3": () => import("./unsloth-qwen38-run/Visual3"),
 };
 
 export function getExtraVisualLoader(key: string) {

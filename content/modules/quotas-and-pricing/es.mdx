@@ -7,6 +7,7 @@ Un harness gasta en **tres** monedas que la gente aplasta en una sola frase. Sep
 3. **Electricidad local** — Ollama, vLLM, llama.cpp, ComfyUI en una GPU que ya tienes. El contador son julios y VRAM, no un 429.
 
 <VisualSlot caption="Cinco diapositivas: tres facturas (cuota, token de API, electricidad), un turno de usuario que explota en N llamadas de herramienta, el crédito mensual de 0,10 USD de Hugging Face, rotación 429 frente a 402 con la caché de prompt muerta, y el mito de que Plus deja el harness gratis." />
+<VisualSlot id="quotas-and-pricing:3" caption="Cuota, tokens y electricidad son contadores distintos; un turno con N tools multiplica el coste." />
 
 <Callout>
 El consejo de producción de OpenClaw es el mismo corte en lenguaje de operador: **clave API en el host del gateway** es el camino predecible; OAuth es auth de suscripción para un escritorio ([OpenClaw, Authentication](https://docs.openclaw.ai/gateway/authentication.md); [OpenClaw, OAuth](https://docs.openclaw.ai/concepts/oauth)). No montes un gateway 24/7 sobre una cookie de ChatGPT y luego abras un bug cuando el refresh rote debajo del demonio.
