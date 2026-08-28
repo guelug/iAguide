@@ -40,6 +40,8 @@ Un modelo **base** completa texto, como si siguiera un párrafo. Un modelo **ins
 Si alguien te dice «el modelo decidió X», traduce: produjo tokens que, una vez leídos, significan X. La decisión, si hay una, suele estar en el código que llama al modelo, no en los pesos.
 </Callout>
 
+<VisualSlot id="orientation:5" caption="Un modelo son números editables. Antes: un hábito estadístico. Ajustando: los números se mueven y la pérdida baja. Después: archivo nuevo, mismo oficio." />
+
 ## Entrenar no es usar
 
 Hay dos momentos en la vida de esos números.
@@ -124,6 +126,8 @@ Los pesos son lo que el modelo **es**. El prompt es lo que **ve ahora**. Confund
 Si pides siempre el token más probable (temperatura 0, greedy), con el mismo prompt y un runtime estable suele repetir. Si muestreás, no. El modelo no «cambia de opinión». Está sacando otra pieza de la misma urna.
 
 Algunos kernels de GPU ni siquiera son bit-estables entre dos ejecuciones. Si necesitas que un test dé siempre el mismo JSON, temperatura 0, semilla fija, y aun así trata el drift como posible. La lección [el idioma de los modelos](/es/m/language-of-models) abre temperatura, top-p y top-k. Aquí basta: **aleatorio no es creativo, y determinista no es honesto.**
+
+<VisualSlot id="orientation:6" caption="El mismo prompt, misma urna, distinta temperatura. A 0, casi siempre París. Si subes, caben Roma, Lisboa o cualquier improbable con voz segura." />
 
 ## Un chat no es un agente
 

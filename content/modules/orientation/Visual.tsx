@@ -160,7 +160,7 @@ export default function Visual() {
         />
       }
     >
-      <Stage className="h-full w-full" camera={{ position: [0, 0.95, 7.2], fov: 33 }} background={P.paper} maxDpr={2}>
+      <Stage className="h-full w-full" camera={{ position: [0, 0.45, 7.5], fov: 34 }} background={P.paper} maxDpr={2} fit={1.05}>
         <Motes count={150} radius={7} color={P.lineStrong} size={0.025} opacity={0.24} />
         <PointerTilt amount={0.09}>
           <group rotation={[-0.1, 0, 0]} position={[0, 0.18, 0]}>

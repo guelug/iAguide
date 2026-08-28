@@ -6,7 +6,7 @@ import {
   PerformanceMonitor,
   Preload,
 } from "@react-three/drei";
-import { Canvas, type CanvasProps } from "@react-three/fiber";
+import { Canvas, useThree, type CanvasProps } from "@react-three/fiber";
 import {
   Suspense,
   createContext,
@@ -18,6 +18,7 @@ import {
   type ReactNode,
 } from "react";
 import { P } from "@/lib/palette";
+import type * as THREE from "three";
 
 type ControlsConfig = {
   autoRotate?: boolean;
@@ -42,6 +43,13 @@ type Props = {
   controls?: boolean | ControlsConfig;
   /** Max device pixel ratio before the perf monitor claws it back. */
   maxDpr?: number;
+  /**
+   * Camera fit factor the rig uses to push further back on wide canvases
+   * (fit > 1) so the diagram never drifts towards one edge. Default 1.
+   * The rig always re-points the camera at the origin so an offset
+   * declared by the visual never buries the content at the bottom.
+   */
+  fit?: number;
 };
 
 /**
@@ -91,6 +99,7 @@ export function Stage({
   fog,
   controls = false,
   maxDpr = 2,
+  fit = 1,
 }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const [onScreen, setOnScreen] = useState(true);
@@ -138,6 +147,7 @@ export function Stage({
           <StageContext.Provider value={env}>
             <PerfGovernor onChange={setQuality} enabled={!still} />
             <DefaultLights />
+            <CameraRig fit={fit} />
             <Suspense fallback={null}>{children}</Suspense>
             {controls ? (
               <OrbitControls
@@ -198,4 +208,37 @@ function PerfGovernor({
       }}
     />
   );
+}
+
+/**
+ * Keeps the canvas useful on tall and wide viewports.
+ *
+ * Three guarantees:
+ *   1. The camera always *looks at the origin* — declared camera offsets
+ *      are used as a direction only, so the content cannot drift to a
+ *      corner of the canvas.
+ *   2. The camera dollies in on narrow / out on wide viewports by the
+ *      ratio of the canvas aspect to a 16:9 baseline, scaled by the
+ *      parent `fit` factor. The clamp keeps it from going bird's-eye
+ *      on a phone and microscopic on a cinema display.
+ *   3. The rig re-applies every frame so a resize never strands the
+ *      camera at a stale distance.
+ */
+function CameraRig({ fit }: { fit: number }) {
+  const { camera, size } = useThree();
+
+  useEffect(() => {
+    const cam = camera as THREE.PerspectiveCamera;
+    if (!cam.isPerspectiveCamera) return;
+    const base = cam.position.length() || 8;
+    const aspect = size.width / Math.max(1, size.height);
+    // 16:9 (1.78) is the baseline — wider canvases get further back so the
+    // subject doesn't shrink, taller canvases don't get a fish-eye.
+    const k = Math.sqrt(Math.max(0.6, Math.min(1.8, aspect / 1.78))) * fit;
+    cam.position.setLength(base * k);
+    cam.lookAt(0, 0, 0);
+    cam.updateProjectionMatrix();
+  }, [camera, size.width, size.height, fit]);
+
+  return null;
 }

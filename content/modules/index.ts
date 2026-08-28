@@ -469,6 +469,8 @@ export const VISUALS_EXTRA: Record<
   "orientation:2": () => import("./orientation/Visual2"),
   "orientation:3": () => import("./orientation/Visual3"),
   "orientation:4": () => import("./orientation/Visual4"),
+  "orientation:5": () => import("./orientation/Visual5"),
+  "orientation:6": () => import("./orientation/Visual6"),
   "plugins-and-skills:2": () => import("./plugins-and-skills/Visual2"),
   "programmatic-access:2": () => import("./programmatic-access/Visual2"),
   "prompt-assembly:2": () => import("./prompt-assembly/Visual2"),
