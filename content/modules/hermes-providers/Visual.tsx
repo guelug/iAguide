@@ -9,8 +9,6 @@ import { useCopy } from "@/lib/useCopy";
 
 type Step = "resolve" | "modes" | "keys" | "fallback" | "sub";
 
-
-
 export default function Visual() {
   const t = useCopy({
     en: {

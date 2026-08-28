@@ -9,8 +9,6 @@ import { useCopy } from "@/lib/useCopy";
 
 type Step = "load" | "clip" | "sample" | "vae" | "queue";
 
-
-
 export default function Visual() {
   const t = useCopy({
     en: {

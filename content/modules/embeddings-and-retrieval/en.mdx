@@ -22,6 +22,8 @@ Write three queries against a fake employee handbook: (a) one that keyword searc
 
 ## Case — HarborHR’s stuffed handbook
 
+<VisualSlot id="embeddings-and-retrieval:2" />
+
 HarborHR pasted a 40-page handbook into every turn. Prefill was 9 seconds. When legal updated *one* paragraph, the prefix cache died and the model still cited the old leave policy from a neighbouring chunk. They did not have a retrieval bug. They had a stuffing policy.
 
 This lesson rewrites ideas from the [Hugging Face Agents Course](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.

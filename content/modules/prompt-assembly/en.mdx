@@ -24,6 +24,8 @@ Hermes orders tiers as `stable → context → volatile` and loads **one** proje
 
 ## Case: cache bust after `/model`
 
+<VisualSlot id="prompt-assembly:2" />
+
 **Case.** Operator switches model mid-Telegram thread. Input tokens spike though the system text “looks the same.”
 
 **Why.** Model identity is part of the provider cache key. A `/model` switch (or fallback, or credential-pool rotation onto another account) yields zero cache hits on the next request.

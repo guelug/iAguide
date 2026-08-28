@@ -78,6 +78,8 @@ Write the default reset mode. Write which timestamp daily uses and which timesta
 
 ## Compare, without mixing knobs
 
+<VisualSlot id="openclaw-reset:2" />
+
 Hermes compression creates a child session lineage; `/resume` picks a session up (Nous Research, *Agent Loop Internals*, n.d., https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop). OpenClaw reset mints a new `sessionId` on the same Gateway-owned sqlite row family. Compaction in OpenClaw keeps the current session identity for the built-in SQLite compactor. Do not paste Hermes `compression.protect_last_n` into `session.reset.idleMinutes`. Cite *Session management* for reset. Cite *Compaction* for summaries.
 
 Provider-owned CLI sessions default to no automatic reset so a long Codex or Claude CLI thread is not killed at 04:00 unless you opted in. That is the opposite of "the Gateway always rolls at 4." Read the page.

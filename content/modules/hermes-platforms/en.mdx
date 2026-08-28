@@ -161,6 +161,8 @@ Tip: use the typing-loop override when the platform has a hard time-window const
 
 ## Common patterns
 
+<VisualSlot id="hermes-platforms:2" />
+
 **Long-poll.** Create a polling loop task in `connect()`, fetch updates while `self._running`, build events, call `handle_message`. Telegram and Weixin style.
 
 **Callback / webhook.** Run an HTTP server, acknowledge immediately, queue the event. WeCom Callback style. Do not await the agent inside the HTTP handler.

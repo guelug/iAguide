@@ -130,6 +130,8 @@ Practical tip: any tool that is a pure function of its arguments can live on sev
 
 ## Search providers, as the notebook actually names them
 
+<VisualSlot id="smolagents-multi:2" />
+
 *Named source: Hugging Face Agents Course, Unit 2.1, [Multi-Agent Systems](https://huggingface.co/learn/agents-course/unit2/smolagents/multi_agent_systems).*
 
 `GoogleSearchTool` in that notebook talks to Serper. You either set `SERPAPI_API_KEY` and pass `provider="serpapi"`, or set `SERPER_API_KEY` and pass `provider="serper"`. If you have neither, the page says use `DuckDuckGoSearchTool` and beware the rate limit. Those are the two official forks. Do not invent a third provider flag.

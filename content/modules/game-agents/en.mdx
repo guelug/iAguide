@@ -97,6 +97,8 @@ Observation is the formatted battle string. Action must match available moves or
 
 ## TemplateAgent is a hole you fill
 
+<VisualSlot id="game-agents:2" />
+
 *Named source: Hugging Face Agents Course, Bonus Unit 3, TemplateAgent in [building_your_pokemon_agent](https://huggingface.co/learn/agents-course/bonus-unit3/building_your_pokemon_agent).*
 
 You implement `_get_llm_decision`. They provide complete examples using OpenAI, Mistral, and Gemini in the same `agents.py`. The template’s system prompt is “You are a …” — fill it. The code will not run out of the box; it is a blueprint. Return a decision dict with `name` and `arguments`, or an `error` key so the base class can fall back.
@@ -137,6 +139,8 @@ Practical tip: keep the Space public if you want a fair fight. Private credentia
 6. Log fallback_reason. A silent random is how RivalAI shipped a meme.
 
 ## What to remember
+
+<VisualSlot id="game-agents:3" />
 
 *Synthesis of Bonus Unit 3, Hugging Face Agents Course (Burtenshaw, Thomas, Simonini, & Paniego, Apache-2.0).*
 

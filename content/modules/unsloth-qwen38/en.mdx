@@ -219,6 +219,8 @@ If you OOM: **reduce `max_seq_length`**, keep **batch size 1**, keep `"unsloth"`
 
 ## Vision: turn the encoder on only when there are pixels
 
+<VisualSlot id="unsloth-qwen38:2" />
+
 Qwen3.8 takes native image and video. For multimodal SFT, set **`finetune_vision_layers=True`** and use **`UnslothVisionDataCollator`** with a conversational vision dataset, as the [vision fine-tuning](https://unsloth.ai/docs/basics/vision-fine-tuning) page describes. The conversational Kaggle notebook can **enable Vision** — that is the supported free path.
 
 ```python

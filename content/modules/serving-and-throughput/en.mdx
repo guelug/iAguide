@@ -12,4 +12,6 @@ Write your SLO in one line: “p95 TTFT under Xs at Y concurrent.” Then say wh
 
 ## Case — SoloServe’s empty GPU
 
+<VisualSlot id="serving-and-throughput:2" />
+
 SoloServe ran one vLLM worker per customer “for isolation.” GPUs sat at 15% and the bill matched a busy cluster. Continuous batching on a shared pool with per-tenant keys cut cost without changing the model.

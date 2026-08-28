@@ -16,6 +16,8 @@ OpenClaw auto-compacts near the limit or on overflow errors, can flush memory fi
 
 ## Case: cache bust is a bill
 
+<VisualSlot id="compression-caching:2" />
+
 **Case.** `/model` or a fallback swap mid-thread. Next request re-reads 80k tokens at full input price.
 
 **Lesson.** Model identity (and often account/API key) is part of the cache key. Document the cost; do not silently rotate credentials mid-session.

@@ -229,6 +229,7 @@ export function LayerTriptych({
       className={className}
       camera={{ position: [0, 0, 9.4], fov: 44 }}
       background={P.paper}
+      fit={false}
     >
       <Rig active={active} />
       <Cluster index={0} active={active}>

@@ -9,8 +9,6 @@ import { useCopy } from "@/lib/useCopy";
 
 type Step = "softmax" | "kda" | "hybrid";
 
-
-
 export default function Visual() {
   const t = useCopy({
     en: {

@@ -15,6 +15,8 @@ Hermes: hermes acp, api_server, tui_gateway, run_agent.AIAgent. OpenClaw: Gatewa
 
 ## Case: chat_completions for an ACP IDE
 
+<VisualSlot id="programmatic-access:2" />
+
 **Case.** A VS Code plugin posts OpenAI chat completions to a local API server, then tries to render tool diffs by parsing streamed text. Permissions and cancel are wrong.
 
 **Fix.** Speak ACP: sessions, permission requests, session_update, cancel.

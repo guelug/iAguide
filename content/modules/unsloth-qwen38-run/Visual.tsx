@@ -9,8 +9,6 @@ import { useCopy } from "@/lib/useCopy";
 
 type Step = "fit" | "think" | "ctx" | "serve";
 
-
-
 export default function Visual() {
   const t = useCopy({
     en: {

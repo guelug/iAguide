@@ -18,6 +18,8 @@ On paper, list the observations a “verify this guest against Wikipedia” agen
 
 ## Case — AtlasBrowse’s endless screenshot
 
+<VisualSlot id="multimodal:2" />
+
 AtlasBrowse gave a vision agent `max_steps=20` and a callback that saved every Selenium screenshot onto the log. By step 8 the prompt was four nearly identical images of a cookie banner the agent could not dismiss. It kept “looking.” They added `close_popups`. They should also have dropped images older than two steps.
 
 This lesson rewrites ideas from the [Hugging Face Agents Course](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.

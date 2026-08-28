@@ -3,18 +3,7 @@
 import { useState } from "react";
 import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
-import {
-  Flow,
-  Halo,
-  Lattice,
-  Motes,
-  Node3D,
-  PointerTilt,
-  Ribbon,
-  Slab,
-  Tag,
-  Wire,
-} from "@/components/three/atoms";
+import { Flow, Halo, Motes, Node3D, PointerTilt, Slab, Tag, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
 import { useCopy } from "@/lib/useCopy";
 

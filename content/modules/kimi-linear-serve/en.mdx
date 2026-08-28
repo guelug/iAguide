@@ -106,6 +106,8 @@ AttnRes, if it is in the checkpoint you pulled (newer Kimi Linear training), is 
 
 ## Measure, then brag about 6×
 
+<VisualSlot id="kimi-linear-serve:2" />
+
 The paper's 6× decode at 1M is versus a full-MLA twin, batch 1, their figure (1.84 ms vs 11.48 ms TPOT). Your server has a different batch, a different interconnect, a different `max-model-len`. Log TPOT at 4k, 32k, 128k with a fixed generation length. The hybrid curve should stay flatter. If it climbs like a softmax model, you are cache-bound on the MLA quarter (context too fat) or TP is mis-sized (you're swapping). If it is flat but quality is junk, you forgot `trust_remote_code` or you loaded a random GGUF.
 
 <Steps>
@@ -186,6 +188,8 @@ Paper for the mixer: [Kimi Linear, arXiv:2510.26692](https://arxiv.org/abs/2510.
 
 
 ## AttnRes at the serving boundary
+
+<VisualSlot id="kimi-linear-serve:3" />
 
 If this checkpoint was trained with Block AttnRes, the forward already contains `w_l`, RMSNorm on keys, and the block grouping. vLLM executing the custom model code will run it. Overhead under 2% with two-phase online softmax (systems lesson). Prefill block cache is `N T d`, sharded across TP, chunked. You do not configure N. You do not pass block size. You do not "turn off AttnRes to save memory" without training a different checkpoint.
 

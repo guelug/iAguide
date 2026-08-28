@@ -106,6 +106,8 @@ Do not call `health` on the worker path. Do not treat worker-hello-ok as operato
 
 ## Idempotency, events, discovery
 
+<VisualSlot id="openclaw-protocol:2" />
+
 Side-effecting methods require idempotency keys. The architecture page names `send` and `agent` (OpenClaw, *Gateway architecture*, n.d.). The server keeps a short-lived dedupe cache.
 
 `hello-ok.features.methods` is conservative discovery, not a dump of every callable helper. The protocol page names methods intentionally excluded from discovery: `push.test`, `web.login.start`, `web.login.wait`, `sessions.usage`.

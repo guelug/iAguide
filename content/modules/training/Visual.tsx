@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
-import { Flow, Halo, Lattice, Motes, Node3D, Ribbon, Slab, Tag, Wire } from "@/components/three/atoms";
+import { Flow, Lattice, Motes, Node3D, Slab, Tag, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
 
 type Mode = "pt" | "sft" | "rl";
@@ -95,7 +95,7 @@ export default function Visual() {
             <Slab position={[-0.5, -1.6, 0]} size={[6.4, 1.0, 0.08]} color={P.rose} fill={0.12} />
             <Wire points={lossPoints} color={P.rose} opacity={0.9} width={2} />
             <Tag position={[-3.5, -1.3, 0.2]} tone="rose">loss ↓</Tag>
-            <Node3D position={lossPoints[lossPoints.length - 1] as any} color={P.rose} radius={0.08} pulse={0.6} />
+            <Node3D position={lossPoints[lossPoints.length - 1]} color={P.rose} radius={0.08} pulse={0.6} />
           </>
         )}
 

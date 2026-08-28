@@ -121,6 +121,8 @@ When a supervisor is attached, three optional fields join the existing snapshot.
 
 ## Cross-origin frames
 
+<VisualSlot id="hermes-browser:2" />
+
 `browser_cdp` with a `frame_id` routes CDP calls, notably `Runtime.evaluate`, through the supervisor's already-connected WebSocket using the OOPIF's child `sessionId`. Agents pick frame ids out of `browser_snapshot.frame_tree.children` where `is_oopif` is true and pass them to `browser_cdp`.
 
 For same-origin iframes there is no dedicated CDP session. The agent uses `contentWindow` or `contentDocument` from a top-level `Runtime.evaluate` instead. The supervisor surfaces an error pointing at that fallback when `frame_id` belongs to a non-OOPIF (Nous Research, *Browser CDP Supervisor*, n.d.).

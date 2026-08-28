@@ -138,6 +138,8 @@ When you outgrow both the laptop and the router, you self-host. [Text Generation
 
 ## Case — the free-tier key and the agent that talked too much
 
+<VisualSlot id="huggingface-inference:2" />
+
 Oriol wired Hermes to `provider: huggingface` with a free-account `HF_TOKEN`. The first "hello" worked. The third user question returned an error. He had not changed the model. He had not leaked the key.
 
 Hermes, like OpenClaw-class harnesses, does **many** completions per user message: the visible answer, a tool-call follow-up, perhaps a compression summary, perhaps a title. Each completion is a billed Providers request. The Hugging Face free credit is **0.10 dollars per month, subject to change** (pricing page, August 2026). Partner rates pass through with no HF markup, but they are not zero. A handful of 397B-class turns can spend the month.

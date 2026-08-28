@@ -124,6 +124,8 @@ Intermediate context-pressure warnings were removed. They caused models to give 
 
 ## Codex-shaped exceptions, not general knobs
 
+<VisualSlot id="hermes-compression:2" />
+
 ChatGPT Codex OAuth hard-caps gpt-5.5 at a 272K window (the same slug exposes larger windows on other routes). At the default 50% trigger, compaction would fire at about 136K. When the active route is `openai-codex` and the model is gpt-5.5, Hermes raises the trigger to 85% and shows a one-time notice. Opt out with `compression.codex_gpt55_autoraise false`. Other models and other providers keep the global threshold.
 
 Codex app-server sessions (`api_mode: codex_app_server`) are different again: the Codex agent owns the backing thread, so Hermes' summariser cannot shrink it. Compaction goes through the app-server's `thread/compact/start`. Hermes' local transcript is never rewritten on that runtime.

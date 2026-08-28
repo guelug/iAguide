@@ -9,8 +9,6 @@ import { useCopy } from "@/lib/useCopy";
 
 type Step = "local" | "providers" | "endpoints" | "jobs";
 
-
-
 export default function Visual() {
   const t = useCopy({
     en: {

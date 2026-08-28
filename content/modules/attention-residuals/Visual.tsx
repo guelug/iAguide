@@ -9,8 +9,6 @@ import { useCopy } from "@/lib/useCopy";
 
 type Step = "residual" | "full" | "block";
 
-
-
 export default function Visual() {
   const t = useCopy({
     en: {

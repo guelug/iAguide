@@ -19,6 +19,8 @@ Hermes gateway keys look like `agent:main:{platform}:{chat_type}:{chat_id}`. Ope
 
 ## Case: Telegram overnight explosion
 
+<VisualSlot id="sessions:2" />
+
 **Case.** Overnight group chat fills the window; morning turn 400s on context length. Gateway hygiene (Hermes ~85%) or OpenClaw auto-compaction should have fired; someone disabled compression “to keep everything.”
 
 **Practice.** Compaction is lossy but searchable if you flush memory first and keep FTS / archives. Turning it off is how sessions die.

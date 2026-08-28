@@ -80,6 +80,8 @@ During migration from older installs, gateway startup and `openclaw doctor --fix
 
 ## Session maintenance
 
+<VisualSlot id="openclaw-sessions:2" />
+
 OpenClaw bounds session storage over time via `session.maintenance`. Defaults: `mode: "enforce"`, `pruneAfter: "30d"`, `archiveDashboardAfter: "7d"`, `maxEntries: 500`. `preserveRecent` is optional.
 
 `maxEntries` counts every live session row. Archived or pinned sessions, active or admitted work, model-locked sessions, and durable external conversation pointers are protected from automatic eviction, but still consume the cap. Cleanup removes the oldest unprotected rows until it reaches `maxEntries` or runs out of eligible victims.

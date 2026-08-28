@@ -31,6 +31,8 @@ A transformer block is usually: (optional) RMSNorm → attention → residual ad
 
 ## Prefill vs decode, again
 
+<VisualSlot id="attention:2" />
+
 Prefill writes a block of keys and values (often in parallel). Decode appends one token’s KV and attends over everything cached. That is why the first token of a long prompt is slow, and why a long *generation* gets heavier as the cache grows.
 
 <TryThis>
@@ -38,5 +40,7 @@ On paper, for a 7-token prompt “The capital of France is”, circle which toke
 </TryThis>
 
 ## Case — Lumen’s 128k demo
+
+<VisualSlot id="attention:3" />
 
 Lumen advertised a 128k window on a laptop 8B. The weights fit. At 80k tokens of stuffed PDF the process died. They had budgeted VRAM for weights and forgotten that GQA still stores **keys and values per token**. Attention did not “fail.” The cache did not fit.

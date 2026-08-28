@@ -100,6 +100,8 @@ Open one CivitAI LoRA card. Write four lines: (1) `modelVersionId`, (2) base mod
 
 ## Recap
 
+<VisualSlot id="civitai-loras:2" />
+
 LoRA is Hu et al. (2022) on a frozen checkpoint, the same idea Unsloth uses on LLMs. File → `models/loras`. Load LoRA between Checkpoint and KSampler. `strength_model` versus `strength_clip`. Chain if you need several ([Comfy-Org LoRA](https://docs.comfy.org/tutorials/basic/lora); [Multiple LoRAs](https://docs.comfy.org/tutorials/basic/multiple-loras)). CivitAI card: version, base family, trigger, terms ([civitai.com/models](https://civitai.com/models)). Safetensors from a source you trust. Mismatch looks like noise. ControlNet is pose/depth next, different folder ([Models](https://docs.comfy.org/basic-concepts/models)).
 
 If you can say that paragraph with the URLs, the lesson worked.
@@ -133,6 +135,8 @@ No CLIP-score delta for blindbox_V1Mix. Comfy-Org shows a qualitative pair of im
 
 
 ## A short operator checklist (August 2026)
+
+<VisualSlot id="civitai-loras:3" />
 
 1. First workflow already produces a PNG you can drag back ([First generation](https://docs.comfy.org/get_started/first_generation); [article 22492](https://civitai.com/articles/22492/comfyui-tutorial-2-building-your-first-workflow)).
 2. Card open: version id, base family, trigger, license ([CivitAI](https://civitai.com/models)).

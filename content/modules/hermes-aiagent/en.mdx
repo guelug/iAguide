@@ -127,6 +127,8 @@ For each of the six entry points, write one sentence: "this host adds X, the cla
 
 ## Library embed: the fifth host people skip
 
+<VisualSlot id="hermes-aiagent:2" />
+
 The architecture page lists "Python Library" as an entry point equal to CLI. The documented pattern is: construct `AIAgent`, call `run_conversation()`, persist the returned history yourself if you need resume. Session titles, FTS5 search, and gateway pairing are **not** implied by the import. Those belong to `hermes_state.py` and to `gateway/`. Importing the class does not start a gateway.
 
 Batch runner is the sixth host people confuse with the library. It generates ShareGPT-format trajectories from agent sessions for training data (Nous Research, *Architecture*, n.d., Trajectories). Those trajectories are a separate system; they are not rows in `state.db`. Do not "fix" batch export by writing into the session database.

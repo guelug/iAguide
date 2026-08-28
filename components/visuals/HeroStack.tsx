@@ -321,6 +321,7 @@ export function HeroStack({ className }: { className?: string }) {
       className={className}
       camera={{ position: [0, 1.5, 8.4], fov: 46, near: 0.1, far: 60 }}
       background={P.paper}
+      fit={false}
     >
       <Rig />
       <group rotation={[0, -0.26, 0]}>

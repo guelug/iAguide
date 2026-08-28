@@ -20,6 +20,8 @@ An <Term id="embedding">embedding</Term> is a list of numbers. Nearby lists tend
 
 ## Next token, forever
 
+<VisualSlot id="language-of-models:2" />
+
 <Term id="next-token">Next-token prediction</Term> is the job: given the sequence so far, produce <Term id="logits">logits</Term> — a score per vocabulary item — then turn those into probabilities (see softmax in the maths module) and pick.
 
 That is all generation is. Planning, tools, “reasoning” traces: extra tokens, extra loops, extra training. The model still emits one token at a time.
@@ -55,6 +57,8 @@ In any local UI that shows token counts (llama.cpp server, Ollama, LM Studio), s
 Greedy + a deterministic kernel + a fixed prompt can replay. Sampling will not. Some GPU kernels are not bit-stable across runs. If you need replay — eval, tests — pin seed, temperature 0, and still treat GPU drift as possible.
 
 ## Chat models are the engine inside an agent
+
+<VisualSlot id="language-of-models:3" />
 
 Hugging Face’s agents course puts it bluntly: the LLM is the **brain** of the agent, not the agent. Decoder-only transformers (Llama, Gemma, SmolLM, GPT-class models) predict the next token. Encoder models (BERT-class) emit embeddings. Encoder–decoder (T5, BART) map a sequence to a sequence. Agents almost always sit on a **chat / instruct** decoder: they consume a templated conversation and emit more tokens — including the tokens that mean “call this tool.”
 

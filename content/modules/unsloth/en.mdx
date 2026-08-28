@@ -116,6 +116,8 @@ QLoRA versus LoRA on the same row is not a quality ranking. It is a memory ranki
 
 ## Notebooks: Colab and Kaggle, not one cloud
 
+<VisualSlot id="unsloth:2" />
+
 Unsloth's free GPU story is **two** products. [The notebooks index](https://unsloth.ai/docs/get-started/unsloth-notebooks) and the repo [unslothai/notebooks](https://github.com/unslothai/notebooks) list **Colab** notebooks for many models (Llama 3.1 8B, Gemma 3 4B, gpt-oss 20B, Qwen3 14B, vision, TTS, GRPO, embeddings). They also list **Kaggle** notebooks. Kaggle, as Unsloth describes it, is a Google product like Colab, with **30 hours** of free GPU and **2× Tesla T4**.
 
 **Qwen3.8-27B conversational is a Kaggle notebook, not a Colab notebook.** The index places it under Standard SFT with a Kaggle welcome URL. If someone pastes a Colab 27B SFT link for Qwen3.8, they invented it. Large models that exceed Colab's free 15GB VRAM tier have a separate "Large LLMs" section; some of those want paid 80GB GPUs. Do not assume "Unsloth notebook" means "free Colab."
@@ -199,6 +201,8 @@ unsloth start claude
 Replace `claude` with `codex`, `hermes`, `openclaw`, or `opencode`. The command configures endpoint, API key, provider, model, and context for that session. Codex currently wants a **GGUF served through `llama-server`**. This paragraph is the whole lesson: agents consume a **running** local model. They are not a training method. The rest of this module stays on train and export.
 
 ## Core loaders: `FastModel` and `FastLanguageModel`
+
+<VisualSlot id="unsloth:3" />
 
 Older text notebooks import `FastLanguageModel`. Newer multimodal and architecture-id models — Qwen3.8 is one — import `FastModel`. Both expose `from_pretrained` and `get_peft_model`. The flags you actually flip are the same ideas: `max_seq_length`, `load_in_4bit`, `full_finetuning`. Only one of 4-bit, 8-bit, 16-bit LoRA, or full FT should be true. The [fine-tuning guide](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide) is explicit: do not combine them.
 

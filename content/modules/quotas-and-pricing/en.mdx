@@ -123,6 +123,8 @@ From your last real agent transcript, count model calls in one user turn (comple
 
 ## Pools are not fallbacks (two different invoices)
 
+<VisualSlot id="quotas-and-pricing:2" />
+
 Hermes draws a bright line ([Credential Pools](https://hermes-agent.nousresearch.com/docs/user-guide/features/credential-pools); [providers, Fallback Providers](https://hermes-agent.nousresearch.com/docs/integrations/providers)):
 
 - **Credential pool** = same provider, next key. You stay on Anthropic. You may pay a **full-price prefix** after rotate.
@@ -166,6 +168,8 @@ Hermes also documents routing suffixes on HF model ids: `:fastest` (default), `:
 When the provider is OpenRouter, Hermes reads `provider_routing` in `~/.hermes/config.yaml`: `sort` of `price` (default), `throughput`, or `latency`; optional `only` / `ignore` / `order`; `data_collection: "deny"` ([Nous Research, providers](https://hermes-agent.nousresearch.com/docs/integrations/providers)). Shortcuts: `:nitro` on a model name for throughput, `:floor` for price. The experimental `openrouter/pareto-code` router takes `min_coding_score` in 0.0–1.0 (default 0.65). None of those knobs invent a dollar figure; they pick **which** upstream OpenRouter pays.
 
 ## Electricity, without inventing a kWh price
+
+<VisualSlot id="quotas-and-pricing:3" />
 
 A 24 GB card running a local 32B at 64k context is a **power** bill. This course will not quote your utility's EUR/kWh. What Hermes *does* document is the waste mode: Ollama default context too small → incoherent tools → the **human** retries on a cloud key → you pay API after all ([providers, Ollama section](https://hermes-agent.nousresearch.com/docs/integrations/providers)). The local column only stays local if context, tool parsers (`--jinja` on llama-server, `--enable-auto-tool-choice` on vLLM, `--tool-call-parser` on SGLang), and `context_length` in Hermes config are set.
 

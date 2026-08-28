@@ -6,7 +6,7 @@ import { useFrame } from "@react-three/fiber";
 import { Group, MathUtils } from "three";
 import { Figure, Knob } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
-import { Flow, Halo, Motes, Node3D, PointerTilt, Ribbon, ShadowBlob, Slab, Tag, Wire } from "@/components/three/atoms";
+import { Halo, Motes, Node3D, PointerTilt, ShadowBlob, Slab, Tag, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
 import { useCopy } from "@/lib/useCopy";
 

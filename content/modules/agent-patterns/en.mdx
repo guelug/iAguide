@@ -24,6 +24,8 @@ Subagents are nested loops with narrower tools. Cost is another prefill. Use the
 
 ## Compare — three encodings of the same loop
 
+<VisualSlot id="agent-patterns:2" />
+
 The general cycle does not belong to a vendor. Libraries are dialects:
 
 - **smolagents** — `MultiStepAgent` writes memory to chat messages, samples a completion, parses either a **code** block (`CodeAgent`) or a **JSON** tool call (`ToolCallingAgent`), executes, logs an `ActionStep`. Default bias: code is the action.
@@ -37,6 +39,8 @@ On one page, draw ReAct for “what’s the weather in Lyon?” Then mark where 
 </TryThis>
 
 ## Case — Helix’s graph that wanted to be a loop
+
+<VisualSlot id="agent-patterns:3" />
 
 Helix rewrote a three-step support bot as a LangGraph with eleven nodes because “graphs are serious.” The only conditional was “did the tool error.” They spent a week on reducers. A ReAct loop with retries would have shipped on Tuesday. Later they *did* need a graph: a human-approval edge legal required. The first graph was theatre; the second was the product.
 

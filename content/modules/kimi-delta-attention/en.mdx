@@ -102,6 +102,8 @@ KDA also uses **ShortConv** then Swish on `q/k/v`, and **L2Norm** on `q` and `k`
 
 ## Parameterization, slowly
 
+<VisualSlot id="kimi-delta-attention:2" />
+
 Let `x_t` be the token into a KDA layer. For each head:
 
 - `q` and `k`: linear, ShortConv, Swish, L2Norm. L2Norm is the eigenvalue babysitter for the Householder. Skip it and the delta update can blow up.
@@ -171,6 +173,8 @@ Do not confuse the two caches. KDA state is `128 × 128` per head, constant in `
 Paper: [Kimi Linear / KDA, arXiv:2510.26692](https://arxiv.org/abs/2510.26692) (Kimi Team / Moonshot, 2025). Kernels: [FLA `fla/ops/kda`](https://github.com/fla-org/flash-linear-attention/tree/main/fla/ops/kda). Checkpoints: [`moonshotai/Kimi-Linear-48B-A3B-Instruct`](https://huggingface.co/moonshotai/Kimi-Linear-48B-A3B-Instruct). Serving is a later metal lesson. Residuals: [arXiv:2603.15031](https://arxiv.org/abs/2603.15031).
 
 ## What to remember before you serve
+
+<VisualSlot id="kimi-delta-attention:3" />
 
 Three numbers: **3:1** layers, **75%** less KV, **128×128** state per KDA head. One myth to drop: linear is not "always worse" — the hybrid won the fair 1.4T comparison, including RL. One hardware fact: the kernel is constrained DPLR (`a = b = k`), about 2× the general DPLR chunk kernel, shipped in FLA not in llama.cpp. Do not invent a GGUF story here.
 

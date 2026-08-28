@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
-import { Flow, Node3D, Slab, Tag, Wire } from "@/components/three/atoms";
+import { Flow, Node3D, Slab, Tag } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
 
 type Mode = "softmax" | "ce" | "lora";

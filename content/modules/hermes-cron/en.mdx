@@ -107,6 +107,8 @@ Read Gateway Internals for why deliveries are not mirrored. Read Creating Skills
 
 ## Provider recovery details
 
+<VisualSlot id="hermes-cron:2" />
+
 run_job passes the user configured fallback providers and credential pool into the AIAgent instance. Fallback providers read fallback_providers as a list or fallback_model as a legacy dict from config.yaml, matching the gateway _load_fallback_model pattern. Passed as fallback_model to AIAgent init, which normalizes both formats into a fallback chain. Credential pool loads via load_pool using the resolved runtime provider name and is only passed when the pool has credentials. That enables same-provider key rotation on 429 rate-limit errors (Nous Research, Cron Internals, n.d.).
 
 This mirrors the gateway. Without it, cron agents would fail on rate limits without attempting recovery. Subagent delegation still does not inherit fallback. Auxiliary tasks keep their own auto-detection chain. Cron is the path that was historically easy to leave without recovery; the page now documents that it is wired.

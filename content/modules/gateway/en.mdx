@@ -24,6 +24,8 @@ Hermes `GatewayRunner` + platform plugins; session key `agent:main:…`; two-lev
 
 ## Case: two profiles, one bot token
 
+<VisualSlot id="gateway:2" />
+
 **Case.** Two Hermes profiles (or two OpenClaw installs) start with the same Telegram token. One dies or both flap.
 
 **Pattern.** Token/scoped locks (Hermes `acquire_scoped_lock`) or a single gateway owning the Baileys/Telegram session. Duplicate owners are a paging incident, not a feature.

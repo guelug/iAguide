@@ -79,6 +79,8 @@ Use a plugin when the capability has code, credentials, lifecycle hooks, manifes
 
 ## Image tool rename
 
+<VisualSlot id="openclaw-tools:2" />
+
 OpenClaw exposes one semantic image inspection capability named `view_image`. Existing policy entries named `image` must be migrated to `view_image`; run `openclaw doctor --fix` to update supported config policy surfaces and persisted automation `toolsAllow` lists (OpenClaw, *Tools overview*, n.d.).
 
 When the active harness supplies its own loader, OpenClaw suppresses the duplicate. Codex's native implementation accepts one local filesystem `path`. Callers must follow the active tool schema.

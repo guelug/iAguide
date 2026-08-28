@@ -72,6 +72,8 @@ Write the default compaction mode for new configs. Write whether the built-in SQ
 
 ## Compare, without mixing knobs
 
+<VisualSlot id="openclaw-compaction:2" />
+
 Hermes compression creates a child session lineage; `/resume` picks a session up (Nous Research, *Agent Loop Internals*, n.d., https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop). OpenClaw built-in compaction keeps the current sqlite session identity. Do not paste Hermes `compression.protect_last_n` into `keepRecentTokens`. Cite *Compaction* for summaries. Cite *Session management* for reset.
 
 OpenClaw matches dozens of provider overflow strings (`request_too_large`, `context length exceeded`, Bedrock token-count errors, Ollama context length exceeded, and more listed on the page). Do not invent a custom matcher; the runtime already maps those errors into compact-and-retry.

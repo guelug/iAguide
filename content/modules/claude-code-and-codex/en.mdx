@@ -114,6 +114,8 @@ The parent keeps the thread. Useful for «investigate, then patch, then test» w
 
 ## Codex: the CLI that edits, the API that does not
 
+<VisualSlot id="claude-code-and-codex:2" />
+
 ### The Codex product
 
 After `codex` and ChatGPT sign-in, the CLI is a sandboxed agent. OpenAI documents `codex exec` (non-interactive, CI), `resume`, `/permissions`, MCP, cloud, subagents, and a *review* mode that **does not** modify the working tree ([Codex CLI](https://developers.openai.com/codex/cli)). That **is** a harness: it reads the tree, proposes diffs, runs.

@@ -434,7 +434,7 @@ export function Motes({
   });
 
   return (
-    <points ref={ref}>
+    <points ref={ref} userData={{ noFit: true }}>
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
@@ -503,7 +503,12 @@ export function ShadowBlob({
   opacity?: number;
 }) {
   return (
-    <mesh position={position} rotation={[-Math.PI / 2, 0, 0]} scale={[scale, scale * 0.42, 1]}>
+    <mesh
+      position={position}
+      rotation={[-Math.PI / 2, 0, 0]}
+      scale={[scale, scale * 0.42, 1]}
+      userData={{ noFit: true }}
+    >
       <circleGeometry args={[0.5, 40]} />
       <meshBasicMaterial color={color} transparent opacity={opacity} depthWrite={false} />
     </mesh>
@@ -539,8 +544,14 @@ export function Tag({
     muted: "text-muted",
   };
   return (
+    <group position={position}>
+      {/* Html has no geometry, so a label sitting below the diagram would
+          be invisible to the camera rig and get cropped. This anchor is
+          never drawn; it exists so the fit knows the caption is there. */}
+      <mesh visible={false}>
+        <boxGeometry args={[0.02, 0.02, 0.02]} />
+      </mesh>
     <Html
-      position={position}
       center={center}
       zIndexRange={[20, 0]}
       style={{ pointerEvents: "none", userSelect: "none" }}
@@ -555,6 +566,7 @@ export function Tag({
         {children}
       </span>
     </Html>
+    </group>
   );
 }
 

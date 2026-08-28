@@ -108,6 +108,8 @@ Softmax over about 8 block summaries plus the partial. Magnitudes stay bounded. 
 
 ## Init and RMSNorm are not optional
 
+<VisualSlot id="attention-residuals:2" />
+
 Two knobs that look small and are not:
 
 1. **`w_l = 0` at init.** Non-zero random queries make early softmax peaked and volatile. Zero is the uniform average. The paper treats this as required.
@@ -174,6 +176,8 @@ Linear attention over **tokens** (Katharopoulos et al., 2020) is the sequence co
 
 
 ## What the learned weights actually look like
+
+<VisualSlot id="attention-residuals:3" />
 
 Kimi Team (2026, Figure 8) plot depth-softmax weights averaged over tokens for a 16-layer model. Three facts to remember:
 

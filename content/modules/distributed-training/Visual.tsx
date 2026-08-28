@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
-import { Flow, Halo, Lattice, Motes, Node3D, Ribbon, Slab, Tag, Wire } from "@/components/three/atoms";
+import { Flow, Halo, Lattice, Motes, Node3D, Slab, Tag, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
 
 type Mode = "data" | "tensor" | "pipe";

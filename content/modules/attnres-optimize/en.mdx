@@ -139,6 +139,8 @@ Full's Appendix B algebra, if you want it once. Inter-block reads over all block
 
 ## Prefill at 128K, without a 15 GB surprise
 
+<VisualSlot id="attnres-optimize:2" />
+
 Storing block representations in prefill is `N · T · d` elements. The paper quotes **15 GB** for a 128K sequence with 8 blocks. That is a real allocation if you keep the whole sequence's block cache on one device.
 
 <Term id="tensor-parallel">Tensor parallel</Term> already shards the sequence for the big matmuls. Shard the block cache the same way: `N · (T/P) · d`. On 8 TP devices the 15 GB becomes about **1.9 GB per device**. Phase 1 then runs independently on local shards.
@@ -165,6 +167,8 @@ Concatenating previous-block keys with the partial and calling a fused softmax i
 Phase 1 statistics must be in a wider accumulator than BF16 logits if you want bitwise agreement with a reference softmax. In practice the paper treats the merge as exact. For a serving kernel, match whatever vLLM fused.
 
 ## Practical recipe
+
+<VisualSlot id="attnres-optimize:3" />
 
 Train with **Block**, `N` about **8**, `w_l = 0`, RMSNorm on keys. Do **not** run Full in a production pipeline-parallel job. Serving **inherits Block from the checkpoint**: there is no `--attnres` flag, and you do not reimplement depth-softmax in a client. If a Kimi Linear checkpoint was trained with AttnRes, it is already inside the graph. The vLLM path in the serve lesson just executes it.
 

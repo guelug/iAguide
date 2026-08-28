@@ -76,6 +76,8 @@ Practical tip: LoRA will faithfully learn last Friday’s schema. If Monday’s 
 
 ## The notebook is the lab; this page is the contract
 
+<VisualSlot id="function-calling-ft:2" />
+
 *Named source: Hugging Face Agents Course, Bonus Unit 1, Fine-Tuning a Model for Function-Calling in [fine-tuning](https://huggingface.co/learn/agents-course/bonus-unit1/fine-tuning); notebook https://huggingface.co/agents-course/notebooks/blob/main/bonus-unit1/bonus-unit1.ipynb
 
 They send you to the official notebook, then Colab. This lesson does not re-host their cells. Steal the contract: append special tokens to a small instruct, train LoRA on conversations that already contain Action and Observation roles, serve the same template.
@@ -142,6 +144,8 @@ The introduction promises you will implement and modify the Thought → Act → 
 Practical tip: log `[TOOL_CALLS]` text as a span (see [observability](/en/m/observability)). A LoRA that emits a valid-looking call to a tool you never registered is a data bug you will only see if the parse span fails closed.
 
 ## Practical checklist
+
+<VisualSlot id="function-calling-ft:3" />
 
 *Named source: Bonus Unit 1 pages under Sources; Mistral docs https://docs.mistral.ai/capabilities/function_calling/
 

@@ -137,6 +137,8 @@ Write the two command gates. Name the 2026.3.31 breaking change. Write the SSH l
 
 ## Compare, without mixing knobs
 
+<VisualSlot id="openclaw-nodes:2" />
+
 Hermes has no `role` `node` peripheral mesh. Hermes ACP is an editor driving `AIAgent` over stdio (Nous Research, *ACP Internals*, n.d., https://hermes-agent.nousresearch.com/docs/developer-guide/acp-internals). OpenClaw nodes are devices on the Gateway WebSocket. Do not paste Hermes ACP session ids into `openclaw nodes invoke`. Cite *Nodes* for camera, screen, location, and exec host.
 
 **Case.** Laptop and phone both want to snap a photo for the agent. The Gateway owns WhatsApp. The phone is a node. Snap goes through `node.invoke` on the phone, not through a second Baileys session on the phone (OpenClaw, *Nodes*, n.d.; *Gateway architecture*, n.d.).

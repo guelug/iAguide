@@ -42,6 +42,8 @@ Flags change. `llama-cli` used to be `main`. Read `--help` on the binary you bui
 
 ## Context vs speed
 
+<VisualSlot id="local-inference:2" />
+
 Longer <Term id="context-window">context</Term> means a bigger <Term id="kv-cache">KV cache</Term> and a heavier prefill. Tokens/second during decode often drop as the cache grows. If you need 128k “just in case,” you pay for it on every long prompt even when the user asked a one-liner.
 
 Rule of thumb: set context to what your harness actually sends, plus a margin for the answer — not to the model's marketing maximum.

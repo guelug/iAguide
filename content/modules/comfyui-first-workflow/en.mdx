@@ -76,6 +76,8 @@ Do not plug an SDXL VAE into an SD1.5 graph "because it is newer." Pairing is a 
 
 ## 5. Save Image — without it the dream evaporates
 
+<VisualSlot id="comfyui-first-workflow:2" />
+
 Article: Add Node → `Save Image`. Wire the sampler's image output into `images`. `filename_prefix` is the stem (`my_fantasy_landscape`). They mention `output_path` toward `ComfyUI_windows_portable/output` and a `save_preview` checkbox. Comfy-Org: the result appears on the Save Image node; right-click to save locally ([First generation](https://docs.comfy.org/get_started/first_generation)). Stock Comfy often writes under `ComfyUI/output/`. If a widget name in your build differs, believe the node, not this sentence.
 
 The PNG you save is the **next** person's template if metadata is on. That is the Comfy-Org loop: generate → drag the PNG → teach.
@@ -154,6 +156,8 @@ Procedure and default knobs: CivitAI article 22492 (15 Nov 2025, updated 2026) a
 
 
 ## Desktop versus portable, as a checklist
+
+<VisualSlot id="comfyui-first-workflow:3" />
 
 Write this on the machine you actually launched. Comfy-Org ([First generation](https://docs.comfy.org/get_started/first_generation); [Models](https://docs.comfy.org/basic-concepts/models)):
 

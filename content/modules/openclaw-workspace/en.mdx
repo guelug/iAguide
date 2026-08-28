@@ -114,6 +114,8 @@ Write the default workspace path. Name the six core bootstrap files injected int
 
 ## Compare, without mixing knobs
 
+<VisualSlot id="openclaw-workspace:2" />
+
 Hermes persists memory to `MEMORY.md` / `USER.md` from the loop (Nous Research, *Agent Loop Internals*, n.d., https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop). OpenClaw injects named workspace files into Project Context on the first turn of a new session. Same human need (a persona plus durable facts). Different file contract. Different cwd rule.
 
 Do not paste Hermes `prompt_builder.py` assembly order into OpenClaw Project Context. Cite *Agent workspace* for the file map. Cite *Agent runtime* for injection, truncation, and BOOTSTRAP attestation. Cite *Sandboxing* when absolute paths must stop reaching the host.

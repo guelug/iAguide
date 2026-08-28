@@ -23,6 +23,8 @@ Supervised fine-tuning is imitation. Garbage pairs → a model that imitates gar
 
 ## RLHF, DPO, RLAIF
 
+<VisualSlot id="training:2" />
+
 - **RLHF** — humans rank or rate outputs → train a reward model → update the policy, classically with <Term id="ppo">PPO</Term> (small, clipped steps so the policy does not leap off a cliff).
 - **DPO** — skip the separate reward model. Preference pairs push the policy directly. Simpler plumbing; still needs good pairs.
 - **RLAIF** — the preference labels come from an AI judge. Cheaper, biased like the judge.
@@ -42,6 +44,8 @@ We are not quoting a GRPO paper's equations here. If you implement it, read the 
 </Callout>
 
 ## What a laptop cannot do
+
+<VisualSlot id="training:3" />
 
 | Job | Laptop? |
 | --- | --- |

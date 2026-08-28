@@ -121,6 +121,8 @@ Vertex: `VERTEX_CREDENTIALS_PATH` in `~/.hermes/.env`, then `hermes model` → G
 
 ## OpenClaw token sink, PKCE, and key rotation
 
+<VisualSlot id="oauth-and-keys:2" />
+
 OAuth providers commonly mint a **new refresh token on every login/refresh** and invalidate the previous one. Symptom: log in via OpenClaw **and** via Claude Code / Codex CLI, and one of them randomly logs out later. OpenClaw's answer is the **token sink**: one canonical store per agent, SQLite at `~/.openclaw/agents/<agent>/agent/openclaw-agent.sqlite`, tables `auth_profile_store` and `auth_profile_state` ([OpenClaw, OAuth](https://docs.openclaw.ai/concepts/oauth)).
 
 Once OpenClaw owns a local OAuth profile, that refresh token is canonical. If it is rejected, OpenClaw asks you to re-authenticate rather than falling back to external CLI token material. Codex CLI bootstrap can only **seed an empty** `openai:default`-style profile before OpenClaw owns OAuth; after that, OpenClaw-owned refreshes stay canonical. Secondary agents **read-through** inherit from the main store; they do not clone refresh tokens, because some providers rotate on use.

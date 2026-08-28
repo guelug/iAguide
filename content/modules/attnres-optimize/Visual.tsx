@@ -9,8 +9,6 @@ import { useCopy } from "@/lib/useCopy";
 
 type Step = "naive" | "cached" | "twophase";
 
-
-
 export default function Visual() {
   const t = useCopy({
     en: {

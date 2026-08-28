@@ -6,7 +6,7 @@ import {
   PerformanceMonitor,
   Preload,
 } from "@react-three/drei";
-import { Canvas, useThree, type CanvasProps } from "@react-three/fiber";
+import { Canvas, useFrame, type CanvasProps } from "@react-three/fiber";
 import {
   Suspense,
   createContext,
@@ -18,6 +18,7 @@ import {
   type ReactNode,
 } from "react";
 import { P } from "@/lib/palette";
+import { Box3, MathUtils, Vector3 } from "three";
 import type * as THREE from "three";
 
 type ControlsConfig = {
@@ -44,12 +45,12 @@ type Props = {
   /** Max device pixel ratio before the perf monitor claws it back. */
   maxDpr?: number;
   /**
-   * Camera fit factor the rig uses to push further back on wide canvases
-   * (fit > 1) so the diagram never drifts towards one edge. Default 1.
-   * The rig always re-points the camera at the origin so an offset
-   * declared by the visual never buries the content at the bottom.
+   * Padding around the measured content when the rig frames the scene:
+   * 1 = touching the edges, 1.12 = a comfortable margin. Pass `false`
+   * when the visual drives its own camera in useFrame, and the rig will
+   * keep its hands off. Ignored while OrbitControls owns the camera.
    */
-  fit?: number;
+  fit?: number | false;
 };
 
 /**
@@ -99,7 +100,7 @@ export function Stage({
   fog,
   controls = false,
   maxDpr = 2,
-  fit = 1,
+  fit = 1.12,
 }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const [onScreen, setOnScreen] = useState(true);
@@ -147,7 +148,7 @@ export function Stage({
           <StageContext.Provider value={env}>
             <PerfGovernor onChange={setQuality} enabled={!still} />
             <DefaultLights />
-            <CameraRig fit={fit} />
+            {fit !== false && !controls ? <CameraRig fit={fit} /> : null}
             <Suspense fallback={null}>{children}</Suspense>
             {controls ? (
               <OrbitControls
@@ -210,35 +211,116 @@ function PerfGovernor({
   );
 }
 
+/* Scratch objects for the rig. Module scope so the measurement allocates
+   nothing per frame and React never treats them as render values. */
+const _box = new Box3();
+const _center = new Vector3();
+const _span = new Vector3();
+
 /**
- * Keeps the canvas useful on tall and wide viewports.
+ * Measures everything in the scene that is not marked decorative, then
+ * works out where a camera looking down `viewDir` has to sit for that box
+ * to fill the frame at this fov and aspect. Writes into `outPos`/`outLook`
+ * and reports whether it found anything to frame.
+ */
+function measureScene(
+  scene: THREE.Object3D,
+  cam: THREE.PerspectiveCamera,
+  aspect: number,
+  fit: number,
+  viewDir: Vector3,
+  outPos: Vector3,
+  outLook: Vector3,
+) {
+  _box.makeEmpty();
+  let found = false;
+
+  scene.traverse((obj) => {
+    if (obj.userData?.noFit) return;
+    if (!(obj as THREE.Mesh).geometry) return;
+    // A child of a decorative group is decorative too.
+    for (let p = obj.parent; p; p = p.parent) {
+      if (p.userData?.noFit) return;
+    }
+    _box.expandByObject(obj);
+    found = true;
+  });
+
+  if (!found || _box.isEmpty()) return false;
+
+  _box.getCenter(_center);
+  _box.getSize(_span);
+
+  const halfV = Math.tan(MathUtils.degToRad(cam.fov) / 2);
+  const halfH = halfV * aspect;
+  // Distance at which the box's height and width both fit, plus half its
+  // depth so the near face does not poke through the frustum.
+  const dist =
+    Math.max(_span.y / 2 / halfV, _span.x / 2 / halfH) * fit + _span.z / 2 + 0.2;
+
+  outPos.copy(_center).addScaledVector(viewDir, dist);
+  outLook.copy(_center);
+  return true;
+}
+
+/**
+ * Frames whatever the scene actually contains.
  *
- * Three guarantees:
- *   1. The camera always *looks at the origin* — declared camera offsets
- *      are used as a direction only, so the content cannot drift to a
- *      corner of the canvas.
- *   2. The camera dollies in on narrow / out on wide viewports by the
- *      ratio of the canvas aspect to a 16:9 baseline, scaled by the
- *      parent `fit` factor. The clamp keeps it from going bird's-eye
- *      on a phone and microscopic on a cinema display.
- *   3. The rig re-applies every frame so a resize never strands the
- *      camera at a stale distance.
+ * Every diagram in the course is laid out in its own arbitrary units and
+ * then grows captions, legends and side panels as it is written, so a
+ * hand-tuned camera distance goes stale the moment anyone edits the
+ * scene. Instead of trusting the declared position, the rig measures the
+ * content each half second and eases the camera to where it fits.
+ *
+ * The declared camera position still matters: its *direction* is the
+ * viewing angle the author chose. Only the distance is taken over.
+ *
+ * Decorative volume — ambient motes, ground shadows, backdrops — sets
+ * `userData.noFit`, so a dust cloud with a nine-unit radius cannot push
+ * the subject into the distance.
  */
 function CameraRig({ fit }: { fit: number }) {
-  const { camera, size } = useThree();
+  const dir = useRef<Vector3 | null>(null);
+  const goalPos = useRef(new Vector3());
+  const goalLook = useRef(new Vector3());
+  const settled = useRef(false);
+  const since = useRef(0);
 
-  useEffect(() => {
-    const cam = camera as THREE.PerspectiveCamera;
+  useFrame((state, dt) => {
+    const cam = state.camera as THREE.PerspectiveCamera;
     if (!cam.isPerspectiveCamera) return;
-    const base = cam.position.length() || 8;
-    const aspect = size.width / Math.max(1, size.height);
-    // 16:9 (1.78) is the baseline — wider canvases get further back so the
-    // subject doesn't shrink, taller canvases don't get a fish-eye.
-    const k = Math.sqrt(Math.max(0.6, Math.min(1.8, aspect / 1.78))) * fit;
-    cam.position.setLength(base * k);
-    cam.lookAt(0, 0, 0);
+
+    if (!dir.current) {
+      const d = cam.position.clone();
+      if (d.lengthSq() < 1e-6) d.set(0, 0, 1);
+      dir.current = d.normalize();
+    }
+
+    since.current += dt;
+    if (since.current > 0.4 || !settled.current) {
+      since.current = 0;
+      const aspect = state.size.width / Math.max(1, state.size.height);
+      const got = measureScene(
+        state.scene,
+        cam,
+        aspect,
+        fit,
+        dir.current,
+        goalPos.current,
+        goalLook.current,
+      );
+      // First measurement snaps: a diagram should not fly in on load.
+      if (got && !settled.current) {
+        cam.position.copy(goalPos.current);
+        settled.current = true;
+      }
+    }
+
+    if (!settled.current) return;
+    cam.position.lerp(goalPos.current, 1 - Math.exp(-4 * dt));
+    cam.lookAt(goalLook.current);
     cam.updateProjectionMatrix();
-  }, [camera, size.width, size.height, fit]);
+  });
 
   return null;
 }

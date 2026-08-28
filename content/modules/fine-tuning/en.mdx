@@ -29,6 +29,8 @@ We are not printing a “universal” LR. Read the tool's current example for yo
 
 ## Tools with real names (2026)
 
+<VisualSlot id="fine-tuning:2" />
+
 Still the three you will actually meet:
 
 - **Unsloth** — fast LoRA/QLoRA on NVIDIA, single GPU, short path to a GGUF. Not a CUDA-on-Mac story; on Apple Silicon look at MLX instead.
@@ -62,6 +64,8 @@ Before installing anything, write 20 eval prompts your LoRA must not fail. If yo
 </Myth>
 
 ## Function-calling is a template you can train
+
+<VisualSlot id="fine-tuning:3" />
 
 If the model must *learn* to emit tool tokens, that is a fine-tune — Hugging Face Bonus 1, unpacked in [function-calling fine-tune](/en/m/function-calling-ft). Collect ~20 clean pairs before you touch Unsloth. If the schema still moves, **do not fine-tune**; fix the schema.
 

@@ -33,9 +33,13 @@ If you LoRA on a tiny set until loss is ~0, you memorised. That can be what you 
 
 ## Gradients, one paragraph
 
+<VisualSlot id="maths-you-need:2" />
+
 A <Term id="gradient">gradient</Term> is the direction to move parameters to reduce loss. Backprop computes it from the loss backward through the graph. An optimizer (AdamW, etc.) takes a step. You will almost never write this by hand. You will hit **NaNs** (LR too high, bad data) and **overfit** (too many steps). Those are gradient stories in the wild.
 
 ## LoRA as a low-rank delta
+
+<VisualSlot id="maths-you-need:3" />
 
 A linear layer is $y = W x$ with $W$ a big matrix. LoRA freezes $W$ and learns
 

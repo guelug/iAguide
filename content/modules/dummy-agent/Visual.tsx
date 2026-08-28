@@ -66,7 +66,7 @@ export default function Visual() {
           {mode === "hallucinate" ? "fake Observation" : "get_weather()"}
         </Tag>
         {mode === "stop" ? (
-          <Tag position={[0, -1.2, 0.2]} tone="amber">stop=["Observation:"]</Tag>
+          <Tag position={[0, -1.2, 0.2]} tone="amber">{'stop=["Observation:"]'}</Tag>
         ) : null}
         <Flow points={[[-1.15, 0.4, 0], [0.85, 0.4, 0]]} color={mode === "hallucinate" ? P.rose : P.teal} count={3} paused={mode === "stop"} />
     

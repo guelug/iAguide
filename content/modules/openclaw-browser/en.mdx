@@ -55,6 +55,8 @@ On macOS you can copy cookies from a Chrome-family system profile into a separat
 
 ## Node browser proxy
 
+<VisualSlot id="openclaw-browser:2" />
+
 If you run a **node host** on the machine that has the browser, OpenClaw can auto-route browser tool calls to that node without extra browser config. This is the default path for remote gateways. Profiles come from the node's own `browser.profiles`. The proxy never allows persistent profile mutations (`create-profile`, `delete-profile`, `reset-profile`). Disable with `nodeHost.browserProxy.enabled=false` on the node, or `gateway.nodes.browser.mode="off"` on the gateway (OpenClaw, *Browser*, n.d.).
 
 The agent tool accepts `target` of `sandbox`, `host`, or `node`. In sandboxed sessions, `target: "host"` requires `agents.defaults.sandbox.browser.allowHostControl=true`. If `target` is omitted: sandboxed sessions default to `sandbox`, non-sandbox sessions default to `host`. If a browser-capable node is connected, the tool may auto-route unless you pin `target`.

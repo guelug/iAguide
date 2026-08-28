@@ -44,6 +44,8 @@ Hermes puts the loop in one `AIAgent` class (`run_agent.py`) shared by CLI, gate
 
 ## Case: the interrupted half-reply
 
+<VisualSlot id="agent-loop:2" />
+
 **Case.** A Telegram user hits send while the model is mid-stream. The harness injects the new text as a steer/interrupt but also appends the truncated assistant fragment as a finished turn. Next call: two assistant messages in a row → provider 400.
 
 **Fix pattern.** On interrupt: abandon the API thread, do not commit partial assistant content, queue or steer the new user text, then continue with valid alternation.

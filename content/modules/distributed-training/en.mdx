@@ -18,4 +18,9 @@ Label your real goal: LoRA on one GPU, multi-GPU SFT, or pretrain. If it is the 
 
 ## Case — Startup’s “8× GPU” with PCIe
 
+<VisualSlot id="distributed-training:2" />
+
 A startup striped an 8× consumer GPU box over PCIe and expected tensor-parallel 70B training. Gradient sync ate the week. They needed a machine with a fabric, or a smaller model. The parallelism diagram was right; the bus was not.
+
+
+<VisualSlot id="distributed-training:3" />

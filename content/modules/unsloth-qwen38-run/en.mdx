@@ -124,6 +124,8 @@ If you trained in the previous lesson, `save_pretrained_gguf` with `quantization
 
 ## NVFP4: Blackwell, vLLM 0.25+, not your 4090
 
+<VisualSlot id="unsloth-qwen38-run:2" />
+
 Unsloth's **<Term id="nvfp4">NVFP4</Term>** 27B runs about **1.5× faster than BF16** with 92–97% top-1 recovery in their tables. It is meant for **NVIDIA Blackwell** (RTX 50-series, DGX Spark, B200, B300) on **24GB**. Checkpoint: [`unsloth/Qwen3.8-27B-NVFP4`](https://huggingface.co/unsloth/Qwen3.8-27B-NVFP4). Engine: **vLLM >= 0.25**. They added FP8 KV-cache calibration for longer context.
 
 **Older GPUs use GGUF.** A 4090 is Ada, not Blackwell. NVFP4 is not the 4090 path. SGLang, on Unsloth's page, does not load their FP8 `lm_head` the way vLLM's `CompressedTensorsW8A8Fp8` kernel does; they tell you vLLM for now.
@@ -185,6 +187,8 @@ The run page lists extras on their GGUFs, which you should not confuse with trai
 Fit, if the weights fit, is quoted around **20 tokens/s** generation on B200s and **>120 tokens/s** throughput in their note. Those are datacenter numbers. A 4090 running UD-Q4_K_XL will not match a B200. Measure on your box; do not put 20 tok/s in a client report because it appeared on the model page.
 
 ## llama.cpp build, without the 2.4T branch
+
+<VisualSlot id="unsloth-qwen38-run:3" />
 
 For UD-Q4_K_XL on the 27B, compile **standard** llama.cpp. Unsloth's snippet:
 

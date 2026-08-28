@@ -28,6 +28,8 @@ Pick one instruct model you actually run. Print `tokenizer.chat_template` (or th
 
 ## Case — NovaDesk’s “stupid” 8B
 
+<VisualSlot id="tokenization:2" />
+
 NovaDesk swapped a Qwen instruct GGUF for a “faster” Llama 3 quant and kept the Qwen ChatML wrapper. The model answered in fragments and invented `<|im_end|>` in the middle of sentences. They spent a day on temperature. The tokenizer and the template were from the wrong family.
 
 This lesson rewrites ideas from the [Hugging Face Agents Course](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.

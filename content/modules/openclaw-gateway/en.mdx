@@ -91,6 +91,8 @@ That is the operator contract. A laptop that only runs `openclaw acp` is not the
 
 ## Invariants
 
+<VisualSlot id="openclaw-gateway:2" />
+
 - Exactly one Gateway controls a single Baileys session per host.
 - Handshake is mandatory; any non-JSON or non-connect first frame is a hard close.
 - Events are not replayed; clients must refresh on gaps.

@@ -35,6 +35,8 @@ Hermes auto-discovers top-level `registry.register()` calls; shadowing a name fr
 
 ## Case: plugin that edits the core loop
 
+<VisualSlot id="tools-runtime:2" />
+
 **Case.** A contributor patches `run_agent.py` to special-case their SaaS instead of `ctx.register_tool(...)`.
 
 **Smell.** Core is a narrow waist; every branch taxes every API call. Widen the plugin surface; keep the loop boring.

@@ -93,7 +93,7 @@ export default function Visual() {
               radius={0.04}
               opacity={0.7}
             />
-            <Tag position={[-1.85, -1.55, 0.2]} tone="violet">W' = W + (α/r) BA</Tag>
+            <Tag position={[-1.85, -1.55, 0.2]} tone="violet">{"W' = W + (α/r) BA"}</Tag>
             {/* "served" indicator. */}
             <Node3D position={[3.6, 0.0, 0]} color={P.violet} radius={0.22} pulse={0.5} />
             <Tag position={[3.6, 0.45, 0.2]} tone="violet">served</Tag>

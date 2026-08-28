@@ -18,6 +18,8 @@ Hermes gateway ticks in-process (or Chronos for scale-to-zero). OpenClaw automat
 
 ## Case: cron mirrored into chat
 
+<VisualSlot id="scheduled-jobs:2" />
+
 **Case.** Nightly summary is appended as an assistant message in the Telegram group session. Morning user message -- two assistants in a row -- provider reject.
 
 **Fix.** Cron lives in its own session; delivery is outbound-only.
