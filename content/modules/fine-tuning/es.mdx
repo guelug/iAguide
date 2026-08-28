@@ -10,6 +10,8 @@ LoRA no es más débil "por definición". Lo es cuando el rango es demasiado peq
 
 <VisualSlot caption="W congelada, un par LoRA BA fino, y la suma servida. Function-calling es una plantilla que puedes entrenar encima." />
 
+<FigureImage src="/images/fine-tuning/adapter-landscape.png" label="Ilustración de un adaptador de rango bajo sobre un modelo congelado" caption="El base sigue intacto; el adapter pequeño aprende el delta. La imagen ayuda a separar capacidad del modelo y parámetros que realmente actualizas." />
+
 ## Cómo funciona LoRA por dentro
 
 La idea elegante: en lugar de actualizar la matriz W completa, aprendes una corrección ΔW de rango bajo. Concretamente, para una matriz W de dimensión d×k, LoRA añade:

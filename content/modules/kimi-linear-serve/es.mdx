@@ -15,6 +15,8 @@ pip install -U fla-core
 
 <VisualSlot caption="Portátil: 96 GB de pesos BF16 desbordando una tarjeta de 24 GB. Caja GPU: shards de tensor-parallel. Contexto 1M: una torre KV de MLA completa frente a un híbrido 75% más bajo más chips KDA fijos." />
 
+<FigureImage src="/images/kimi-linear-serve/serving-landscape.png" label="Ilustración del serving de contexto largo con atención lineal" caption="El estado de memoria acotado y el flujo de tokens hacen visible por qué la arquitectura cambia el coste de servir contexto largo." />
+
 <VisualSlot id="kimi-linear-serve:3" caption="Fórmulas de servir: la torre de KV de MLA crece lineal con T (O(T·d)) mientras el estado KDA es constante (O(d²)); el MoE activo calcula 2·N_active FLOPs por token; el TPOT escala con 1/batch y se queda plano en el híbrido." />
 
 ## Estación de trabajo: Transformers, `device_map="auto"`

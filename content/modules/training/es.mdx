@@ -12,6 +12,8 @@ Puedes parar tras el SFT. Muchos modelos locales lo hacen.
 
 <VisualSlot caption="Pretrain, luego SFT, luego preferencia. Un portátil a menudo puede LoRA; no puede preentrenar de verdad un base frontera." />
 
+<FigureImage src="/images/training/training-memory.png" label="Ilustración del pipeline de entrenamiento y presupuesto de memoria" caption="Dataset, GPU, adapters y memoria aparecen como una sola cadena: entrenar no es solo cambiar pesos; es sostener el presupuesto de activaciones." />
+
 ## El preentrenamiento es compresión
 
 La idea más potente sobre el preentrenamiento: el modelo aprende una **compresión con pérdida del lenguaje humano**. No memoriza textos; aprende reglas estadísticas que le permiten predecir el siguiente token mejor que cualquier modelo más pequeño. El resultado es una distribución de probabilidad entrenada sobre el lenguaje.

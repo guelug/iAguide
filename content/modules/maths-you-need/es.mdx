@@ -12,6 +12,8 @@ $d$ es la dimensión de la key; la raíz es un truco de escala para que las punt
 
 <VisualSlot caption="Atención mezcla; softmax convierte puntuaciones en una distribución; LoRA es un delta fino sobre W congelada." />
 
+<FigureImage src="/images/maths-you-need/gradient-landscape.png" label="Ilustración del descenso por gradiente sobre un paisaje de pérdida" caption="La intuición geométrica: la señal de gradiente no es magia, es la dirección local que permite bajar la pérdida sin adivinar el valle entero." />
+
 No hace falta derivar esto para usar un modelo. Hace falta: **cada token nuevo atiende sobre las keys cacheadas**, y por eso existe la caché KV.
 
 ## Softmax: de puntuaciones a probabilidades

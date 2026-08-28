@@ -15,6 +15,8 @@ El estudiante que solo sabe decir "Block es más barato que Full" no ha terminad
 
 <VisualSlot caption="Pipeline ingenuo: cada rank reenvía el historial que crece. Cacheado: cada salto envía solo el bloque nuevo. Dos fases: agrupa todas las queries de un bloque contra K/V previos, luego fusiona el parcial intra-bloque con softmax online." />
 
+<FigureImage src="/images/attnres-optimize/attnres-cache.png" label="Ilustración de bloques residuales y caché entre etapas" caption="La imagen no sustituye a la fórmula: hace visible la diferencia entre reenviar todo el historial y mover solo el resumen incremental." />
+
 ## Comunicación de pipeline ingenua
 
 Toma un pipeline intercalado con `P` etapas físicas y `V` etapas virtuales por etapa física (Narayanan et al., 2021, 1F1B estilo Megatron). Chunks totales `C = P V`. Supón que cada etapa física produce de media `N_p` representaciones de bloque de ancho `d` por token.

@@ -14,6 +14,8 @@ Ya sabes qué *son* un checkpoint, CLIP y VAE (lección anterior). Esta página 
 
 <VisualSlot caption="Cinco diapositivas: Load Checkpoint y sus tres zócalos, encode CLIP positivo frente a negativo, KSampler a steps 20 / cfg 7 / euler, decode VAE hacia Save Image, Queue Prompt / Ctrl+Enter." />
 
+<FigureImage src="/images/comfyui-first-workflow/latent-graph.png" label="Ilustración del grafo latente de ComfyUI" caption="Checkpoint y prompt alimentan el latente; KSampler lo transforma; VAE lo decodifica. La imagen refuerza el tipo de cada nodo." />
+
 <Callout>
 Consejo práctico, Comfy-Org: cada imagen que escribe ComfyUI puede llevar **metadatos de workflow**. Arrastra ese PNG de vuelta al lienzo (o Workflows → Open) para restaurar el grafo. Exporta JSON con Workflows → Export si quieres un fichero sin píxeles ([First generation](https://docs.comfy.org/get_started/first_generation)).
 </Callout>
