@@ -215,13 +215,24 @@ function PerfGovernor({
    nothing per frame and React never treats them as render values. */
 const _box = new Box3();
 const _center = new Vector3();
-const _span = new Vector3();
+const _corner = new Vector3();
+const _xAxis = new Vector3();
+const _yAxis = new Vector3();
+const _zAxis = new Vector3();
+const _up = new Vector3();
 
 /**
  * Measures everything in the scene that is not marked decorative, then
- * works out where a camera looking down `viewDir` has to sit for that box
- * to fill the frame at this fov and aspect. Writes into `outPos`/`outLook`
- * and reports whether it found anything to frame.
+ * solves for the camera distance that fits it.
+ *
+ * The distance is exact rather than estimated. Put the camera at
+ * `center + dir * D` looking at the centre, and build the camera basis
+ * from `dir`. A corner's camera-space x and y do not depend on D at all —
+ * only its z does, as `q.z - D`. A point is inside the frustum when
+ * `D - q.z >= |q.x| / tanH` and likewise for y, so the smallest D that
+ * holds for every corner is just the largest of those expressions. That
+ * matters because most of these diagrams are viewed obliquely, where a
+ * deep box projects far wider than its world-space width.
  */
 function measureScene(
   scene: THREE.Object3D,
@@ -249,16 +260,32 @@ function measureScene(
   if (!found || _box.isEmpty()) return false;
 
   _box.getCenter(_center);
-  _box.getSize(_span);
 
-  const halfV = Math.tan(MathUtils.degToRad(cam.fov) / 2);
-  const halfH = halfV * aspect;
-  // Distance at which the box's height and width both fit, plus half its
-  // depth so the near face does not poke through the frustum.
-  const dist =
-    Math.max(_span.y / 2 / halfV, _span.x / 2 / halfH) * fit + _span.z / 2 + 0.2;
+  // Camera basis: +Z points back along the view direction.
+  _zAxis.copy(viewDir).normalize();
+  _up.set(0, 1, 0);
+  if (Math.abs(_zAxis.dot(_up)) > 0.999) _up.set(0, 0, 1);
+  _xAxis.copy(_up).cross(_zAxis).normalize();
+  _yAxis.copy(_zAxis).cross(_xAxis).normalize();
 
-  outPos.copy(_center).addScaledVector(viewDir, dist);
+  const tanV = Math.tan(MathUtils.degToRad(cam.fov) / 2);
+  const tanH = tanV * aspect;
+
+  let dist = 0;
+  for (let i = 0; i < 8; i++) {
+    _corner.set(
+      i & 1 ? _box.max.x : _box.min.x,
+      i & 2 ? _box.max.y : _box.min.y,
+      i & 4 ? _box.max.z : _box.min.z,
+    );
+    _corner.sub(_center);
+    const qx = _corner.dot(_xAxis);
+    const qy = _corner.dot(_yAxis);
+    const qz = _corner.dot(_zAxis);
+    dist = Math.max(dist, qz + Math.max((Math.abs(qx) * fit) / tanH, (Math.abs(qy) * fit) / tanV));
+  }
+
+  outPos.copy(_center).addScaledVector(_zAxis, dist + 0.15);
   outLook.copy(_center);
   return true;
 }

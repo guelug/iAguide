@@ -14,26 +14,40 @@
  */
 import { Box3, MathUtils, PerspectiveCamera, Vector3 } from "three";
 
-/** Same formula as CameraRig. Keep the two in sync by hand. */
+/** Same exact solve as CameraRig. Keep the two in sync by hand. */
 function fitCamera(cam, box, aspect, fit, dirRaw) {
   const center = box.getCenter(new Vector3());
-  const span = box.getSize(new Vector3());
-  const vFov = MathUtils.degToRad(cam.fov);
-  const halfV = Math.tan(vFov / 2);
-  const halfH = halfV * aspect;
-  const dist =
-    Math.max(span.y / 2 / halfV, span.x / 2 / halfH) * fit + span.z / 2 + 0.2;
+  const zAxis = dirRaw.clone().normalize();
+  const up = Math.abs(zAxis.dot(new Vector3(0, 1, 0))) > 0.999
+    ? new Vector3(0, 0, 1)
+    : new Vector3(0, 1, 0);
+  const xAxis = up.clone().cross(zAxis).normalize();
+  const yAxis = zAxis.clone().cross(xAxis).normalize();
 
-  const dir = dirRaw.clone();
-  if (dir.lengthSq() < 1e-6) dir.set(0, 0, 1);
-  dir.normalize();
+  const tanV = Math.tan(MathUtils.degToRad(cam.fov) / 2);
+  const tanH = tanV * aspect;
+
+  let dist = 0;
+  const c = new Vector3();
+  for (let i = 0; i < 8; i++) {
+    c.set(
+      i & 1 ? box.max.x : box.min.x,
+      i & 2 ? box.max.y : box.min.y,
+      i & 4 ? box.max.z : box.min.z,
+    ).sub(center);
+    const qx = c.dot(xAxis);
+    const qy = c.dot(yAxis);
+    const qz = c.dot(zAxis);
+    dist = Math.max(dist, qz + Math.max((Math.abs(qx) * fit) / tanH, (Math.abs(qy) * fit) / tanV));
+  }
+  dist += 0.15;
 
   cam.aspect = aspect;
-  cam.position.copy(center).addScaledVector(dir, dist);
+  cam.position.copy(center).addScaledVector(zAxis, dist);
   cam.lookAt(center);
   cam.updateProjectionMatrix();
   cam.updateMatrixWorld(true);
-  return { center, span, dist };
+  return { center, dist };
 }
 
 /** Worst-case NDC magnitude across the box's eight corners. */
@@ -67,6 +81,8 @@ const SCENES = [
   { name: "cost-and-economics", fov: 40, dir: [0, 0.35, 6.9], min: [-3.1, -2.5, -0.3], max: [3.2, 1.6, 0.3] },
   { name: "evaluation", fov: 40, dir: [0, 0.9, 7.0], min: [-3.1, -2.3, -0.8], max: [3.2, 1.4, 0.9] },
   { name: "observability", fov: 40, dir: [0, 0.5, 6.9], min: [-3.7, -3.1, -0.3], max: [3.8, 2.4, 0.3] },
+  { name: "training:4 landscape", fov: 38, dir: [3.4, 4.6, 6.2], min: [-4.2, -3.5, -3.1], max: [4.2, 1.6, 3.1] },
+  { name: "embeddings:3 cones", fov: 42, dir: [3.2, 2.2, 4.4], min: [-2.8, -3.5, -2.8], max: [2.8, 2.6, 2.8] },
 ];
 
 /** Canvas shapes the figures are actually rendered at. */

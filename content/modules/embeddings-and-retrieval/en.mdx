@@ -1,5 +1,7 @@
 ## Similarity is a score, not a proof
 
+<VisualSlot id="embeddings-and-retrieval:3" />
+
 An <Term id="embedding">embedding</Term> is a list of numbers. Nearby lists *tend* to mean related things. Passage embeddings are what most “vector search” stacks store. Cosine similarity ranks candidates. It does not certify that the chunk answers the question.
 
 Chunking is a product decision: too big and you retrieve noise; too small and you lose the sentence that had the number. Hybrid search (keyword + vector) and a reranker are ordinary, not exotic.

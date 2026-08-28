@@ -13,6 +13,8 @@ You can stop after SFT. Many local models do.
 
 ## Pretrain is not a laptop sport
 
+<VisualSlot id="training:4" />
+
 Pretraining reads staggering amounts of text and updates all the weights, for a long time, on a cluster. A laptop can *run* a 7B–8B model. It cannot honestly pretrain one. If a README says “pretrain on your Mac,” they mean a toy, a continued pretrain on a tiny corpus, or marketing.
 
 Continued pretrain (more next-token on domain text) is a real technique. It still wants a serious GPU budget once the model is not tiny, and it can overwrite chat manners if you are not careful.

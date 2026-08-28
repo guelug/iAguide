@@ -1,5 +1,7 @@
 ## La similitud es una puntuación, no una prueba
 
+<VisualSlot id="embeddings-and-retrieval:3" />
+
 Un <Term id="embedding">embedding</Term> es una lista de números. Listas cercanas *suelen* significar cosas afines. Los embeddings de pasaje son lo que guarda la búsqueda vectorial. El coseno ordena candidatos. **No certifica que el trozo responda la pregunta.**
 
 Esto último importa más de lo que parece. Una búsqueda vectorial te devuelve los cinco trozos más cercanos a tu pregunta. Si están cerca, probablemente comparten vocabulario o tema. Si están cerca y además responden a la pregunta, es suerte disfrazada de ranking. Una API de búsqueda bien hecha pasa cada candidato por un **reranker** (a menudo un cross-encoder más pequeño) que lee el par (query, candidato) y decide relevancia con más criterio.
