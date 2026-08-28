@@ -53,7 +53,7 @@ function Focus({ active, children }: { active: boolean; children: ReactNode }) {
   const ref = useRef<Group>(null);
   useFrame((_, dt) => {
     if (!ref.current) return;
-    const scale = MathUtils.damp(ref.current.scale.x, active ? 1.14 : 0.9, 5, dt);
+    const scale = MathUtils.damp(ref.current.scale.x, active ? 1.22 : 1, 5, dt);
     ref.current.scale.setScalar(scale);
     ref.current.position.y = MathUtils.damp(ref.current.position.y, active ? 0.16 : -0.04, 5, dt);
   });
@@ -164,10 +164,10 @@ export default function Visual() {
         />
       }
     >
-      <Stage className="h-full w-full" camera={{ position: [0, 1.15, 8.3], fov: 34 }} background={P.paper} maxDpr={2}>
+      <Stage className="h-full w-full" camera={{ position: [0, 0.95, 7.2], fov: 33 }} background={P.paper} maxDpr={2}>
         <Motes count={150} radius={7} color={P.lineStrong} size={0.025} opacity={0.24} />
         <PointerTilt amount={0.09}>
-          <group rotation={[-0.12, 0, 0]} position={[0, 0.06, 0]}>
+          <group rotation={[-0.1, 0, 0]} position={[0, 0.18, 0]}>
             <Ribbon
               points={TRACKS.map((track, i) => [track.x, -0.45, track.z + (i % 2 ? -0.08 : 0.08)])}
               color={P.lineStrong}
@@ -211,7 +211,7 @@ export default function Visual() {
                 </group>
               );
             })}
-            <ContactShadows position={[0, -0.56, 0]} opacity={0.24} scale={7} blur={2.6} far={3.4} color={P.ink} />
+            <ContactShadows position={[0, -0.56, 0]} opacity={0.16} scale={5.6} blur={3} far={2.4} color={P.ink} />
           </group>
           <Slab position={[0, -1.17, 0]} size={[4.5, 0.38, 0.04]} color={TRACKS.find((track) => track.id === mode)?.color ?? P.teal} fill={0.08} rim={0.34} />
           <Tag position={[0, -1.16, 0.08]} tone={TRACKS.find((track) => track.id === mode)?.tone ?? "teal"} size="xs" center>
