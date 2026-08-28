@@ -80,6 +80,7 @@ No corras Full AttnRes en un trabajo pipeline-parallel de producción. Full sigu
 </Callout>
 
 <VisualSlot id="attnres-optimize:2" caption="Softmax online (running max + running sum), prefill escribiendo resúmenes de bloque y decode leyéndolos, y la comm inter-stage: O(L) por capa contra O(N) por resumen." />
+<VisualSlot id="attnres-optimize:3" caption="Block AttnRes cachea bloques incrementales y separa fase 1/fase 2: 5.5d de I/O frente a 24d de Full." />
 
 ## Inferencia en dos fases (Algoritmo 1)
 
