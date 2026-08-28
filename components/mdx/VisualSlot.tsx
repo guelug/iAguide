@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useState, type ComponentType } from "react";
+import { useEffect, useMemo, useState, type ComponentType } from "react";
 import { getExtraVisualLoader, getVisualLoader } from "@/content/modules";
 
 /**
@@ -23,15 +23,13 @@ export function VisualSlot({
   const [Visual, setVisual] = useState<ComponentType | null>(null);
   const [failed, setFailed] = useState(false);
 
+  const load = useMemo(() => {
+    if (!key) return undefined;
+    return key.includes(":") ? getExtraVisualLoader(key) : getVisualLoader(key);
+  }, [key]);
+
   useEffect(() => {
-    if (!key) return;
-    const load = key.includes(":")
-      ? getExtraVisualLoader(key)
-      : getVisualLoader(key);
-    if (!load) {
-      setFailed(true);
-      return;
-    }
+    if (!load) return;
     let cancelled = false;
     load()
       .then((mod) => {
@@ -43,9 +41,9 @@ export function VisualSlot({
     return () => {
       cancelled = true;
     };
-  }, [key]);
+  }, [load]);
 
-  if (failed) return null;
+  if (failed || !load) return null;
 
   return (
     <figure className={wide ? "bleed-wide" : undefined}>

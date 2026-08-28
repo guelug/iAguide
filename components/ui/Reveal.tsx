@@ -1,18 +1,13 @@
 "use client";
 
-import {
-  createElement,
-  useEffect,
-  useRef,
-  type CSSProperties,
-  type ReactNode,
-} from "react";
+import { createElement, useCallback, type CSSProperties, type ReactNode } from "react";
 
 type Tag = "div" | "li" | "section" | "article" | "figure" | "p";
 
 /**
- * Opacity + lift on first intersection. One observer per node is fine at
- * this page count, and it beats a scroll listener for jank.
+ * Opacity + lift on first intersection. The observer is wired from the
+ * ref callback and torn down by the cleanup React 19 lets a ref callback
+ * return, so there is no ref object to read during render.
  */
 export function Reveal({
   children,
@@ -25,10 +20,7 @@ export function Reveal({
   as?: Tag;
   className?: string;
 }) {
-  const ref = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    const el = ref.current;
+  const attach = useCallback((el: HTMLElement | null) => {
     if (!el) return;
     const io = new IntersectionObserver(
       ([entry]) => {
@@ -46,7 +38,7 @@ export function Reveal({
   return createElement(
     as,
     {
-      ref,
+      ref: attach,
       className: `reveal ${className}`,
       style: { "--reveal-delay": `${delay}ms` } as CSSProperties,
     },

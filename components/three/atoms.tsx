@@ -30,6 +30,16 @@ export type V3 = [number, number, number];
 const tmpObj = new Object3D();
 const tmpVec = new Vector3();
 
+/**
+ * Deterministic 0..1 noise. Diagrams must look identical on every render
+ * and every reload — a figure that reshuffles itself on a re-render is a
+ * figure a reader cannot point at.
+ */
+export function hash(i: number, salt: number) {
+  const v = Math.sin(i * 127.1 + salt * 311.7) * 43758.5453;
+  return v - Math.floor(v);
+}
+
 /* ------------------------------------------------------------------ nodes */
 
 /**
@@ -408,9 +418,9 @@ export function Motes({
   const positions = useMemo(() => {
     const arr = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
-      const r = radius * Math.cbrt(Math.random());
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
+      const r = radius * Math.cbrt(hash(i, 1));
+      const theta = hash(i, 2) * Math.PI * 2;
+      const phi = Math.acos(2 * hash(i, 3) - 1);
       arr[i * 3] = r * Math.sin(phi) * Math.cos(theta);
       arr[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta) * 0.6;
       arr[i * 3 + 2] = r * Math.cos(phi);

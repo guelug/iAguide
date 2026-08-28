@@ -4,7 +4,7 @@ import { Grid, Line, RoundedBox } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useLayoutEffect, useMemo, useRef } from "react";
 import { Color, Group, InstancedMesh, Object3D } from "three";
-import { Halo, Tag, type V3 } from "@/components/three/atoms";
+import { Halo, Tag, hash, type V3 } from "@/components/three/atoms";
 import { Stage, useStage } from "@/components/three/Stage";
 import { useCopy } from "@/lib/useCopy";
 import { P } from "@/lib/palette";
@@ -95,13 +95,13 @@ function TokenChips({ count = 240 }: { count?: number }) {
 
   const seeds = useMemo(
     () =>
-      Array.from({ length: n }, () => ({
-        y: (Math.random() - 0.5) * 2.1,
-        z: (Math.random() - 0.5) * 1.7,
-        speed: 0.055 + Math.random() * 0.075,
-        offset: Math.random(),
-        wob: Math.random() * Math.PI * 2,
-        warm: Math.random(),
+      Array.from({ length: n }, (_, i) => ({
+        y: (hash(i, 1) - 0.5) * 2.1,
+        z: (hash(i, 2) - 0.5) * 1.7,
+        speed: 0.055 + hash(i, 3) * 0.075,
+        offset: hash(i, 4),
+        wob: hash(i, 5) * Math.PI * 2,
+        warm: hash(i, 6),
       })),
     [n],
   );
@@ -168,14 +168,14 @@ function AttentionWeb() {
   const strands = useMemo(
     () =>
       Array.from({ length: 7 }, (_, i) => ({
-        y0: (Math.random() - 0.5) * 1.7,
-        y1: (Math.random() - 0.5) * 1.2,
-        z0: (Math.random() - 0.5) * 1.3,
-        z1: (Math.random() - 0.5) * 0.9,
-        x0: -3.4 + Math.random() * 2.2,
-        x1: -0.6 + Math.random() * 2.6,
+        y0: (hash(i, 11) - 0.5) * 1.7,
+        y1: (hash(i, 12) - 0.5) * 1.2,
+        z0: (hash(i, 13) - 0.5) * 1.3,
+        z1: (hash(i, 14) - 0.5) * 0.9,
+        x0: -3.4 + hash(i, 15) * 2.2,
+        x1: -0.6 + hash(i, 16) * 2.6,
         tone: i % 3 === 0 ? P.amber : P.teal,
-        phase: Math.random() * Math.PI * 2,
+        phase: hash(i, 17) * Math.PI * 2,
       })),
     [],
   );
