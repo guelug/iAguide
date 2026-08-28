@@ -43,10 +43,10 @@ const COPY = {
 };
 
 const TRACKS: { id: Mode; color: string; tone: Tone; x: number; z: number }[] = [
-  { id: "foundations", color: P.teal, tone: "teal", x: -2.4, z: 0.25 },
-  { id: "harness", color: P.violet, tone: "violet", x: -0.8, z: -0.15 },
-  { id: "training", color: P.amber, tone: "amber", x: 0.8, z: -0.15 },
-  { id: "metal", color: P.rose, tone: "rose", x: 2.4, z: 0.25 },
+  { id: "foundations", color: P.teal, tone: "teal", x: -3.0, z: 0.3 },
+  { id: "harness", color: P.violet, tone: "violet", x: -1.0, z: -0.18 },
+  { id: "training", color: P.amber, tone: "amber", x: 1.0, z: -0.18 },
+  { id: "metal", color: P.rose, tone: "rose", x: 3.0, z: 0.3 },
 ];
 
 function Focus({ active, children }: { active: boolean; children: ReactNode }) {
@@ -160,7 +160,7 @@ export default function Visual() {
         />
       }
     >
-      <Stage className="h-full w-full" camera={{ position: [0, 0.4, 7.0], fov: 36 }} background={P.paper} maxDpr={2} fit={1.18}>
+      <Stage className="h-full w-full" camera={{ position: [0, 0.4, 8.6], fov: 32 }} background={P.paper} maxDpr={2} fit={1.05}>
         <Motes count={150} radius={7} color={P.lineStrong} size={0.025} opacity={0.24} />
         <PointerTilt amount={0.09}>
           <group rotation={[-0.1, 0, 0]} position={[0, 0.18, 0]}>
@@ -211,7 +211,7 @@ export default function Visual() {
             })}
             <ShadowBlob position={[0, -0.56, 0]} scale={4.6} opacity={0.06} />
           </group>
-          <Slab position={[0, -1.17, 0]} size={[4.5, 0.38, 0.04]} color={TRACKS.find((track) => track.id === mode)?.color ?? P.teal} fill={0.08} rim={0.34} />
+          <Slab position={[0, -1.17, 0]} size={[5.4, 0.38, 0.04]} color={TRACKS.find((track) => track.id === mode)?.color ?? P.teal} fill={0.08} rim={0.34} />
           <Tag position={[0, -1.16, 0.08]} tone={TRACKS.find((track) => track.id === mode)?.tone ?? "teal"} size="xs" center>
             {mode === "foundations" ? `${t.here} · ${note}` : note}
           </Tag>

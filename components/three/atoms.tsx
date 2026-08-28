@@ -2,15 +2,24 @@
 
 import { Html, Line, RoundedBox } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   CatmullRomCurve3,
   Color,
   Group,
   InstancedMesh,
+  MathUtils,
   Mesh,
   Object3D,
   Points,
+  Quaternion,
   Vector3,
 } from "three";
 import { P } from "@/lib/palette";
@@ -606,4 +615,332 @@ export function PointerTilt({
     g.rotation.x += (-pointer.y * amount * 0.6 - g.rotation.x) * k;
   });
   return <group ref={ref}>{children}</group>;
+}
+
+/* ------------------------------------------------------------ explainers */
+
+/**
+ * A wire that ends in a head. Direction is meaning in a teaching diagram:
+ * "the tool result goes back to the model" is a different claim from "the
+ * model and the tool are connected", and only one of them has an arrow.
+ */
+export function Arrow({
+  from,
+  to,
+  color = P.inkSoft,
+  width = 1.6,
+  opacity = 0.85,
+  head = 0.11,
+  dashed = false,
+  /** Lifts the midpoint perpendicular to the run, for a drawn-by-hand bow. */
+  bow = 0,
+}: {
+  from: V3;
+  to: V3;
+  color?: string;
+  width?: number;
+  opacity?: number;
+  head?: number;
+  dashed?: boolean;
+  bow?: number;
+}) {
+  const { path, tip, quat } = useMemo(() => {
+    const a = new Vector3(...from);
+    const b = new Vector3(...to);
+    const dir = b.clone().sub(a);
+    const len = dir.length() || 1;
+    const unit = dir.clone().normalize();
+
+    // Stop the shaft short so the cone is the thing that touches the target.
+    const stop = b.clone().sub(unit.clone().multiplyScalar(head * 0.92));
+    const mid = a.clone().add(b).multiplyScalar(0.5);
+    if (bow) {
+      // Perpendicular in the plane that keeps the bow visible from a
+      // front-ish camera: cross with view-up, falling back to Z.
+      const up = Math.abs(unit.y) > 0.92 ? new Vector3(0, 0, 1) : new Vector3(0, 1, 0);
+      mid.add(unit.clone().cross(up).normalize().multiplyScalar(-bow * len * 0.3));
+    }
+
+    const pts: V3[] = bow
+      ? new CatmullRomCurve3([a, mid, stop])
+          .getPoints(24)
+          .map((v) => v.toArray() as V3)
+      : [a.toArray() as V3, stop.toArray() as V3];
+
+    // Cones point +Y by default; rotate that onto the arrow direction.
+    const q = new Quaternion().setFromUnitVectors(
+      new Vector3(0, 1, 0),
+      bow ? b.clone().sub(mid).normalize() : unit,
+    );
+    return { path: pts, tip: b.toArray() as V3, quat: q };
+  }, [from, to, head, bow]);
+
+  return (
+    <group>
+      <Line
+        points={path}
+        color={color}
+        lineWidth={width}
+        transparent
+        opacity={opacity}
+        dashed={dashed}
+        dashSize={0.1}
+        gapSize={0.08}
+      />
+      <mesh position={tip} quaternion={quat}>
+        <coneGeometry args={[head * 0.52, head * 1.5, 14]} />
+        <meshStandardMaterial color={color} roughness={0.4} metalness={0.02} transparent opacity={opacity} />
+      </mesh>
+    </group>
+  );
+}
+
+export type Bar = {
+  label?: string;
+  /** 0..1 of the tallest bar's height. */
+  value: number;
+  color?: string;
+  /** Printed on the tag instead of the raw value. */
+  note?: string;
+};
+
+/**
+ * A row of extruded bars with a baseline. Reach for this the moment a
+ * module makes a quantitative claim — cost, throughput, quality loss —
+ * because "twice as slow" should be twice as tall, not twice as adjectival.
+ */
+export function Bars({
+  bars,
+  height = 1.6,
+  width = 0.34,
+  gap = 0.24,
+  depth = 0.34,
+  baseline = 0,
+  tone = "ink",
+  showTags = true,
+}: {
+  bars: Bar[];
+  height?: number;
+  width?: number;
+  gap?: number;
+  depth?: number;
+  baseline?: number;
+  tone?: "teal" | "amber" | "violet" | "ink" | "rose" | "muted";
+  showTags?: boolean;
+}) {
+  const pitch = width + gap;
+  const span = (bars.length - 1) * pitch;
+  const refs = useRef<(Mesh | null)[]>([]);
+  const { still } = useStage();
+
+  // Grow on mount so the comparison reads as a measurement being taken.
+  useFrame((_, dt) => {
+    bars.forEach((bar, i) => {
+      const m = refs.current[i];
+      if (!m) return;
+      const target = Math.max(0.001, bar.value) * height;
+      const next = still ? target : MathUtils.damp(m.scale.y, target, 6, dt);
+      m.scale.y = next;
+      m.position.y = baseline + next / 2;
+    });
+  });
+
+  return (
+    <group>
+      {bars.map((bar, i) => {
+        const x = i * pitch - span / 2;
+        const color = bar.color ?? P.teal;
+        return (
+          <group key={bar.label ?? i} position={[x, 0, 0]}>
+            <mesh
+              ref={(m) => {
+                refs.current[i] = m;
+              }}
+              position={[0, baseline, 0]}
+              scale={[1, 0.001, 1]}
+            >
+              <boxGeometry args={[width, height, depth]} />
+              <meshStandardMaterial color={color} roughness={0.42} metalness={0.03} />
+            </mesh>
+            {showTags && bar.label ? (
+              <Tag position={[0, baseline - 0.24, depth / 2]} tone={tone} size="xs" center>
+                {bar.label}
+              </Tag>
+            ) : null}
+            {bar.note ? (
+              <Tag
+                position={[0, baseline + bar.value * height + 0.22, depth / 2]}
+                tone={tone}
+                size="xs"
+                center
+              >
+                {bar.note}
+              </Tag>
+            ) : null}
+          </group>
+        );
+      })}
+      <Line
+        points={[
+          [-span / 2 - width, baseline, depth / 2],
+          [span / 2 + width, baseline, depth / 2],
+        ]}
+        color={P.lineStrong}
+        lineWidth={1.2}
+        transparent
+        opacity={0.7}
+      />
+    </group>
+  );
+}
+
+/**
+ * A titled card standing in 3D space. Slab is a shape; Panel is a labelled
+ * component of a system — it has a header strip so a reader can name it
+ * without hunting for a floating tag.
+ */
+export function Panel({
+  position,
+  rotation,
+  size = [1.9, 1.25],
+  color = P.teal,
+  title,
+  fill = 0.1,
+  active = false,
+  onClick,
+  onPointerOver,
+  onPointerOut,
+  children,
+}: {
+  position: V3;
+  rotation?: V3;
+  /** [width, height]; depth is fixed thin so panels stack cleanly. */
+  size?: [number, number];
+  color?: string;
+  title?: string;
+  fill?: number;
+  active?: boolean;
+  onClick?: () => void;
+  onPointerOver?: () => void;
+  onPointerOut?: () => void;
+  children?: ReactNode;
+}) {
+  const [w, h] = size;
+  const head = Math.min(0.24, h * 0.22);
+  const ref = useRef<Group>(null);
+  const { still } = useStage();
+
+  useFrame((_, dt) => {
+    const g = ref.current;
+    if (!g) return;
+    const target = active ? 1.06 : 1;
+    g.scale.setScalar(still ? target : MathUtils.damp(g.scale.x, target, 6, dt));
+  });
+
+  return (
+    <group
+      ref={ref}
+      position={position}
+      rotation={rotation}
+      onClick={
+        onClick
+          ? (e) => {
+              e.stopPropagation();
+              onClick();
+            }
+          : undefined
+      }
+      onPointerOver={
+        onPointerOver
+          ? (e) => {
+              e.stopPropagation();
+              onPointerOver();
+            }
+          : undefined
+      }
+      onPointerOut={onPointerOut}
+    >
+      <RoundedBox args={[w, h, 0.07]} radius={0.05} smoothness={3}>
+        <meshStandardMaterial
+          color={P.surface}
+          roughness={0.5}
+          metalness={0}
+          transparent
+          opacity={0.96}
+        />
+      </RoundedBox>
+      {/* Header strip: the panel's identity, not a floating annotation. */}
+      <mesh position={[0, h / 2 - head / 2, 0.038]}>
+        <planeGeometry args={[w - 0.06, head]} />
+        <meshBasicMaterial color={color} transparent opacity={active ? 0.95 : 0.75} />
+      </mesh>
+      <mesh position={[0, -head / 2, 0.038]}>
+        <planeGeometry args={[w - 0.06, h - head - 0.06]} />
+        <meshBasicMaterial color={color} transparent opacity={fill} />
+      </mesh>
+      <Line
+        points={[
+          [-w / 2, -h / 2, 0.04],
+          [w / 2, -h / 2, 0.04],
+          [w / 2, h / 2, 0.04],
+          [-w / 2, h / 2, 0.04],
+          [-w / 2, -h / 2, 0.04],
+        ]}
+        color={color}
+        lineWidth={active ? 2 : 1.3}
+        transparent
+        opacity={active ? 0.95 : 0.6}
+      />
+      {title ? (
+        <Tag position={[0, h / 2 - head / 2, 0.06]} tone="ink" size="xs" center plate={false}>
+          <span className="text-paper">{title}</span>
+        </Tag>
+      ) : null}
+      {children}
+    </group>
+  );
+}
+
+/**
+ * A numbered badge. Pairs with prose that says "at (3) the harness checks
+ * permissions" — the diagram and the paragraph share a coordinate system.
+ */
+export function Marker({
+  position,
+  n,
+  color = P.ink,
+  active = true,
+}: {
+  position: V3;
+  n: number;
+  color?: string;
+  active?: boolean;
+}) {
+  return (
+    <group position={position}>
+      <mesh>
+        <circleGeometry args={[0.115, 28]} />
+        <meshBasicMaterial color={active ? color : P.line} />
+      </mesh>
+      <Tag position={[0, 0, 0.02]} tone="ink" size="xs" center plate={false}>
+        <span className="text-paper">{n}</span>
+      </Tag>
+    </group>
+  );
+}
+
+/**
+ * Advances an index on a timer so a scene can play a process by itself.
+ * Diagrams that auto-advance teach sequence; diagrams that wait for a
+ * click teach nothing until the reader guesses there is something to click.
+ */
+export function useCycle(length: number, seconds = 1.9, paused = false) {
+  const [i, setI] = useState(0);
+  const { still } = useStage();
+  useEffect(() => {
+    if (still || paused || length < 2) return;
+    const id = setInterval(() => setI((v) => (v + 1) % length), seconds * 1000);
+    return () => clearInterval(id);
+  }, [length, seconds, paused, still]);
+  return [i, setI] as const;
 }
