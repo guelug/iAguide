@@ -433,6 +433,69 @@ function measureScene(
 }
 
 /**
+ * The orthographic twin. Parallel projection does not change size with
+ * depth, so there is no distance to solve for: the rig sets `zoom` from
+ * the widest and tallest the content gets in camera space, and parks the
+ * camera far enough back that nothing crosses the near plane.
+ */
+function measureOrtho(
+  scene: THREE.Object3D,
+  width: number,
+  height: number,
+  fit: number,
+  viewDir: Vector3,
+  outPos: Vector3,
+  outLook: Vector3,
+) {
+  _box.makeEmpty();
+  let found = false;
+  scene.traverse((obj) => {
+    if (obj.userData?.noFit) return;
+    if (!(obj as THREE.Mesh).geometry) return;
+    for (let p = obj.parent; p; p = p.parent) {
+      if (p.userData?.noFit) return;
+    }
+    _box.expandByObject(obj);
+    found = true;
+  });
+  if (!found || _box.isEmpty()) return 0;
+
+  _box.getCenter(_center);
+  _zAxis.copy(viewDir).normalize();
+  _up.set(0, 1, 0);
+  if (Math.abs(_zAxis.dot(_up)) > 0.999) _up.set(0, 0, 1);
+  _xAxis.copy(_up).cross(_zAxis).normalize();
+  _yAxis.copy(_zAxis).cross(_xAxis).normalize();
+
+  let halfW = 0;
+  let halfH = 0;
+  let depth = 0;
+  for (let i = 0; i < 8; i++) {
+    _corner
+      .set(
+        i & 1 ? _box.max.x : _box.min.x,
+        i & 2 ? _box.max.y : _box.min.y,
+        i & 4 ? _box.max.z : _box.min.z,
+      )
+      .sub(_center);
+    halfW = Math.max(halfW, Math.abs(_corner.dot(_xAxis)));
+    halfH = Math.max(halfH, Math.abs(_corner.dot(_yAxis)));
+    depth = Math.max(depth, Math.abs(_corner.dot(_zAxis)));
+  }
+
+  // R3F gives an orthographic camera a pixel-sized frustum, so the zoom
+  // that fits N world units across a W pixel canvas is W / (2N).
+  const zoom = Math.min(
+    width / (2 * Math.max(0.001, halfW * fit)),
+    height / (2 * Math.max(0.001, halfH * fit)),
+  );
+
+  outPos.copy(_center).addScaledVector(_zAxis, depth + 14);
+  outLook.copy(_center);
+  return zoom;
+}
+
+/**
  * Frames whatever the scene actually contains.
  *
  * Every diagram in the course is laid out in its own arbitrary units and
@@ -454,10 +517,10 @@ function CameraRig({ fit }: { fit: number }) {
   const goalLook = useRef(new Vector3());
   const settled = useRef(false);
   const since = useRef(0);
+  const goalZoom = useRef(0);
 
   useFrame((state, dt) => {
-    const cam = state.camera as THREE.PerspectiveCamera;
-    if (!cam.isPerspectiveCamera) return;
+    const cam = state.camera as THREE.PerspectiveCamera & THREE.OrthographicCamera;
 
     if (!dir.current) {
       const d = cam.position.clone();
@@ -468,26 +531,48 @@ function CameraRig({ fit }: { fit: number }) {
     since.current += dt;
     if (since.current > 0.4 || !settled.current) {
       since.current = 0;
-      const aspect = state.size.width / Math.max(1, state.size.height);
-      const got = measureScene(
-        state.scene,
-        cam,
-        aspect,
-        fit,
-        dir.current,
-        goalPos.current,
-        goalLook.current,
-      );
-      // First measurement snaps: a diagram should not fly in on load.
-      if (got && !settled.current) {
-        cam.position.copy(goalPos.current);
-        settled.current = true;
+      if (cam.isOrthographicCamera) {
+        const z = measureOrtho(
+          state.scene,
+          state.size.width,
+          state.size.height,
+          fit,
+          dir.current,
+          goalPos.current,
+          goalLook.current,
+        );
+        if (z > 0) {
+          goalZoom.current = z;
+          if (!settled.current) {
+            cam.position.copy(goalPos.current);
+            cam.zoom = z;
+            settled.current = true;
+          }
+        }
+      } else {
+        const got = measureScene(
+          state.scene,
+          cam,
+          state.size.width / Math.max(1, state.size.height),
+          fit,
+          dir.current,
+          goalPos.current,
+          goalLook.current,
+        );
+        // First measurement snaps: a diagram should not fly in on load.
+        if (got && !settled.current) {
+          cam.position.copy(goalPos.current);
+          settled.current = true;
+        }
       }
     }
 
     if (!settled.current) return;
     cam.position.lerp(goalPos.current, 1 - Math.exp(-4 * dt));
     cam.lookAt(goalLook.current);
+    if (cam.isOrthographicCamera && goalZoom.current > 0) {
+      cam.zoom = MathUtils.damp(cam.zoom, goalZoom.current, 4, dt);
+    }
     cam.updateProjectionMatrix();
   });
 

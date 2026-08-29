@@ -7,20 +7,35 @@ import { Group, MathUtils } from "three";
 import { Figure, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import {
-  Arrow,
   Flow,
   Halo,
-  Marker,
   Node3D,
-  Panel,
-  PointerTilt,
   Ribbon,
-  ShadowBlob,
   Tag,
   useCycle,
+  type V3,
 } from "@/components/three/atoms";
+import {
+  AxisLine,
+  Duct,
+  GlassPanel,
+  ISO_CAMERA,
+  IsoDust,
+  IsoFrame,
+  PlanTrace,
+} from "@/components/three/iso";
 import { P } from "@/lib/palette";
 import { useCopy } from "@/lib/useCopy";
+
+/*
+ * One turn around the harness, drawn isometrically.
+ *
+ * The ring used to be seen from the front, which flattened it into a line
+ * and stacked six labels on top of each other. A circle on the ground
+ * plane under parallel projection is a clean ellipse instead, and the
+ * station names can fan outwards along their own radius, so no two of
+ * them ever meet.
+ */
 
 type Mode = "loop" | "tools" | "sub";
 
@@ -43,9 +58,13 @@ const COPY = {
       { name: "answer", note: "stream out, persist the thread" },
     ],
     toolPanel: "run tool",
-    toolNote: "permission check → execute → append result → prefill again",
+    toolNote:
+      "the detour hangs off act, the only station a turn can leave from: permission check, execute, append the result, and back to prefill with a longer prompt",
     subPanel: "child loop",
-    subNote: "own prompt, own tools, returns a summary — not a second brain",
+    subNote:
+      "a subagent is the same ring again, with its own prompt and its own tools; it returns a summary, not a second brain",
+    loopNote:
+      "six stations, one bead. Swap the model and the ring is unchanged — that is what makes the harness a separate thing to debug",
   },
   es: {
     title: "un turno alrededor del arnés",
@@ -65,70 +84,79 @@ const COPY = {
       { name: "respuesta", note: "sale en streaming, se guarda el hilo" },
     ],
     toolPanel: "ejecutar",
-    toolNote: "permisos → ejecutar → añadir resultado → volver a prefill",
+    toolNote:
+      "el desvío cuelga de actuar, la única estación desde la que un turno puede salir: permisos, ejecutar, añadir el resultado y volver a prefill con un prompt más largo",
     subPanel: "bucle hijo",
-    subNote: "prompt propio, herramientas propias, devuelve un resumen",
+    subNote:
+      "un subagente es el mismo anillo otra vez, con su prompt y sus herramientas; devuelve un resumen, no un segundo cerebro",
+    loopNote:
+      "seis estaciones, una cuenta. Cambia el modelo y el anillo no cambia — por eso el arnés es algo aparte que depurar",
   },
 };
 
-const RX = 2.85;
-const RZ = 1.25;
+const R = 3.15;
 const N = 6;
 
-/** Station positions on a ring, starting at the front and going clockwise. */
-const RING = Array.from({ length: N }, (_, i) => {
-  const a = Math.PI / 2 + (i / N) * Math.PI * 2;
-  return [Math.cos(a) * RX, 0, Math.sin(a) * RZ] as [number, number, number];
-});
+/** Stations on a circle in the ground plane; iso turns it into an ellipse. */
+const ANGLES = Array.from({ length: N }, (_, i) => Math.PI / 2 + (i / N) * Math.PI * 2);
+const RING: V3[] = ANGLES.map((a) => [Math.cos(a) * R, 0, Math.sin(a) * R]);
+const PATH: V3[] = [...RING, RING[0]];
 
-const PATH = [...RING, RING[0]];
+/** Labels ride their own radius, so six of them fan out instead of stacking. */
+const LABELS: V3[] = ANGLES.map((a) => [Math.cos(a) * (R + 1.5), 0.95, Math.sin(a) * (R + 1.5)]);
 
 function Station({
   index,
   active,
   color,
-  label,
 }: {
   index: number;
   active: boolean;
   color: string;
-  label: string;
 }) {
-  const ref = useRef<Group>(null);
+  const lift = useRef<Group>(null);
   useFrame((_, dt) => {
-    const g = ref.current;
+    const g = lift.current;
     if (!g) return;
-    g.position.y = MathUtils.damp(g.position.y, active ? 0.28 : 0, 6, dt);
-    const s = MathUtils.damp(g.scale.x, active ? 1.18 : 1, 6, dt);
+    g.position.y = MathUtils.damp(g.position.y, active ? 0.42 : 0.18, 6, dt);
+    const s = MathUtils.damp(g.scale.x, active ? 1.15 : 1, 6, dt);
     g.scale.setScalar(s);
   });
 
   return (
     <group position={RING[index]}>
-      <ShadowBlob position={[0, -0.19, 0]} scale={0.95} opacity={active ? 0.14 : 0.08} />
-      <mesh position={[0, -0.14, 0]}>
-        <cylinderGeometry args={[0.34, 0.42, 0.1, 40]} />
-        <meshStandardMaterial color={active ? color : P.sunken} roughness={0.5} metalness={0.03} />
+      <mesh position={[0, 0.05, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.46, 0.54, 0.1, 6]} />
+        <meshStandardMaterial
+          color={active ? color : P.sunken}
+          roughness={0.42}
+          metalness={0.05}
+          envMapIntensity={0.9}
+        />
       </mesh>
-      <group ref={ref}>
-        <StationIcon index={index} color={color} active={active} />
+      <group ref={lift} position={[0, 0.18, 0]}>
+        <StationIcon index={index} color={active ? color : P.lineStrong} active={active} />
       </group>
-      {active ? <Halo position={[0, -0.08, 0]} radius={0.5} color={color} opacity={0.6} spin={0.3} /> : null}
-      <Marker position={[0.34, 0.52, 0.2]} n={index + 1} color={active ? color : P.faint} />
-      <Tag position={[0, 0.78, 0.16]} tone={active ? "ink" : "muted"} size="xs" center>
-        {label}
-      </Tag>
+      {active ? (
+        <Halo position={[0, 0.11, 0]} radius={0.72} color={color} opacity={0.7} spin={0.35} />
+      ) : null}
+      <AxisLine
+        from={[0, 0.12, 0]}
+        to={[Math.cos(ANGLES[index]) * 1.5, 0.85, Math.sin(ANGLES[index]) * 1.5]}
+        overrun={0.1}
+        color={active ? color : P.line}
+        opacity={active ? 0.5 : 0.25}
+      />
     </group>
   );
 }
 
-/** Each station gets its own silhouette, so the ring is readable frozen. */
+/** Each station gets its own silhouette, so the ring reads frozen. */
 function StationIcon({ index, color, active }: { index: number; color: string; active: boolean }) {
-  const dim = active ? color : P.lineStrong;
   if (index === 0) {
     return (
-      <RoundedBox args={[0.4, 0.26, 0.1]} radius={0.05} smoothness={3}>
-        <meshStandardMaterial color={dim} roughness={0.4} metalness={0.04} />
+      <RoundedBox args={[0.5, 0.3, 0.34]} radius={0.06} smoothness={3} castShadow>
+        <meshStandardMaterial color={color} roughness={0.35} metalness={0.05} />
       </RoundedBox>
     );
   }
@@ -136,22 +164,28 @@ function StationIcon({ index, color, active }: { index: number; color: string; a
     return (
       <group>
         {[0, 1, 2].map((i) => (
-          <RoundedBox key={i} args={[0.44 - i * 0.06, 0.06, 0.28]} radius={0.02} position={[0, -0.08 + i * 0.1, 0]}>
-            <meshStandardMaterial color={i === 2 ? dim : P.line} roughness={0.5} />
+          <RoundedBox
+            key={i}
+            args={[0.5 - i * 0.08, 0.06, 0.36 - i * 0.05]}
+            radius={0.02}
+            position={[0, i * 0.09, 0]}
+            castShadow
+          >
+            <meshStandardMaterial color={i === 2 ? color : P.line} roughness={0.5} />
           </RoundedBox>
         ))}
       </group>
     );
   }
   if (index === 2) {
-    // Prefill: many chips arriving at once.
+    // Prefill: the whole prompt arriving at once.
     return (
       <group>
-        {[-0.14, 0, 0.14].map((y, i) =>
-          [-0.13, 0.02, 0.17].map((x, j) => (
-            <mesh key={`${i}-${j}`} position={[x, y, 0]}>
-              <boxGeometry args={[0.1, 0.07, 0.07]} />
-              <meshStandardMaterial color={dim} roughness={0.45} />
+        {[-0.16, 0, 0.16].map((z) =>
+          [-0.16, 0, 0.16].map((x) => (
+            <mesh key={`${x}-${z}`} position={[x, 0.06, z]} castShadow>
+              <boxGeometry args={[0.11, 0.11, 0.11]} />
+              <meshStandardMaterial color={color} roughness={0.4} />
             </mesh>
           )),
         )}
@@ -159,49 +193,49 @@ function StationIcon({ index, color, active }: { index: number; color: string; a
     );
   }
   if (index === 3) {
-    // Decode: one chip leaving at a time.
+    // Decode: one token leaving at a time.
     return (
       <group>
-        <mesh position={[-0.1, 0, 0]}>
-          <boxGeometry args={[0.16, 0.16, 0.16]} />
-          <meshStandardMaterial color={dim} roughness={0.4} />
+        <mesh position={[-0.1, 0.09, 0]} castShadow>
+          <boxGeometry args={[0.2, 0.2, 0.2]} />
+          <meshStandardMaterial color={color} roughness={0.38} />
         </mesh>
-        <Node3D position={[0.18, 0, 0]} color={dim} radius={0.06} matte pulse={active ? 0.2 : 0} />
+        <Node3D position={[0.24, 0.09, 0]} color={color} radius={0.07} pulse={active ? 0.2 : 0} />
       </group>
     );
   }
   if (index === 4) {
     return (
-      <mesh rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.19, 0.19, 0.1, 6]} />
-        <meshStandardMaterial color={dim} roughness={0.35} metalness={0.14} />
+      <mesh position={[0, 0.09, 0]} castShadow>
+        <cylinderGeometry args={[0.22, 0.22, 0.16, 6]} />
+        <meshStandardMaterial color={color} roughness={0.3} metalness={0.18} />
       </mesh>
     );
   }
   return (
-    <group>
-      <RoundedBox args={[0.34, 0.22, 0.12]} radius={0.05} smoothness={3}>
-        <meshStandardMaterial color={dim} roughness={0.3} metalness={0.06} />
-      </RoundedBox>
-      {active ? <Halo radius={0.34} color={color} opacity={0.55} rotation={[0, 0.3, 0]} spin={0.5} /> : null}
-    </group>
+    <RoundedBox
+      args={[0.4, 0.26, 0.26]}
+      radius={0.06}
+      smoothness={3}
+      position={[0, 0.08, 0]}
+      castShadow
+    >
+      <meshStandardMaterial color={color} roughness={0.28} metalness={0.08} />
+    </RoundedBox>
   );
 }
 
 export default function Visual() {
   const t = useCopy(COPY);
   const [mode, setMode] = useState<Mode>("loop");
-  const [step] = useCycle(N, 1.7);
+  const [step] = useCycle(N, 1.9);
 
   const accent = mode === "tools" ? P.amber : mode === "sub" ? P.violet : P.teal;
-  const station = t.stations[step];
+  const note = mode === "tools" ? t.toolNote : mode === "sub" ? t.subNote : t.loopNote;
 
-  // The detour hangs off station 4 (act) — the only place a turn can leave.
-  const branchFrom = RING[4];
-  const branchTo = useMemo<[number, number, number]>(
-    () => [branchFrom[0] - 1.5, mode === "sub" ? 1.55 : 1.15, branchFrom[2] - 0.6],
-    [branchFrom, mode],
-  );
+  // The detour hangs off station 4 — act — raised above the plate.
+  const from = RING[4];
+  const branch = useMemo<V3>(() => [from[0] - 2.6, 2.5, from[2] - 1.4], [from]);
 
   return (
     <Figure
@@ -224,94 +258,127 @@ export default function Visual() {
           ariaLabel={t.title}
         />
       }
-      note={mode === "tools" ? t.toolNote : mode === "sub" ? t.subNote : t.hint}
-      height="h-[360px] md:h-[460px]"
+      note={
+        <>
+          <strong className="text-ink">
+            {step + 1}. {t.stations[step].name}
+          </strong>{" "}
+          — {t.stations[step].note}
+          <span className="mt-1.5 block text-muted">{note}</span>
+        </>
+      }
+      height="h-[400px] md:h-[500px]"
     >
-      <Stage className="h-full w-full" camera={{ position: [0, 2.6, 6.4], fov: 40 }} background={P.paper} fit={1.14}>
-        <PointerTilt amount={0.07}>
-          <group rotation={[-0.5, 0, 0]} position={[0, -0.35, 0]}>
-            <ShadowBlob position={[0, -0.2, 0]} scale={7} opacity={0.05} />
-            <Ribbon points={PATH} color={P.line} radius={0.022} opacity={0.9} />
-            <Flow points={PATH} color={accent} count={4} speed={0.14} size={0.075} lineOpacity={0} />
+      <Stage
+        className="h-full w-full"
+        orthographic
+        camera={ISO_CAMERA}
+        background={P.paper}
+        fit={1.16}
+      >
+        <IsoFrame width={13.5} depth={13.5} y={-0.04} />
+        <PlanTrace
+          points={[
+            [-6, 4.4],
+            [-2.4, 4.4],
+            [-2.4, 2.2],
+          ]}
+          y={-0.03}
+          color={P.line}
+          opacity={0.8}
+        />
+        <PlanTrace
+          points={[
+            [6, -4.2],
+            [3.2, -4.2],
+            [3.2, -1.8],
+          ]}
+          y={-0.03}
+          color={P.line}
+          opacity={0.8}
+        />
 
-            {RING.map((_, i) => (
-              <Station
-                key={i}
-                index={i}
-                active={i === step}
-                color={accent}
-                label={t.stations[i].name}
-              />
-            ))}
+        {/* The ring itself, and the single turn travelling it. */}
+        <Ribbon points={PATH} color={P.line} radius={0.03} />
+        <Flow points={PATH} color={accent} count={4} speed={0.13} size={0.11} lineOpacity={0} />
 
-            {mode !== "loop" ? (
-              <group>
-                <Arrow from={[branchFrom[0], 0.15, branchFrom[2]]} to={branchTo} color={accent} bow={0.5} width={1.8} />
-                <Arrow
-                  from={[branchTo[0] + 0.1, branchTo[1] - 0.35, branchTo[2]]}
-                  to={[RING[1][0], 0.2, RING[1][2]]}
-                  color={accent}
-                  bow={-0.35}
-                  width={1.6}
-                  dashed
-                  opacity={0.7}
+        {RING.map((_, i) => (
+          <Station key={i} index={i} active={i === step} color={accent} />
+        ))}
+
+        {LABELS.map((p, i) => (
+          <Tag key={i} position={p} tone={i === step ? "ink" : "muted"} size="xs" center>
+            {t.stations[i].name}
+          </Tag>
+        ))}
+
+        {mode !== "loop" ? (
+          <group>
+            <Duct
+              from={[from[0], 0.3, from[2]]}
+              to={[branch[0], branch[1] - 0.5, branch[2]]}
+              color={accent}
+              radius={0.11}
+              bend={0.9}
+            />
+            <GlassPanel
+              position={branch}
+              rotation={[0, Math.PI / 4, 0]}
+              size={[2.4, 1.5]}
+              color={accent}
+              opacity={0.2}
+            />
+            <Tag
+              position={[branch[0], branch[1] + 1.05, branch[2]]}
+              tone={mode === "tools" ? "amber" : "violet"}
+              size="xs"
+              center
+            >
+              {mode === "tools" ? t.toolPanel : t.subPanel}
+            </Tag>
+            {mode === "sub" ? (
+              <group position={[branch[0], branch[1], branch[2] + 0.05]}>
+                <Flow
+                  points={[
+                    [-0.65, -0.3, 0],
+                    [0, 0.35, 0.1],
+                    [0.65, -0.3, 0],
+                    [0, -0.6, -0.1],
+                    [-0.65, -0.3, 0],
+                  ]}
+                  color={P.violet}
+                  count={3}
+                  speed={0.4}
+                  size={0.06}
+                  lineOpacity={0.55}
                 />
-                <group position={branchTo} rotation={[0.5, 0, 0]}>
-                  <Panel
-                    position={[0, 0, 0]}
-                    size={[1.5, 0.82]}
-                    color={accent}
-                    title={mode === "tools" ? t.toolPanel : t.subPanel}
-                    active
-                    fill={0.12}
-                  />
-                  {mode === "sub" ? (
-                    <group position={[0, -0.06, 0.1]}>
-                      <Flow
-                        points={[
-                          [-0.42, -0.1, 0],
-                          [0, 0.16, 0.12],
-                          [0.42, -0.1, 0],
-                          [0, -0.26, -0.12],
-                          [-0.42, -0.1, 0],
-                        ]}
-                        color={P.violet}
-                        count={3}
-                        speed={0.4}
-                        size={0.045}
-                        lineOpacity={0.4}
-                      />
-                    </group>
-                  ) : (
-                    <group position={[0, -0.08, 0.12]}>
-                      {[-0.34, 0, 0.34].map((x, i) => (
-                        <mesh key={x} position={[x, 0, 0]}>
-                          <boxGeometry args={[0.16, 0.16, 0.06]} />
-                          <meshStandardMaterial
-                            color={i === 1 ? P.amber : P.amberWash}
-                            roughness={0.42}
-                          />
-                        </mesh>
-                      ))}
-                    </group>
-                  )}
-                </group>
               </group>
-            ) : null}
+            ) : (
+              <group position={[branch[0], branch[1], branch[2]]}>
+                {[-0.55, 0, 0.55].map((x, i) => (
+                  <mesh key={x} position={[x * 0.75, 0, x * -0.75]} castShadow>
+                    <boxGeometry args={[0.24, 0.24, 0.24]} />
+                    <meshStandardMaterial
+                      color={i === 1 ? P.amber : P.amberWash}
+                      roughness={0.4}
+                    />
+                  </mesh>
+                ))}
+              </group>
+            )}
+            <AxisLine
+              from={[branch[0], branch[1] - 0.8, branch[2]]}
+              to={[RING[1][0], 0.3, RING[1][2]]}
+              color={accent}
+              opacity={0.45}
+            />
+            <IsoDust
+              count={40}
+              center={[branch[0], branch[1] - 1.1, branch[2]]}
+              spread={[0.8, 0.9, 0.8]}
+            />
           </group>
-        </PointerTilt>
-
-        {/* The caption is part of the diagram: the ring plus this line is
-            a complete sentence about what just happened. */}
-        <group position={[0, -1.72, 0]}>
-          <Tag position={[0, 0.3, 0]} tone="ink" center>
-            {step + 1}. {station.name}
-          </Tag>
-          <Tag position={[0, 0, 0]} tone="muted" size="xs" center>
-            {station.note}
-          </Tag>
-
-        </group>
+        ) : null}
       </Stage>
     </Figure>
   );
