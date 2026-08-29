@@ -12,6 +12,7 @@ export function Figure({
   hint,
   legend,
   controls,
+  note,
   children,
   height = "h-[360px] md:h-[460px]",
   flush = false,
@@ -20,6 +21,12 @@ export function Figure({
   hint?: string;
   legend?: { color: string; label: string }[];
   controls?: ReactNode;
+  /**
+   * The sentence the figure is making. It belongs here rather than on a
+   * Tag inside the canvas: a 3D-anchored label cannot wrap, so a long one
+   * overflows the panel and collides with whatever else is near it.
+   */
+  note?: ReactNode;
   children: ReactNode;
   height?: string;
   flush?: boolean;
@@ -46,6 +53,14 @@ export function Figure({
       <div className={`relative w-full ${height} ${flush ? "" : "bg-paper"}`}>
         {children}
       </div>
+
+      {/* A div, not a p: callers pass readouts and lists in here, and a
+          paragraph may not contain them. */}
+      {note ? (
+        <div className="border-t border-line/70 px-4 py-3 text-[0.88rem] leading-relaxed text-ink-soft">
+          {note}
+        </div>
+      ) : null}
 
       {legend?.length || controls ? (
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line/70 px-4 py-2.5">

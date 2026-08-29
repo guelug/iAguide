@@ -229,6 +229,7 @@ export default function Visual() {
           ariaLabel={t.title}
         />
       }
+      note={`${t.test}: ${test}`}
       height="h-[380px] md:h-[470px]"
     >
       <Stage className="h-full w-full" camera={{ position: [0, 0.7, 7.6], fov: 40 }} background={P.paper} fit={1.1}>
@@ -261,9 +262,7 @@ export default function Visual() {
           <Tag position={[0, 0.3, 0]} tone="ink" size="xs" center>
             {symptoms[line]}
           </Tag>
-          <Tag position={[0, -0.02, 0]} tone={mode === "model" ? "teal" : mode === "harness" ? "amber" : "violet"} size="xs" center>
-            {t.test}: {test}
-          </Tag>
+
         </group>
       </Stage>
     </Figure>

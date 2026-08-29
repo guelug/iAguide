@@ -214,6 +214,7 @@ export default function Visual() {
           />
         </>
       }
+      note={note}
       height="h-[400px] md:h-[490px]"
     >
       <Stage
@@ -299,9 +300,6 @@ export default function Visual() {
           <Tag position={[0, 0.28, 0]} tone="muted" size="xs" center>
             {t.spec} · {n.perTokenKiB.toFixed(0)} KiB {t.perToken} · {t.maxCtx}{" "}
             {n.maxK.toFixed(0)}k
-          </Tag>
-          <Tag position={[0, -0.04, 0]} tone={mode === "q4" ? "violet" : mode === "q8" ? "amber" : "teal"} size="xs" center>
-            {note}
           </Tag>
         </group>
       </Stage>

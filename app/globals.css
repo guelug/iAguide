@@ -290,11 +290,22 @@
 
 /* ------------------------------------------------------------ lessons */
 
+/*
+ * The article fills its grid cell; the *text* is what gets a reading
+ * measure. Capping the container instead used to force figures to break
+ * out with a negative margin, which pushed them off the left edge of the
+ * viewport on any laptop-sized screen while the space beside the text sat
+ * empty. Now a figure simply uses the column it is already in.
+ */
 .prose-lesson {
-  max-width: var(--reading);
+  max-width: 64rem;
   font-size: 1.06rem;
   line-height: 1.75;
   color: var(--ink-soft);
+}
+
+.prose-lesson > * {
+  max-width: var(--reading);
 }
 
 .prose-lesson > :first-child {
@@ -503,12 +514,14 @@
   margin: 2.2rem 0;
 }
 
-/* Figures break out of the reading column on wide screens. */
-@media (min-width: 82rem) {
-  .prose-lesson figure.bleed-wide {
-    width: min(56rem, calc(100vw - 6rem));
-    margin-left: calc((var(--reading) - min(56rem, calc(100vw - 6rem))) / 2);
-  }
+/* Figures are the one block allowed past the reading measure: they use
+   the whole column, growing to the right into space the text leaves. */
+.prose-lesson > figure {
+  max-width: 100%;
+}
+
+.prose-lesson > figure.bleed-wide {
+  width: 100%;
 }
 
 .term-link {

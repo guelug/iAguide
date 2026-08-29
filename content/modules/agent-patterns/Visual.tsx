@@ -126,6 +126,7 @@ export default function Visual() {
           ariaLabel={t.title}
         />
       }
+      note={note}
       height="h-[370px] md:h-[460px]"
     >
       <Stage className="h-full w-full" camera={{ position: [0, 0.3, 7.4], fov: 40 }} background={P.paper} fit={1.1}>
@@ -215,9 +216,6 @@ export default function Visual() {
         <group position={[0, -2.05, 0]}>
           <Tag position={[0, 0.26, 0]} tone="ink" size="xs" center>
             {phase + 1}. {phases[phase].name} — {phases[phase].note}
-          </Tag>
-          <Tag position={[0, -0.06, 0]} tone={mode === "code" ? "amber" : mode === "graph" ? "violet" : "teal"} size="xs" center>
-            {note}
           </Tag>
         </group>
       </Stage>

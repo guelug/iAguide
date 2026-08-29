@@ -264,6 +264,7 @@ export default function Visual() {
           />
         </>
       }
+      note={note}
       height="h-[390px] md:h-[480px]"
     >
       <Stage
@@ -322,9 +323,6 @@ export default function Visual() {
           />
         </group>
 
-        <Tag position={[0, -3.35, 0]} tone="muted" size="xs" center>
-          {note}
-        </Tag>
       </Stage>
     </Figure>
   );

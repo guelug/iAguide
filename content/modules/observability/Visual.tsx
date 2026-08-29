@@ -141,6 +141,7 @@ export default function Visual() {
           ariaLabel={t.title}
         />
       }
+      note={note}
       height="h-[360px] md:h-[440px]"
     >
       <Stage className="h-full w-full" camera={{ position: [0, 0.5, 6.9], fov: 40 }} background={P.paper} fit={1.12}>
@@ -236,9 +237,6 @@ export default function Visual() {
         <group position={[0, -2.95, 0]}>
           <Tag position={[0, 0.24, 0]} tone="muted" size="xs" center>
             {t.slowest}: {t.spanNames[SPANS.indexOf(slowest)]} · {Math.round(slowest.dur * 220)} {t.ms}
-          </Tag>
-          <Tag position={[0, -0.06, 0]} tone={mode === "errors" ? "rose" : mode === "spans" ? "amber" : "teal"} size="xs" center>
-            {note}
           </Tag>
         </group>
       </Stage>

@@ -224,6 +224,7 @@ export default function Visual() {
           ariaLabel={t.title}
         />
       }
+      note={mode === "tools" ? t.toolNote : mode === "sub" ? t.subNote : t.hint}
       height="h-[360px] md:h-[460px]"
     >
       <Stage className="h-full w-full" camera={{ position: [0, 2.6, 6.4], fov: 40 }} background={P.paper} fit={1.14}>
@@ -309,11 +310,7 @@ export default function Visual() {
           <Tag position={[0, 0, 0]} tone="muted" size="xs" center>
             {station.note}
           </Tag>
-          {mode !== "loop" ? (
-            <Tag position={[0, -0.3, 0]} tone={mode === "tools" ? "amber" : "violet"} size="xs" center>
-              {mode === "tools" ? t.toolNote : t.subNote}
-            </Tag>
-          ) : null}
+
         </group>
       </Stage>
     </Figure>

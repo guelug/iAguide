@@ -9,10 +9,9 @@ import {
   PlaneGeometry,
   type Mesh,
 } from "three";
-import { Figure, Switcher } from "@/components/three/Figure";
+import { Figure, Readout, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import {
-  Bars,
   Halo,
   Node3D,
   PointerTilt,
@@ -344,6 +343,20 @@ export default function Visual() {
           ariaLabel={t.title}
         />
       }
+      note={
+        <>
+          {note}
+          <div className="mt-2.5">
+            <Readout
+              items={[
+                { label: t.steps, value: settled ? String(active.settledAt) : t.never, tone: color },
+                { label: t.wander, value: `${wander.toFixed(2)}×`, tone: "var(--ink-soft)" },
+                { label: t.final, value: finalLoss.toFixed(3), tone: "var(--teal)" },
+              ]}
+            />
+          </div>
+        </>
+      }
       height="h-[400px] md:h-[500px]"
     >
       <Stage
@@ -366,39 +379,6 @@ export default function Visual() {
           </group>
         </PointerTilt>
 
-        {/* What the three runs cost, measured off the walks above. */}
-        <group position={[0, -2.35, 0]}>
-          <Bars
-            bars={[
-              {
-                label: t.steps,
-                value: active.settledAt / STEPS,
-                color,
-                note: settled ? `${active.settledAt}` : t.never,
-              },
-              {
-                label: t.wander,
-                value: Math.min(1, wander / 5.5),
-                color: P.inkSoft,
-                note: `${wander.toFixed(2)}×`,
-              },
-              {
-                label: t.final,
-                value: Math.min(1, finalLoss / 1.2),
-                color: P.teal,
-                note: finalLoss.toFixed(3),
-              },
-            ]}
-            height={0.62}
-            width={0.4}
-            gap={0.55}
-            depth={0.28}
-          />
-        </group>
-
-        <Tag position={[0, -3.35, 0]} tone="muted" size="xs" center>
-          {note}
-        </Tag>
       </Stage>
     </Figure>
   );

@@ -85,6 +85,8 @@ export function Node3D({
     <mesh
       ref={ref}
       position={position}
+      castShadow={!matte}
+      receiveShadow={!matte}
       onPointerOver={
         onPointerOver
           ? (e) => {
@@ -111,7 +113,12 @@ export function Node3D({
       {matte ? (
         <meshBasicMaterial color={color} />
       ) : (
-        <meshStandardMaterial color={color} roughness={0.42} metalness={0.02} />
+        <meshStandardMaterial
+          color={color}
+          roughness={0.26}
+          metalness={0.06}
+          envMapIntensity={0.85}
+        />
       )}
       {children}
     </mesh>
@@ -179,13 +186,20 @@ export function Slab({
           : undefined
       }
     >
-      <RoundedBox args={[w, h, d]} radius={Math.min(0.05, d / 2.2)} smoothness={3}>
+      <RoundedBox
+        args={[w, h, d]}
+        radius={Math.min(0.05, d / 2.2)}
+        smoothness={3}
+        castShadow={fill > 0.7}
+        receiveShadow
+      >
         <meshStandardMaterial
           color={color}
-          transparent
+          transparent={fill < 1}
           opacity={fill}
-          roughness={0.55}
-          metalness={0}
+          roughness={0.34}
+          metalness={0.04}
+          envMapIntensity={0.7}
           depthWrite={fill > 0.85}
         />
       </RoundedBox>
@@ -323,14 +337,15 @@ export function Ribbon({
     [points],
   );
   return (
-    <mesh>
-      <tubeGeometry args={[curve, 64, radius, 8, false]} />
+    <mesh castShadow receiveShadow>
+      <tubeGeometry args={[curve, 64, radius, 10, false]} />
       <meshStandardMaterial
         color={color}
         transparent={opacity < 1}
         opacity={opacity}
-        roughness={0.45}
-        metalness={0}
+        roughness={0.3}
+        metalness={0.05}
+        envMapIntensity={0.8}
       />
     </mesh>
   );
@@ -380,14 +395,21 @@ export function Lattice({
   }, [cells]);
 
   return (
-    <instancedMesh ref={ref} args={[undefined, undefined, count]} key={count}>
+    <instancedMesh
+      ref={ref}
+      args={[undefined, undefined, count]}
+      key={count}
+      castShadow
+      receiveShadow
+    >
       <boxGeometry args={[size, size, size]} />
       {matte ? (
         <meshBasicMaterial transparent={opacity < 1} opacity={opacity} />
       ) : (
         <meshStandardMaterial
-          roughness={0.45}
-          metalness={0.02}
+          roughness={0.3}
+          metalness={0.06}
+          envMapIntensity={0.8}
           transparent={opacity < 1}
           opacity={opacity}
         />
@@ -543,13 +565,18 @@ export function Tag({
     rose: "text-rose",
     muted: "text-muted",
   };
+  /* Html has no geometry, so a label would be invisible to the camera rig
+     and get cropped — which is exactly what used to happen to long tags
+     near an edge. The anchor below is never drawn; it exists so the fit
+     knows the caption is there, and it is sized from the text so a wide
+     label reserves wide space instead of a point. */
+  const chars = typeof children === "string" ? children.length : 8;
+  const anchorW = Math.min(1.6, 0.06 + chars * 0.032);
+
   return (
     <group position={position}>
-      {/* Html has no geometry, so a label sitting below the diagram would
-          be invisible to the camera rig and get cropped. This anchor is
-          never drawn; it exists so the fit knows the caption is there. */}
-      <mesh visible={false}>
-        <boxGeometry args={[0.02, 0.02, 0.02]} />
+      <mesh visible={false} position={[center ? 0 : anchorW / 2, 0, 0]}>
+        <boxGeometry args={[anchorW, 0.16, 0.02]} />
       </mesh>
     <Html
       center={center}
@@ -780,9 +807,16 @@ export function Bars({
               }}
               position={[0, baseline, 0]}
               scale={[1, 0.001, 1]}
+              castShadow
+              receiveShadow
             >
               <boxGeometry args={[width, height, depth]} />
-              <meshStandardMaterial color={color} roughness={0.42} metalness={0.03} />
+              <meshStandardMaterial
+                color={color}
+                roughness={0.28}
+                metalness={0.06}
+                envMapIntensity={0.85}
+              />
             </mesh>
             {showTags && bar.label ? (
               <Tag position={[0, baseline - 0.24, depth / 2]} tone={tone} size="xs" center>
@@ -882,13 +916,12 @@ export function Panel({
       }
       onPointerOut={onPointerOut}
     >
-      <RoundedBox args={[w, h, 0.07]} radius={0.05} smoothness={3}>
+      <RoundedBox args={[w, h, 0.07]} radius={0.05} smoothness={3} castShadow receiveShadow>
         <meshStandardMaterial
           color={P.surface}
-          roughness={0.5}
-          metalness={0}
-          transparent
-          opacity={0.96}
+          roughness={0.32}
+          metalness={0.04}
+          envMapIntensity={0.9}
         />
       </RoundedBox>
       {/* Header strip: the panel's identity, not a floating annotation. */}

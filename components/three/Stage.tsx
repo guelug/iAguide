@@ -2,6 +2,8 @@
 
 import {
   AdaptiveDpr,
+  Environment,
+  Lightformer,
   OrbitControls,
   PerformanceMonitor,
   Preload,
@@ -18,7 +20,7 @@ import {
   type ReactNode,
 } from "react";
 import { P } from "@/lib/palette";
-import { Box3, MathUtils, Vector3 } from "three";
+import { BackSide, Box3, MathUtils, Vector3 } from "three";
 import type * as THREE from "three";
 
 type ControlsConfig = {
@@ -44,6 +46,13 @@ type Props = {
   controls?: boolean | ControlsConfig;
   /** Max device pixel ratio before the perf monitor claws it back. */
   maxDpr?: number;
+  /**
+   * Cast soft shadows between objects. On by default because a shadow is
+   * the cheapest cue for "this is in front of that"; turn it off for
+   * scenes made entirely of flat translucent panels, where a shadow map
+   * only adds noise.
+   */
+  shadows?: boolean;
   /**
    * Padding around the measured content when the rig frames the scene:
    * 1 = touching the edges, 1.12 = a comfortable margin. Pass `false`
@@ -76,17 +85,84 @@ export function useStillness() {
 }
 
 /**
- * Studio lighting for a white room. Bright and even, with one key light
- * so volumes still read, because a diagram lit from everywhere is flat
- * and a diagram lit from one side is dramatic instead of legible.
+ * A softbox studio, built out of light shapes rather than a downloaded
+ * HDRI so the page stays self-contained.
+ *
+ * The environment is what makes these read as objects instead of coloured
+ * rectangles: a big rectangular key above and in front puts a soft
+ * highlight along every top edge, two side panels separate a form from
+ * the paper behind it, and the enclosing sphere keeps reflections warm
+ * rather than black. It is baked once (`frames={1}`) and costs nothing
+ * per frame after that.
  */
-function DefaultLights() {
+function StudioEnvironment() {
+  return (
+    <Environment resolution={256} frames={1}>
+      <mesh scale={60}>
+        <sphereGeometry args={[1, 24, 24]} />
+        <meshBasicMaterial color={P.paper} side={BackSide} />
+      </mesh>
+      {/* Key: broad, high, slightly in front. */}
+      <Lightformer
+        form="rect"
+        intensity={3.2}
+        color="#ffffff"
+        position={[1.5, 6, 4]}
+        rotation={[-Math.PI / 2.4, 0, 0]}
+        scale={[12, 7, 1]}
+      />
+      {/* Cool fill from the left, warm bounce from the right: the two
+          together are what give a white object a readable silhouette. */}
+      <Lightformer
+        form="rect"
+        intensity={1.1}
+        color={P.tealWash}
+        position={[-7, 1.5, 2]}
+        rotation={[0, Math.PI / 2.6, 0]}
+        scale={[7, 6, 1]}
+      />
+      <Lightformer
+        form="rect"
+        intensity={0.9}
+        color={P.amberWash}
+        position={[7, 0.5, -1]}
+        rotation={[0, -Math.PI / 2.6, 0]}
+        scale={[7, 5, 1]}
+      />
+      {/* Rim from behind, to lift edges off the background. */}
+      <Lightformer
+        form="circle"
+        intensity={1.6}
+        color="#ffffff"
+        position={[-2, 4, -6]}
+        scale={[5, 5, 1]}
+      />
+    </Environment>
+  );
+}
+
+/**
+ * Direct light on top of the environment. Kept low: the studio does most
+ * of the work, and this only has to carve the shadow that tells a reader
+ * which object is in front.
+ */
+function DefaultLights({ shadows }: { shadows: boolean }) {
   return (
     <>
-      <ambientLight intensity={1.35} />
-      <hemisphereLight args={[P.paper, P.sunken, 1.1]} />
-      <directionalLight position={[3.5, 6, 5]} intensity={1.5} color="#ffffff" />
-      <directionalLight position={[-5, 2, -3]} intensity={0.5} color={P.tealWash} />
+      <ambientLight intensity={0.5} />
+      <hemisphereLight args={[P.paper, P.sunken, 0.45]} />
+      <directionalLight
+        position={[4.5, 8, 5.5]}
+        intensity={1.15}
+        color="#ffffff"
+        castShadow={shadows}
+        shadow-mapSize={[1024, 1024]}
+        shadow-bias={-0.0009}
+        shadow-normalBias={0.02}
+      >
+        <orthographicCamera attach="shadow-camera" args={[-9, 9, 9, -9, 0.1, 32]} />
+      </directionalLight>
+      <directionalLight position={[-6, 2, -3]} intensity={0.3} color={P.tealWash} />
     </>
   );
 }
@@ -101,6 +177,7 @@ export function Stage({
   controls = false,
   maxDpr = 2,
   fit = 1.12,
+  shadows = true,
 }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const [onScreen, setOnScreen] = useState(true);
@@ -120,6 +197,7 @@ export function Stage({
 
   const env = useMemo<StageEnv>(() => ({ quality, still }), [quality, still]);
   const ctl = typeof controls === "object" ? controls : {};
+  const castShadows = shadows && quality > 0.7;
 
   return (
     <div
@@ -142,12 +220,18 @@ export function Stage({
           }}
           camera={camera}
           orthographic={orthographic}
+          /* PCFSoft, not drei's <SoftShadows>: that component patches
+             three's shadow chunk with unpackRGBAToDepth, which r185 no
+             longer ships, and every material silently fails to compile. */
+          shadows={castShadows ? "soft" : false}
         >
           {background ? <color attach="background" args={[background]} /> : null}
           {fog ? <fog attach="fog" args={fog} /> : null}
           <StageContext.Provider value={env}>
             <PerfGovernor onChange={setQuality} enabled={!still} />
-            <DefaultLights />
+            <StudioEnvironment />
+            <DefaultLights shadows={castShadows} />
+            {castShadows ? <Floor /> : null}
             {fit !== false && !controls ? <CameraRig fit={fit} /> : null}
             <Suspense fallback={null}>{children}</Suspense>
             {controls ? (
@@ -220,6 +304,64 @@ const _xAxis = new Vector3();
 const _yAxis = new Vector3();
 const _zAxis = new Vector3();
 const _up = new Vector3();
+
+
+/* Scratch for the floor probe, kept apart from the rig's own scratch. */
+const _fbox = new Box3();
+
+/**
+ * A shadow catcher that finds its own height.
+ *
+ * Almost every diagram in the course is composed on a plane facing the
+ * reader, which renders as a flat drawing no matter how good the
+ * materials are. Dropping an invisible floor just under the content and
+ * letting the key light throw a soft shadow onto it is what makes the
+ * same geometry read as objects standing in a room. The plane paints
+ * nothing but the shadow, so the page's paper still shows through.
+ */
+function Floor() {
+  const ref = useRef<THREE.Mesh>(null);
+  const since = useRef(0);
+
+  useFrame((state, dt) => {
+    const mesh = ref.current;
+    if (!mesh) return;
+    since.current += dt;
+    if (since.current < 0.5) return;
+    since.current = 0;
+
+    _fbox.makeEmpty();
+    let found = false;
+    state.scene.traverse((obj) => {
+      if (obj === mesh || obj.userData?.noFit || obj.userData?.noFloor) return;
+      if (!(obj as THREE.Mesh).geometry) return;
+      for (let p = obj.parent; p; p = p.parent) {
+        if (p.userData?.noFit) return;
+      }
+      _fbox.expandByObject(obj);
+      found = true;
+    });
+    if (!found || _fbox.isEmpty()) return;
+
+    const target = _fbox.min.y - 0.05;
+    mesh.position.y = MathUtils.damp(mesh.position.y, target, 5, dt);
+    mesh.position.x = (_fbox.min.x + _fbox.max.x) / 2;
+    mesh.position.z = (_fbox.min.z + _fbox.max.z) / 2;
+  });
+
+  return (
+    <mesh
+      ref={ref}
+      rotation={[-Math.PI / 2, 0, 0]}
+      position={[0, -50, 0]}
+      receiveShadow
+      userData={{ noFit: true }}
+    >
+      <planeGeometry args={[80, 80]} />
+      <shadowMaterial transparent opacity={0.17} color={P.ink} />
+    </mesh>
+  );
+}
 
 /**
  * Measures everything in the scene that is not marked decorative, then

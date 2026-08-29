@@ -145,6 +145,7 @@ export default function Visual() {
           />
         </>
       }
+      note={note}
       height="h-[370px] md:h-[460px]"
     >
       <Stage className="h-full w-full" camera={{ position: [0, 0.35, 6.9], fov: 40 }} background={P.paper} fit={1.12}>
@@ -200,9 +201,6 @@ export default function Visual() {
         </PointerTilt>
 
         <group position={[0, -2.35, 0]}>
-          <Tag position={[0, 0.25, 0]} tone={mode === "output" ? "amber" : mode === "cache" ? "violet" : "teal"} size="xs" center>
-            {note}
-          </Tag>
           <Tag position={[0, -0.06, 0]} tone="muted" size="xs" center>
             {t.assume}
           </Tag>
