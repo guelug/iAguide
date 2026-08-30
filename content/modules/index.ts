@@ -484,6 +484,7 @@ export const VISUALS_EXTRA: Record<
   "openclaw-workspace:2": () => import("./openclaw-workspace/Visual2"),
   "openclaw-workspace:3": () => import("./openclaw-workspace/Visual3"),
   "openrouter-presets:2": () => import("./openrouter-presets/Visual2"),
+  "openrouter-presets:3": () => import("./openrouter-presets/Visual3"),
   "orientation:2": () => import("./orientation/Visual2"),
   "orientation:3": () => import("./orientation/Visual3"),
   "orientation:4": () => import("./orientation/Visual4"),
