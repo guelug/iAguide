@@ -298,7 +298,7 @@ export default function Visual() {
       note={
         <>
           {note}
-          <span className="mt-2 block">
+          <div className="mt-2">
             <Readout
               items={[
                 {
@@ -309,7 +309,7 @@ export default function Visual() {
                 { label: t.auto, value: t.noCount, tone: "var(--rose)" },
               ]}
             />
-          </span>
+          </div>
         </>
       }
       height="h-[380px] md:h-[460px]"

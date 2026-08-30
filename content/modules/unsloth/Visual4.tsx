@@ -292,7 +292,7 @@ export default function Visual() {
       note={
         <>
           {note}
-          <span className="mt-2 block">
+          <div className="mt-2">
             <Readout
               items={[
                 {
@@ -309,7 +309,7 @@ export default function Visual() {
                 { label: t.seed, value: "3407", tone: "var(--ink-soft)" },
               ]}
             />
-          </span>
+          </div>
         </>
       }
       height="h-[400px] md:h-[500px]"

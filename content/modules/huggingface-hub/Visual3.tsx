@@ -195,14 +195,14 @@ export default function Visual() {
       note={
         <>
           <strong className="text-ink">{t[role]}</strong> — {note}
-          <span className="mt-2 block">
+          <div className="mt-2">
             <Readout
               items={[
                 { label: t.opened, value: `${nOpen} / ${DOORS.length}`, tone: roleColor },
                 { label: "", value: t.oneEach, tone: "var(--muted)" },
               ]}
             />
-          </span>
+          </div>
         </>
       }
       height="h-[400px] md:h-[500px]"

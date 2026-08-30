@@ -69,6 +69,8 @@ Name the three built-in profile ids and which is isolated. Write which profile n
 
 ## Compare, without mixing knobs
 
+<VisualSlot id="openclaw-browser:3" />
+
 Hermes browser automation, when present, is a Hermes tool inside `AIAgent` (Nous Research, *Agent Loop Internals*, n.d., https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop). OpenClaw browser is a Gateway-owned loopback control service plus a bundled plugin. Do not paste a Playwright launch snippet into `browser.profiles` and call it official. Cite *Browser* for profiles, SSRF, and node proxy.
 
 CDP startup failure and navigation SSRF block are different classes. If `start` fails, troubleshoot CDP readiness. If `start` and `tabs` succeed but `open` fails, the control plane is up and the failure is navigation policy (OpenClaw, *Browser*, n.d.).
