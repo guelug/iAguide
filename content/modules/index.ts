@@ -460,6 +460,7 @@ export const VISUALS_EXTRA: Record<
   "openclaw-browser:2": () => import("./openclaw-browser/Visual2"),
   "openclaw-browser:3": () => import("./openclaw-browser/Visual3"),
   "openclaw-compaction:2": () => import("./openclaw-compaction/Visual2"),
+  "openclaw-compaction:3": () => import("./openclaw-compaction/Visual3"),
   "openclaw-cron:2": () => import("./openclaw-cron/Visual2"),
   "openclaw-cron:3": () => import("./openclaw-cron/Visual3"),
   "openclaw-gateway:2": () => import("./openclaw-gateway/Visual2"),
