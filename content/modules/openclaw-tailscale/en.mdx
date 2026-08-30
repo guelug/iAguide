@@ -109,6 +109,8 @@ Write the three tailscale.mode values and the default. Write which mode requires
 
 ## Compare, without mixing knobs
 
+<VisualSlot id="openclaw-tailscale:3" />
+
 <VisualSlot id="openclaw-tailscale:2" />
 
 Hermes remote access, when documented, is a different gateway (Nous Research, *Gateway internals*, n.d., https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals). OpenClaw managed Serve holds a **foreground Tailscale claim**. Gateway startup succeeds only after the claim is active, and stopping or losing the Gateway releases it automatically. Do not paste `tailscale serve` flags into `gateway.auth.token`. Cite *Tailscale* for modes. Cite *Authentication* for handshake modes (OpenClaw, n.d., https://docs.openclaw.ai/gateway/authentication).

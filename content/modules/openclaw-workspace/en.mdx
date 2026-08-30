@@ -129,6 +129,8 @@ To move the workspace to a new machine: clone the private repo to the desired pa
 
 ## Daily notes versus MEMORY.md
 
+<VisualSlot id="openclaw-workspace:3" />
+
 `memory/YYYY-MM-DD.md` is the daily log. Keep detailed logs there so memory tools can retrieve them on demand without injecting them into every prompt. Keep `MEMORY.md` as curated long-term memory: durable non-profile facts, decisions, and short summaries. Only load `MEMORY.md` in the main, private session (not shared or group contexts) (OpenClaw, *Agent workspace*, n.d.; *Memory*, n.d., https://docs.openclaw.ai/concepts/memory).
 
 Before compaction, OpenClaw can run a silent memory flush turn to store durable notes to disk. That flush is why the workspace files matter to the compaction lesson: if you summarize first and crash, the durable facts in the middle of the thread are gone unless they already lived in `MEMORY.md` or today's daily file.

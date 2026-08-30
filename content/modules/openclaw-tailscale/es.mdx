@@ -109,6 +109,8 @@ Escribe los tres valores de tailscale.mode y el default. Escribe que modo exige 
 
 ## Comparar, sin mezclar knobs
 
+<VisualSlot id="openclaw-tailscale:3" />
+
 El acceso remoto de Hermes, cuando esta documentado, es otro gateway (Nous Research, *Gateway internals*, s. f., https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals). El Serve gestionado de OpenClaw sostiene un **claim Tailscale en foreground**. El startup del Gateway solo tiene exito tras el claim activo, y parar o perder el Gateway lo libera automaticamente. No peguen flags de `tailscale serve` en `gateway.auth.token`. Citen *Tailscale* para modos. Citen *Authentication* para modos de handshake (OpenClaw, s. f., https://docs.openclaw.ai/gateway/authentication).
 
 Serve/Funnel de Tailscale exige el CLI `tailscale` instalado y logueado. Serve exige HTTPS habilitado para el tailnet. Funnel exige Tailscale v1.38.3+, MagicDNS, HTTPS y un atributo funnel node. Funnel solo soporta puertos `443`, `8443` y `10000` sobre TLS. Funnel en macOS exige la variante open-source de la app Tailscale.
