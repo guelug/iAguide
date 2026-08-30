@@ -120,6 +120,8 @@ Cron jobs get a fresh session per run. Isolated automations use `cron:<jobId>` k
 
 ## Session tools and visibility
 
+<VisualSlot id="openclaw-sessions:3" />
+
 The agent-facing session tools (`sessions_list`, `sessions_history`, `sessions_send`, `sessions_spawn`) honor `tools.sessions.visibility`. Default `tree` means current session plus spawned subagents; when the caller is the canonical main session, it includes every same-agent session for list, history, search, send, and status. `self` is only the current session key. `agent` is any session belonging to the current agent id (can include other users if you run per-sender sessions under the same agent id). `all` is any session; cross-agent targeting still requires `tools.agentToAgent` (OpenClaw, *Tools and custom providers*, n.d.).
 
 `self` remains strict for main. Incognito denial remains absolute. When not `all`, `sessions_list` includes a compact `visibility` field describing the effective mode and a warning that some sessions may be omitted.

@@ -117,6 +117,8 @@ Los cron jobs reciben una sesion nueva por run. Las automatizaciones aisladas us
 
 ## Session tools y visibilidad
 
+<VisualSlot id="openclaw-sessions:3" />
+
 Las session tools de cara al agente (`sessions_list`, `sessions_history`, `sessions_send`, `sessions_spawn`) honran `tools.sessions.visibility`. El default `tree` significa sesion actual mas subagentes spawned; cuando el caller es la sesion main canonica, incluye cada sesion del mismo agente para list, history, search, send y status. `self` es solo la session key actual. `agent` es cualquier sesion que pertenece al agent id actual (puede incluir otros usuarios si corres sesiones per-sender bajo el mismo agent id). `all` es cualquier sesion; el targeting cross-agent sigue exigiendo `tools.agentToAgent` (OpenClaw, *Tools and custom providers*, s. f.).
 
 `self` permanece estricto para main. La denegacion incognito permanece absoluta. Cuando no es `all`, `sessions_list` incluye un campo compacto `visibility` que describe el modo efectivo y un aviso de que algunas sesiones pueden omitirse.
