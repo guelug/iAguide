@@ -110,11 +110,12 @@ const COPY = {
 function Req({
   position,
   met,
-  label,
+  n,
 }: {
   position: V3;
   met: boolean;
-  label: string;
+  /** Index printed on the bolt; the name lives in the caption. */
+  n: number;
 }) {
   const ref = useRef<Group>(null);
   useFrame((_, dt) => {
@@ -140,8 +141,10 @@ function Req({
         </mesh>
       </group>
       {!met ? <Halo position={[0, 0.15, 0]} radius={0.42} color={P.rose} opacity={0.75} spin={0.5} /> : null}
-      <Tag position={[0.55, 0.16, 0]} tone={met ? "ink" : "rose"} size="xs">
-        {label}
+      {/* A number, not a sentence: six requirement names stacked in the
+          scene collided at every viewport wider than a phone. */}
+      <Tag position={[0, 0.42, 0]} tone={met ? "ink" : "rose"} size="xs" center>
+        {n}
       </Tag>
     </group>
   );
@@ -200,6 +203,18 @@ export default function Visual() {
       note={
         <>
           {note}
+          {required.length ? (
+            <ol className="mt-2 grid gap-x-6 gap-y-0.5 sm:grid-cols-2">
+              {required.map((id, i) => (
+                <li
+                  key={id}
+                  className={`font-mono text-[0.72rem] ${metOf(id) ? "text-ink-soft" : "text-rose"}`}
+                >
+                  {i + 1}. {t.reqs[id as keyof typeof t.reqs]}
+                </li>
+              ))}
+            </ol>
+          ) : null}
           <div className="mt-2">
             <Readout
               items={[
@@ -260,12 +275,7 @@ export default function Visual() {
 
         {/* The requirements this mode actually has. */}
         {required.map((id, i) => (
-          <Req
-            key={id}
-            position={[-4.2, 0, -2.8 + i * 0.85]}
-            met={metOf(id)}
-            label={t.reqs[id as keyof typeof t.reqs]}
-          />
+          <Req key={id} position={[-4.2, 0, -2.6 + i * 1.05]} met={metOf(id)} n={i + 1} />
         ))}
         {required.length === 0 ? (
           <Tag position={[-3.4, 0.3, -1.4]} tone="violet" size="xs">
@@ -315,7 +325,7 @@ export default function Visual() {
         {required.map((id, i) => (
           <AxisLine
             key={id}
-            from={[-3.6, 0.2, -2.8 + i * 0.85]}
+            from={[-3.6, 0.2, -2.6 + i * 1.05]}
             to={[2.3, 0.2, -0.6]}
             overrun={0}
             color={metOf(id) ? P.teal : P.rose}

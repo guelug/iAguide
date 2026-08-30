@@ -50,6 +50,53 @@ function fitCamera(cam, box, aspect, fit, dirRaw) {
   return { center, dist };
 }
 
+/**
+ * Projected pixel position of a world point under the fitted camera.
+ * Labels are screen-space, so their collisions have to be judged in
+ * pixels rather than world units — two anchors a unit apart are far
+ * apart in a close scene and touching in a wide one.
+ */
+function toPixels(cam, p, width, height) {
+  const v = new Vector3(...p).project(cam);
+  return { x: ((v.x + 1) / 2) * width, y: ((1 - v.y) / 2) * height };
+}
+
+/**
+ * Do any two labels overlap once drawn?
+ *
+ * This is the check the harness figure needed and did not have: six
+ * fixed-size names around a ring collided the moment the rig pulled the
+ * camera back. Width is estimated from the text at the mono size the Tag
+ * component uses, which is close enough to catch a real pile-up.
+ */
+function labelCollisions(cam, labels, width, height) {
+  const CH = 5.2; // px per character at the 0.56rem mono size
+  const H = 15; // px line box, including the chip padding
+  const rects = labels.map((l) => {
+    const p = toPixels(cam, l.at, width, height);
+    const w = l.text.length * CH + 12;
+    return {
+      text: l.text,
+      l: l.center === false ? p.x : p.x - w / 2,
+      r: l.center === false ? p.x + w : p.x + w / 2,
+      t: p.y - H / 2,
+      b: p.y + H / 2,
+    };
+  });
+
+  const hits = [];
+  for (let i = 0; i < rects.length; i++) {
+    for (let j = i + 1; j < rects.length; j++) {
+      const a = rects[i];
+      const b = rects[j];
+      const ox = Math.min(a.r, b.r) - Math.max(a.l, b.l);
+      const oy = Math.min(a.b, b.b) - Math.max(a.t, b.t);
+      if (ox > 2 && oy > 2) hits.push(`${a.text}|${b.text}`);
+    }
+  }
+  return hits;
+}
+
 /** Worst-case NDC magnitude across the box's eight corners. */
 function worstNdc(cam, box) {
   let worst = 0;
@@ -86,6 +133,47 @@ const SCENES = [
   { name: "memory:3 budget", fov: 38, dir: [3.6, 2.4, 5.4], min: [-2.0, -2.7, -1.0], max: [3.6, 2.4, 1.0] },
 ];
 
+/**
+ * Scenes whose labels are dense enough to be worth checking. Anchors are
+ * the world positions the visual places its Tags at; keep them in step
+ * with the component by hand, the same bargain the boxes above make.
+ */
+const LABELLED = [
+  {
+    name: "the-harness ring",
+    fov: 40,
+    ortho: true,
+    dir: [9, 7.4, 9],
+    fit: 1.16,
+    min: [-4.7, 0, -4.7],
+    max: [4.7, 2.6, 4.7],
+    labels: Array.from({ length: 6 }, (_, i) => {
+      const a = Math.PI / 2 + (i / 6) * Math.PI * 2;
+      const R = 3.15 + 1.5;
+      return {
+        text: ["usuario", "montaje", "prefill", "decode", "actuar", "respuesta"][i],
+        at: [Math.cos(a) * R, 0.95, Math.sin(a) * R],
+        center: true,
+      };
+    }),
+  },
+  {
+    // The requirement bolts carry a numeral each; the names moved to the
+    // caption precisely because six of them collided here.
+    name: "tailscale requirements",
+    fov: 40,
+    dir: [9, 7.4, 9],
+    fit: 1.16,
+    min: [-5.2, 0, -3.6],
+    max: [5.2, 2.4, 3.6],
+    labels: [1, 2, 3, 4, 5, 6].map((n, i) => ({
+      text: String(n),
+      at: [-4.2, 0.42, -2.6 + i * 1.05],
+      center: true,
+    })),
+  },
+];
+
 /** Canvas shapes the figures are actually rendered at. */
 const ASPECTS = [
   ["phone", 340 / 360],
@@ -111,9 +199,31 @@ for (const scene of SCENES) {
   console.log(`${scene.name.padEnd(24)}  ${row.join("   ")}`);
 }
 
+/* Label crowding, for the scenes that carry a lot of names. */
+let collisions = 0;
+for (const scene of LABELLED) {
+  const box = new Box3(new Vector3(...scene.min), new Vector3(...scene.max));
+  for (const [label, aspect] of ASPECTS) {
+    const height = 460;
+    const width = Math.round(height * aspect);
+    const cam = new PerspectiveCamera(scene.fov, aspect, 0.1, 200);
+    fitCamera(cam, box, aspect, scene.fit ?? FIT, new Vector3(...scene.dir));
+    const hits = labelCollisions(cam, scene.labels, width, height);
+    if (hits.length) {
+      collisions += hits.length;
+      console.log(`  ${scene.name} @ ${label}: ${hits.length} overlapping — ${hits.slice(0, 3).join("  ")}`);
+    }
+  }
+}
+
 console.log(
   failures === 0
     ? "\nall scenes fit at every aspect (worst NDC <= 1.00)"
     : `\n${failures} scene/aspect pairs overflow the frame`,
 );
-process.exit(failures === 0 ? 0 : 1);
+console.log(
+  collisions === 0
+    ? "no labels overlap in the scenes that were checked"
+    : `${collisions} label pairs overlap`,
+);
+process.exit(failures === 0 && collisions === 0 ? 0 : 1);
