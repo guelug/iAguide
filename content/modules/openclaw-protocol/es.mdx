@@ -124,6 +124,8 @@ Los clientes backend same-process de confianza (client.id gateway-client, client
 
 ## Comparar, sin mezclar mandos
 
+<VisualSlot id="openclaw-protocol:3" />
+
 Hermes no tiene un plano de control WebSocket publico de esta forma. Los adapters emiten eventos in-process dentro de GatewayRunner (Nous Research, *Gateway Internals*, s. f.). El ACP de Hermes es JSON-RPC stdio envolviendo AIAgent (Nous Research, *ACP Internals*, s. f.). El protocolo OpenClaw es el contrato de cada cliente y nodo en el socket del Gateway.
 
 No peguen MessageEvent de Hermes en un cliente WS OpenClaw. No peguen connect.challenge de OpenClaw en el stdout de hermes acp. Citen la pagina que implementan.

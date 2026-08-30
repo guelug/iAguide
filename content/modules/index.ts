@@ -468,6 +468,7 @@ export const VISUALS_EXTRA: Record<
   "openclaw-pairing:2": () => import("./openclaw-pairing/Visual2"),
   "openclaw-pairing:3": () => import("./openclaw-pairing/Visual3"),
   "openclaw-protocol:2": () => import("./openclaw-protocol/Visual2"),
+  "openclaw-protocol:3": () => import("./openclaw-protocol/Visual3"),
   "openclaw-queue:2": () => import("./openclaw-queue/Visual2"),
   "openclaw-queue:3": () => import("./openclaw-queue/Visual3"),
   "openclaw-reset:2": () => import("./openclaw-reset/Visual2"),
