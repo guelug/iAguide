@@ -33,6 +33,8 @@ Los bordes de bloque no tienen por qué alinearse con los ranks físicos. En la 
 
 ## Caché entre etapas (Figura 3 del paper)
 
+<VisualSlot id="attnres-optimize:4" />
+
 Cada rank **físico** corre varias etapas **virtuales** en sucesión. Los bloques recibidos en la etapa virtual 1 siguen en la memoria de ese rank cuando arranca la etapa virtual 2. No los envíes otra vez.
 
 - Etapa virtual `v = 1`: aún no hay caché. Acumula como siempre (la suma triangular sobre `P` saltos físicos).

@@ -31,6 +31,8 @@ Block boundaries need not line up with physical ranks. In the paper's Figure 3, 
 
 ## Cross-stage caching (paper Figure 3)
 
+<VisualSlot id="attnres-optimize:4" />
+
 Each **physical** rank runs several **virtual** stages in succession. Blocks received in virtual stage 1 are still in that rank's memory when virtual stage 2 starts. Do not send them again.
 
 - Virtual stage `v = 1`: no cache yet. Accumulate as usual (the triangular sum over `P` physical hops).

@@ -409,6 +409,7 @@ export const VISUALS_EXTRA: Record<
   "comfyui-first-workflow:3": () => import("./comfyui-first-workflow/Visual3"),
   "attnres-optimize:2": () => import("./attnres-optimize/Visual2"),
   "attnres-optimize:3": () => import("./attnres-optimize/Visual3"),
+  "attnres-optimize:4": () => import("./attnres-optimize/Visual4"),
   "game-agents:2": () => import("./game-agents/Visual2"),
   "game-agents:3": () => import("./game-agents/Visual3"),
   "agent-loop:2": () => import("./agent-loop/Visual2"),
@@ -474,6 +475,7 @@ export const VISUALS_EXTRA: Record<
   "openclaw-reset:2": () => import("./openclaw-reset/Visual2"),
   "openclaw-reset:3": () => import("./openclaw-reset/Visual3"),
   "openclaw-runtime:2": () => import("./openclaw-runtime/Visual2"),
+  "openclaw-runtime:3": () => import("./openclaw-runtime/Visual3"),
   "openclaw-sandbox:2": () => import("./openclaw-sandbox/Visual2"),
   "openclaw-sandbox:3": () => import("./openclaw-sandbox/Visual3"),
   "openclaw-sessions:2": () => import("./openclaw-sessions/Visual2"),
@@ -507,6 +509,7 @@ export const VISUALS_EXTRA: Record<
   "tokenization:2": () => import("./tokenization/Visual2"),
   "tools-runtime:2": () => import("./tools-runtime/Visual2"),
   "unsloth-qwen38:2": () => import("./unsloth-qwen38/Visual2"),
+  "unsloth-qwen38:3": () => import("./unsloth-qwen38/Visual3"),
   "unsloth-qwen38-run:2": () => import("./unsloth-qwen38-run/Visual2"),
   "unsloth-qwen38-run:3": () => import("./unsloth-qwen38-run/Visual3"),
 };
