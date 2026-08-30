@@ -1,11 +1,11 @@
 ## Pairing son dos puertas
 
-La fuente primaria del overview es [*Pairing*](https://docs.openclaw.ai/channels/pairing) de OpenClaw (s. f.). La aprobacion de capacidades de nodo continua en [*Node pairing*](https://docs.openclaw.ai/gateway/pairing) (OpenClaw, s. f.). Pairing es el paso explicito de aprobacion de acceso de OpenClaw. Se usa en dos sitios:
+La fuente primaria del overview es [*Pairing*](https://docs.openclaw.ai/channels/pairing) de OpenClaw (s. f.). La aprobación de capacidades de nodo continua en [*Node pairing*](https://docs.openclaw.ai/gateway/pairing) (OpenClaw, s. f.). Pairing es el paso explícito de aprobación de acceso de OpenClaw. Se usa en dos sitios:
 
 1. **Pairing DM** — quien puede hablarle al bot.
 2. **Pairing de nodo** — que dispositivos pueden unirse a la red del gateway.
 
-La leccion generica [gateway](/es/m/gateway) permanece agnostica del harness. Esta es los dos stores de pairing de OpenClaw.
+La lección genérica [gateway](/es/m/gateway) permanece agnóstica del harness. Esta es los dos stores de pairing de OpenClaw.
 
 El QR de login de WhatsApp vincula una cuenta WhatsApp a OpenClaw. Las peticiones de acceso DM aprueban personas que escriben a esa cuenta. Son flujos separados (OpenClaw, *Pairing*, s. f.).
 
@@ -13,58 +13,58 @@ El QR de login de WhatsApp vincula una cuenta WhatsApp a OpenClaw. Las peticione
 
 ## Pairing DM
 
-Cuando un canal esta configurado con DM policy `pairing`, los senders desconocidos reciben un codigo corto y su mensaje **no se procesa** hasta que aprueben.
+Cuando un canal está configurado con DM policy `pairing`, los senders desconocidos reciben un código corto y su mensaje **no se procesa** hasta que aprueben.
 
-Codigos de pairing:
+Códigos de pairing:
 
 - 8 caracteres, mayusculas, sin chars ambiguos (`0O1I`).
-- Caducan a **1 hora**. El bot solo envia el mensaje de pairing cuando se crea una peticion nueva (aprox. una vez por hora por sender).
-- Las peticiones DM pendientes estan capadas a **3 por cuenta de canal**; las adicionales se ignoran hasta que una caduca o se aprueba.
+- Caducan a **1 hora**. El bot solo envía el mensaje de pairing cuando se crea una petición nueva (aprox. una vez por hora por sender).
+- Las peticiones DM pendientes están capadas a **3 por cuenta de canal**; las adicionales se ignoran hasta que una caduca o se aprueba.
 
-Aprueben desde Control UI: **Settings -> Channels -> DM access requests**. La aprobacion otorga acceso de mensaje directo solo. No otorga acceso de grupo. Dismiss no es un bloqueo permanente; el sender puede pedir otra vez.
+Aprueben desde Control UI: **Settings -> Channels -> DM access requests**. La aprobación otorga acceso de mensaje directo solo. No otorga acceso de grupo. Dismiss no es un bloqueo permanente; el sender puede pedir otra vez.
 
 ```bash
 openclaw pairing list telegram
 openclaw pairing approve telegram <CODE>
 ```
 
-Anadan `--notify` para avisar al requester en el mismo canal. Canales multi-cuenta toman `--account`. A diferencia del checkbox del Control UI, el CLI auto-bootstrappea `commands.ownerAllowFrom` cuando no hay command owner. Tras existir un owner, las aprobaciones posteriores solo otorgan acceso DM; no anaden mas owners (OpenClaw, *Pairing*, s. f.).
+Añadan `--notify` para avisar al requester en el mismo canal. Canales multi-cuenta toman `--account`. A diferencia del checkbox del Control UI, el CLI auto-bootstrappea `commands.ownerAllowFrom` cuando no hay command owner. Tras existir un owner, las aprobaciones posteriores solo otorgan acceso DM; no añaden más owners (OpenClaw, *Pairing*, s. f.).
 
-El estado vive en `~/.openclaw/state/openclaw.sqlite`: peticiones pendientes en `channel_pairing_requests`, senders aprobados en `channel_pairing_allow_entries`. Cada fila se clavea por canal y cuenta. El runtime lee solo filas sqlite canonicas; no fusiona archivos legacy. Gateways viejos escribian JSON de pairing bajo `~/.openclaw/credentials/`; el startup y `openclaw doctor --fix` importan esos archivos.
+El estado vive en `~/.openclaw/state/openclaw.sqlite`: peticiones pendientes en `channel_pairing_requests`, senders aprobados en `channel_pairing_allow_entries`. Cada fila se clavea por canal y cuenta. El runtime lee solo filas sqlite canónicas; no fusiona archivos legacy. Gateways viejos escribian JSON de pairing bajo `~/.openclaw/credentials/`; el startup y `openclaw doctor --fix` importan esos archivos.
 
 <Callout>
-El store de allowlist de pairing es para acceso DM. La autorizacion de grupo es separada. Aprobar un codigo DM no permite automaticamente a ese sender correr commands de grupo. El bootstrap de first-owner es config separada en `commands.ownerAllowFrom` (OpenClaw, *Pairing*, s. f.).
+El store de allowlist de pairing es para acceso DM. La autorización de grupo es separada. Aprobar un código DM no permite automáticamente a ese sender correr commands de grupo. El bootstrap de first-owner es config separada en `commands.ownerAllowFrom` (OpenClaw, *Pairing*, s. f.).
 </Callout>
 
-`dmPolicy: "open"` es publico solo cuando el allowlist DM efectivo incluye `"*"`. Si el estado existente contiene `open` con entradas concretas `allowFrom`, el runtime sigue admitiendo solo esos senders, y las aprobaciones del store de pairing no ensanchan el acceso `open`.
+`dmPolicy: "open"` es público solo cuando el allowlist DM efectivo incluye `"*"`. Si el estado existente contiene `open` con entradas concretas `allowFrom`, el runtime sigue admitiendo solo esos senders, y las aprobaciones del store de pairing no ensanchan el acceso `open`.
 
 Los grupos reusables de sender usan `accessGroups` top-level con `type: "message.senders"`, referenciados como `accessGroup:<name>` desde allowlists de canal. Citen *Access groups* (OpenClaw, s. f., https://docs.openclaw.ai/channels/access-groups).
 
 ## Pairing de dispositivo y connect.challenge
 
-Los nodos se conectan como dispositivos con `role: node`. Todos los clientes WS incluyen identidad de dispositivo en `connect`. Los device IDs nuevos exigen aprobacion de pairing. El Gateway emite un device token para connects posteriores. Todos los connects deben firmar el nonce `connect.challenge`. El payload de firma `v3` tambien ata `platform` y `deviceFamily`. El gateway pinea metadatos emparejados en reconnect y exige repair pairing si cambian (OpenClaw, *Gateway architecture*, s. f., https://docs.openclaw.ai/concepts/architecture).
+Los nodos se conectan como dispositivos con `role: node`. Todos los clientes WS incluyen identidad de dispositivo en `connect`. Los device IDs nuevos exigen aprobación de pairing. El Gateway emite un device token para connects posteriores. Todos los connects deben firmar el nonce `connect.challenge`. El payload de firma `v3` también ata `platform` y `deviceFamily`. El gateway pinea metadatos emparejados en reconnect y exige repair pairing si cambian (OpenClaw, *Gateway architecture*, s. f., https://docs.openclaw.ai/concepts/architecture).
 
-Los connects locales directos a loopback pueden auto-aprobarse. Los connects de tailnet y LAN, incluidos binds de tailnet same-host, siguen exigiendo aprobacion explicita de pairing. La auth del Gateway aplica a todas las conexiones, locales o remotas.
+Los connects locales directos a loopback pueden auto-aprobarse. Los connects de tailnet y LAN, incluidos binds de tailnet same-host, siguen exigiendo aprobación explícita de pairing. La auth del Gateway aplica a todas las conexiones, locales o remotas.
 
 ## Setup codes y QR
 
 Pair desde Control UI con `operator.admin`: Settings -> Devices -> Pair device. Conserven **Full access (recommended)**, o elijan **Limited access** para omitir controles administrativos del Gateway. Creen setup code, luego escaneen o peguen en la app OpenClaw Settings -> Gateway.
 
-Las apps oficiales iOS y Android se aprueban automaticamente cuando sus metadatos de setup-code coinciden. Si Pending approval muestra una peticion (cliente no oficial o metadatos mismatch), revisen role y scopes antes de aprobar.
+Las apps oficiales iOS y Android se aprueban automáticamente cuando sus metadatos de setup-code coinciden. Si Pending approval muestra una petición (cliente no oficial o metadatos mismatch), revisen role y scopes antes de aprobar.
 
 El setup code es un payload JSON en base64 que contiene:
 
 - `url`: URL WebSocket del Gateway (`ws://` o `wss://`)
-- `urls`: cuando hay, rutas LAN/Tailnet ordenadas que la app movil puede probar
+- `urls`: cuando hay, rutas LAN/Tailnet ordenadas que la app móvil puede probar
 - `bootstrapToken`: token bootstrap de un solo uso; el Gateway lo caduca a **10 minutos**
 
-Traten el setup code como un password mientras es valido. Corran `/pair cleanup` para invalidar setup codes no usados una vez termina el pairing (OpenClaw, *Pairing*, s. f.).
+Traten el setup code como un password mientras es válido. Corran `/pair cleanup` para invalidar setup codes no usados una vez termina el pairing (OpenClaw, *Pairing*, s. f.).
 
-Un setup `wss://` seguro (o loopback same-host) defaulta a `node` mas acceso `operator` nativo-movil completo. El token `node` entregado se queda `scopes: []`. El token `operator` default incluye `operator.admin`, `operator.approvals`, `operator.read`, `operator.talk.secrets` y `operator.write`. Limited access del Control UI y `openclaw qr --limited` omiten `operator.admin` y conservan los otros scopes de operador.
+Un setup `wss://` seguro (o loopback same-host) defaulta a `node` más acceso `operator` nativo-móvil completo. El token `node` entregado se queda `scopes: []`. El token `operator` default incluye `operator.admin`, `operator.approvals`, `operator.read`, `operator.talk.secrets` y `operator.write`. Limited access del Control UI y `openclaw qr --limited` omiten `operator.admin` y conservan los otros scopes de operador.
 
-El setup plaintext LAN `ws://` usa automaticamente el perfil limited. Las rutas plaintext no-loopback reciben acceso limited. Direcciones CGNAT de tailnet, nombres `.ts.net` y hosts publicos siguen fail-closed antes de emitir QR/setup-code. OpenClaw anuncia URLs de setup Tailscale solo cuando posee la ruta via `gateway.tailscale.mode=serve|funnel`.
+El setup plaintext LAN `ws://` usa automáticamente el perfil limited. Las rutas plaintext no-loopback reciben acceso limited. Direcciones CGNAT de tailnet, nombres `.ts.net` y hosts públicos siguen fail-closed antes de emitir QR/setup-code. OpenClaw anuncia URLs de setup Tailscale solo cuando posee la ruta vía `gateway.tailscale.mode=serve|funnel`.
 
-Via Telegram con el plugin `device-pair`: mensaje `/pair`, reciben instruccion mas un mensaje separado de setup code, luego `/pair qr` para escanear.
+Vía Telegram con el plugin `device-pair`: mensaje `/pair`, reciben instrucción más un mensaje separado de setup code, luego `/pair qr` para escanear.
 
 One-paste de nodo desde Control UI Devices: copien `openclaw node run --pair "oc-pair://<setup-code>"`. El link nunca pre-aprueba `system.run` ni folder sync (OpenClaw, *Node pairing*, s. f.).
 
@@ -74,95 +74,95 @@ openclaw devices approve <requestId>
 openclaw devices reject <requestId>
 ```
 
-Si el mismo dispositivo reintenta con detalles de auth distintos (role, scopes, clave publica), la peticion pendiente previa se sustituye y se crea un `requestId` nuevo. Un dispositivo ya emparejado no obtiene acceso mas amplio en silencio; se crea una peticion pending de upgrade nueva.
+Si el mismo dispositivo reintenta con detalles de auth distintos (role, scopes, clave publica), la petición pendiente previa se sustituye y se crea un `requestId` nuevo. Un dispositivo ya emparejado no obtiene acceso más amplio en silencio; se crea una petición pending de upgrade nueva.
 
 ## Commands de nodo tras 2026.3.31
 
-A partir de `2026.3.31`, los commands de nodo estan deshabilitados hasta que se aprueba el **pairing de nodo**. El pairing de dispositivo solo ya no basta para exponer los commands declarados. Los commands en cola antes de la aprobacion se descartan, no se aplazan (OpenClaw, *Node pairing*, s. f.).
+A partir de `2026.3.31`, los commands de nodo están deshabilitados hasta que se aprueba el **pairing de nodo**. El pairing de dispositivo solo ya no basta para exponer los commands declarados. Los commands en cola antes de la aprobación se descartan, no se aplazan (OpenClaw, *Node pairing*, s. f.).
 
-Las peticiones pendientes de capacidad de nodo caducan 5 minutos despues del ultimo reintento del nodo. Un nodo que sigue reconectando mantiene su unica peticion pendiente viva en vez de generar un prompt fresco por intento.
+Las peticiones pendientes de capacidad de nodo caducan 5 minutos después del último reintento del nodo. Un nodo que sigue reconectando mantiene su única petición pendiente viva en vez de generar un prompt fresco por intento.
 
 `node.pair.*` (CLI: `openclaw nodes pending/approve/reject/remove/rename`) gestiona la superficie de commands/caps aprobada en los mismos records de dispositivo emparejado. No hay un store separado de pairing de nodos. El store anterior `nodes/paired.json` se retiro del camino connect en enero 2026.
 
-Los commands vivos de nodo vienen de lo que el nodo declara en connect, filtrados por `gateway.nodes.commands.allow` y `deny`. La politica per-nodo de `system.run` allow y ask vive en el nodo en `exec.approvals.node.*`, no en el record de pairing.
+Los commands vivos de nodo vienen de lo que el nodo declara en connect, filtrados por `gateway.nodes.commands.allow` y `deny`. La política per-nodo de `system.run` allow y ask vive en el nodo en `exec.approvals.node.*`, no en el record de pairing.
 
-**Caso.** Un nodo headless esta emparejado como dispositivo. Los commands de camera siguen fallando hasta que `openclaw nodes approve` completa el pairing de nodo. Los invokes en cola de antes de la aprobacion se fueron (OpenClaw, *Node pairing*, s. f.).
+**Caso.** Un nodo headless está emparejado como dispositivo. Los commands de camera siguen fallando hasta que `openclaw nodes approve` completa el pairing de nodo. Los invokes en cola de antes de la aprobación se fueron (OpenClaw, *Node pairing*, s. f.).
 
 <TryThis>
-Nombra las dos puertas de pairing. Escribe longitud del codigo, regla de charset y TTL del codigo DM. Escribe el TTL del bootstrap token. Escribe la regla 2026.3.31 de commands de nodo. Nombra la ruta sqlite del estado de pairing.
+Nombra las dos puertas de pairing. Escribe longitud del código, regla de charset y TTL del código DM. Escribe el TTL del bootstrap token. Escribe la regla 2026.3.31 de commands de nodo. Nombra la ruta sqlite del estado de pairing.
 </TryThis>
 
 ## Comparar, sin mezclar knobs
 
 <VisualSlot id="openclaw-pairing:3" />
 
-El pairing del gateway de Hermes, cuando existe, es otro producto (Nous Research, *Gateway internals*, s. f., https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals). El pairing de OpenClaw son filas sqlite mas un `connect.challenge` firmado. No peguen un token de pairing de Hermes en `channel_pairing_allow_entries`. Citen *Pairing* para codigos DM. Citen *Node pairing* para `node.pair.*`. Citen *Gateway protocol* para el campo challenge (OpenClaw, s. f., https://docs.openclaw.ai/gateway/protocol).
+El pairing del gateway de Hermes, cuando existe, es otro producto (Nous Research, *Gateway internals*, s. f., https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals). El pairing de OpenClaw son filas sqlite más un `connect.challenge` firmado. No peguen un token de pairing de Hermes en `channel_pairing_allow_entries`. Citen *Pairing* para códigos DM. Citen *Node pairing* para `node.pair.*`. Citen *Gateway protocol* para el campo challenge (OpenClaw, s. f., https://docs.openclaw.ai/gateway/protocol).
 
-La auto-aprobacion SSH-verified de dispositivo esta **on por defecto** para pairing first-time `role: node` desde una direccion privada/CGNAT cuando el Gateway puede probar ownership de maquina por SSH: conecta de vuelta, corre `openclaw node identity --json`, y aprueba solo cuando el device id remoto y la clave publica coinciden exacto. La reachability sola nunca aprueba. Deshabiliten con `gateway.nodes.pairing.sshVerify: false` (OpenClaw, *Node pairing*, s. f.).
+La auto-aprobación SSH-verified de dispositivo esta **on por defecto** para pairing first-time `role: node` desde una dirección privada/CGNAT cuando el Gateway puede probar ownership de máquina por SSH: conecta de vuelta, corre `openclaw node identity --json`, y aprueba solo cuando el device id remoto y la clave publica coinciden exacto. La reachability sola nunca aprueba. Deshabiliten con `gateway.nodes.pairing.sshVerify: false` (OpenClaw, *Node pairing*, s. f.).
 
-La auto-aprobacion trusted-CIDR esta off salvo que pongan `gateway.nodes.pairing.autoApproveCidrs`. Solo una peticion `role: node` fresca sin scopes es elegible. Operator, browser, Control UI y WebChat se quedan manuales. No hay un modo blanket de auto-approve LAN.
+La auto-aprobación trusted-CIDR esta off salvo que pongan `gateway.nodes.pairing.autoApproveCidrs`. Solo una petición `role: node` fresca sin scopes es elegible. Operator, browser, Control UI y WebChat se quedan manuales. No hay un modo blanket de auto-approve LAN.
 
-Pairing local silencioso: loopback (incluido SSH port-forward a loopback) puede auto-aprobar pairing first-time de dispositivo mas upgrades de role y scope. Pongan `gateway.nodes.pairing.autoApproveLocal: false` en un Mac multi-usuario o con keys SSH solo port-forward sin shell. Si un request llega en loopback pero lleva evidencia `Forwarded` o `X-Forwarded-*`, eso descalifica el claim de localidad loopback.
+Pairing local silencioso: loopback (incluido SSH port-forward a loopback) puede auto-aprobar pairing first-time de dispositivo más upgrades de role y scope. Pongan `gateway.nodes.pairing.autoApproveLocal: false` en un Mac multi-usuario o con keys SSH solo port-forward sin shell. Si un request llega en loopback pero lleva evidencia `Forwarded` o `X-Forwarded-*`, eso descalifica el claim de localidad loopback.
 
-La auto-aprobacion de metadata-upgrade es estrecha: metadatos no sensibles en reconnects locales de confianza. Los upgrades de scope y cambios de clave publica se quedan explicitos.
+La auto-aprobación de metadata-upgrade es estrecha: metadatos no sensibles en reconnects locales de confianza. Los upgrades de scope y cambios de clave publica se quedan explícitos.
 
 Los device tokens son secretos; traten `~/.openclaw/state/openclaw.sqlite` como sensible. Roten con `openclaw devices rotate`. Las peticiones pendientes de pairing de dispositivo caducan a 5 minutos.
 
-`node.pair.approve` scopes extra: sin commands necesita `operator.pairing`; commands ordinarios necesitan `operator.pairing` mas `operator.write`; peticiones admin-sensitive con `system.run`, `browser.proxy` o `fs.listDir` necesitan `operator.pairing` mas `operator.admin`.
+`node.pair.approve` scopes extra: sin commands necesita `operator.pairing`; commands ordinarios necesitan `operator.pairing` más `operator.write`; peticiones admin-sensitive con `system.run`, `browser.proxy` o `fs.listDir` necesitan `operator.pairing` más `operator.admin`.
 
 Retirados en 2026.7: `node.pair.request` y `node.pair.verify`. Las peticiones pendientes las crea el Gateway durante connects de nodo. La auth de nodo es el device pairing token.
 
-**Caso.** Un sender desconocido de Telegram recibe un codigo de 8 caracteres. El operador aprueba desde CLI. Ese sender se vuelve el primer command owner porque no existia ninguno. Un segundo desconocido despues se aprueba solo para DM y no puede correr commands privilegiados (OpenClaw, *Pairing*, s. f.).
+**Caso.** Un sender desconocido de Telegram recibe un código de 8 caracteres. El operador aprueba desde CLI. Ese sender se vuelve el primer command owner porque no existía ninguno. Un segundo desconocido después se aprueba solo para DM y no puede correr commands privilegiados (OpenClaw, *Pairing*, s. f.).
 
-**Caso.** QR de full-access sobre `ws://` plaintext en un host publico se rechaza antes de emitir. Configuren Tailscale Serve o `wss://`, generen un codigo nuevo, luego escaneen (OpenClaw, *Pairing*, s. f.; *Tailscale*, s. f., https://docs.openclaw.ai/gateway/tailscale).
+**Caso.** QR de full-access sobre `ws://` plaintext en un host público se rechaza antes de emitir. Configuren Tailscale Serve o `wss://`, generen un código nuevo, luego escaneen (OpenClaw, *Pairing*, s. f.; *Tailscale*, s. f., https://docs.openclaw.ai/gateway/tailscale).
 
-Los canales soportados de pairing DM incluyen telegram, whatsapp, discord, slack, signal, imessage y otros listados en la pagina de pairing. Plugins externos como `openclaw-weixin` pueden anadir mas. Citen la lista viva; no inventen un canal que no esta declarado.
+Los canales soportados de pairing DM incluyen telegram, whatsapp, discord, slack, signal, imessage y otros listados en la página de pairing. Plugins externos como `openclaw-weixin` pueden añadir más. Citen la lista viva; no inventen un canal que no está declarado.
 
-Los stores JSON viejos bajo `devices/*.json` se importan al startup y se archivan con sufijo `.migrated`. Traten sqlite como el unico store vivo.
+Los stores JSON viejos bajo `devices/*.json` se importan al startup y se archivan con sufijo `.migrated`. Traten sqlite como el único store vivo.
 
 El transporte es stateless; no guarda membership. Si el Gateway esta offline, los nodos no pueden emparejar. En modo remoto, el pairing ocurre contra el store del Gateway remoto.
 
-El cleanup de supersede de pairing silencioso retira records locales silent-approved mas viejos del mismo client cluster cuando se aprueba un pair silencioso local nuevo. Los pairings trusted-CIDR y SSH-verified nunca se quitan automaticamente. Los pairings owner-approved y QR/setup-code nunca se quitan automaticamente.
+El cleanup de supersede de pairing silencioso retira records locales silent-approved más viejos del mismo client cluster cuando se aprueba un pair silencioso local nuevo. Los pairings trusted-CIDR y SSH-verified nunca se quitan automáticamente. Los pairings owner-approved y QR/setup-code nunca se quitan automáticamente.
 
 `node.presence.alive` se acepta solo desde sesiones autenticadas de dispositivo nodo. Un `client.id` auto-declarado no basta para escribir last-seen (OpenClaw, *Node pairing*, s. f.).
 
-Esta leccion se detiene en codigos DM, challenge de dispositivo, QR de setup, rutas sqlite, y el gate 2026.3.31 de commands de nodo. Tailscale Serve para pairing movil continua despues. La leccion de nodes cubre camera y screen tras existir pairing.
+Esta lección se detiene en códigos DM, challenge de dispositivo, QR de setup, rutas sqlite, y el gate 2026.3.31 de commands de nodo. Tailscale Serve para pairing móvil continua después. La lección de nodes cubre camera y screen tras existir pairing.
 
-Lectura adicional: *Security*, *Updating*, *Operator scopes*, *Trusted Proxy Auth*, paginas de canal para Telegram y WhatsApp (OpenClaw, s. f.).
+Lectura adicional: *Security*, *Updating*, *Operator scopes*, *Trusted Proxy Auth*, páginas de canal para Telegram y WhatsApp (OpenClaw, s. f.).
 
-La particularidad: dos puertas, un archivo sqlite, un challenge firmado, y el pairing de dispositivo no es aprobacion de commands de nodo.
+La particularidad: dos puertas, un archivo sqlite, un challenge firmado, y el pairing de dispositivo no es aprobación de commands de nodo.
 
-Cuando una aprobacion explicita se deniega porque la sesion de dispositivo emparejado se abrio con scope solo-pairing, el CLI reintenta la misma peticion con operator.admin. Tokens que no pueden autenticar con operator.admin siguen bloqueados.
+Cuando una aprobación explícita se deniega porque la sesión de dispositivo emparejado se abrió con scope solo-pairing, el CLI reintenta la misma petición con operator.admin. Tokens que no pueden autenticar con operator.admin siguen bloqueados.
 
-La app macOS puede intentar aprobacion silenciosa de peticiones de capacidad de nodo cuando la peticion esta marcada silent y la app puede verificar una conexion SSH al host gateway con el mismo usuario. Si falla, cae al prompt normal Approve/Reject.
+La app macOS puede intentar aprobación silenciosa de peticiones de capacidad de nodo cuando la petición esta marcada silent y la app puede verificar una conexión SSH al host gateway con el mismo usuario. Si falla, cae al prompt normal Approve/Reject.
 
-Borrar un dispositivo tambien barre peticiones pendientes stale de ese device id, asi que nodes pending no muestra filas huerfanas tras un revoke.
+Borrar un dispositivo también barre peticiones pendientes stale de ese device id, así que nodes pending no muestra filas huérfanas tras un revoke.
 
 Para actualizar un telefono limited, primero configuren una ruta wss segura o Tailscale Serve, luego generen un setup code nuevo de full-access, escaneen o peguen, y reconecten.
 
-Para pairing movil remoto, usen Tailscale Serve/Funnel u otra URL Gateway wss. Los setup codes plaintext ws se aceptan solo para loopback, LAN privada, hosts Bonjour .local y el host emulador Android.
+Para pairing móvil remoto, usen Tailscale Serve/Funnel u otra URL Gateway wss. Los setup codes plaintext ws se aceptan solo para loopback, LAN privada, hosts Bonjour .local y el host emulador Android.
 
-Doctor previsualiza una migracion segura de default-route para Serve externo legacy que proxificaba un listener lan bind.
+Doctor previsualiza una migración segura de default-route para Serve externo legacy que proxificaba un listener lan bind.
 
-Notificar al requester tras aprobacion DM es una opcion explicita del Control UI. Also make this sender the first command owner se muestra solo cuando no existe command owner y la sesion Control UI tiene operator.admin.
+Notificar al requester tras aprobación DM es una opción explícita del Control UI. Also make this sender the first command owner se muestra solo cuando no existe command owner y la sesión Control UI tiene operator.admin.
 
 El record de pairing es la fuente durable de verdad para roles aprobados. Los device tokens activos se quedan acotados a ese set de roles aprobado. Una entrada de token suelta fuera de los roles aprobados no crea acceso nuevo.
 
-El delivery de chat de grupo sigue los allowlists de grupo del canal. No ensenen pairing DM como grant de admin de grupo.
+El delivery de chat de grupo sigue los allowlists de grupo del canal. No enseñen pairing DM como grant de admin de grupo.
 
-El contexto de seguridad de ambas puertas vive en la pagina Security. Corran doctor tras actualizar.
+El contexto de seguridad de ambas puertas vive en la página Security. Corran doctor tras actualizar.
 
-Un dispositivo mixed-role que tambien sostiene operator conserva su fila cuando se quita el role node; una fila node-only se borra.
+Un dispositivo mixed-role que también sostiene operator conserva su fila cuando se quita el role node; una fila node-only se borra.
 
-Los helpers QR: /pair qr renderiza el payload de pairing como media estructurada para que clientes moviles y browser lo escaneen directo.
+Los helpers QR: /pair qr renderiza el payload de pairing como media estructurada para que clientes móviles y browser lo escaneen directo.
 
-Esta version de aula conserva las dos puertas, el codigo DM de 8 caracteres y 1 hora, el bootstrap token de 10 minutos, el challenge firmado, las rutas sqlite y el gate 2026.3.31. Todo lo demas es una URL oficial nombrada.
+Esta versión de aula conserva las dos puertas, el código DM de 8 caracteres y 1 hora, el bootstrap token de 10 minutos, el challenge firmado, las rutas sqlite y el gate 2026.3.31. Todo lo demás es una URL oficial nombrada.
 
 Citen Nodes cuando la pregunta es camera o screen tras existir pairing.
 
 Citen Doctor para el import JSON a sqlite de archivos de pairing.
 
-Dos puertas. Un archivo sqlite. El pairing de dispositivo no es aprobacion de commands de nodo.
+Dos puertas. Un archivo sqlite. El pairing de dispositivo no es aprobación de commands de nodo.
 
 ## Caso — el QR que nadie escaneó
 
@@ -186,4 +186,4 @@ OpenClaw. (s. f.). *Security*. https://docs.openclaw.ai/gateway/security
 
 OpenClaw. (s. f.). *Tailscale*. https://docs.openclaw.ai/gateway/tailscale
 
-Nous Research. (s. f.). *Gateway internals*. Guia de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals
+Nous Research. (s. f.). *Gateway internals*. Guía de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals

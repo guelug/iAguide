@@ -1,8 +1,8 @@
 ## Cuatro runtimes, cuatro trabajos
 
-- **<Term id="llamacpp">llama.cpp</Term>** — motor C/C++ para <Term id="gguf">GGUF</Term>. CPU, Metal, CUDA y más. Máximo control (`-ngl`, contexto, batch, KV cache, speculative decoding). Muchas apps de escritorio son una piel encima.
+- **<Term id="llamacpp">llama.cpp</Term>** — motor C/C++ para <Term id="gguf">GGUF</Term>. CPU, Metal, CUDA y más. Máximo control (`-ngl`, contexto, batch, KV caché, speculative decoding). Muchas apps de escritorio son una piel encima.
 - **<Term id="ollama">Ollama</Term>** — CLI + servidor HTTP local. Baja modelos, API estilo OpenAI, menos palancas. Bien para un equipo que quiere un modelo en un comando.
-- **<Term id="vllm">vLLM</Term>** — servidor GPU para *muchos usuarios a la vez*: KV cache paginada, batching continuo, prefix caching. Típico en cajas NVIDIA. No es la primera opción para un chat de portátil.
+- **<Term id="vllm">vLLM</Term>** — servidor GPU para *muchos usuarios a la vez*: KV caché paginada, batching continuo, prefix caching. Típico en cajas NVIDIA. No es la primera opción para un chat de portátil.
 - **<Term id="mlx">MLX</Term> / MLX-LM** — arrays nativos de Apple Silicon. Buen throughput en memoria unificada; también puede ajustar. Los pesos son formato MLX, no GGUF.
 
 Son complementos. Un equipo mixto Mac/Linux suele usar Ollama al día a día, llama.cpp cuando importa una flag, MLX cuando el Mac tiene que ser rápido, vLLM cuando una caja GPU tiene tráfico de verdad.

@@ -1,18 +1,18 @@
 ## El workspace es la casa del agente
 
-La fuente primaria es [*Agent workspace*](https://docs.openclaw.ai/concepts/agent-workspace) de OpenClaw (s. f.). El workspace es la casa del agente: el directorio de trabajo usado para file tools y contexto de workspace. Mantenlo privado y tratalo como memoria. [*Agent runtime*](https://docs.openclaw.ai/concepts/agent) (OpenClaw, s. f.) enuncia que archivos se inyectan en el primer turno de una sesion nueva.
+La fuente primaria es [*Agent workspace*](https://docs.openclaw.ai/concepts/agent-workspace) de OpenClaw (s. f.). El workspace es la casa del agente: el directorio de trabajo usado para file tools y contexto de workspace. Mantenlo privado y trátalo como memoria. [*Agent runtime*](https://docs.openclaw.ai/concepts/agent) (OpenClaw, s. f.) enuncia que archivos se inyectan en el primer turno de una sesión nueva.
 
 Esto es aparte de `~/.openclaw/`, que guarda config, credenciales y sesiones.
 
-La leccion generica [sessions](/es/m/sessions) permanece agnostica del harness. Esta es el mapa de archivos OpenClaw.
+La lección genérica [sessions](/es/m/sessions) permanece agnóstica del harness. Esta es el mapa de archivos OpenClaw.
 
-El workspace es el **cwd por defecto**, no un sandbox duro. Las tools resuelven rutas relativas contra el workspace, pero las rutas absolutas aun pueden alcanzar otros sitios del host si el sandboxing no esta habilitado. Si necesitas aislamiento, usa `agents.defaults.sandbox` (OpenClaw, *Agent workspace*, s. f.; *Sandboxing*, s. f., https://docs.openclaw.ai/gateway/sandboxing).
+El workspace es el **cwd por defecto**, no un sandbox duro. Las tools resuelven rutas relativas contra el workspace, pero las rutas absolutas aun pueden alcanzar otros sitios del host si el sandboxing no está habilitado. Si necesitas aislamiento, usa `agents.defaults.sandbox` (OpenClaw, *Agent workspace*, s. f.; *Sandboxing*, s. f., https://docs.openclaw.ai/gateway/sandboxing).
 
-Cuando el sandboxing esta habilitado y `workspaceAccess` no es `"rw"`, las tools operan dentro de un workspace sandbox bajo `~/.openclaw/sandboxes`, no en tu workspace de host.
+Cuando el sandboxing está habilitado y `workspaceAccess` no es `"rw"`, las tools operan dentro de un workspace sandbox bajo `~/.openclaw/sandboxes`, no en tu workspace de host.
 
 <VisualSlot caption="SOUL.md, IDENTITY, BOOTSTRAP, MEMORY, daily notes." />
 
-## Ubicacion por defecto
+## Ubicación por defecto
 
 - Default: `~/.openclaw/workspace`
 - If `OPENCLAW_PROFILE` is set and not `"default"`, the default becomes `~/.openclaw-<profile>/workspace`.
@@ -20,15 +20,15 @@ Cuando el sandboxing esta habilitado y `workspaceAccess` no es `"rw"`, las tools
 - A non-default `OPENCLAW_STATE_DIR` keeps the default workspace at `<stateDir>/workspace`, including scheduled maintenance and the initial `main` agent entry.
 - Non-default agents (`agents.entries.*`) without an explicit workspace resolve to `<stateDir>/workspace-<agentId>`, not the shared default workspace.
 
-Override en `~/.openclaw/openclaw.json` via `agents.defaults.workspace`. Override por agente: `agents.entries.*.workspace`.
+Override en `~/.openclaw/openclaw.json` vía `agents.defaults.workspace`. Override por agente: `agents.entries.*.workspace`.
 
 `openclaw onboard`, `openclaw configure` o `openclaw setup` crean el workspace y siembran los archivos bootstrap si faltan (OpenClaw, *Agent workspace*, s. f.).
 
 Las copias seed de sandbox solo aceptan archivos regulares dentro del workspace; alias symlink/hardlink que resuelven fuera del workspace origen se ignoran.
 
-Si ya gestionas los archivos del workspace tu mismo, desactiva la creacion de bootstrap con `agents.defaults.skipBootstrap` true.
+Si ya gestionas los archivos del workspace tu mismo, desactiva la creación de bootstrap con `agents.defaults.skipBootstrap` true.
 
-Instalaciones viejas pueden haber creado `~/openclaw`. Conservar varios directorios de workspace puede causar deriva confusa de auth o estado, porque solo un workspace esta activo a la vez. Conserva un unico workspace activo. Si conservas varios a proposito, asegurate de que `agents.defaults.workspace` (o la clave `workspace` por agente) apunta al activo.
+Instalaciones viejas pueden haber creado `~/openclaw`. Conservar varios directorios de workspace puede causar deriva confusa de auth o estado, porque solo un workspace está activo a la vez. Conserva un único workspace activo. Si conservas varios a propósito, asegurate de que `agents.defaults.workspace` (o la clave `workspace` por agente) apunta al activo.
 
 ## Archivos bootstrap (inyectados)
 
@@ -46,11 +46,11 @@ Dentro del workspace, OpenClaw espera estos archivos editables por el usuario (O
 | `memory/YYYY-MM-DD.md` | Daily memory log. Recommended to read today plus yesterday on session start |
 | `skills/` | Workspace-specific skills. Highest-precedence skill location for that workspace |
 
-En el primer turno de una sesion nueva, OpenClaw inyecta el contenido de estos archivos en el Project Context del system prompt. `MEMORY.md` solo se inyecta cuando existe en la raiz del workspace.
+En el primer turno de una sesión nueva, OpenClaw inyecta el contenido de estos archivos en el Project Context del system prompt. `MEMORY.md` solo se inyecta cuando existe en la raíz del workspace.
 
-Los archivos en blanco se saltan. Los archivos grandes se recortan y truncan con un marcador para que los prompts sigan magros. Un archivo faltante (distinto de `MEMORY.md`) inyecta una sola linea marcador "missing file"; `openclaw setup` crea una plantilla default segura. `USER.md` y `MEMORY.md` opcionales se omiten cuando faltan.
+Los archivos en blanco se saltan. Los archivos grandes se recortan y truncan con un marcador para que los prompts sigan magros. Un archivo faltante (distinto de `MEMORY.md`) inyecta una sola línea marcador "missing file"; `openclaw setup` crea una plantilla default segura. `USER.md` y `MEMORY.md` opcionales se omiten cuando faltan.
 
-Los bootstrap grandes se truncan al inyectar; ajusta limites generales con `agents.defaults.bootstrapMaxChars` (default: `20000`) y `agents.defaults.bootstrapTotalMaxChars` (default: `60000`). `USER.md` conserva su tope aparte de 4.000 caracteres. `openclaw setup` puede recrear defaults faltantes sin sobrescribir archivos existentes (OpenClaw, *Agent workspace*, s. f.).
+Los bootstrap grandes se truncan al inyectar; ajusta límites generales con `agents.defaults.bootstrapMaxChars` (default: `20000`) y `agents.defaults.bootstrapTotalMaxChars` (default: `60000`). `USER.md` conserva su tope aparte de 4.000 caracteres. `openclaw setup` puede recrear defaults faltantes sin sobrescribir archivos existentes (OpenClaw, *Agent workspace*, s. f.).
 
 <Callout>
 `BOOTSTRAP.md` is only created for a **brand new workspace** (no other bootstrap files present). After a workspace has been observed, OpenClaw stores its setup state and attestation in the shared SQLite database at `~/.openclaw/state/openclaw.sqlite`. If a recently attested workspace disappears or is wiped, startup refuses to silently reseed `BOOTSTRAP.md`; restore the workspace or use a full onboard reset so the workspace and its database state are cleared together (OpenClaw, *Agent runtime*, n.d.).
@@ -60,7 +60,7 @@ While `BOOTSTRAP.md` is pending, OpenClaw keeps it in Project Context and adds s
 
 Older releases used workspace JSON and `.attested` sidecar files. Runtime does not read those files. Run `openclaw doctor --fix` to validate them, import their state into SQLite, and remove each source after the imported rows are verified.
 
-## Lo que NO esta en el workspace
+## Lo que NO está en el workspace
 
 Estos viven bajo `~/.openclaw/` y NO deben commitearse al repo del workspace (OpenClaw, *Agent workspace*, s. f.):
 
@@ -72,13 +72,13 @@ Estos viven bajo `~/.openclaw/` y NO deben commitearse al repo del workspace (Op
 - `~/.openclaw/agents/<id>/sessions/` (legacy migration sources and archive/support artifacts)
 - `~/.openclaw/skills/` (managed skills)
 
-Si necesitas migrar sesiones o config, copialos aparte y mantenlos fuera de version control.
+Si necesitas migrar sesiones o config, cópialos aparte y mantenlos fuera de versión control.
 
 Lowercase root `memory.md` is legacy repair input only; `openclaw doctor --fix` can merge it into `MEMORY.md` when both exist (OpenClaw, *FAQ*, n.d., https://docs.openclaw.ai/help/faq).
 
 ## Backup git (privado)
 
-Trata el workspace como memoria privada. Ponlo en un repo git **privado** para que tenga backup y sea recuperable. Corre estos pasos en la maquina donde corre el Gateway (ahi vive el workspace). Si git esta instalado, los workspaces nuevos se inicializan automaticamente.
+Trata el workspace como memoria privada. Ponlo en un repo git **privado** para que tenga backup y sea recuperable. Corre estos pasos en la máquina donde corre el Gateway (ahí vive el workspace). Si git está instalado, los workspaces nuevos se inicializan automáticamente.
 
 ```bash
 cd ~/.openclaw/workspace
@@ -102,9 +102,9 @@ OpenClaw carga skills desde estas ubicaciones, mayor precedencia primero (OpenCl
 - Bundled (shipped with the install)
 - Extra skill folders: `skills.load.extraDirs`
 
-Las raices de skill pueden contener carpetas agrupadas como `<workspace>/skills/personal/foo/SKILL.md`; la skill sigue expuesta por su nombre plano de frontmatter, por ejemplo `foo`.
+Las raíces de skill pueden contener carpetas agrupadas como `<workspace>/skills/personal/foo/SKILL.md`; la skill sigue expuesta por su nombre plano de frontmatter, por ejemplo `foo`.
 
-Las tools core (read/exec/edit/write y tools de sistema relacionadas) estan siempre disponibles, sujetas a tool policy. La seccion `## Tools` de `AGENTS.md` **no** controla que tools existen; es guia de como quieres que se usen (OpenClaw, *Agent runtime*, s. f.).
+Las tools core (read/exec/edit/write y tools de sistema relacionadas) están siempre disponibles, sujetas a tool policy. La sección `## Tools` de `AGENTS.md` **no** controla que tools existen; es guía de como quieres que se usen (OpenClaw, *Agent runtime*, s. f.).
 
 **Caso.** Un operador escribe "deny browser" en `AGENTS.md` bajo `## Tools`. El modelo sigue recibiendo el schema `browser` si la tool policy lo permite. Los archivos de personalidad no son el allowlist. Usa `tools.deny` (OpenClaw, *Agent runtime*, s. f.; *Tools and custom providers*, s. f., https://docs.openclaw.ai/gateway/config-tools).
 
@@ -114,54 +114,54 @@ Escribe la ruta default de workspace. Nombra los seis archivos bootstrap core in
 
 ## Compara, sin mezclar knobs
 
-Hermes persiste memoria a `MEMORY.md` / `USER.md` desde el loop (Nous Research, *Agent Loop Internals*, s. f., https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop). OpenClaw inyecta archivos nombrados de workspace en Project Context en el primer turno de una sesion nueva. Misma necesidad humana (una persona mas hechos durables). Distinto contrato de archivos. Distinta regla de cwd.
+Hermes persiste memoria a `MEMORY.md` / `USER.md` desde el loop (Nous Research, *Agent Loop Internals*, s. f., https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop). OpenClaw inyecta archivos nombrados de workspace en Project Context en el primer turno de una sesión nueva. Misma necesidad humana (una persona más hechos durables). Distinto contrato de archivos. Distinta regla de cwd.
 
-No pegues el orden de ensamblado de Hermes `prompt_builder.py` en el Project Context de OpenClaw. Cita *Agent workspace* para el mapa de archivos. Cita *Agent runtime* para inyeccion, truncado y atestacion BOOTSTRAP. Cita *Sandboxing* cuando las rutas absolutas deben dejar de alcanzar el host.
+No pegues el orden de ensamblado de Hermes `prompt_builder.py` en el Project Context de OpenClaw. Cita *Agent workspace* para el mapa de archivos. Cita *Agent runtime* para inyección, truncado y atestación BOOTSTRAP. Cita *Sandboxing* cuando las rutas absolutas deben dejar de alcanzar el host.
 
-**Caso.** Un workspace atestado recientemente se borra del disco. El arranque se niega a resembrar `BOOTSTRAP.md` en silencio. Restaura el workspace, o corre un onboard reset completo para que archivos de workspace y atestacion SQLite se limpien juntos. Una resiembra silenciosa inventaria un ritual de primer arranque que el operador ya termino (OpenClaw, *Agent runtime*, s. f.).
+**Caso.** Un workspace atestado recientemente se borra del disco. El arranque se niega a resembrar `BOOTSTRAP.md` en silencio. Restaura el workspace, o corre un onboard reset completo para que archivos de workspace y atestación SQLite se limpien juntos. Una resiembra silenciosa inventaria un ritual de primer arranque que el operador ya termino (OpenClaw, *Agent runtime*, s. f.).
 
-Mantén `SOUL.md` centrado en voz, postura y personalidad; pon reglas de operacion en `AGENTS.md` y hechos durables en memoria. El limite de inyeccion por archivo por defecto es 20000 caracteres; el presupuesto total de bootstrap entre archivos es 60000 caracteres. Usa `/context` para comprobar tamanos raw frente a inyectados y si hubo truncado (OpenClaw, *FAQ*, s. f.).
+Mantén `SOUL.md` centrado en voz, postura y personalidad; pon reglas de operación en `AGENTS.md` y hechos durables en memoria. El límite de inyección por archivo por defecto es 20000 caracteres; el presupuesto total de bootstrap entre archivos es 60000 caracteres. Usa `/context` para comprobar tamaños raw frente a inyectados y si hubo truncado (OpenClaw, *FAQ*, s. f.).
 
-Para mover el workspace a una maquina nueva: clona el repo privado a la ruta deseada, fija `agents.defaults.workspace`, corre `openclaw setup --workspace <path>` para sembrar archivos faltantes, y copia `openclaw-agent.sqlite` aparte si necesitas sesiones.
+Para mover el workspace a una máquina nueva: clona el repo privado a la ruta deseada, fija `agents.defaults.workspace`, corre `openclaw setup --workspace <path>` para sembrar archivos faltantes, y copia `openclaw-agent.sqlite` aparte si necesitas sesiones.
 
 
 ## Notas diarias frente a MEMORY.md
 
 <VisualSlot id="openclaw-workspace:3" />
 
-`memory/YYYY-MM-DD.md` es el log diario. Conserva logs detallados ahi para que las tools de memoria los recuperen bajo demanda sin inyectarlos en cada prompt. Conserva `MEMORY.md` como memoria de largo plazo curada: hechos durables no-perfil, decisiones y resúmenes cortos. Carga `MEMORY.md` solo en la sesion main privada (no contextos compartidos o de grupo) (OpenClaw, *Agent workspace*, s. f.; *Memory*, s. f., https://docs.openclaw.ai/concepts/memory).
+`memory/YYYY-MM-DD.md` es el log diario. Conserva logs detallados ahí para que las tools de memoria los recuperen bajo demanda sin inyectarlos en cada prompt. Conserva `MEMORY.md` como memoria de largo plazo curada: hechos durables no-perfil, decisiones y resúmenes cortos. Carga `MEMORY.md` solo en la sesión main privada (no contextos compartidos o de grupo) (OpenClaw, *Agent workspace*, s. f.; *Memory*, s. f., https://docs.openclaw.ai/concepts/memory).
 
-Antes de compactar, OpenClaw puede correr un turno silencioso de memory flush para guardar notas durables a disco. Ese flush es por que los archivos de workspace importan a la leccion de compaction: si resumes primero y el proceso muere, los hechos durables en medio del hilo se van salvo que ya vivieran en `MEMORY.md` o en el archivo diario de hoy.
+Antes de compactar, OpenClaw puede correr un turno silencioso de memory flush para guardar notas durables a disco. Ese flush es por que los archivos de workspace importan a la lección de compaction: si resumes primero y el proceso muere, los hechos durables en medio del hilo se van salvo que ya vivieran en `MEMORY.md` o en el archivo diario de hoy.
 
-`HEARTBEAT.md` no es un schedule. Los monitores heartbeat viven en automations. El archivo es un checklist corto opcional que el agente puede leer al reiniciar el Gateway cuando los hooks internos estan habilitados. Usa el tool `message` para envios outbound; no trates HEARTBEAT.md como cron (OpenClaw, *Agent workspace*, s. f.; *Heartbeat*, s. f., https://docs.openclaw.ai/gateway/heartbeat).
+`HEARTBEAT.md` no es un schedule. Los monitores heartbeat viven en automations. El archivo es un checklist corto opcional que el agente puede leer al reiniciar el Gateway cuando los hooks internos están habilitados. Usa el tool `message` para envíos outbound; no trates HEARTBEAT.md como cron (OpenClaw, *Agent workspace*, s. f.; *Heartbeat*, s. f., https://docs.openclaw.ai/gateway/heartbeat).
 
-Las standing orders otorgan al agente autoridad permanente de operacion para programas definidos. Viven en archivos de workspace (tipicamente `AGENTS.md`) y se inyectan en cada sesion. Combinelas con automations para enforcement basado en tiempo (OpenClaw, *Standing orders*, s. f., https://docs.openclaw.ai/automation/standing-orders). La personalidad no es politica: una standing order en `AGENTS.md` aun no puede restaurar un tool que `tools.deny` quito.
+Las standing orders otorgan al agente autoridad permanente de operación para programas definidos. Viven en archivos de workspace (típicamente `AGENTS.md`) y se inyectan en cada sesión. Combinelas con automations para enforcement basado en tiempo (OpenClaw, *Standing orders*, s. f., https://docs.openclaw.ai/automation/standing-orders). La personalidad no es política: una standing order en `AGENTS.md` aun no puede restaurar un tool que `tools.deny` quito.
 
-El enrutado multi-agente puede usar workspaces distintos por agente via `agents.entries.*.workspace`. Cada agente configurado tiene su propio workspace, archivos bootstrap y session store (OpenClaw, *Agent runtime*, s. f.; *Multi-agent*, s. f., https://docs.openclaw.ai/concepts/multi-agent). No compartas un directorio de workspace entre dos agent ids salvo que pretendas que compartan persona y archivos de memoria.
+El enrutado multi-agente puede usar workspaces distintos por agente vía `agents.entries.*.workspace`. Cada agente configurado tiene su propio workspace, archivos bootstrap y session store (OpenClaw, *Agent runtime*, s. f.; *Multi-agent*, s. f., https://docs.openclaw.ai/concepts/multi-agent). No compartas un directorio de workspace entre dos agent ids salvo que pretendas que compartan persona y archivos de memoria.
 
-Si `agents.defaults.sandbox` esta habilitado, las sesiones no-main pueden overridear esto con workspaces por sesion bajo `agents.defaults.sandbox.workspaceRoot`. Eso es un cwd de sandbox, no un segundo repo git que commiteas (OpenClaw, *Agent workspace*, s. f.).
+Si `agents.defaults.sandbox` está habilitado, las sesiones no-main pueden overridear esto con workspaces por sesión bajo `agents.defaults.sandbox.workspaceRoot`. Eso es un cwd de sandbox, no un segundo repo git que commiteas (OpenClaw, *Agent workspace*, s. f.).
 
-La migracion de Doctor sigue importando en discos viejos: `openclaw-workspace-state.json`, `.openclaw/workspace-state.json` y sidecars `.attested` son importar-luego-borrar. El runtime actual usa solo la base SQLite compartida para ese estado. Si Doctor reporta uno de esos archivos, corre `openclaw doctor --fix`; Doctor importa estado legacy valido y borra una fuente solo despues de verificar las filas de la base.
+La migración de Doctor sigue importando en discos viejos: `openclaw-workspace-state.json`, `.openclaw/workspace-state.json` y sidecars `.attested` son importar-luego-borrar. El runtime actual usa solo la base SQLite compartida para ese estado. Si Doctor reporta uno de esos archivos, corre `openclaw doctor --fix`; Doctor importa estado legacy válido y borra una fuente solo después de verificar las filas de la base.
 
 **Caso.** Dos carpetas extra `~/openclaw` y `~/.openclaw/workspace` contienen ambas un `SOUL.md`. Solo una ruta es `agents.defaults.workspace`. La persona de la carpeta no usada nunca se inyecta. Archiva la carpeta extra para no editar la copia silenciosa (OpenClaw, *Agent workspace*, s. f.).
 
-Cita *Agent workspace* para ubicacion, mapa de archivos, backup git y secretos. Cita *Agent runtime* para inyeccion, atestacion BOOTSTRAP y orden de carga de skills. Cita *Memory* para diario frente a curado. Cita *Sandboxing* cuando el cwd debe volverse un contenedor.
+Cita *Agent workspace* para ubicación, mapa de archivos, backup git y secretos. Cita *Agent runtime* para inyección, atestación BOOTSTRAP y orden de carga de skills. Cita *Memory* para diario frente a curado. Cita *Sandboxing* cuando el cwd debe volverse un contenedor.
 
 
-Cada agente usa un unico directorio de workspace (`agents.defaults.workspace`, o `agents.entries.*.workspace` por agente) como su **unico** directorio de trabajo (`cwd`) para tools y contexto (OpenClaw, *Agent runtime*, s. f.). Recomendado: usa `openclaw setup` para crear `~/.openclaw/openclaw.json` si falta e inicializar los archivos de workspace.
+Cada agente usa un único directorio de workspace (`agents.defaults.workspace`, o `agents.entries.*.workspace` por agente) como su **único** directorio de trabajo (`cwd`) para tools y contexto (OpenClaw, *Agent runtime*, s. f.). Recomendado: usa `openclaw setup` para crear `~/.openclaw/openclaw.json` si falta e inicializar los archivos de workspace.
 
-En el primer turno, Project Context es un snapshot. Las ediciones posteriores a `SOUL.md` surten efecto en la siguiente sesion nueva, no a mitad de turno, salvo que hagas `/new` o esperes un reset. Por eso importan el reset daily y `/new`: reinyectan los archivos.
+En el primer turno, Project Context es un snapshot. Las ediciones posteriores a `SOUL.md` surten efecto en la siguiente sesión nueva, no a mitad de turno, salvo que hagas `/new` o esperes un reset. Por eso importan el reset daily y `/new`: reinyectan los archivos.
 
-En `USER.md` escribe entradas como directivas fechadas activas o sustituidas. El presupuesto aparte de 4.000 caracteres existe para que un perfil de usuario largo no se coma el total de 60.000 de bootstrap. Si `/context` muestra truncado, acorta `SOUL.md` primero; las reglas de operacion pertenecen a `AGENTS.md` (OpenClaw, *Agent workspace*, s. f.; *User model*, s. f., https://docs.openclaw.ai/concepts/user-model).
+En `USER.md` escribe entradas como directivas fechadas activas o sustituidas. El presupuesto aparte de 4.000 caracteres existe para que un perfil de usuario largo no se coma el total de 60.000 de bootstrap. Si `/context` muestra truncado, acorta `SOUL.md` primero; las reglas de operación pertenecen a `AGENTS.md` (OpenClaw, *Agent workspace*, s. f.; *User model*, s. f., https://docs.openclaw.ai/concepts/user-model).
 
-No commitees `.openclaw/` al repo del workspace ni siquiera como symlink de conveniencia. La config y la base de estado gatean pairing, tokens y transcripts de sesion. Un remote git privado sigue siendo el sitio equivocado para tokens de dispositivo (OpenClaw, *Agent workspace*, s. f.).
+No commitees `.openclaw/` al repo del workspace ni siquiera como symlink de conveniencia. La config y la base de estado gatean pairing, tokens y transcripts de sesión. Un remote git privado sigue siendo el sitio equivocado para tokens de dispositivo (OpenClaw, *Agent workspace*, s. f.).
 
-Como minimo, fija `agents.defaults.workspace` y recomienda con fuerza `channels.whatsapp.allowFrom` (OpenClaw, *Agent runtime*, s. f.).
+Como mínimo, fija `agents.defaults.workspace` y recomienda con fuerza `channels.whatsapp.allowFrom` (OpenClaw, *Agent runtime*, s. f.).
 
 
-Para desactivar por completo la creacion de archivos bootstrap en workspaces pre-sembrados, fija `agents.defaults.skipBootstrap` a true. `openclaw setup --workspace <path>` sigue sembrando archivos faltantes sin sobrescribir los existentes cuando migras una maquina (OpenClaw, *Agent workspace*, s. f.).
+Para desactivar por completo la creación de archivos bootstrap en workspaces pre-sembrados, fija `agents.defaults.skipBootstrap` a true. `openclaw setup --workspace <path>` sigue sembrando archivos faltantes sin sobrescribir los existentes cuando migras una máquina (OpenClaw, *Agent workspace*, s. f.).
 
-Esta leccion se detiene en el mapa de archivos, la inyeccion, la atestacion y lo que queda fuera de git. Las filas de sesion continuan en la leccion de sesiones. El reset daily e idle continua en la leccion de reset.
+Esta lección se detiene en el mapa de archivos, la inyección, la atestación y lo que queda fuera de git. Las filas de sesión continúan en la lección de sesiones. El reset daily e idle continua en la lección de reset.
 
 ## Caso — el archivo que no estaba en el workspace
 
@@ -187,4 +187,4 @@ OpenClaw. (s. f.). *Memory*. https://docs.openclaw.ai/concepts/memory
 
 OpenClaw. (s. f.). *Tools and custom providers*. https://docs.openclaw.ai/gateway/config-tools
 
-Nous Research. (s. f.). *Agent loop internals*. Guia de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop
+Nous Research. (s. f.). *Agent loop internals*. Guía de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop

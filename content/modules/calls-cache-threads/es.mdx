@@ -13,7 +13,7 @@ Si te saltas la plantilla en un modelo instruct, le hablas en un dialecto que no
 
 Cada token que emite el modelo recorre dos tipos de trabajo **muy distintos**. Cuando ves una factura de inferencia, casi siempre una de las dos es la culpable.
 
-- **<Term id="prefill">Prefill</Term>** — el prompt y el historial de mensajes cacheado se procesan **en paralelo** por cada capa. La KV cache para esos tokens se construye una vez. Está limitada por throughput (compute-heavy), es amigable con la GPU, y se amortigua sobre todos los tokens del prefijo. Un system prompt de 12k pagado en cada turno es la línea más común de tu factura.
+- **<Term id="prefill">Prefill</Term>** — el prompt y el historial de mensajes cacheado se procesan **en paralelo** por cada capa. La KV caché para esos tokens se construye una vez. Está limitada por throughput (compute-heavy), es amigable con la GPU, y se amortigua sobre todos los tokens del prefijo. Un system prompt de 12k pagado en cada turno es la línea más común de tu factura.
 - **<Term id="decode">Decode</Term>** — cada token nuevo se genera **secuencialmente**, atendiendo a la KV de cada token previo. Está limitada por latencia (memory-bandwidth-heavy), y el coste de cada token crece con la longitud del prefijo (KV más larga = más claves/valores a los que atender).
 
 Las dos fases son la razón por la que "system prompt corto" y "respuesta concisa" son objetivos de optimización distintos. El primero se amortigua sobre todos los turnos futuros si mantienes el prefijo estable; el segundo solo importa una vez por turno. Inflar el prefijo con mil tokens de skills obsoleto cuesta prefill para siempre. Inflar la respuesta con dos frases de cortesía cuesta decode una vez.
@@ -87,7 +87,7 @@ Si el padre es un MoE 48B-A3B y los hijos son un denso 7B, los dos viven en **pr
 - Padre: prefill barato (3B activos por token), pero memoria de disco 48B.
 - Hijo: prefill más caro por token (7B activos), pero archivo pequeño y latencia baja.
 
-La cache key del padre y del hijo son **distintas** (modelos distintos). Lo que el padre cachea no le sirve al hijo. Si quieres prefill cacheado en el hijo, su system prompt tiene que ser estable por su cuenta, no heredado del padre.
+La caché key del padre y del hijo son **distintas** (modelos distintos). Lo que el padre cachea no le sirve al hijo. Si quieres prefill cacheado en el hijo, su system prompt tiene que ser estable por su cuenta, no heredado del padre.
 
 ## Caso — el hijo que filtraba de TwinDesk
 
@@ -95,7 +95,7 @@ TwinDesk lanzaba un worker web por consulta y pasaba **todo el hilo padre** "por
 
 ## Las tres preguntas que tu observabilidad debe responder
 
-1. **¿Cuánto prefill se pagó cacheado vs fresco este turno?** El ratio cache/fresh es la métrica que más dice sobre tu prefijo.
+1. **¿Cuánto prefill se pagó cacheado vs fresco este turno?** El ratio caché/fresh es la métrica que más dice sobre tu prefijo.
 2. **¿Cuánto decode consumió cada turno?** Una respuesta larga cuesta más que corta; presupuéstalo.
 3. **¿Qué herramientas se llamaron y con qué argumentos?** El log indexa tool_calls; el FTS indexa contenido.
 
@@ -112,7 +112,7 @@ System prompt idéntico byte a byte entre turnos. Timestamps al efímero. Identi
 session_id, thread_id, turn_id en cada llamada. Reproduce bugs solo con eso.
 </Step>
 <Step title="Indexa tres métricas">
-Cache hit rate. Coste por turno. Tools llamadas. Sin una de las tres, eval retroactivo está ciego.
+Caché hit rate. Coste por turno. Tools llamadas. Sin una de las tres, eval retroactivo está ciego.
 </Step>
 <Step title="Aísla hilos anidados">
 Cada subagente con sus tres ids. Prefijo estable propio. No heredar contexto sin filtrar.
@@ -122,9 +122,9 @@ Cada subagente con sus tres ids. Prefijo estable propio. No heredar contexto sin
 ## Lista práctica
 
 1. Prefill paralelo y cacheable; decode secuencial y proporcional a la KV.
-2. Caché de prefijo es byte-a-byte. Un carácter mutado = cache bust.
-3. KV cache es por generación; prompt cache es entre generaciones; no confundirlos.
-4. Subagente = otro prefill. Cache hit solo si system prompt del hijo es estable.
+2. Caché de prefijo es byte-a-byte. Un carácter mutado = caché bust.
+3. KV caché es por generación; prompt caché es entre generaciones; no confundirlos.
+4. Subagente = otro prefill. Caché hit solo si system prompt del hijo es estable.
 5. Streaming: tokens sí, tool_calls no. Nunca medio JSON en el chat.
 6. Multi-agente = hilos anidados con sus propios ids. Sin ids propios, filtran.
 7. MoE A3B: prefill barato en FLOPs, atención sigue siendo densa en KV.
@@ -133,7 +133,7 @@ Cada subagente con sus tres ids. Prefijo estable propio. No heredar contexto sin
 
 Tres preguntas que un test de prefill/decode debe responder:
 
-1. **¿Cuánto prefill se pagó cacheado vs fresco este turno?** El ratio cache/fresh es la métrica que más dice sobre tu prefijo.
+1. **¿Cuánto prefill se pagó cacheado vs fresco este turno?** El ratio caché/fresh es la métrica que más dice sobre tu prefijo.
 2. **¿Cuánto decode consumió cada turno?** Una respuesta larga cuesta más que corta.
 3. **¿Qué herramientas se llamaron y con qué argumentos?** El log indexa tool_calls; el FTS indexa contenido.
 
@@ -141,7 +141,7 @@ Si una falta, tu eval retroactivo está ciego.
 
 ## Resumiendo en una línea
 
-Prefill es el **trabajo en paralelo** sobre el prompt; decode es el **trabajo secuencial** sobre la respuesta. La caché de prefijo ahorra prefill; la KV cache vive solo dentro de una generación. MoE A3B abarata FLOPs del prefill pero la atención sigue siendo densa. Sin un test que mida las tres métricas (cache hit, tokens, tools), depurar es adivinar.
+Prefill es el **trabajo en paralelo** sobre el prompt; decode es el **trabajo secuencial** sobre la respuesta. La caché de prefijo ahorra prefill; la KV caché vive solo dentro de una generación. MoE A3B abarata FLOPs del prefill pero la atención sigue siendo densa. Sin un test que mida las tres métricas (caché hit, tokens, tools), depurar es adivinar.
 
 ## Fuentes
 

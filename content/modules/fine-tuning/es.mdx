@@ -176,7 +176,7 @@ Antes de instalar nada, escribe 20 prompts de eval que tu LoRA no deba fallar. S
 
 ## Function-calling es una plantilla que puedes entrenar
 
-Si el modelo tiene que *aprender* a emitir tokens de tools, eso es un fine-tune — Bonus 1 de Hugging Face, en [fine-tune de function-calling](/es/m/function-calling-ft). Reúne ~20 pares limpios antes de tocar Unsloth. Si el esquema aún se mueve, **no afinés**; arregla el esquema.
+Si el modelo tiene que *aprender* a emitir tokens de tools, eso es un fine-tune — Bonus 1 de Hugging Face, en [fine-tune de function-calling](/es/m/function-calling-ft). Reúne ~20 pares limpios antes de tocar Unsloth. Si el esquema aún se mueve, **no afines**; arregla el esquema.
 
 <Callout>
 Si quieres que el modelo use una tool, el esquema JSON debe ser estable entre los datos de entrenamiento y el esquema de producción. Un cambio de campo en producción rompe todo el adapter. Entrena con el esquema final.

@@ -1,18 +1,18 @@
-## Perifericos, no un segundo Gateway
+## Periféricos, no un segundo Gateway
 
-La fuente primaria es [*Nodes*](https://docs.openclaw.ai/nodes) de OpenClaw (s. f.). Un **nodo** es un dispositivo companero (macOS, iOS, watchOS, Android, headless) que se conecta al Gateway con `role` igual a `node` y expone una superficie de commands via `node.invoke`. La mayoria de nodos usa el WebSocket del Gateway en el puerto de operador. El nodo directo de Apple Watch usa polling HTTPS firmado en ese mismo puerto porque watchOS bloquea el networking de bajo nivel generico para apps ordinarias (OpenClaw, *Nodes*, s. f.). Los frames de protocolo viven en [*Gateway protocol*](https://docs.openclaw.ai/gateway/protocol).
+La fuente primaria es [*Nodes*](https://docs.openclaw.ai/nodes) de OpenClaw (s. f.). Un **nodo** es un dispositivo compañero (macOS, iOS, watchOS, Android, headless) que se conecta al Gateway con `role` igual a `node` y expone una superficie de commands vía `node.invoke`. La mayoría de nodos usa el WebSocket del Gateway en el puerto de operador. El nodo directo de Apple Watch usa polling HTTPS firmado en ese mismo puerto porque watchOS bloquea el networking de bajo nivel genérico para apps ordinarias (OpenClaw, *Nodes*, s. f.). Los frames de protocolo viven en [*Gateway protocol*](https://docs.openclaw.ai/gateway/protocol).
 
-La leccion generica [gateway](/es/m/gateway) permanece agnostica del harness. Esta es el periferico OpenClaw.
+La leccion generica [gateway](/es/m/gateway) permanece agnóstica del harness. Esta es el periferico OpenClaw.
 
-Los nodos **no** ejecutan el servicio Gateway. Los mensajes de canal (Telegram, WhatsApp, Slack, Discord) aterrizan en el Gateway, no en los nodos. Dos Gateways es un conflicto. Un Gateway mas nodos es la topologia prevista (OpenClaw, *Nodes*, s. f.; *Gateway architecture*, s. f., https://docs.openclaw.ai/concepts/architecture).
+Los nodos **no** ejecutan el servicio Gateway. Los mensajes de canal (Telegram, WhatsApp, Slack, Discord) aterrizan en el Gateway, no en los nodos. Dos Gateways es un conflicto. Un Gateway más nodos es la topología prevista (OpenClaw, *Nodes*, s. f.; *Gateway architecture*, s. f., https://docs.openclaw.ai/concepts/architecture).
 
-macOS tambien puede correr en **modo nodo**: la app de barra de menu se conecta al servidor WS del Gateway como un nodo, de modo que `openclaw nodes` funciona contra ese Mac. No arranques un segundo nodo CLI en ese Mac; la app ejecuta el runtime CLI node-host como worker interno y permanece la unica conexion e identidad de nodo.
+macOS también puede correr en **modo nodo**: la app de barra de menú se conecta al servidor WS del Gateway como un nodo, de modo que `openclaw nodes` funciona contra ese Mac. No arranques un segundo nodo CLI en ese Mac; la app ejecuta el runtime CLI node-host como worker interno y permanece la única conexión e identidad de nodo.
 
 <VisualSlot caption="role:node, camera, screen, location, exec host." />
 
 ## Pairing y estado
 
-Los nodos usan **pairing de dispositivo**. Un nodo presenta una identidad de dispositivo firmada en connect; el Gateway crea una peticion de pairing para `role: node`. Aprueba via CLI de devices o Control UI (OpenClaw, *Nodes*, s. f.; *Node pairing*, s. f., https://docs.openclaw.ai/gateway/pairing).
+Los nodos usan **pairing de dispositivo**. Un nodo presenta una identidad de dispositivo firmada en connect; el Gateway crea una petición de pairing para `role: node`. Aprueba vía CLI de devices o Control UI (OpenClaw, *Nodes*, s. f.; *Node pairing*, s. f., https://docs.openclaw.ai/gateway/pairing).
 
 ```bash
 openclaw devices list
@@ -22,47 +22,47 @@ openclaw nodes status
 openclaw nodes describe --node <idOrNameOrIp>
 ```
 
-Las peticiones pendientes caducan 5 minutos despues del ultimo reintento del dispositivo. Un dispositivo que sigue reconectando mantiene su unica peticion pendiente (y `requestId`) en vez de acuñar un prompt nuevo cada pocos minutos. Si un nodo reintenta con detalles de auth cambiados (role, scopes, clave publica), la peticion previa se sustituye y se crea un `requestId` nuevo. Los clientes reciben un evento `device.pair.resolved` para la peticion sustituida; vuelve a ejecutar `openclaw devices list` antes de aprobar (OpenClaw, *Nodes*, s. f.).
+Las peticiones pendientes caducan 5 minutos después del último reintento del dispositivo. Un dispositivo que sigue reconectando mantiene su única petición pendiente (y `requestId`) en vez de acuñar un prompt nuevo cada pocos minutos. Si un nodo reintenta con detalles de auth cambiados (role, scopes, clave publica), la petición previa se sustituye y se crea un `requestId` nuevo. Los clientes reciben un evento `device.pair.resolved` para la petición sustituida; vuelve a ejecutar `openclaw devices list` antes de aprobar (OpenClaw, *Nodes*, s. f.).
 
-`nodes status` marca un nodo como **paired** cuando su role de pairing de dispositivo incluye `node`. El registro de pairing es el contrato durable de role aprobado. La rotacion de token permanece dentro de ese contrato; no puede ascender un nodo a un role que la aprobacion nunca otorgo.
+`nodes status` marca un nodo como **paired** cuando su role de pairing de dispositivo incluye `node`. El registro de pairing es el contrato durable de role aprobado. La rotación de token permanece dentro de ese contrato; no puede ascender un nodo a un role que la aprobación nunca otorgo.
 
-`node.pair.*` (CLI: `openclaw nodes pending/approve/reject/remove/rename`) gestiona la superficie de commands/caps aprobada en el registro canonico del dispositivo. No hay un almacén de pairing de nodos separado (OpenClaw, *Node pairing*, s. f.).
+`node.pair.*` (CLI: `openclaw nodes pending/approve/reject/remove/rename`) gestiona la superficie de commands/caps aprobada en el registro canónico del dispositivo. No hay un almacén de pairing de nodos separado (OpenClaw, *Node pairing*, s. f.).
 
 <Callout>
-A partir de 2026.3.31, los commands de nodo estan deshabilitados hasta que el pairing de nodo se aprueba. El pairing de dispositivo solo ya no basta para exponer los commands declarados. Los commands en cola antes de la aprobacion se descartan, no se aplazan (OpenClaw, *Node pairing*, s. f.).
+A partir de 2026.3.31, los commands de nodo están deshabilitados hasta que el pairing de nodo se aprueba. El pairing de dispositivo solo ya no basta para exponer los commands declarados. Los commands en cola antes de la aprobación se descartan, no se aplazan (OpenClaw, *Node pairing*, s. f.).
 </Callout>
 
-## Desfase de version
+## Desfase de versión
 
-El WebSocket del Gateway acepta clientes nodo autenticados en una ventana de protocolo N-1. El Gateway v4 actual acepta nodos v3 cuando la conexion declara `role` `node` y `client.mode` `node`. Las sesiones de operador y UI deben usar el protocolo actual (OpenClaw, *Nodes*, s. f.).
+El WebSocket del Gateway acepta clientes nodo autenticados en una ventana de protocolo N-1. El Gateway v4 actual acepta nodos v3 cuando la conexión declara `role` `node` y `client.mode` `node`. Las sesiones de operador y UI deben usar el protocolo actual (OpenClaw, *Nodes*, s. f.).
 
-Para upgrades escalonados, actualiza primero el Gateway y luego cada nodo. Un nodo N-1 permanece visible y gestionable. Las caps y commands de plugins se ocultan hasta que el nodo actualiza al protocolo vigente. Los nodos mas viejos que N-1 requieren un upgrade fuera de banda antes de reconectar. El transporte HTTPS directo de watchOS exige la version de protocolo actual.
+Para upgrades escalonados, actualiza primero el Gateway y luego cada nodo. Un nodo N-1 permanece visible y gestionable. Las caps y commands de plugins se ocultan hasta que el nodo actualiza al protocolo vigente. Los nodos más viejos que N-1 requieren un upgrade fuera de banda antes de reconectar. El transporte HTTPS directo de watchOS exige la versión de protocolo actual.
 
 ## Node host remoto
 
-Usa un **node host** cuando el Gateway corre en una maquina y quieres ejecutar commands en otra. El modelo sigue hablando con el Gateway; el Gateway reenvia llamadas `exec` al node host cuando se selecciona `host=node` (OpenClaw, *Nodes*, s. f.).
+Usa un **node host** cuando el Gateway corre en una máquina y quieres ejecutar commands en otra. El modelo sigue hablando con el Gateway; el Gateway reenvía llamadas `exec` al node host cuando se selecciona `host=node` (OpenClaw, *Nodes*, s. f.).
 
 | Rol | Responsabilidad |
 | --- | --- |
 | Gateway host | Recibe mensajes, corre el modelo, enruta tool calls |
-| Node host | Ejecuta `system.run` / `system.which` en la maquina nodo |
-| Approvals | Se aplican en el node host via `~/.openclaw/state/openclaw.sqlite#exec_approvals_config` |
+| Node host | Ejecuta `system.run` / `system.which` en la máquina nodo |
+| Approvals | Se aplican en el node host vía `~/.openclaw/state/openclaw.sqlite#exec_approvals_config` |
 
-Las ejecuciones con approval vinculan el contexto exacto de la peticion. El camino exec prepara un `systemRunPlan` canonico antes de aprobar; una vez concedido, el Gateway reenvia ese plan almacenado, no un command, cwd o session editado despues.
+Las ejecuciones con approval vinculan el contexto exacto de la petición. El camino exec prepara un `systemRunPlan` canónico antes de aprobar; una vez concedido, el Gateway reenvía ese plan almacenado, no un command, cwd o session editado después.
 
-En la maquina nodo, arranca un host:
+En la máquina nodo, arranca un host:
 
 ```bash
 openclaw node run --host <gateway-host> --port 18789 --display-name "Build Node"
 ```
 
-Para setup de un pegado, crea un enlace Node host desde la pagina Devices del Control UI:
+Para setup de un pegado, crea un enlace Node host desde la página Devices del Control UI:
 
 ```bash
 openclaw node run --pair "oc-pair://<setup-code>"
 ```
 
-El enlace es de un solo uso y caduca a los 10 minutos. El pairing **no** pre-aprueba la ejecucion de commands; el primer `system.run` sigue approval pendiente o verificacion SSH (OpenClaw, *Nodes*, s. f.).
+El enlace es de un solo uso y caduca a los 10 minutos. El pairing **no** pre-aprueba la ejecución de commands; el primer `system.run` sigue approval pendiente o verificación SSH (OpenClaw, *Nodes*, s. f.).
 
 Si el Gateway hace bind a loopback (por defecto en modo local), los node hosts remotos no pueden conectar directo. Tuneliza y apunta el nodo al extremo local:
 
@@ -74,7 +74,7 @@ openclaw node run --host 127.0.0.1 --port 18790 --display-name "Build Node"
 
 Prefiere env vars `OPENCLAW_GATEWAY_TOKEN` / `OPENCLAW_GATEWAY_PASSWORD`. En modo local, el node host ignora `gateway.remote.token`.
 
-## Politica de commands: dos puertas
+## Política de commands: dos puertas
 
 Los commands de nodo deben pasar dos puertas antes de invocarse (OpenClaw, *Nodes*, s. f.):
 
@@ -87,24 +87,24 @@ Allowlists por defecto por plataforma (antes de defaults de plugin y `commands.a
 | --- | --- |
 | iOS | `camera.list`, `location.get`, `device.info`, `device.status`, `contacts.search`, `calendar.events`, `reminders.list`, `photos.latest`, `motion.activity`, `motion.pedometer`, `system.notify` |
 | watchOS | `device.info`, `device.status`, `system.notify` |
-| Android | camera/location/notifications/device/contacts/calendar/callLog/reminders/photos/motion mas `mobile.ui.observe` / `mobile.ui.act` |
+| Android | camera/location/notifications/device/contacts/calendar/callLog/reminders/photos/motion más `mobile.ui.observe` / `mobile.ui.act` |
 | macOS | camera/location/device/contacts/calendar/reminders/photos/motion, `system.notify`, `computer.act` |
 | Windows | `camera.list`, `location.get`, `device.info`, `device.status`, `system.notify`, `computer.act` |
 | Linux | `system.notify`, `computer.act` |
 
-Estas filas describen el **techo** de politica del Gateway, no los commands implementados por cada app de nodo. Un command es usable solo cuando el nodo conectado tambien lo declara. Android anuncia commands de UI movil solo mientras Accessibility Control esta habilitado. Los nodos de escritorio anuncian `computer.act` solo mientras su cumplidor local de Computer Control esta habilitado. La app macOS actual no declara las familias de dispositivo y datos personales listadas en la fila macOS.
+Estas filas describen el **techo** de política del Gateway, no los commands implementados por cada app de nodo. Un command es usable solo cuando el nodo conectado también lo declara. Android anuncia commands de UI móvil solo mientras Accessibility Control está habilitado. Los nodos de escritorio anuncian `computer.act` solo mientras su cumplidor local de Computer Control está habilitado. La app macOS actual no declara las familias de dispositivo y datos personales listadas en la fila macOS.
 
 Defaults del plugin Canvas en macOS: `canvas.present`, `canvas.hide`, `canvas.navigate`. iOS, Android, Windows, Linux y plataformas desconocidas no reciben esos defaults.
 
-Los commands de host de escritorio (`system.run`, `system.run.prepare`, `system.which`, `browser.proxy`, `browser.proxy.upload.v1`, `mcp.tools.call.v1` y `screen.snapshot` en macOS/Windows/Linux) no forman parte de la tabla estatica. Quedan disponibles cuando el operador aprueba una peticion de pairing que los declara.
+Los commands de host de escritorio (`system.run`, `system.run.prepare`, `system.which`, `browser.proxy`, `browser.proxy.upload.v1`, `mcp.tools.call.v1` y `screen.snapshot` en macOS/Windows/Linux) no forman parte de la tabla estática. Quedan disponibles cuando el operador aprueba una petición de pairing que los declara.
 
 Los commands peligrosos o de privacidad alta requieren un opt-in persistente de una vez con `gateway.nodes.commands.allow`, aunque el nodo los declare: `camera.snap`, `camera.clip`, `camera.ptz.control`, `desktop.stream`, `screen.record`, `contacts.add`, `calendar.add`, `reminders.add`, `health.summary`, `sms.send`, `sms.search`. `gateway.nodes.commands.deny` siempre gana sobre defaults y allowlist extra.
 
-**Caso.** Un nodo Android declara `sms.send`. El permiso del telefono esta concedido. El agente aun no puede enviar hasta que el operador del Gateway anade `sms.send` a `gateway.nodes.commands.allow`. Permiso de telefono y autorizacion de command del Gateway son independientes (OpenClaw, *Nodes*, s. f.).
+**Caso.** Un nodo Android declara `sms.send`. El permiso del telefono está concedido. El agente aun no puede enviar hasta que el operador del Gateway añade `sms.send` a `gateway.nodes.commands.allow`. Permiso de telefono y autorización de command del Gateway son independientes (OpenClaw, *Nodes*, s. f.).
 
 ## Camera, screen, location
 
-El nodo debe estar **en primer plano** para `camera.*`. Las llamadas en segundo plano devuelven `NODE_BACKGROUND_UNAVAILABLE`. El tool `nodes` del agente recorta `durationMs` pedido a 300000 (5 minutos) antes de reenviar; el nodo aplica un limite de payload mas estrecho (OpenClaw, *Nodes*, s. f.).
+El nodo debe estar **en primer plano** para `camera.*`. Las llamadas en segundo plano devuelven `NODE_BACKGROUND_UNAVAILABLE`. El tool `nodes` del agente recorta `durationMs` pedido a 300000 (5 minutos) antes de reenviar; el nodo aplica un límite de payload más estrecho (OpenClaw, *Nodes*, s. f.).
 
 ```bash
 openclaw nodes camera list --node <id>
@@ -113,7 +113,7 @@ openclaw nodes screen record --node <id> --duration 10s --fps 10
 openclaw nodes location get --node <id>
 ```
 
-Location esta **apagado por defecto**. La respuesta incluye lat/lon, precision en metros y timestamp. Las formas de parametro y error viven en *Location command* (OpenClaw, s. f., https://docs.openclaw.ai/nodes/location-command).
+Location esta **apagado por defecto**. La respuesta incluye lat/lon, precisión en metros y timestamp. Las formas de parámetro y error viven en *Location command* (OpenClaw, s. f., https://docs.openclaw.ai/nodes/location-command).
 
 `nodes invoke` bloquea `system.run` y `system.run.prepare`; esos commands solo corren por el tool `exec` con `host=node`.
 
@@ -125,45 +125,45 @@ openclaw config set tools.exec.mode allowlist
 openclaw config set tools.exec.node "<id-or-name>"
 ```
 
-O por sesion: `/exec host=node security=allowlist node=<id-or-name>`.
+O por sesión: `/exec host=node security=allowlist node=<id-or-name>`.
 
-`host=auto` no elige el nodo de forma implicita. Una peticion explicita `host=node` se permite desde `auto` solo cuando no hay runtime de sandbox activo. Para correr en un nodo desde una sesion sandboxed, fija `tools.exec.host=node` de forma explicita (OpenClaw, *Nodes*, s. f.).
+`host=auto` no elige el nodo de forma implícita. Una petición explícita `host=node` se permite desde `auto` solo cuando no hay runtime de sandbox activo. Para correr en un nodo desde una sesión sandboxed, fija `tools.exec.host=node` de forma explícita (OpenClaw, *Nodes*, s. f.).
 
 Los headers de identidad Tailscale **no** autentican conexiones `role: node`. En `gateway.auth.mode` `trusted-proxy`, un nodo nuevo tampoco puede suministrar los headers de identidad del proxy. Cambia a modo token y configura `gateway.auth.token` (OpenClaw, *Nodes*, s. f.).
 
 <TryThis>
-Escribe las dos puertas de command. Nombra el breaking change de 2026.3.31. Escribe el one-liner SSH local-forward para un Gateway loopback mas el node-run en 18790. Nombra tres commands que necesitan gateway.nodes.commands.allow explicito aunque el nodo los declare.
+Escribe las dos puertas de command. Nombra el breaking change de 2026.3.31. Escribe el one-liner SSH local-forward para un Gateway loopback más el node-run en 18790. Nombra tres commands que necesitan gateway.nodes.commands.allow explícito aunque el nodo los declare.
 </TryThis>
 
 ## Compara, sin mezclar knobs
 
-Hermes no tiene una malla periferica `role` `node`. Hermes ACP es un editor que conduce `AIAgent` por stdio (Nous Research, *ACP Internals*, s. f., https://hermes-agent.nousresearch.com/docs/developer-guide/acp-internals). Los nodos OpenClaw son dispositivos en el WebSocket del Gateway. No pegues ids de sesion ACP de Hermes en `openclaw nodes invoke`. Cita *Nodes* para camera, screen, location y exec host.
+Hermes no tiene una malla periferica `role` `node`. Hermes ACP es un editor que conduce `AIAgent` por stdio (Nous Research, *ACP Internals*, s. f., https://hermes-agent.nousresearch.com/docs/developer-guide/acp-internals). Los nodos OpenClaw son dispositivos en el WebSocket del Gateway. No pegues ids de sesión ACP de Hermes en `openclaw nodes invoke`. Cita *Nodes* para camera, screen, location y exec host.
 
-**Caso.** Portatil y telefono quieren una foto para el agente. El Gateway posee WhatsApp. El telefono es un nodo. El snap va por `node.invoke` en el telefono, no por una segunda sesion Baileys en el telefono (OpenClaw, *Nodes*, s. f.; *Gateway architecture*, s. f.).
+**Caso.** Portátil y telefono quieren una foto para el agente. El Gateway posee WhatsApp. El telefono es un nodo. El snap va por `node.invoke` en el telefono, no por una segunda sesión Baileys en el telefono (OpenClaw, *Nodes*, s. f.; *Gateway architecture*, s. f.).
 
-El estado de identidad headless vive en tres registros SQLite bajo `~/.openclaw/state/openclaw.sqlite`: `node_host_config` (ID de instancia de cliente, display name, metadata de conexion), `device_identities` clave `primary` (par de claves firmado) y `device_auth_tokens` (tokens emparejados por ID criptografico de dispositivo y role). Cambiar `--node-id` no reinicia el pairing (OpenClaw, *Nodes*, s. f.).
+El estado de identidad headless vive en tres registros SQLite bajo `~/.openclaw/state/openclaw.sqlite`: `node_host_config` (ID de instancia de cliente, display name, metadata de conexión), `device_identities` clave `primary` (par de claves firmado) y `device_auth_tokens` (tokens emparejados por ID criptografico de dispositivo y role). Cambiar `--node-id` no reinicia el pairing (OpenClaw, *Nodes*, s. f.).
 
 Los nodos emparejados pueden publicar descriptores de tools de plugin visibles al agente por defecto, pero el command de cada descriptor debe seguir en la superficie aprobada. Fija `gateway.nodes.pluginTools.enabled` a false para ignorar todos esos descriptores.
 
-Alcance de approval para `node.pair.approve`: peticion sin commands necesita `operator.pairing`; peticion de command ordinario necesita `operator.pairing` mas `operator.write`; peticion admin-sensible que contiene `system.run`, `system.run.prepare`, `system.which`, `browser.proxy`, `browser.proxy.upload.v1`, `fs.listDir` o `system.execApprovals.get/set` necesita `operator.pairing` mas `operator.admin` (OpenClaw, *Node pairing*, s. f.).
+Alcance de approval para `node.pair.approve`: petición sin commands necesita `operator.pairing`; petición de command ordinario necesita `operator.pairing` más `operator.write`; petición admin-sensible que contiene `system.run`, `system.run.prepare`, `system.which`, `browser.proxy`, `browser.proxy.upload.v1`, `fs.listDir` o `system.execApprovals.get/set` necesita `operator.pairing` más `operator.admin` (OpenClaw, *Node pairing*, s. f.).
 
 Con `gateway.bind` `loopback`, configura Tailscale Serve, `gateway.remote.url` o `plugins.entries.device-pair.config.publicUrl` antes de acuñar un join code. Si no, `openclaw devices join-code` informa que el Gateway solo esta bound a loopback.
 
-Las rutas ACPX no pueden despachar a un dispositivo emparejado. La ejecucion Codex en dispositivo emparejado requiere `codex.exec-server.stdio.v1` en `gateway.nodes.commands.allow` mas sus approvals normales de pairing e invocacion (OpenClaw, *Nodes*, s. f.).
+Las rutas ACPX no pueden despachar a un dispositivo emparejado. La ejecución Codex en dispositivo emparejado requiere `codex.exec-server.stdio.v1` en `gateway.nodes.commands.allow` más sus approvals normales de pairing e invocación (OpenClaw, *Nodes*, s. f.).
 
 ## MCP y skills alojados en el nodo
 
-Configura servidores MCP en `openclaw.json` **en la maquina nodo**, no en el Gateway. El node host headless arranca esos servidores, lista sus tools y publica los descriptores tras conectar. Las llamadas vuelven a ese nodo por `mcp.tools.call.v1`. Los servidores MCP OAuth no estan soportados en este camino v1 (OpenClaw, *Nodes*, s. f.).
+Configura servidores MCP en `openclaw.json` **en la máquina nodo**, no en el Gateway. El node host headless arranca esos servidores, lista sus tools y publica los descriptores tras conectar. Las llamadas vuelven a ese nodo por `mcp.tools.call.v1`. Los servidores MCP OAuth no están soportados en este camino v1 (OpenClaw, *Nodes*, s. f.).
 
-Los node hosts actuales declaran la familia `mcp.tools.call.v1` en el pairing inicial aunque no haya servidor MCP configurado. Anadir, quitar o filtrar servidores despues no exige re-pairing. Reinicia `openclaw node run` o `openclaw node restart` para aplicar cambios de config MCP; el node host no vigila esa config.
+Los node hosts actuales declaran la familia `mcp.tools.call.v1` en el pairing inicial aunque no haya servidor MCP configurado. Añadir, quitar o filtrar servidores después no exige re-pairing. Reinicia `openclaw node run` o `openclaw node restart` para aplicar cambios de config MCP; el node host no vigila esa config.
 
-Instala skills bajo el directorio activo de skills OpenClaw de la maquina nodo, `~/.openclaw/skills` por defecto. El node host publica `SKILL.md` validos tras conectar, y el Gateway los anade a los snapshots de skills del agente solo mientras ese nodo permanece conectado. El nombre de directorio de cada skill debe coincidir con el campo `name` del frontmatter. El agente lee la ubicacion anunciada `node://.../SKILL.md` con el tool `read` normal. El nodo publicador debe tener `system.run` aprobado, y la politica exec del agente debe permitir `host=node`; si no, la skill queda fuera del snapshot (OpenClaw, *Nodes*, s. f.).
+Instala skills bajo el directorio activo de skills OpenClaw de la máquina nodo, `~/.openclaw/skills` por defecto. El node host publica `SKILL.md` válidos tras conectar, y el Gateway los añade a los snapshots de skills del agente solo mientras ese nodo permanece conectado. El nombre de directorio de cada skill debe coincidir con el campo `name` del frontmatter. El agente lee la ubicación anunciada `node://.../SKILL.md` con el tool `read` normal. El nodo publicador debe tener `system.run` aprobado, y la política exec del agente debe permitir `host=node`; si no, la skill queda fuera del snapshot (OpenClaw, *Nodes*, s. f.).
 
-Fija `nodeHost.skills.enabled` a false en el nodo para detener la publicacion. Los operadores del Gateway pueden ignorar skills de todos los nodos emparejados con `gateway.nodes.allowSkills` false.
+Fija `nodeHost.skills.enabled` a false en el nodo para detener la publicación. Los operadores del Gateway pueden ignorar skills de todos los nodos emparejados con `gateway.nodes.allowSkills` false.
 
-Los commands de nodo de streaming largo usan eventos aditivos `node.invoke.progress`. Cada evento lleva el invoke ID, un numero de secuencia de base cero y un chunk UTF-8 acotado. El `node.invoke.result` existente sigue siendo la unica respuesta terminal. La cancelacion del caller emite `node.invoke.cancel`; el node host termina el arbol de proceso coincidente.
+Los commands de nodo de streaming largo usan eventos aditivos `node.invoke.progress`. Cada evento lleva el invoke ID, un número de secuencia de base cero y un chunk UTF-8 acotado. El `node.invoke.result` existente sigue siendo la única respuesta terminal. La cancelación del caller emite `node.invoke.cancel`; el node host termina el árbol de proceso coincidente.
 
-La auto-aprobacion SSH-verificada esta activa por defecto para el primer pairing `role: node` desde una direccion privada o CGNAT: el Gateway conecta de vuelta por SSH (`BatchMode`, `StrictHostKeyChecking=yes`), ejecuta `openclaw node identity --json` y aprueba solo cuando el device id remoto y la clave publica coinciden exactamente con la peticion pendiente. La alcanzabilidad sola nunca aprueba. Desactiva con `gateway.nodes.pairing.sshVerify` false (OpenClaw, *Node pairing*, s. f.).
+La auto-aprobación SSH-verificada esta activa por defecto para el primer pairing `role: node` desde una dirección privada o CGNAT: el Gateway conecta de vuelta por SSH (`BatchMode`, `StrictHostKeyChecking=yes`), ejecuta `openclaw node identity --json` y aprueba solo cuando el device id remoto y la clave publica coinciden exactamente con la petición pendiente. La alcanzabilidad sola nunca aprueba. Desactiva con `gateway.nodes.pairing.sshVerify` false (OpenClaw, *Node pairing*, s. f.).
 
 ## Mapa de permisos y canvas
 
@@ -177,15 +177,15 @@ openclaw nodes canvas hide --node <idOrNameOrIp>
 openclaw nodes canvas navigate "/__openclaw__/canvas/documents/<document-id>/index.html" --node <idOrNameOrIp>
 ```
 
-El camino del agente es `show_widget` con `presentation.target` igual a `node_panel`. A2UI renderiza en dashboards de sesion, no por commands Canvas de nodo.
+El camino del agente es `show_widget` con `presentation.target` igual a `node_panel`. A2UI renderiza en dashboards de sesión, no por commands Canvas de nodo.
 
-La metadata de `platform` / `deviceFamily` no reconocida usa un allowlist conservador que excluye `system.run` y `system.which`. Si necesitas esos commands para una plataforma desconocida, anadelos via `gateway.nodes.commands.allow`.
+La metadata de `platform` / `deviceFamily` no reconocida usa un allowlist conservador que excluye `system.run` y `system.which`. Si necesitas esos commands para una plataforma desconocida, anadelos vía `gateway.nodes.commands.allow`.
 
-En modo nodo macOS, `system.run` esta gated por exec approvals en la app macOS (Settings, Exec approvals). Ask, allowlist y full se comportan igual que el node host headless; los prompts denegados devuelven `SYSTEM_RUN_DENIED`.
+En modo nodo macOS, `system.run` está gated por exec approvals en la app macOS (Settings, Exec approvals). Ask, allowlist y full se comportan igual que el node host headless; los prompts denegados devuelven `SYSTEM_RUN_DENIED`.
 
-Los node hosts ignoran overrides de `PATH` en el objeto `env` y recortan un conjunto amplio de variables de arranque de interprete/shell (por ejemplo `NODE_OPTIONS`, `PYTHONPATH`, `BASH_ENV`, `DYLD_*`, `LD_*`) antes de correr un command. Si necesitas entradas extra de PATH, configura el entorno del servicio node host en vez de pasar `PATH` via `env` (OpenClaw, *Nodes*, s. f.).
+Los node hosts ignoran overrides de `PATH` en el objeto `env` y recortan un conjunto amplio de variables de arranque de interprete/shell (por ejemplo `NODE_OPTIONS`, `PYTHONPATH`, `BASH_ENV`, `DYLD_*`, `LD_*`) antes de correr un command. Si necesitas entradas extra de PATH, configura el entorno del servicio node host en vez de pasar `PATH` vía `env` (OpenClaw, *Nodes*, s. f.).
 
-Esta leccion se detiene en el contrato periferico: role, pairing, dos puertas de command, camera/screen/location, exec host. El proxy de browser vive en la leccion de browser. Tailscale Serve para acceso de nodos vive en la leccion Tailscale. Los codigos de pairing DM viven en la leccion de pairing.
+Esta lección se detiene en el contrato periferico: role, pairing, dos puertas de command, camera/screen/location, exec host. El proxy de browser vive en la lección de browser. Tailscale Serve para acceso de nodos vive en la lección Tailscale. Los códigos de pairing DM viven en la lección de pairing.
 
 ## Caso — el nodo con versión vieja
 
@@ -207,4 +207,4 @@ OpenClaw. (s. f.). *Node host CLI*. https://docs.openclaw.ai/cli/node
 
 OpenClaw. (s. f.). *Location command*. https://docs.openclaw.ai/nodes/location-command
 
-Nous Research. (s. f.). *ACP internals*. Guia de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/acp-internals
+Nous Research. (s. f.). *ACP internals*. Guía de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/acp-internals

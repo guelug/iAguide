@@ -51,7 +51,7 @@ No es magia. Es una transferencia de cómputo del target al draft en regiones do
 Dos métricas, dos cuellos de botella:
 
 - **<Term id="ttft">TTFT</Term>** (*time to first token*) — cuánto tarda el servidor en emitir el primer token tras la petición. Dominado por el **prefill** (cola + cómputo del prompt). Si tienes prompts largos en la mezcla, el TTFT sube.
-- **<Term id="tpot">TPOT</Term>** (*time per output token*) — media del tiempo entre tokens una vez empieza la generación. Dominado por el **decode** (ancho de banda, KV cache, concurrencia).
+- **<Term id="tpot">TPOT</Term>** (*time per output token*) — media del tiempo entre tokens una vez empieza la generación. Dominado por el **decode** (ancho de banda, KV caché, concurrencia).
 
 SLOs típicos: "p95 TTFT < 800 ms, p95 TPOT < 50 ms". Mide ambos en producción, no en local.
 
@@ -94,6 +94,6 @@ SoloServe ponía un worker vLLM por cliente "por aislamiento". GPUs al 15% y fac
 ## Fuentes
 
 - Kwon, W., et al. (2023). *Efficient Memory Management for Large Language Model Serving with PagedAttention* — vLLM. https://arxiv.org/abs/2309.06180
-- Leviathan, Y., Kalman, M., & Matias, Y. (2023). *Fast Inference from Transformers via Speculative Decoding*. https://arxiv.org/abs/2211.17192
+- Leviathan, Y., Kalman, M., & Matias, Y. (2023). *Fast Inference from Transformers vía Speculative Decoding*. https://arxiv.org/abs/2211.17192
 - vLLM documentation — *Performance and tuning*. https://docs.vllm.ai/
 - NVIDIA TensorRT-LLM documentation — *In-flight batching, paged KV*. https://github.com/NVIDIA/TensorRT-LLM

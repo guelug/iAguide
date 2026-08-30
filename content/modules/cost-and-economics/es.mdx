@@ -29,7 +29,7 @@ Pero hay trampas que revientan los hits:
 - **Un timestamp que cambia cada petición** en el system prompt. El servidor ve un prefijo distinto y no acierta. Caso real: añadir `Hoy es 2026-08-27` arriba de todo. Mueve esa fecha al final, o quítala.
 - **Tools con descripciones que cambian** entre despliegues. Mismo efecto: prefijo distinto, cero hit.
 - **Orden distinto de los mensajes** del historial. Si pones system → user → assistant, pero en otro cliente pones user → system → assistant, los prefijos no encajan.
-- **Inserciones al principio** del prompt aunque el resto sea estable. Cualquier cosa al *frente* invalida todo lo que viene detrás (los cachés son prefijos, no subsecuencias).
+- **Inserciones al principio** del prompt aunque el resto sea estable. Cualquier cosa al *frente* inválida todo lo que viene detrás (los cachés son prefijos, no subsecuencias).
 
 <Callout>
 **Mueve lo dinámico al final.** System prompt y herramientas al principio, datos del usuario al final. Si no puedes, factura caché caída.

@@ -40,7 +40,7 @@ Un plugin decente expone:
 - **tools** — lista de tools que registra, con sus esquemas.
 - **permissions** — qué necesita (red, filesystem, shell, OAuth).
 - **entry** — punto de carga (módulo Python, binario, etc.).
-- **version** — para que el arnés sepa cuándo re-cargar.
+- **versión** — para que el arnés sepa cuándo re-cargar.
 
 Hermes descubre `registry.register()` a nivel de módulo. OpenClaw filtra por perfil + allow/deny + sandbox + plugins. Si la política quita una tool, el modelo **no ve su esquema** este turno.
 
@@ -81,7 +81,7 @@ Boceta un `plugin.yaml` (12 líneas) y un `SKILL.md` (20). No instales nada — 
 
 Tres preguntas:
 
-1. **¿Cambia el esquema de la tool?** El modelo ve el esquema este turno. Si lo cambias, invalida la caché de prefijo. Versiona el cambio.
+1. **¿Cambia el esquema de la tool?** El modelo ve el esquema este turno. Si lo cambias, inválida la caché de prefijo. Versiona el cambio.
 2. **¿Cambia el comportamiento?** Si la tool hace lo mismo pero con un parámetro nuevo (opcional), el cambio es compatible. Sin versionado.
 3. **¿Cambia el output?** Si el output añade campos, el modelo no se rompe. Si los quita, sí.
 
@@ -91,7 +91,7 @@ Hermes recarga plugins en `--reload` o al boot. OpenClaw recarga plugins desde e
 
 Plugins y skills entran al contexto por su **nombre** (índice), no por su **cuerpo**. El cuerpo va detrás de `load_skill(name)`. Esto es la razón por la que un skill de 30k no cuesta 30k de prefill cada turno — solo 1k del índice.
 
-Por eso el arnés trata el índice como **estable** y los cuerpos como **volátiles**. Cualquier cambio en un cuerpo (un skill editado) no invalida la caché de prefijo del índice; invalida solo la caché de prefijo del cuerpo (cuando se carga).
+Por eso el arnés trata el índice como **estable** y los cuerpos como **volátiles**. Cualquier cambio en un cuerpo (un skill editado) no inválida la caché de prefijo del índice; inválida solo la caché de prefijo del cuerpo (cuando se carga).
 
 <Callout>
 Si pegas los cuerpos de los skills en el system prompt, revientas la caché de prefijo con cada cambio. El skill es texto; trátalo como texto. Su carga es bajo demanda.

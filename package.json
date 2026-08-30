@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "check:framing": "node scripts/check-framing.mjs",
-    "check:coverage": "node scripts/audit-visual-coverage.mjs"
+    "check:coverage": "node scripts/audit-visual-coverage.mjs",
+    "check:accents": "node scripts/fix-spanish-accents.mjs --dry"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.8",

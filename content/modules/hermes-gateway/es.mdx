@@ -8,7 +8,7 @@ El runner vive en `gateway/run.py` como `GatewayRunner`. Las claves de sesión y
 
 ## Flujo del mensaje, según la documentación
 
-Cuando llega un mensaje de cualquier plataforma, Nous Research (*Gateway Internals*, s. f.) especifica este orden:
+Cuando llega un mensaje de cualquier plataforma, Nous Research (*Gateway Internals*, s. f.) específica este orden:
 
 1. El adaptador recibe el evento crudo y lo normaliza en un `MessageEvent`.
 2. El adaptador base comprueba el guardia de sesión activa. Si ya hay un agente corriendo para esa sesión, encola el mensaje y pone un evento de interrupción. Los comandos `/approve`, `/deny` y `/stop` saltan el guardia y se despachan en línea.

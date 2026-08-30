@@ -32,7 +32,7 @@ Un prefijo bien diseñado tiene capas:
 La regla: cualquier cosa que **puede mutar** sin que el modelo se entere pertenece al nivel efímero, y va por debajo del último breakpoint de caché.
 
 <Callout>
-El nivel efímero existe específicamente para que cambiar el día, el chat_id o el timestamp no invalide el bloque estable. Es la diferencia entre un dashboard que dice "cache hit: 92%" y uno que dice "cache hit: 0%".
+El nivel efímero existe específicamente para que cambiar el día, el chat_id o el timestamp no invalide el bloque estable. Es la diferencia entre un dashboard que dice "caché hit: 92%" y uno que dice "caché hit: 0%".
 </Callout>
 
 ## Stable: lo que cambia entre releases
@@ -40,7 +40,7 @@ El nivel efímero existe específicamente para que cambiar el día, el chat_id o
 El tier stable tiene tres cosas:
 
 1. **Identidad** — quién es el agente, qué hace, qué no hace. SOUL.md es el ejemplo canónico.
-2. **Esquemas de tools** — la lista visible este turno. Si la cambias a mitad de sesión, invalidas el prefix.
+2. **Esquemas de tools** — la lista visible este turno. Si la cambias a mitad de sesión, inválidas el prefix.
 3. **Índice de skills** — nombres + descripciones de una línea. El cuerpo va detrás de `load_skill`.
 
 Stable significa **idéntico byte a byte entre turnos de la misma sesión**. Cambia entre releases (con versionado).
@@ -105,7 +105,7 @@ Dos fixes:
 
 **OpenClaw** inyecta un set bootstrap fijo (puede ser varios archivos) y deja el contexto temporal **bajo** el límite de caché para que el cambio de día o de canal no invalide el prefijo del workspace. El sistema de breakpoints es explícito y configurable.
 
-## Caso: cache bust tras `/model`
+## Caso: caché bust tras `/model`
 
 **Caso.** El operador cambia de modelo a mitad de un hilo de Telegram. Los tokens de input se disparan aunque el texto "parezca igual." La factura se duplica.
 
@@ -115,7 +115,7 @@ Dos fixes:
 
 1. **Header separado** — el system prompt nunca incluye la identidad del modelo; va en un campo `model` del API call. La región estable no cambia.
 2. **Thread nuevo por modelo** — al cambiar de modelo, abres un thread nuevo. Más simple, pero pierdes continuidad.
-3. **Forzar cache key sin modelo** — algunos proveedores lo soportan. Frágil.
+3. **Forzar caché key sin modelo** — algunos proveedores lo soportan. Frágil.
 
 La opción 1 es la correcta arquitectónicamente. El system prompt no sabe qué modelo corre; el arnés lo sabe.
 
@@ -140,7 +140,7 @@ Que la identidad del modelo NO esté en el system prompt. Va en el header del AP
 ## Lista práctica
 
 1. Tres vidas: stable / context / volatile. Y un canal efímero para metadatos por turno.
-2. Estabilidad byte a byte en el tier stable. Cache hit depende de eso.
+2. Estabilidad byte a byte en el tier stable. Caché hit depende de eso.
 3. Timestamps, session_ids y channel_meta van al efímero, no al stable.
 4. Cambios incompatibles bump-ean la versión del prefijo. Caché vieja muere limpia.
 5. Identidad del modelo en el header, no en el system prompt.

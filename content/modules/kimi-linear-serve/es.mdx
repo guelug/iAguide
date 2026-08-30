@@ -106,7 +106,7 @@ En un Mac, **48B BF16 es un modelo de servidor**. No falsifiques un one-liner de
 
 ## Caché híbrida, sin un proyecto de ciencia el día uno
 
-Las capas KDA guardan **estado de convolución + delta** (tamaño constante). Las capas MLA guardan **KV real**. Los sistemas de prefix-cache como LMCache que crecieron con KV softmax necesitan una alineación estilo **mamba-cache-mode** y **grupos de objetos separados** para el estado lineal frente a la KV de MLA. Menciónalo para que no te sorprenda que un dump de prefijo de un modelo denso no se reproduzca. **No** tienes que configurar esto el día uno. Primero que `vllm serve` conteste `/v1/chat/completions`.
+Las capas KDA guardan **estado de convolución + delta** (tamaño constante). Las capas MLA guardan **KV real**. Los sistemas de prefix-caché como LMCache que crecieron con KV softmax necesitan una alineación estilo **mamba-caché-mode** y **grupos de objetos separados** para el estado lineal frente a la KV de MLA. Menciónalo para que no te sorprenda que un dump de prefijo de un modelo denso no se reproduzca. **No** tienes que configurar esto el día uno. Primero que `vllm serve` conteste `/v1/chat/completions`.
 
 AttnRes, si está en el checkpoint que bajaste (entrenamiento Kimi Linear más nuevo), ya está en el grafo. El sobrecoste de servir es la historia del **menos del 2 %** de la lección de residuales. No pasas `--attnres`.
 
@@ -192,7 +192,7 @@ El camino generate de Transformers, una vez tengas VRAM, hará OOM en una tarjet
 - **TP size 1 en 48B BF16.** OOM inmediato. Los pesos nunca aterrizaron.
 - **1M en 4×24 GB.** Pesos quizás, KV no. Baja `max-model-len`.
 - **GGUF en Ollama.** Artefacto equivocado. Para.
-- **Prefix cache de un dump denso.** Estado lineal y KV de MLA mezclados. Grupos de objetos separados, o sáltate prefix cache el día uno.
+- **Prefix caché de un dump denso.** Estado lineal y KV de MLA mezclados. Grupos de objetos separados, o sáltate prefix caché el día uno.
 
 Si tu arnés ya habla OpenAI, apunta `base_url` a `http://127.0.0.1:8000/v1 y conserva la lista de messages. No reimplementes plantillas de chat en el cliente. No recortes JSON de tools para "ahorrar contexto" antes de haber medido el TPOT híbrido; eso es resolver el cuello de botella equivocado.
 
@@ -226,9 +226,9 @@ Esa es la receta. El resto de la lección es por qué no la pegas ciega en una 2
 
 Una tarjeta de 24 GB no es candidata. Punto.
 
-## Caso — el 48B que se quedó sin KV cache a 96k
+## Caso — el 48B que se quedó sin KV caché a 96k
 
-Un equipo de soporte corre `moonshotai/Kimi-Linear-48B-A3B-Instruct` con vLLM 0.25 sobre 4× L40S (48 GB cada una). Configuran `max-model-len=131072` "porque la receta dice 1M con YaRN". A 4k tokens por sesión el sistema aguanta. A 96k tokens por sesión el proceso muere con `OutOfMemoryError` en `CUDA OOM`. El equipo añade otra GPU, vuelve a OOM. Diagnóstico real: KV cache crece lineal con el contexto y `max-model-len`; con 4 GPUs a 96k el presupuesto de HBM para KV ya supera la capacidad combinada, y el scheduler de vLLM no avisa hasta que falla la asignación. Bajan `max-model-len=32768`, miden `KV cache usage` con `vllm bench`, fijan un `max_num_seqs=8`, y el sistema entra en régimen. La lección es vieja pero la vuelven a aprender: `max-model-len` no es una aspiración, es el contrato de memoria. Si necesitas 96k en producción, dimensiona GPUs a esa cifra con la receta de la model card, no la del foro que dice "yo lo corrí a 200k". Y mide con `vllm bench` antes de admitir tráfico.
+Un equipo de soporte corre `moonshotai/Kimi-Linear-48B-A3B-Instruct` con vLLM 0.25 sobre 4× L40S (48 GB cada una). Configuran `max-model-len=131072` "porque la receta dice 1M con YaRN". A 4k tokens por sesión el sistema aguanta. A 96k tokens por sesión el proceso muere con `OutOfMemoryError` en `CUDA OOM`. El equipo añade otra GPU, vuelve a OOM. Diagnóstico real: KV caché crece lineal con el contexto y `max-model-len`; con 4 GPUs a 96k el presupuesto de HBM para KV ya supera la capacidad combinada, y el scheduler de vLLM no avisa hasta que falla la asignación. Bajan `max-model-len=32768`, miden `KV cache usage` con `vllm bench`, fijan un `max_num_seqs=8`, y el sistema entra en régimen. La lección es vieja pero la vuelven a aprender: `max-model-len` no es una aspiración, es el contrato de memoria. Si necesitas 96k en producción, dimensiona GPUs a esa cifra con la receta de la model card, no la del foro que dice "yo lo corrí a 200k". Y mide con `vllm bench` antes de admitir tráfico.
 
 ## Fuentes
 

@@ -175,7 +175,7 @@ Mueve los tensores a `model.device` antes de `generate`. Decodifica con el **mis
 
 ## Caso — la clave de nivel gratuito y el agente que habló de más
 
-Oriol cableó Hermes a `provider: huggingface` con un `HF_TOKEN` de cuenta gratuita. El primer "hola" funcionó. La tercera pregunta del usuario devolvió un error. No había cambiado el modelo. No había filtrado la clave.
+Oriol cableó Hermes a `provider: huggingface` con un `HF_TOKEN` de cuenta gratuita. El primer "hola" funciónó. La tercera pregunta del usuario devolvió un error. No había cambiado el modelo. No había filtrado la clave.
 
 Hermes, como los arneses tipo OpenClaw, hace **muchas** completions por mensaje de usuario: la respuesta visible, un seguimiento de tool-call, quizá un resumen de compresión, quizá un título. Cada completion es una petición de Providers facturada. El crédito gratuito de Hugging Face es **0,10 dólares al mes, sujeto a cambio** (página de precios, agosto de 2026). Las tarifas de los partners se repercuten sin recargo de HF, pero no son cero. Un puñado de turnos de clase 397B puede gastar el mes.
 

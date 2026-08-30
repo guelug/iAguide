@@ -1,10 +1,10 @@
 ## AIAgent sobre ACP stdio
 
-La fuente primaria es [*ACP Internals*](https://hermes-agent.nousresearch.com/docs/developer-guide/acp-internals) de Nous Research (s. f.). El adaptador ACP envuelve el `AIAgent` sincrono de Hermes en un servidor JSON-RPC stdio asincrono. La leccion generica de ACP, si existe, permanece agnostica del protocolo; esta es la particularidad de Hermes: Hermes **es** el harness que un editor conduce.
+La fuente primaria es [*ACP Internals*](https://hermes-agent.nousresearch.com/docs/developer-guide/acp-internals) de Nous Research (s. f.). El adaptador ACP envuelve el `AIAgent` síncrono de Hermes en un servidor JSON-RPC stdio asíncrono. La lección genérica de ACP, si existe, permanece agnóstica del protocolo; esta es la particularidad de Hermes: Hermes **es** el harness que un editor conduce.
 
-Puntos de entrada: `hermes acp`, `hermes-acp`, o `python -m acp_adapter`. Los tres llegan a `acp_adapter.entry.main()`. Esa funcion parsea `--version`, `--check` y `--setup` antes de arrancar el servidor, carga `~/.hermes/.env`, configura logging a stderr, construye `HermesACPAgent` y llama a `acp.run_agent` con `use_unstable_protocol=True` (Nous Research, *ACP Internals*, s. f.).
+Puntos de entrada: `hermes acp`, `hermes-acp`, o `python -m acp_adapter`. Los tres llegan a `acp_adapter.entry.main()`. Esa función parsea `--version`, `--check` y `--setup` antes de arrancar el servidor, carga `~/.hermes/.env`, configura logging a stderr, construye `HermesACPAgent` y llama a `acp.run_agent` con `use_unstable_protocol=True` (Nous Research, *ACP Internals*, s. f.).
 
-Stdout queda reservado al transporte JSON-RPC de ACP. Los logs legibles van a stderr. Mezclar esos dos streams es como un cliente IDE ve una linea de log como un frame RPC roto.
+Stdout queda reservado al transporte JSON-RPC de ACP. Los logs legibles van a stderr. Mezclar esos dos streams es como un cliente IDE ve una línea de log como un frame RPC roto.
 
 Ficheros clave: `acp_adapter/entry.py`, `acp_adapter/server.py`, `acp_adapter/session.py`, `acp_adapter/events.py`, `acp_adapter/permissions.py`, `acp_adapter/tools.py`, `acp_adapter/auth.py`.
 
@@ -22,18 +22,18 @@ hermes acp / hermes-acp / python -m acp_adapter
   -> acp.run_agent(agent, use_unstable_protocol=True)
 ```
 
-`--setup` no es una puerta trasera. ACP siempre anuncia un metodo de auth de setup en terminal llamado `hermes-setup` con args `--setup` para que los clientes ACP de primer arranque abran la configuracion interactiva de modelo y proveedor de Hermes antes de una sesion ACP normal (Nous Research, *ACP Internals*, s. f.).
+`--setup` no es una puerta trasera. ACP siempre anuncia un método de auth de setup en terminal llamado `hermes-setup` con args `--setup` para que los clientes ACP de primer arranque abran la configuración interactiva de modelo y proveedor de Hermes antes de una sesión ACP normal (Nous Research, *ACP Internals*, s. f.).
 
-ACP no implementa su propio almacén de auth. Reusa el resolver de runtime de Hermes: `acp_adapter/auth.py` mas `hermes_cli/runtime_provider.py`. Anuncia y usa el proveedor y las credenciales de Hermes ya configurados.
+ACP no implementa su propio almacén de auth. Reusa el resolver de runtime de Hermes: `acp_adapter/auth.py` más `hermes_cli/runtime_provider.py`. Anuncia y usa el proveedor y las credenciales de Hermes ya configurados.
 
 ## HermesACPAgent y SessionManager
 
-`acp_adapter/server.py` implementa el protocolo de agente ACP. Responsabilidades: initialize y authenticate; metodos de sesion new, load, resume, fork, list, cancel; ejecucion de prompt; cambio de modelo de sesion; cablear callbacks sync de `AIAgent` a notificaciones async de ACP.
+`acp_adapter/server.py` implementa el protocolo de agente ACP. Responsabilidades: initialize y authenticate; métodos de sesión new, load, resume, fork, list, cancel; ejecución de prompt; cambio de modelo de sesión; cablear callbacks sync de `AIAgent` a notificaciones async de ACP.
 
-`acp_adapter/session.py` sigue las sesiones ACP vivas. Cada sesion guarda `session_id`, `agent`, `cwd`, `model`, `history` y `cancel_event`. El manager es thread-safe y soporta create, get, remove, fork, list, cleanup y actualizaciones de cwd (Nous Research, *ACP Internals*, s. f.).
+`acp_adapter/session.py` sigue las sesiones ACP vivas. Cada sesión guarda `session_id`, `agent`, `cwd`, `model`, `history` y `cancel_event`. El manager es thread-safe y soporta create, get, remove, fork, list, cleanup y actualizaciones de cwd (Nous Research, *ACP Internals*, s. f.).
 
 <Callout>
-Las sesiones ACP se persisten en el `~/.hermes/state.db` compartido (SessionDB) y se restauran de forma transparente entre reinicios de proceso. Aparecen en `session_search`. Eso es una limitacion documentada del adaptador actual, no una promesa de que todo cliente de editor reconstruira tool calls historicas.
+Las sesiones ACP se persisten en el `~/.hermes/state.db` compartido (SessionDB) y se restauran de forma transparente entre reinicios de proceso. Aparecen en `session_search`. Eso es una limitación documentada del adaptador actual, no una promesa de que todo cliente de editor reconstruira tool calls históricas.
 </Callout>
 
 ## Puente de eventos
@@ -41,22 +41,22 @@ Las sesiones ACP se persisten en el `~/.hermes/state.db` compartido (SessionDB) 
 `acp_adapter/events.py` convierte callbacks de `AIAgent` en eventos `session_update` de ACP. Callbacks puenteados (Nous Research, *ACP Internals*, s. f.):
 
 - `tool_progress_callback`
-- `thinking_callback` — ahora mismo esta en `None` en el puente ACP. El razonamiento se reenvia por `step_callback`.
+- `thinking_callback` — ahora mismo está en `None` en el puente ACP. El razonamiento se reenvía por `step_callback`.
 - `step_callback`
 
-`AIAgent` corre en un hilo worker. El I/O de ACP vive en el event loop principal. El puente por eso usa `asyncio.run_coroutine_threadsafe`. Ensenar "hagan await del agente" es incorrecto. La pagina eligio un thread pool mas un hop de corrutina thread-safe a proposito.
+`AIAgent` corre en un hilo worker. El I/O de ACP vive en el event loop principal. El puente por eso usa `asyncio.run_coroutine_threadsafe`. Enseñar "hagan await del agente" es incorrecto. La página eligió un thread pool más un hop de corrutina thread-safe a propósito.
 
 ## Llamadas duplicadas del mismo nombre
 
-El puente de eventos sigue IDs de tool en FIFO por nombre de tool, no un solo ID por nombre. Eso importa para llamadas paralelas del mismo nombre y para llamadas repetidas del mismo nombre en un paso. Sin colas FIFO, los eventos de completion se enganchan a la invocacion equivocada (Nous Research, *ACP Internals*, s. f.).
+El puente de eventos sigue IDs de tool en FIFO por nombre de tool, no un solo ID por nombre. Eso importa para llamadas paralelas del mismo nombre y para llamadas repetidas del mismo nombre en un paso. Sin colas FIFO, los eventos de completion se enganchan a la invocación equivocada (Nous Research, *ACP Internals*, s. f.).
 
-**Caso.** Dos llamadas `terminal` en un paso. Los eventos de completion se enganchan al id equivocado. La correccion documentada es colas FIFO de tool-id por nombre, no un id por nombre. No lo "arreglen" prohibiendo tools en paralelo.
+**Caso.** Dos llamadas `terminal` en un paso. Los eventos de completion se enganchan al id equivocado. La corrección documentada es colas FIFO de tool-id por nombre, no un id por nombre. No lo "arreglen" prohibiendo tools en paralelo.
 
 ## Puente de permisos
 
-`acp_adapter/permissions.py` adapta los prompts de aprobacion de terminal peligrosa a permission requests de ACP.
+`acp_adapter/permissions.py` adapta los prompts de aprobación de terminal peligrosa a permission requests de ACP.
 
-| Opcion ACP | Valor Hermes |
+| Opción ACP | Valor Hermes |
 | --- | --- |
 | `allow_once` | `once` |
 | `allow_always` | `always` |
@@ -64,7 +64,7 @@ El puente de eventos sigue IDs de tool en FIFO por nombre de tool, no un solo ID
 
 Los timeouts y los fallos del puente deniegan por defecto. Esa frase fail-closed es la particularidad del mapa de permisos, no un timeout de cliente que se invente.
 
-ACP instala de forma temporal un callback de aprobacion en la tool terminal durante la ejecucion del prompt, y luego restaura el callback previo. Asi no deja handlers de aprobacion especificos de sesion ACP instalados para siempre en global (Nous Research, *ACP Internals*, s. f.).
+ACP instala de forma temporal un callback de aprobación en la tool terminal durante la ejecución del prompt, y luego restaura el callback previo. Así no deja handlers de aprobación específicos de sesión ACP instalados para siempre en global (Nous Research, *ACP Internals*, s. f.).
 
 ## Ayudas de render de tools
 
@@ -77,7 +77,7 @@ ACP instala de forma temporal un callback de aprobacion en la tool terminal dura
 
 Esos mapeos son render, no un segundo registry de tools. El toolset vivo en el agente es `hermes-acp` (Nous Research, *ACP Internals*, s. f.; *Tools Runtime*, s. f.).
 
-## Ciclo de vida de sesion
+## Ciclo de vida de sesión
 
 ```text
 new_session(cwd)
@@ -94,31 +94,31 @@ prompt(..., session_id)
   -> emit final agent message chunk
 ```
 
-Los bloques de prompt no texto se ignoran hoy para extraer el texto de la peticion (Nous Research, *ACP Internals*, s. f.). Un prompt solo de imagen llega por tanto como texto vacio salvo que el cliente envie tambien un bloque de texto. Eso es una limitacion documentada, no un bug de vision en `AIAgent`.
+Los bloques de prompt no texto se ignoran hoy para extraer el texto de la petición (Nous Research, *ACP Internals*, s. f.). Un prompt solo de imagen llega por tanto como texto vacío salvo que el cliente envíe también un bloque de texto. Eso es una limitación documentada, no un bug de vision en `AIAgent`.
 
-El session manager une el cwd del editor al ID de sesion ACP via overrides de terminal y fichero con alcance de tarea, de modo que las tools de fichero y terminal operan relativas al workspace del editor.
+El session manager une el cwd del editor al ID de sesión ACP vía overrides de terminal y fichero con alcance de tarea, de modo que las tools de fichero y terminal operan relativas al workspace del editor.
 
-### Cancelacion
+### Cancelación
 
-`cancel(session_id)` pone el evento de cancel de la sesion, llama a `agent.interrupt()` cuando existe, y hace que la respuesta del prompt devuelva `stop_reason` igual a `cancelled`.
+`cancel(session_id)` pone el evento de cancel de la sesión, llama a `agent.interrupt()` cuando existe, y hace que la respuesta del prompt devuelva `stop_reason` igual a `cancelled`.
 
-Los objetos que sostienen la senal son por tanto dos: `cancel_event` en la sesion, e `interrupt()` en el agente cuando ese metodo existe. Una respuesta de TryThis que nombre solo uno de esos dos esta incompleta.
+Los objetos que sostienen la señal son por tanto dos: `cancel_event` en la sesión, e `interrupt()` en el agente cuando ese método existe. Una respuesta de TryThis que nombre solo uno de esos dos esta incompleta.
 
 ### Fork
 
-`fork_session()` copia en profundidad el historial de mensajes a una sesion viva nueva, preservando el estado de conversacion y dando al fork su propio session ID y cwd (Nous Research, *ACP Internals*, s. f.). Un fork no es un puntero al historial padre. Es una copia. Las mutaciones del fork no reescriben el transcrito padre.
+`fork_session()` copia en profundidad el historial de mensajes a una sesión viva nueva, preservando el estado de conversación y dando al fork su propio session ID y cwd (Nous Research, *ACP Internals*, s. f.). Un fork no es un puntero al historial padre. Es una copia. Las mutaciones del fork no reescriben el transcrito padre.
 
 ## Limitaciones actuales
 
 Nous Research lista tres (s. f.):
 
 - Las sesiones ACP persisten en el `~/.hermes/state.db` compartido y se restauran entre reinicios de proceso; aparecen en `session_search`.
-- Los bloques de prompt no texto se ignoran para extraer el texto de la peticion.
-- El UX especifico del editor varia segun la implementacion del cliente ACP.
+- Los bloques de prompt no texto se ignoran para extraer el texto de la petición.
+- El UX específico del editor varia según la implementación del cliente ACP.
 
-Ficheros relacionados en la misma guia: `tests/acp/` para la suite del adaptador; `toolsets.py` para la definicion del toolset `hermes-acp`; `hermes_cli/main.py` para el subcomando CLI `hermes acp`; `pyproject.toml` para la dependencia opcional `[acp]` y el script `hermes-acp`.
+Ficheros relacionados en la misma guía: `tests/acp/` para la suite del adaptador; `toolsets.py` para la definición del toolset `hermes-acp`; `hermes_cli/main.py` para el subcomando CLI `hermes acp`; `pyproject.toml` para la dependencia opcional `[acp]` y el script `hermes-acp`.
 
-`browser_dialog` se registra tambien en el toolset `hermes-acp` ademas de `browser`, todavia gated a alcanzabilidad CDP (Nous Research, *Browser CDP Supervisor*, s. f.). Una sesion ACP sin endpoint CDP no anuncia esa tool.
+`browser_dialog` se registra también en el toolset `hermes-acp` además de `browser`, todavía gated a alcanzabilidad CDP (Nous Research, *Browser CDP Supervisor*, s. f.). Una sesión ACP sin endpoint CDP no anuncia esa tool.
 
 ## Comparar, sin mezclar mandos
 
@@ -126,45 +126,45 @@ Ficheros relacionados en la misma guia: `tests/acp/` para la suite del adaptador
 
 El ACP de Hermes es el harness que se conduce: un IDE habla ACP por stdio a `hermes acp`, y `HermesACPAgent` envuelve un `AIAgent` vivo (Nous Research, *ACP Internals*, s. f.).
 
-OpenClaw documenta **dos** direcciones ACP, y no son la misma pagina.
+OpenClaw documenta **dos** direcciones ACP, y no son la misma página.
 
-1. `openclaw acp` es un **puente** ACP respaldado por Gateway. Un IDE o cliente ACP se conecta a OpenClaw por stdio. OpenClaw reenvia prompts al Gateway por WebSocket y mapea sesiones ACP a claves de sesion del Gateway (OpenClaw, *ACP*, s. f., https://docs.openclaw.ai/cli/acp). No es un runtime de editor nativo ACP completo. Se centra en enrutado de sesion, entrega de prompt y updates en streaming.
+1. `openclaw acp` es un **puente** ACP respaldado por Gateway. Un IDE o cliente ACP se conecta a OpenClaw por stdio. OpenClaw reenvía prompts al Gateway por WebSocket y mapea sesiones ACP a claves de sesión del Gateway (OpenClaw, *ACP*, s. f., https://docs.openclaw.ai/cli/acp). No es un runtime de editor nativo ACP completo. Se centra en enrutado de sesión, entrega de prompt y updates en streaming.
 
-2. ACP Agents es el inverso de Hermes: OpenClaw **lanza** harnesses de codigo externos (Claude Code, Cursor, Gemini CLI y otros harnesses ACPX soportados) a traves de un plugin de backend ACP como `@openclaw/acpx` (OpenClaw, *ACP agents*, s. f., https://docs.openclaw.ai/tools/acp-agents). Cada spawn se sigue como tarea de fondo. `/acp spawn` es control de chat de OpenClaw, no un flag CLI de Hermes.
+2. ACP Agents es el inverso de Hermes: OpenClaw **lanza** harnesses de código externos (Claude Code, Cursor, Gemini CLI y otros harnesses ACPX soportados) a través de un plugin de backend ACP como `@openclaw/acpx` (OpenClaw, *ACP agents*, s. f., https://docs.openclaw.ai/tools/acp-agents). Cada spawn se sigue como tarea de fondo. `/acp spawn` es control de chat de OpenClaw, no un flag CLI de Hermes.
 
-Regla rapida de la propia pagina de OpenClaw: el editor quiere hablar ACP **hacia** OpenClaw, usen `openclaw acp`; OpenClaw debe lanzar Codex o Claude como harness ACP, usen `/acp spawn` y *ACP agents*. Hermes no cabe en ninguna de esas dos cajas de OpenClaw. Hermes **es** el servidor ACP que envuelve su propio `AIAgent`.
+Regla rápida de la propia página de OpenClaw: el editor quiere hablar ACP **hacia** OpenClaw, usen `openclaw acp`; OpenClaw debe lanzar Codex o Claude como harness ACP, usen `/acp spawn` y *ACP agents*. Hermes no cabe en ninguna de esas dos cajas de OpenClaw. Hermes **es** el servidor ACP que envuelve su propio `AIAgent`.
 
-No peguen `--session agent:main:main` de OpenClaw en `hermes acp`. No peguen `enabled_toolsets` `hermes-acp` de Hermes en el `openclaw.json` de OpenClaw. Citen la pagina que implementan.
+No peguen `--session agent:main:main` de OpenClaw en `hermes acp`. No peguen `enabled_toolsets` `hermes-acp` de Hermes en el `openclaw.json` de OpenClaw. Citen la página que implementan.
 
-La matriz de compatibilidad del puente de OpenClaw marca `initialize`, `newSession`, `prompt` y `cancel` como implemented, `loadSession` como partial, `mcpServers` por sesion como unsupported, y metodos de filesystem y terminal del cliente como unsupported (OpenClaw, *ACP*, s. f.). La pagina de Hermes no publica esa matriz. No copien la tabla partial/unsupported de OpenClaw a un bug del adaptador Hermes.
+La matriz de compatibilidad del puente de OpenClaw marca `initialize`, `newSession`, `prompt` y `cancel` como implemented, `loadSession` como partial, `mcpServers` por sesión como unsupported, y métodos de filesystem y terminal del cliente como unsupported (OpenClaw, *ACP*, s. f.). La página de Hermes no publica esa matriz. No copien la tabla partial/unsupported de OpenClaw a un bug del adaptador Hermes.
 
 **Caso.** Un operador quiere que Zed conduzca Hermes. El comando es `hermes acp` (o `hermes-acp`). Stdout sigue en JSON-RPC. Los logs siguen en stderr. Las credenciales de proveedor vienen del resolver de runtime de Hermes, no de un fichero de token de Gateway OpenClaw.
 
-**Caso.** Un operador quiere que Zed conduzca una sesion de Gateway OpenClaw. El comando es `openclaw acp`, opcionalmente con `--url` y `--token-file`. Ese proceso no construye un `AIAgent` de Hermes. Reenvia a Gateway chat/send.
+**Caso.** Un operador quiere que Zed conduzca una sesión de Gateway OpenClaw. El comando es `openclaw acp`, opcionalmente con `--url` y `--token-file`. Ese proceso no construye un `AIAgent` de Hermes. Reenvía a Gateway chat/send.
 
 <TryThis>
 Esbocen `new_session`, luego `prompt`, luego `cancel`. Nombren que objeto sostiene `cancel_event` y que llamada es `interrupt()`. Nombren el mapa de permisos: `allow_once`, `allow_always`, reject. Digan que protegen las colas FIFO cuando dos tools del mismo nombre completan en un paso.
 </TryThis>
 
-Citen Nous Research, *ACP Internals*, s. f., como padre de cada afirmacion de esta leccion: stdout versus stderr, `use_unstable_protocol=True`, toolset `hermes-acp`, `thinking_callback` en `None`, deny por defecto en timeouts de permiso, ruta SessionDB `~/.hermes/state.db`.
+Citen Nous Research, *ACP Internals*, s. f., como padre de cada afirmación de esta lección: stdout versus stderr, `use_unstable_protocol=True`, toolset `hermes-acp`, `thinking_callback` en `None`, deny por defecto en timeouts de permiso, ruta SessionDB `~/.hermes/state.db`.
 
-Un fork copia el historial. Cancel pone un evento e interrumpe el agente. Prompt extrae solo bloques de **texto**. Esas tres frases son el ciclo de vida. Todo lo demas es cableado.
+Un fork copia el historial. Cancel pone un evento e interrumpe el agente. Prompt extrae solo bloques de **texto**. Esas tres frases son el ciclo de vida. Todo lo demás es cableado.
 
-Lean *Tools Runtime* para por que `hermes-acp` es un toolset con nombre y no "todas las tools." Lean *Provider Runtime Resolution* para el resolver que ACP reusa. Lean *Browser CDP Supervisor* para por que `browser_dialog` puede aparecer en este toolset cuando hay un endpoint CDP alcanzable. Lean OpenClaw *ACP* y *ACP agents* solo cuando el producto es OpenClaw, y mantengan esas dos paginas de OpenClaw distintas entre si.
+Lean *Tools Runtime* para por que `hermes-acp` es un toolset con nombre y no "todas las tools." Lean *Provider Runtime Resolution* para el resolver que ACP reusa. Lean *Browser CDP Supervisor* para por que `browser_dialog` puede aparecer en este toolset cuando hay un endpoint CDP alcanzable. Lean OpenClaw *ACP* y *ACP agents* solo cuando el producto es OpenClaw, y mantengan esas dos páginas de OpenClaw distintas entre si.
 
-Esta leccion se detiene en el servidor stdio, el session manager, el puente de eventos, el mapa de permisos, fork, cancel, y el inverso de las dos direcciones ACP de OpenClaw. Los keybindings del editor quedan fuera de alcance: el UX varia por cliente, como ya dice la lista de limitaciones.
+Esta lección se detiene en el servidor stdio, el session manager, el puente de eventos, el mapa de permisos, fork, cancel, y el inverso de las dos direcciones ACP de OpenClaw. Los keybindings del editor quedan fuera de alcance: el UX varia por cliente, como ya dice la lista de limitaciones.
 
-El extra opcional en `pyproject.toml` llamado `[acp]` mas el script `hermes-acp` son como una instalacion de primer arranque expone el binario. Si falta `hermes acp`, el extra es el sitio documentado donde mirar, no una allow-list de plugins de OpenClaw.
+El extra opcional en `pyproject.toml` llamado `[acp]` más el script `hermes-acp` son como una instalación de primer arranque expone el binario. Si falta `hermes acp`, el extra es el sitio documentado donde mirar, no una allow-list de plugins de OpenClaw.
 
-La restauracion del callback de aprobacion tras el prompt es facil de saltarse en un refactor. La pagina lo senala porque un callback ACP sobrante se quedaria en la tool terminal para cada sesion CLI posterior. Restaurar forma parte del contrato (Nous Research, *ACP Internals*, s. f.).
+La restauración del callback de aprobación tras el prompt es fácil de saltarse en un refactor. La página lo señala porque un callback ACP sobrante se quedaría en la tool terminal para cada sesión CLI posterior. Restaurar forma parte del contrato (Nous Research, *ACP Internals*, s. f.).
 
-La union del directorio de trabajo es de alcance de tarea. El cwd del editor viaja con el id de sesion ACP a los overrides de terminal y fichero. Un prompt posterior en la misma sesion conserva ese cwd hasta que el manager registra una actualizacion de cwd. No traten cwd como un `os.chdir` global de proceso (Nous Research, *ACP Internals*, s. f.).
+La unión del directorio de trabajo es de alcance de tarea. El cwd del editor viaja con el id de sesión ACP a los overrides de terminal y fichero. Un prompt posterior en la misma sesión conserva ese cwd hasta que el manager registra una actualización de cwd. No traten cwd como un `os.chdir` global de proceso (Nous Research, *ACP Internals*, s. f.).
 
-El cambio de modelo es un metodo de sesion en `HermesACPAgent`, no un reinicio del servidor stdio. El SessionManager guarda el `model` actual por sesion.
+El cambio de modelo es un método de sesión en `HermesACPAgent`, no un reinicio del servidor stdio. El SessionManager guarda el `model` actual por sesión.
 
-`--check` y `--version` corren antes de que arranque el servidor. Son flags de `acp_adapter.entry.main()`, no metodos JSON-RPC de ACP. Mezclar un flag CLI con un metodo de sesion es como un smoke test habla con la capa equivocada (Nous Research, *ACP Internals*, s. f.).
+`--check` y `--version` corren antes de que arranque el servidor. Son flags de `acp_adapter.entry.main()`, no métodos JSON-RPC de ACP. Mezclar un flag CLI con un método de sesión es como un smoke test habla con la capa equivocada (Nous Research, *ACP Internals*, s. f.).
 
-Carguen `~/.hermes/.env` en ese mismo camino de arranque, todavia antes de `acp.run_agent` (Nous Research, *ACP Internals*, s. f.).
+Carguen `~/.hermes/.env` en ese mismo camino de arranque, todavía antes de `acp.run_agent` (Nous Research, *ACP Internals*, s. f.).
 
 ## Caso — el callback que se quedó en la terminal
 
@@ -174,15 +174,15 @@ Un equipo de IDE integró ACP y, tras un refactor, olvidó restaurar el callback
 
 ## Fuentes
 
-Nous Research. (s. f.). *ACP internals*. Guia de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/acp-internals
+Nous Research. (s. f.). *ACP internals*. Guía de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/acp-internals
 
-Nous Research. (s. f.). *Tools runtime*. Guia de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/tools-runtime
+Nous Research. (s. f.). *Tools runtime*. Guía de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/tools-runtime
 
-Nous Research. (s. f.). *Provider runtime resolution*. Guia de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/provider-runtime
+Nous Research. (s. f.). *Provider runtime resolution*. Guía de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/provider-runtime
 
-Nous Research. (s. f.). *Browser CDP supervisor*. Guia de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/browser-supervisor
+Nous Research. (s. f.). *Browser CDP supervisor*. Guía de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/browser-supervisor
 
-Nous Research. (s. f.). *Agent loop internals*. Guia de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop
+Nous Research. (s. f.). *Agent loop internals*. Guía de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop
 
 OpenClaw. (s. f.). *ACP*. https://docs.openclaw.ai/cli/acp
 

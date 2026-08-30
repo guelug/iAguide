@@ -13,10 +13,10 @@ Tras compactar, la región comprimida falla caché (porque su texto cambió); el
 
 Conviene recordar qué cachea la caché de prefijo para entender por qué una compactación mata caché.
 
-- **Prefill** — el prompt y el historial cacheado se procesan **en paralelo** por cada capa. La KV cache para esos tokens se construye una vez. Está limitada por throughput (compute-heavy).
+- **Prefill** — el prompt y el historial cacheado se procesan **en paralelo** por cada capa. La KV caché para esos tokens se construye una vez. Está limitada por throughput (compute-heavy).
 - **Decode** — cada token nuevo se genera **secuencialmente**, atendiendo a la KV de cada token previo. Está limitada por latencia (memory-bandwidth-heavy). El coste por token crece con la longitud del prefijo.
 
-La caché de prefijo del proveedor reutiliza el **prefill**. Un prefijo de 12k cacheado cuesta ~10% del precio del prefill fresco; un prefijo que falla caché cuesta el 100%. Por eso compactar — que cambia el texto — invalida la región compactada de la caché.
+La caché de prefijo del proveedor reutiliza el **prefill**. Un prefijo de 12k cacheado cuesta ~10% del precio del prefill fresco; un prefijo que falla caché cuesta el 100%. Por eso compactar — que cambia el texto — inválida la región compactada de la caché.
 
 <Callout>
 Compactar mata caché por construcción. Si compactas cada 50 turnos en una región que de otro modo estaría cacheada, has convertido prefill cacheado en prefill fresco. Presupuesta el coste de compactar contra el coste de re-pagar el prefill.
@@ -29,7 +29,7 @@ Un modelo **48B-A3B** (Mixture-of-Experts) tiene 48B parámetros en disco y ~3B 
 - **Memoria** sigue dominada por los totales (48B). Cargar el modelo cuesta 48B-veces-bytes en RAM.
 - **FLOPs** por token siguen dominados por los activos (3B). Compactar para mantener el contexto corto ayuda más en un denso 7B que en un A3B: el A3B ya paga 3B-veces-tokens por token prefill, no 48B.
 
-Pero el coste de **atención** escala con la longitud del prefijo independientemente del MoE. La atención atiende a la KV cache completa; no es dispersa. Por eso "hacer el contexto más largo" sigue siendo caro en un A3B, aunque los FLOPs del FFN sean baratos.
+Pero el coste de **atención** escala con la longitud del prefijo independientemente del MoE. La atención atiende a la KV caché completa; no es dispersa. Por eso "hacer el contexto más largo" sigue siendo caro en un A3B, aunque los FLOPs del FFN sean baratos.
 
 ## Cuatro fases de compactación
 
@@ -73,7 +73,7 @@ Tres opciones:
 <Compare a="Compactar y rezar" b="Compactar y buscar">
 
 <Side>
-El contexto se queda en 30k de resumen. Un test futuro pregunta "¿qué id se mencionó?" → no aparece. El eval da 0.
+El contexto se queda en 30k de resumen. Un test futuro pregunta "¿qué id se menciónó?" → no aparece. El eval da 0.
 
 </Side>
 
@@ -84,7 +84,7 @@ El contexto se queda en 30k de resumen + el FTS indexa el transcript original. E
 
 </Compare>
 
-## Caso: el cache bust es una factura
+## Caso: el caché bust es una factura
 
 **Caso.** `/model` o fallback a mitad de hilo. La siguiente petición relee 80k tokens a precio completo. La factura se duplica o triplica. "¿Por qué subió el coste si no cambié nada?"
 
@@ -97,14 +97,14 @@ El contexto se queda en 30k de resumen + el FTS indexa el transcript original. E
 
 O: cada modelo tiene su propio thread. Cuando cambias de modelo, abres thread nuevo. Más simple, pero pierdes continuidad.
 
-## Compactación, KV cache y el modelo
+## Compactación, KV caché y el modelo
 
-La KV cache del transformer es **diferente** de la caché de prefijo del proveedor.
+La KV caché del transformer es **diferente** de la caché de prefijo del proveedor.
 
-- **KV cache** — vive dentro de una generación. Guarda las keys/values de atención de los tokens ya procesados. Se descarta cuando la generación termina.
+- **KV caché** — vive dentro de una generación. Guarda las keys/values de atención de los tokens ya procesados. Se descarta cuando la generación termina.
 - **Caché de prefijo** — vive entre peticiones, si el prefijo coincide. Reutiliza el **prefill** (el trabajo de construir la KV) entre peticiones.
 
-Compactar cambia el texto del contexto, así que el prefill del nuevo contexto es fresco. La KV cache de la generación actual se reconstruye para los nuevos tokens. Pero el **decode** es igual de rápido — la memoria bandwidth no depende de si el prefill fue fresco o cacheado.
+Compactar cambia el texto del contexto, así que el prefill del nuevo contexto es fresco. La KV caché de la generación actual se reconstruye para los nuevos tokens. Pero el **decode** es igual de rápido — la memoria bandwidth no depende de si el prefill fue fresco o cacheado.
 
 <Myth>
 "Compactar reduce el coste de decode." Reduce el **prefill** (porque el contexto es más corto) y la **latencia** del primer token. Pero el coste por token de decode una vez que la KV está construida es proporcional a la longitud de la KV — que sigue siendo la longitud del contexto compactado.
@@ -138,7 +138,7 @@ Tasa de acierto de caché. Coste por turno. Latencia del primer token. Si la tas
 4. Cuatro fases: podar, límites, resumen, rearmar.
 5. Con pérdida = resumen + FTS. Sin pérdida = referencias a ficheros.
 6. Umbral del 50% en el bucle; higiene de gateway al 85%.
-7. Cache bust por cambio de modelo: header separado, o thread nuevo.
+7. Caché bust por cambio de modelo: header separado, o thread nuevo.
 
 <VisualSlot id="compression-caching:2" caption="Tres vistas del tema: mapa, mecanismo y trade-off — interactivas y en español." />
 

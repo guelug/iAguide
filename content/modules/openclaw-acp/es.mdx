@@ -1,8 +1,8 @@
 ## Dos direcciones ACP, un nombre de protocolo
 
-Las fuentes primarias son [*ACP agents*](https://docs.openclaw.ai/tools/acp-agents) y [*ACP*](https://docs.openclaw.ai/cli/acp) de OpenClaw (s. f.). Agent Client Protocol es el nombre compartido. OpenClaw lo usa en **dos direcciones inversas**. Mezclarlas es la particularidad que esta leccion existe para detener.
+Las fuentes primarias son [*ACP agents*](https://docs.openclaw.ai/tools/acp-agents) y [*ACP*](https://docs.openclaw.ai/cli/acp) de OpenClaw (s. f.). Agent Client Protocol es el nombre compartido. OpenClaw lo usa en **dos direcciones inversas**. Mezclarlas es la particularidad que esta lección existe para detener.
 
-- Un editor o cliente ACP habla **hacia** OpenClaw: corran `openclaw acp`. OpenClaw es el **servidor** ACP. Habla ACP por stdio y reenvia prompts al Gateway por WebSocket, mapeando sesiones ACP sobre session keys del Gateway (OpenClaw, *ACP*, s. f.).
+- Un editor o cliente ACP habla **hacia** OpenClaw: corran `openclaw acp`. OpenClaw es el **servidor** ACP. Habla ACP por stdio y reenvía prompts al Gateway por WebSocket, mapeando sesiones ACP sobre session keys del Gateway (OpenClaw, *ACP*, s. f.).
 - OpenClaw lanza Claude Code, Cursor, Gemini CLI u otro harness: instalen `@openclaw/acpx`, luego `/acp spawn` o `sessions_spawn` con `runtime: "acp"`. OpenClaw posee el routing; el harness posee su login de proveedor (OpenClaw, *ACP agents*, s. f.).
 
 Eso es el inverso del ACP de Hermes, donde Hermes **es** el harness que un editor conduce (`hermes acp` envuelve `AIAgent` como servidor ACP) (Nous Research, *ACP Internals*, s. f., https://hermes-agent.nousresearch.com/docs/developer-guide/acp-internals).
@@ -20,78 +20,78 @@ openclaw acp --session agent:main:main
 openclaw acp --session agent:main:main --reset-session
 ```
 
-Por defecto, las sesiones bridge obtienen una clave Gateway aislada con prefijo `acp-bridge:`. Esas sesiones sinteticas son desechables y sujetas a prune de entradas stale. Pasen `--session` o `--session-label` para reutilizar una clave conocida. `--token` puede verse en process listings; prefieran `--token-file` (OpenClaw, *ACP*, s. f.).
+Por defecto, las sesiones bridge obtienen una clave Gateway aislada con prefijo `acp-bridge:`. Esas sesiones sintéticas son desechables y sujetas a prune de entradas stale. Pasen `--session` o `--session-label` para reutilizar una clave conocida. `--token` puede verse en process listings; prefieran `--token-file` (OpenClaw, *ACP*, s. f.).
 
-Nucleo implementado: `initialize`, `newSession`, `prompt`, `cancel`. `listSessions` y slash commands funcionan contra el estado de sesion del Gateway. `resumeSession` rebinda sin replay de historial. Los `mcpServers` por sesion estan **sin soporte** en modo bridge; el bridge devuelve un error claro. Los methods de filesystem y terminal del cliente no estan soportados.
+Núcleo implementado: `initialize`, `newSession`, `prompt`, `cancel`. `listSessions` y slash commands funcionan contra el estado de sesión del Gateway. `resumeSession` rebinda sin replay de historial. Los `mcpServers` por sesión están **sin soporte** en modo bridge; el bridge devuelve un error claro. Los methods de filesystem y terminal del cliente no están soportados.
 
 Setup de Zed: un agent server custom cuyo command es `openclaw` con args `acp`. ACP no elige agentes directo; enruta por session key del Gateway (`agent:design:main`).
 
 <Callout>
-Las sesiones ACP hoy corren en el runtime del host, **no** dentro del sandbox de OpenClaw. Si la sesion requester esta sandboxed, los spawns ACP se bloquean. `sessions_spawn` con `runtime: "acp"` no soporta `sandbox: "require"`. Usen `runtime: "subagent"` para trabajo nativo OpenClaw con sandbox (OpenClaw, *ACP agents*, s. f.).
+Las sesiones ACP hoy corren en el runtime del host, **no** dentro del sandbox de OpenClaw. Si la sesión requester esta sandboxed, los spawns ACP se bloquean. `sessions_spawn` con `runtime: "acp"` no soporta `sandbox: "require"`. Usen `runtime: "subagent"` para trabajo nativo OpenClaw con sandbox (OpenClaw, *ACP agents*, s. f.).
 </Callout>
 
-## Spawn: acpx mas /acp
+## Spawn: acpx más /acp
 
 ```bash
 openclaw plugins install @openclaw/acpx
 openclaw config set plugins.entries.acpx.enabled true
 ```
 
-Si `plugins.allow` esta puesto, **debe** incluir `acpx` o el backend queda bloqueado. `/acp doctor` reporta la entrada faltante del allowlist. OpenClaw solo ensena a los agentes sobre spawn ACP cuando ACP es realmente usable: habilitado, dispatch no deshabilitado, sesion no bloqueada por sandbox, backend cargado y sano (OpenClaw, *ACP agents*, s. f.).
+Si `plugins.allow` está puesto, **debe** incluir `acpx` o el backend queda bloqueado. `/acp doctor` reporta la entrada faltante del allowlist. OpenClaw solo enseña a los agentes sobre spawn ACP cuando ACP es realmente usable: habilitado, dispatch no deshabilitado, sesión no bloqueada por sandbox, backend cargado y sano (OpenClaw, *ACP agents*, s. f.).
 
-Los ids de harness incluyen `claude`, `codex` (fallback ACP explicito), `cursor`, `gemini`, `opencode`, `copilot`, `droid` y otros en la pagina. `openclaw` como harness id es el bridge del Gateway via `openclaw acp`. No pasen un agent id normal de config de `agents_list` salvo que esa entrada tenga `runtime.type="acp"`.
+Los ids de harness incluyen `claude`, `codex` (fallback ACP explícito), `cursor`, `gemini`, `opencode`, `copilot`, `droid` y otros en la página. `openclaw` como harness id es el bridge del Gateway vía `openclaw acp`. No pasen un agent id normal de config de `agents_list` salvo que esa entrada tenga `runtime.type="acp"`.
 
 Forma de session key: ACP usa `agent::<agentId>:acp:<id>`; los sub-agentes usan `agent::<agentId>:subagent:<id>`. Commands: `/acp ...` frente a `/subagents ...`.
 
 ## Bind here frente a thread
 
-`/acp spawn claude --bind here` pinea la conversacion actual a la sesion ACP spawned — sin child thread. Los follow-ups enrutan a esa sesion; `/new` y `/reset` resetean la misma session key ACP **in place**; `/acp close` quita el binding. `--bind here` y `--thread ...` son mutuamente excluyentes (OpenClaw, *ACP agents*, s. f.).
+`/acp spawn claude --bind here` pinea la conversación actual a la sesión ACP spawned — sin child thread. Los follow-ups enrutan a esa sesión; `/new` y `/reset` resetean la misma session key ACP **in place**; `/acp close` quita el binding. `--bind here` y `--thread ...` son mutuamente excluyentes (OpenClaw, *ACP agents*, s. f.).
 
-`--thread auto` puede crear un Discord thread hijo o un topic de Telegram. El spawn bound a thread necesita `session.threadBindings.spawnSessions=true` en Discord/Telegram. Los commands del Gateway (`/acp`, `/status`, `/unfocus`) se quedan locales y nunca se envian como texto de prompt al harness bindeado.
+`--thread auto` puede crear un Discord thread hijo o un topic de Telegram. El spawn bound a thread necesita `session.threadBindings.spawnSessions=true` en Discord/Telegram. Los commands del Gateway (`/acp`, `/status`, `/unfocus`) se quedan locales y nunca se envían como texto de prompt al harness bindeado.
 
 Los bindings persistentes viven en `bindings[]` top-level con `type: "acp"`. Precedencia de override: `bindings[].acp.*`, luego `agents.entries.*.runtime.acp.*`, luego `acp.backend` global.
 
-**Caso.** "Bindea este canal de Discord a Codex." Ese trigger deberia enrutar al **plugin nativo de Codex** (`/codex bind`) cuando el plugin `codex` esta habilitado, no a `/acp spawn codex`. Usen ACP explicito solo cuando quieren el modelo de runtime/sesion ACP (OpenClaw, *ACP agents*, s. f.).
+**Caso.** "Bindea este canal de Discord a Codex." Ese trigger debería enrutar al **plugin nativo de Codex** (`/codex bind`) cuando el plugin `codex` está habilitado, no a `/acp spawn codex`. Usen ACP explícito solo cuando quieren el modelo de runtime/sesión ACP (OpenClaw, *ACP agents*, s. f.).
 
 <TryThis>
-Escribe que command hace de OpenClaw el servidor ACP para un editor. Escribe que plugin mas slash command lanza Claude Code. Escribe si los harnesses ACP corren dentro del sandbox de OpenClaw. Nombra la familia slash nativa de Codex. Escribe que pasa con /new en una conversacion ACP bindeada.
+Escribe que command hace de OpenClaw el servidor ACP para un editor. Escribe que plugin más slash command lanza Claude Code. Escribe si los harnesses ACP corren dentro del sandbox de OpenClaw. Nombra la familia slash nativa de Codex. Escribe que pasa con /new en una conversación ACP bindeada.
 </TryThis>
 
 ## Comparar, sin mezclar knobs
 
 <VisualSlot id="openclaw-acp:3" />
 
-`hermes acp` de Hermes es un **servidor** ACP que envuelve `AIAgent` por stdio (Nous Research, *ACP Internals*, s. f.). `openclaw acp` de OpenClaw tambien es un servidor ACP, pero reenvia a una sesion del Gateway en vez de correr el loop in-process. `/acp spawn` de OpenClaw es la otra direccion: OpenClaw es el **cliente** que arranca un harness externo. Tres formas, dos productos, un nombre de protocolo. No peguen `use_unstable_protocol=True` de Hermes en `acp.backend`. Citen *ACP* para capacidades del bridge. Citen *ACP agents* para spawn.
+`hermes acp` de Hermes es un **servidor** ACP que envuelve `AIAgent` por stdio (Nous Research, *ACP Internals*, s. f.). `openclaw acp` de OpenClaw también es un servidor ACP, pero reenvía a una sesión del Gateway en vez de correr el loop in-process. `/acp spawn` de OpenClaw es la otra dirección: OpenClaw es el **cliente** que arranca un harness externo. Tres formas, dos productos, un nombre de protocolo. No peguen `use_unstable_protocol=True` de Hermes en `acp.backend`. Citen *ACP* para capacidades del bridge. Citen *ACP agents* para spawn.
 
 Los controles de runtime (`spawn`, `cancel`, `steer`, `close`, `status`, `set-mode`, `cwd`, `permissions`, `timeout`, `model`) exigen identidad de owner desde canales externos y `operator.admin` desde clientes internos del Gateway. Los no-owners aun pueden usar `sessions`, `doctor`, `install` y `help`.
 
-Las tools de plugin OpenClaw y las tools builtin **no** se exponen a harnesses ACP por defecto. Habiliten los puentes MCP explicitos en *ACP agents - setup* solo cuando el harness deba llamar esas tools directo (OpenClaw, s. f., https://docs.openclaw.ai/tools/acp-agents-setup).
+Las tools de plugin OpenClaw y las tools builtin **no** se exponen a harnesses ACP por defecto. Habiliten los puentes MCP explícitos en *ACP agents - setup* solo cuando el harness deba llamar esas tools directo (OpenClaw, s. f., https://docs.openclaw.ai/tools/acp-agents-setup).
 
-La auth de vendor ya debe existir en el host para ese harness. Los model ids no son portables entre harnesses. Las sesiones no interactivas no pueden hacer click en prompts nativos de permiso; los runs con write/exec suelen necesitar un perfil de permisos ACPX que pueda proceder headless (`permissionMode` como `approve-all` es el break-glass documentado en la pagina de setup).
+La auth de vendor ya debe existir en el host para ese harness. Los model ids no son portables entre harnesses. Las sesiones no interactivas no pueden hacer click en prompts nativos de permiso; los runs con write/exec suelen necesitar un perfil de permisos ACPX que pueda proceder headless (`permissionMode` como `approve-all` es el break-glass documentado en la página de setup).
 
-`resumeSessionId` es un id de resume ACP/harness local al host, no una session key de canal OpenClaw. Si el session id no se encuentra, el spawn falla con error claro — no hay fallback silencioso a una sesion nueva.
+`resumeSessionId` es un id de resume ACP/harness local al host, no una session key de canal OpenClaw. Si el session id no se encuentra, el spawn falla con error claro — no hay fallback silencioso a una sesión nueva.
 
 Las sesiones ACP one-shot de parent son hijos de fondo. El completion reporta por el camino de announce de task-completion. OpenClaw convierte metadatos internos de completion en un prompt ACP **plano** antes de enviarlo a un harness externo. El envelope crudo `BEGIN_OPENCLAW_INTERNAL_CONTEXT` nunca debe enviarse a harnesses externos. `sessions_send` salta el follow-up A2A cuando el requester es el parent de su propio hijo one-shot, para evitar un loop de eco (OpenClaw, *ACP agents*, s. f.).
 
 Los CLI backends son un fallback local solo-texto separado — no ACP, sin tools OpenClaw, sin controles ACP. Citen *CLI Backends* (OpenClaw, s. f., https://docs.openclaw.ai/gateway/cli-backends).
 
-`acp.dispatch.enabled=false` pausa el dispatch automatico de thread ACP pero no oculta ni bloquea `sessions_spawn` explicito con runtime acp.
+`acp.dispatch.enabled=false` pausa el dispatch automático de thread ACP pero no oculta ni bloquea `sessions_spawn` explícito con runtime acp.
 
-Para `sessions_spawn`, `runtime` defaulta a `subagent`, asi que pongan `"acp"` explicito. `mode: "session"` exige `thread: true`. Los overrides de timeout por llamada se rechazan; el spawn ACP usa `agents.defaults.subagents.runTimeoutSeconds`.
+Para `sessions_spawn`, `runtime` defaulta a `subagent`, así que pongan `"acp"` explícito. `mode: "session"` exige `thread: true`. Los overrides de timeout por llamada se rechazan; el spawn ACP usa `agents.defaults.subagents.runTimeoutSeconds`.
 
-Codex ACP corre con un `CODEX_HOME` aislado. OpenClaw copia entradas de trust de proyecto de confianza mas config segura de routing de modelo/proveedor; auth, notificaciones y hooks se quedan solo en el config del host.
+Codex ACP corre con un `CODEX_HOME` aislado. OpenClaw copia entradas de trust de proyecto de confianza más config segura de routing de modelo/proveedor; auth, notificaciones y hooks se quedan solo en el config del host.
 
-Si un harness ve marcadores de contexto interno, actualicen OpenClaw; esa fuga es un bug que la pagina documenta como arreglado en el cleanup actual de acpx. Los procesos wrapper stale se recogen en close y en el startup del Gateway.
+Si un harness ve marcadores de contexto interno, actualicen OpenClaw; esa fuga es un bug que la página documenta como arreglado en el cleanup actual de acpx. Los procesos wrapper stale se recogen en close y en el startup del Gateway.
 
-Esta leccion se detiene en las dos direcciones, install de acpx, bind frente a thread, runtime del host, y el split de Codex nativo. La politica de sandbox continua al lado. Pairing no es ACP.
+Esta lección se detiene en las dos direcciones, install de acpx, bind frente a thread, runtime del host, y el split de Codex nativo. La política de sandbox continua al lado. Pairing no es ACP.
 
-**Caso.** Una sesion de grupo sandboxed pide al agente "corre Claude Code en este repo." El spawn ACP se bloquea. Usen `runtime: "subagent"` desde esa sesion, o spawneen ACP desde una sesion main no sandboxed (OpenClaw, *ACP agents*, s. f.).
+**Caso.** Una sesión de grupo sandboxed pide al agente "corre Claude Code en este repo." El spawn ACP se bloquea. Usen `runtime: "subagent"` desde esa sesión, o spawneen ACP desde una sesión main no sandboxed (OpenClaw, *ACP agents*, s. f.).
 
-`/acp steer` envia una instruccion de steer sin reemplazar contexto. `/acp cancel` aborta el turno activo; no borra el binding. `/acp close` termina la sesion ACP desde el punto de vista de OpenClaw. Un harness puede conservar historial upstream si soporta resume.
+`/acp steer` envía una instrucción de steer sin reemplazar contexto. `/acp cancel` aborta el turno activo; no borra el binding. `/acp close` termina la sesión ACP desde el punto de vista de OpenClaw. Un harness puede conservar historial upstream si soporta resume.
 
-Resolucion de target: clave/id/label explicito, luego binding de thread actual, luego sesion requester. Si ninguno resuelve, OpenClaw devuelve `Unable to resolve session target`.
+Resolución de target: clave/id/label explícito, luego binding de thread actual, luego sesión requester. Si ninguno resuelve, OpenClaw devuelve `Unable to resolve session target`.
 
-Cuando un agente ACP pide input estructurado durante un turno entregado, OpenClaw presenta campos de form soportados como preguntas transitorias del Gateway en lotes de hasta tres. Las peticiones URL muestran la URL HTTP(S) literal con Continue y Decline; OpenClaw no la fetcha. Los campos secretos usan un prompt efimero con aviso y nunca se guardan en un record de pregunta del Gateway.
+Cuando un agente ACP pide input estructurado durante un turno entregado, OpenClaw presenta campos de form soportados como preguntas transitorias del Gateway en lotes de hasta tres. Las peticiones URL muestran la URL HTTP(S) literal con Continue y Decline; OpenClaw no la fetcha. Los campos secretos usan un prompt efímero con aviso y nunca se guardan en un record de pregunta del Gateway.
 
 El target `openclaw` en acpx (`acpx openclaw exec "..."`) es como Codex habla **hacia** tu bot OpenClaw por el bridge. Eso es modo bridge lanzado desde el lado del harness, sigue siendo `openclaw acp` debajo. No lo archiven bajo `/acp spawn`.
 
@@ -101,51 +101,51 @@ Arquitectura: el Gateway sigue poseiendo las superficies de canal. El spawn ACP 
 
 El doctor de esta superficie es `/acp doctor`, no solo `openclaw doctor`. Usen ambos cuando el plugin falta de `plugins.allow`.
 
-Soporte builtin de thread binding: Discord threads/channels y Telegram topics. Los canales plugin pueden anadir soporte por la misma interfaz de binding. Si el adapter no tiene la capacidad, OpenClaw devuelve un mensaje claro de unsupported.
+Soporte builtin de thread binding: Discord threads/channels y Telegram topics. Los canales plugin pueden añadir soporte por la misma interfaz de binding. Si el adapter no tiene la capacidad, OpenClaw devuelve un mensaje claro de unsupported.
 
-`--bind here` solo funciona en canales que anuncian binding de conversacion actual; los bindings persisten across restarts del Gateway. En Discord, `spawnSessions` gatea la creacion de child thread para `--thread auto|here`, no `--bind here`. Si spawnean a un agente ACP distinto sin `--cwd`, OpenClaw hereda el workspace del **agente target** por defecto. Paths heredados faltantes caen al default del backend; otros errores de acceso salen como errores de spawn.
+`--bind here` solo funciona en canales que anuncian binding de conversación actual; los bindings persisten across restarts del Gateway. En Discord, `spawnSessions` gatea la creación de child thread para `--thread auto|here`, no `--bind here`. Si spawnean a un agente ACP distinto sin `--cwd`, OpenClaw hereda el workspace del **agente target** por defecto. Paths heredados faltantes caen al default del backend; otros errores de acceso salen como errores de spawn.
 
-Los defaults de runtime por agente usan `agents.entries.*.runtime.type="acp"` mas `runtime.acp.agent` (harness id), `backend`, `mode` y `cwd`. Ese pin es como un agente OpenClaw nombrado se vuelve un harness Claude Code o Codex ACP en vez de un run embebido.
+Los defaults de runtime por agente usan `agents.entries.*.runtime.type="acp"` más `runtime.acp.agent` (harness id), `backend`, `mode` y `cwd`. Ese pin es como un agente OpenClaw nombrado se vuelve un harness Claude Code o Codex ACP en vez de un run embebido.
 
 `/acp model` para Codex ACP normaliza `openai/<id>` y sufijos slash de reasoning. Otros harnesses deben anunciar ACP `models` y soportar `session/set_model` o OpenClaw/acpx falla claro.
 
-El mantenimiento de tasks cierra sesiones ACP one-shot de parent huerfanas o terminales. Las sesiones ACP persistentes se conservan mientras queda un binding de conversacion activo; las persistentes stale sin binding se cierran para que no se retomen en silencio.
+El mantenimiento de tasks cierra sesiones ACP one-shot de parent huérfanas o terminales. Las sesiones ACP persistentes se conservan mientras queda un binding de conversación activo; las persistentes stale sin binding se cierran para que no se retomen en silencio.
 
-Los workers de runtime idle son elegibles para cleanup tras el periodo idle builtin; los metadatos de sesion guardados siguen disponibles para `/acp sessions`.
+Los workers de runtime idle son elegibles para cleanup tras el periodo idle builtin; los metadatos de sesión guardados siguen disponibles para `/acp sessions`.
 
-Load-session en el **bridge** es parcial: rebinda la sesion ACP a una clave Gateway y replay del event-ledger para sesiones creadas por el bridge. Las sesiones viejas sin ledger caen a texto user/assistant guardado. Si varios clientes ACP comparten la misma session key del Gateway, el routing de event y cancel es best-effort; prefieran sesiones aisladas `acp-bridge:` para turnos limpios de editor (OpenClaw, *ACP*, s. f.).
+Load-session en el **bridge** es parcial: rebinda la sesión ACP a una clave Gateway y replay del event-ledger para sesiones creadas por el bridge. Las sesiones viejas sin ledger caen a texto user/assistant guardado. Si varios clientes ACP comparten la misma session key del Gateway, el routing de event y cancel es best-effort; prefieran sesiones aisladas `acp-bridge:` para turnos limpios de editor (OpenClaw, *ACP*, s. f.).
 
-El cliente debug `openclaw acp client` auto-aprueba solo ids de tools core de confianza. La auto-aprobacion de `read` esta scoped al cwd actual. Tools desconocidas, exec-capaces y mutantes siempre exigen aprobacion explicita. `toolCall.kind` del servidor se trata como metadato no confiable. Esta politica es separada del `permissionMode` del harness ACPX.
+El cliente debug `openclaw acp client` auto-aprueba solo ids de tools core de confianza. La auto-aprobación de `read` esta scoped al cwd actual. Tools desconocidas, exec-capaces y mutantes siempre exigen aprobación explícita. `toolCall.kind` del servidor se trata como metadato no confiable. Esta política es separada del `permissionMode` del harness ACPX.
 
-No usen `openclaw gateway call sessions.list` como unica prueba ACP. Ese camino CLI puede pedir un upgrade de scope de operador. Prueben correccion del bridge con frames stdio ACP mas el log `sessions.list` del Gateway.
+No usen `openclaw gateway call sessions.list` como única prueba ACP. Ese camino CLI puede pedir un upgrade de scope de operador. Prueben corrección del bridge con frames stdio ACP más el log `sessions.list` del Gateway.
 
-El binding nativo de conversacion Codex es el camino default de control de chat cuando el plugin `codex` esta habilitado. Las tools dinamicas OpenClaw siguen ejecutandose por OpenClaw, mientras tools nativas de Codex como shell/apply-patch ejecutan dentro de Codex. `Command blocked by PreToolUse hook: Native hook relay unavailable` es un mensaje de Codex; no lo depuren como acpx (OpenClaw, *ACP agents*, s. f.).
+El binding nativo de conversación Codex es el camino default de control de chat cuando el plugin `codex` está habilitado. Las tools dinamicas OpenClaw siguen ejecutandose por OpenClaw, mientras tools nativas de Codex como shell/apply-patch ejecutan dentro de Codex. `Command blocked by PreToolUse hook: Native hook relay unavailable` es un mensaje de Codex; no lo depuren como acpx (OpenClaw, *ACP agents*, s. f.).
 
-**Caso.** Un ingeniero de IDE apunta Zed a `openclaw acp` y tambien escribe `/acp spawn cursor` en Telegram. Ambos son "ACP" en el chat. Son flechas opuestas. El primero es bridge (OpenClaw como servidor). El segundo es spawn (OpenClaw como cliente de Cursor). Dibujen la flecha antes de cambiar config.
+**Caso.** Un ingeniero de IDE apunta Zed a `openclaw acp` y también escribe `/acp spawn cursor` en Telegram. Ambos son "ACP" en el chat. Son flechas opuestas. El primero es bridge (OpenClaw como servidor). El segundo es spawn (OpenClaw como cliente de Cursor). Dibujen la flecha antes de cambiar config.
 
 Cuando `cwd` se omite en spawn, no asuman el workspace OpenClaw. El ACP cross-agent hereda el workspace del agente **target**, luego el default del backend.
 
-Los commands de gestion del Gateway se quedan locales en conversaciones bindeadas incluso cuando el texto de follow-up enruta al harness.
+Los commands de gestión del Gateway se quedan locales en conversaciones bindeadas incluso cuando el texto de follow-up enruta al harness.
 
-Pi (`pi-acp`) esta registrado en el backend acpx pero no es un harness de codigo en el mismo sentido que Claude o Cursor. Los aliases custom de acpx se pueden configurar en acpx mismo, pero la politica OpenClaw sigue chequeando `acp.allowedAgents`.
+Pi (`pi-acp`) está registrado en el backend acpx pero no es un harness de código en el mismo sentido que Claude o Cursor. Los aliases custom de acpx se pueden configurar en acpx mismo, pero la política OpenClaw sigue chequeando `acp.allowedAgents`.
 
-La frase de particularidad: OpenClaw es el servidor ACP para editores (`openclaw acp`) y el cliente ACP para harnesses de codigo (`/acp spawn` mas acpx). Hermes es solo la primera flecha. Codex nativo no es ACP.
+La frase de particularidad: OpenClaw es el servidor ACP para editores (`openclaw acp`) y el cliente ACP para harnesses de código (`/acp spawn` más acpx). Hermes es solo la primera flecha. Codex nativo no es ACP.
 
-Notas de troubleshoot se quedan en la pagina oficial ACP agents. No inventen campos JSON-RPC.
+Notas de troubleshoot se quedan en la página oficial ACP agents. No inventen campos JSON-RPC.
 
 Citen doctor tras cada cambio de allowlist de plugin.
 
-Paginas relacionadas: *Agent send*, *Codex harness*, *Codex harness runtime*, *Multi-agent sandbox tools*.
+Páginas relacionadas: *Agent send*, *Codex harness*, *Codex harness runtime*, *Multi-agent sandbox tools*.
 
 La prosa de aula se queda en commands, keys y las dos flechas.
 
-Los senders no-owner autorizados aun pueden usar sessions, doctor, install y help. Para no-owners, la lista de sesiones muestra solo la sesion bindeada o requester actual; owner y clientes operator.admin ven todas las recientes.
+Los senders no-owner autorizados aun pueden usar sessions, doctor, install y help. Para no-owners, la lista de sesiones muestra solo la sesión bindeada o requester actual; owner y clientes operator.admin ven todas las recientes.
 
 Citen el sitio Agent Client Protocol para el nombre compartido de protocolo, no para knobs OpenClaw.
 
 Citen acp doctor tras cada cambio de allowlist de plugin.
 
-No inventen campos de protocolo. Copien formas desde la pagina ACP.
+No inventen campos de protocolo. Copien formas desde la página ACP.
 
 El live gate tras deploy es un run con reply conocido.
 
@@ -185,4 +185,4 @@ OpenClaw. (s. f.). *Gateway architecture*. https://docs.openclaw.ai/concepts/arc
 
 OpenClaw. (s. f.). *MCP*. https://docs.openclaw.ai/cli/mcp
 
-Nous Research. (s. f.). *ACP internals*. Guia de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/acp-internals
+Nous Research. (s. f.). *ACP internals*. Guía de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/acp-internals

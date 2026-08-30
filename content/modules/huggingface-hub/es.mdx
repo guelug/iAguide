@@ -34,7 +34,7 @@ La forma preferida de autenticar una app o un notebook es un **User Access Token
 
 Si perteneces a una organización, aplican el rol del token **y** tu membresía. Un token write no escribe un repo de org donde eres miembro de solo lectura. El token no es una llave maestra.
 
-La práctica oficial es **un token por app**. Un portátil, un job de CI, un Colab, un servidor de inferencia: cuatro tokens. Invalidas uno sin rotar los demás. Pon el valor en `HF_TOKEN` (o pasa `token=...` a `AutoModel.from_pretrained`). No lo pegues en argv donde el historial del shell lo guarda.
+La práctica oficial es **un token por app**. Un portátil, un job de CI, un Colab, un servidor de inferencia: cuatro tokens. Inválidas uno sin rotar los demás. Pon el valor en `HF_TOKEN` (o pasa `token=...` a `AutoModel.from_pretrained`). No lo pegues en argv donde el historial del shell lo guarda.
 
 ```python
 from transformers import AutoModel

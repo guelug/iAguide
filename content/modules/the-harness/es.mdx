@@ -23,7 +23,7 @@ La distinción importa cuando optimizas: un system prompt largo se amortigua sob
 
 Dentro del paso "modelo" del bucle, hay dos fases muy distintas que importan para diseñar el arnés:
 
-- **<Term id="prefill">Prefill</Term>** — el prompt y el historial de mensajes cacheado se procesan **en paralelo** por cada capa. La KV cache para esos tokens se construye una vez. Está limitada por throughput (compute-heavy), es amigable con la GPU, y se amortigua sobre todos los tokens del prefijo. Un system prompt de 12k pagado en cada turno es la línea más común de tu factura de inferencia.
+- **<Term id="prefill">Prefill</Term>** — el prompt y el historial de mensajes cacheado se procesan **en paralelo** por cada capa. La KV caché para esos tokens se construye una vez. Está limitada por throughput (compute-heavy), es amigable con la GPU, y se amortigua sobre todos los tokens del prefijo. Un system prompt de 12k pagado en cada turno es la línea más común de tu factura de inferencia.
 - **<Term id="decode">Decode</Term>** — cada token nuevo se genera **secuencialmente**, atendiendo a la KV de cada token previo. Está limitada por latencia (memory-bandwidth-heavy), y el coste de cada token crece con la longitud del prefijo.
 
 Las dos fases son la razón por la que "system prompt corto" y "respuesta concisa" son objetivos de optimización distintos en el arnés. El primero se amortigua sobre todos los turnos futuros si mantienes el prefijo estable; el segundo solo importa una vez por turno. Inflar el prefijo con mil tokens de skills obsoleto cuesta prefill para siempre. Inflar la respuesta con dos frases de cortesía cuesta decode una vez.
@@ -171,9 +171,9 @@ Lab, aún sin modelo: implementa `runTool(name, args)` con allowlist dura y `max
 
 Un equipo abrió "Hermes ignora las tools" contra pesos de Nous. El perfil no listaba tools; el runtime no parseaba llamadas. Depuraban el motor. El arnés — esta página — estaba vacío. Quédate con el mito del principio cuando alguien diga "Hermess."
 
-## Caso — la KV cache que se quedó sin memoria
+## Caso — la KV caché que se quedó sin memoria
 
-Una sesión larga con un denso 70B mantuvo la KV cache del prefill en RAM. La ventana creció a 100k tokens; la KV cache pasó de 4 GB a 40 GB. El contenedor OOM-killed antes de terminar la compactación. La fix fue: topes duros por ventana + compactación proactiva antes del 50%.
+Una sesión larga con un denso 70B mantuvo la KV caché del prefill en RAM. La ventana creció a 100k tokens; la KV caché pasó de 4 GB a 40 GB. El contenedor OOM-killed antes de terminar la compactación. La fix fue: topes duros por ventana + compactación proactiva antes del 50%.
 
 Esta lección reescribe ideas del [curso de agentes de Hugging Face](https://huggingface.co/learn/agents-course) (Burtenshaw, Thomas, Simonini, Paniego), Apache-2.0.
 

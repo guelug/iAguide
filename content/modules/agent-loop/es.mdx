@@ -104,7 +104,7 @@ El modelo genera un token cada vez, autoregresivamente: usa la caché KV que con
 
 En un bucle de agente típico:
 - **Paso 3 (llamar al modelo):** prefill pesado porque armaste contexto. Más lento cuanto más historial tengas.
-- **Paso 4 (tools):** si el modelo llama a una tool, el arnés ejecuta y luego vuelve al paso 3 con la Observation añadida. Eso es otro prefill completo (o un cache hit parcial si el proveedor soporta prefix caching).
+- **Paso 4 (tools):** si el modelo llama a una tool, el arnés ejecuta y luego vuelve al paso 3 con la Observation añadida. Eso es otro prefill completo (o un caché hit parcial si el proveedor soporta prefix caching).
 - **Turnos largos:** con muchas rondas de tools, cada prefill es más caro porque el contexto crece. Ahí entra la [compactación](/es/m/compression-caching) y el [cacheado de prefijo](/es/m/calls-cache-threads).
 
 El detalle de cómo los distintos motores gestionan esta diferencia está en [inferencia local](/es/m/local-inference). Lo que importa aquí: **el bucle no es gratis**. Cada vuelta paga un prefill. Si tienes un agente que da 10 vueltas, multiplica el coste de la primera llamada por 10.

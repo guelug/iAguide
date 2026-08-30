@@ -27,7 +27,7 @@ Decisiones de diseño clave (Nous Research, *Session Storage*, s. f.):
 
 - WAL mode for concurrent readers plus one writer (gateway multi-platform).
 - FTS5 virtual tables for fast text search across all session messages.
-- Session lineage via `parent_session_id` chains (compression-triggered splits, **legacy** path).
+- Session lineage vía `parent_session_id` chains (compression-triggered splits, **legacy** path).
 - Source tagging (`cli`, `telegram`, `discord`, …) for platform filtering.
 - Batch runner and RL trajectories stay in separate systems.
 

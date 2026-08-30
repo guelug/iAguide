@@ -24,7 +24,7 @@ Esta lección se centra en el objeto mental que comparten: el preset. La pantall
 
 ## El preset: configuración guardada, no magia
 
-Un preset es una plantilla que se aplica a las peticiones que lo usan. No es un nuevo modelo, no entrena nada y no congela automáticamente la infraestructura de OpenRouter. Si el catálogo cambia, la resolución puede cambiar salvo que limites modelos y proveedores explícitamente.
+Un preset es una plantilla que se aplica a las peticiones que lo usan. No es un nuevo modelo, no entrena nada y no congela automáticamente la infraestructura de OpenRouter. Si el catálogo cambia, la resolución puede cambiar salvo que límites modelos y proveedores explícitamente.
 
 El preset sirve para que no copies una configuración delicada en cada aplicación. Un equipo puede tener, por ejemplo:
 
@@ -331,17 +331,17 @@ Cada tool activada es una nueva superficie: permisos, coste, latencia, datos y p
 
 ### Response Caching
 
-Cuando se activa, peticiones idénticas pueden servirse desde caché. Es útil para respuestas repetidas, tests y contenido estable. No confundas response caching con KV cache del modelo ni con prefix caching del proveedor:
+Cuando se activa, peticiones idénticas pueden servirse desde caché. Es útil para respuestas repetidas, tests y contenido estable. No confundas response caching con KV caché del modelo ni con prefix caching del proveedor:
 
-- **response cache**: devuelve una respuesta ya calculada para una petición idéntica;
-- **prefix cache**: reutiliza un prefijo del prompt al volver a procesar;
-- **KV cache**: estados internos de atención durante una sesión/generación.
+- **response caché**: devuelve una respuesta ya calculada para una petición idéntica;
+- **prefix caché**: reutiliza un prefijo del prompt al volver a procesar;
+- **KV caché**: estados internos de atención durante una sesión/generación.
 
-### Cache TTL
+### Caché TTL
 
 Define cuánto tiempo vive la respuesta cacheada. `300` segundos son cinco minutos. Un TTL corto reduce respuestas obsoletas; uno largo puede ahorrar coste. Decide qué campos forman la clave: usuario, locale, tools, modelo y permisos deben evitar colisiones.
 
-No caches respuestas personalizadas como si fueran públicas. La identidad del modelo, el preset, los parámetros y el contenido de tools forman parte de la identidad lógica de una petición.
+No cachés respuestas personalizadas como si fueran públicas. La identidad del modelo, el preset, los parámetros y el contenido de tools forman parte de la identidad lógica de una petición.
 
 ## Reasoning
 

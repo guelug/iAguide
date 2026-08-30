@@ -1,16 +1,16 @@
 ## Frames, no JSON ad hoc
 
-La fuente primaria es [*Gateway protocol*](https://docs.openclaw.ai/gateway/protocol) de OpenClaw (s. f.). El protocolo WS del Gateway es el unico plano de control y transporte de nodos. Clientes operator y node (CLI, web UI, app macOS, nodos iOS/Android, nodos headless) se conectan por WebSocket y declaran **role** y **scope** en el handshake. [*Gateway architecture*](https://docs.openclaw.ai/concepts/architecture) (OpenClaw, s. f.) enuncia los invariantes que esta leccion implementa en el cable.
+La fuente primaria es [*Gateway protocol*](https://docs.openclaw.ai/gateway/protocol) de OpenClaw (s. f.). El protocolo WS del Gateway es el único plano de control y transporte de nodos. Clientes operator y node (CLI, web UI, app macOS, nodos iOS/Android, nodos headless) se conectan por WebSocket y declaran **role** y **scope** en el handshake. [*Gateway architecture*](https://docs.openclaw.ai/concepts/architecture) (OpenClaw, s. f.) enuncia los invariantes que esta lección implementa en el cable.
 
-Transporte: WebSocket, frames de texto, payloads JSON. El primer frame **debe** ser un request `connect`. Los frames pre-connect estan acotados a 64 KiB (`MAX_PREAUTH_PAYLOAD_BYTES`). Tras el handshake, sigan `hello-ok.policy.maxPayload` y `hello-ok.policy.maxBufferedBytes` (OpenClaw, *Gateway protocol*, s. f.).
+Transporte: WebSocket, frames de texto, payloads JSON. El primer frame **debe** ser un request `connect`. Los frames pre-connect están acotados a 64 KiB (`MAX_PREAUTH_PAYLOAD_BYTES`). Tras el handshake, sigan `hello-ok.policy.maxPayload` y `hello-ok.policy.maxBufferedBytes` (OpenClaw, *Gateway protocol*, s. f.).
 
-La leccion generica [gateway](/es/m/gateway) permanece agnostica del harness. Esta es el contrato tipado.
+La lección genérica [gateway](/es/m/gateway) permanece agnóstica del harness. Esta es el contrato tipado.
 
 <VisualSlot caption="connect primero, req/res, eventos, nonce de challenge, idempotencia." />
 
 ## Tres sobres
 
-Tras el handshake la pagina nombra tres formas. Copienlas en la respuesta de TryThis. No inventen un cuarto sobre llamado ping.
+Tras el handshake la página nombra tres formas. Copienlas en la respuesta de TryThis. No inventen un cuarto sobre llamado ping.
 
 ```json
 {
@@ -39,9 +39,9 @@ Tras el handshake la pagina nombra tres formas. Copienlas en la respuesta de Try
 }
 ```
 
-Los requests pueden llevar un string `traceparent` W3C opcional tras autenticar. Valores ausentes o malformados dentro del limite de 128 caracteres conservan un trace fresco y no fallan el RPC. Valores mas largos invalidan el frame. El `connect` inicial nunca establece contexto de trace para frames posteriores (OpenClaw, *Gateway protocol*, s. f.).
+Los requests pueden llevar un string `traceparent` W3C opcional tras autenticar. Valores ausentes o malformados dentro del límite de 128 caracteres conservan un trace fresco y no fallan el RPC. Valores más largos invalidan el frame. El `connect` inicial nunca establece contexto de trace para frames posteriores (OpenClaw, *Gateway protocol*, s. f.).
 
-Los errores de response usan `code`, `message`, `details` opcional, `retryable` y `retryAfterMs`. Los clientes deben ramificar por `code` y `details.code`. Fallos de autorizacion a nivel de metodo usan `code` top-level `FORBIDDEN` con detalles estructurados de scope ausente: `MISSING_SCOPE`, `missingScope`, `requiredScopes`. Los fallos HTTP de scope copian ese objeto bajo `error.details` y usan status HTTP 403.
+Los errores de response usan `code`, `message`, `details` opcional, `retryable` y `retryAfterMs`. Los clientes deben ramificar por `code` y `details.code`. Fallos de autorización a nivel de método usan `code` top-level `FORBIDDEN` con detalles estructurados de scope ausente: `MISSING_SCOPE`, `missingScope`, `requiredScopes`. Los fallos HTTP de scope copian ese objeto bajo `error.details` y usan status HTTP 403.
 
 <Callout>
 El handshake es obligatorio. Cualquier primer frame no JSON o no-connect es un hard close. Los eventos no se reponen; los clientes deben refrescar ante huecos (OpenClaw, *Gateway architecture*, s. f.; *Gateway protocol*, s. f.).
@@ -49,15 +49,15 @@ El handshake es obligatorio. Cualquier primer frame no JSON o no-connect es un h
 
 ## Handshake
 
-El Gateway envia un evento pre-connect `connect.challenge` con nonce y `ts`. Los clientes device-auth usan ese `ts` como `connect.params.device.signedAt`. Para challenges WebSocket, `ts` debe ser un entero no negativo. Un challenge recibido con `ts` ausente o malformado es invalido (OpenClaw, *Gateway protocol*, s. f.).
+El Gateway envía un evento pre-connect `connect.challenge` con nonce y `ts`. Los clientes device-auth usan ese `ts` como `connect.params.device.signedAt`. Para challenges WebSocket, `ts` debe ser un entero no negativo. Un challenge recibido con `ts` ausente o malformado es inválido (OpenClaw, *Gateway protocol*, s. f.).
 
-El cliente responde con method `connect`. Params documentados: `minProtocol`, `maxProtocol`, `client` (id, version, platform, mode), `role`, `scopes`, `caps`, `commands`, `permissions`, `auth`, `locale`, `userAgent`, y `device` (id, publicKey, signature, signedAt, nonce). Los nodos ponen `role` a `node` y llenan caps, commands y permissions. Los operadores ponen `role` a `operator` y envian scopes de operator.
+El cliente responde con method `connect`. Params documentados: `minProtocol`, `maxProtocol`, `client` (id, versión, platform, mode), `role`, `scopes`, `caps`, `commands`, `permissions`, `auth`, `locale`, `userAgent`, y `device` (id, publicKey, signature, signedAt, nonce). Los nodos ponen `role` a `node` y llenan caps, commands y permissions. Los operadores ponen `role` a `operator` y envían scopes de operator.
 
 El Gateway responde con `hello-ok`. `HelloOkSchema` exige `server`, `features`, `snapshot`, `policy` y `auth`. `auth` reporta el role negociado y los scopes efectivos del socket aunque no se emita device token. `deviceToken`, cuando esta presente, es la credencial reutilizable primaria para el mismo dispositivo y role.
 
-`policy` en el ejemplo de protocolo anuncia `maxPayload` 26214400, `maxBufferedBytes` 52428800, `tickIntervalMs` 15000, y `attachments` opcional con `maxBytes` 20971520 y `maxImageBytes` 6291456. Honren esos numeros anunciados, no los defaults del cliente previos al handshake (OpenClaw, *Gateway protocol*, s. f.).
+`policy` en el ejemplo de protocolo anuncia `maxPayload` 26214400, `maxBufferedBytes` 52428800, `tickIntervalMs` 15000, y `attachments` opcional con `maxBytes` 20971520 y `maxImageBytes` 6291456. Honren esos números anunciados, no los defaults del cliente previos al handshake (OpenClaw, *Gateway protocol*, s. f.).
 
-Mientras los sidecars de arranque siguen terminando, `connect` puede devolver un `UNAVAILABLE` reintentable con `details.reason` `startup-sidecars` y `retryAfterMs`. Reintenten dentro del presupuesto de conexion.
+Mientras los sidecars de arranque siguen terminando, `connect` puede devolver un `UNAVAILABLE` reintentable con `details.reason` `startup-sidecars` y `retryAfterMs`. Reintenten dentro del presupuesto de conexión.
 
 ## Roles y scopes
 
@@ -65,15 +65,15 @@ Roles (OpenClaw, *Gateway protocol*, s. f.):
 
 | Role | Significado |
 | --- | --- |
-| `operator` | Cliente de plano de control (CLI, UI, automatizacion) |
+| `operator` | Cliente de plano de control (CLI, UI, automatización) |
 | `node` | Host de capacidades (camera, screen, canvas, system.run) |
-| `worker` | Host de ejecucion cloud en el protocolo worker cerrado |
+| `worker` | Host de ejecución cloud en el protocolo worker cerrado |
 
 Los scopes de operator son un conjunto cerrado: `operator.read`, `operator.write`, `operator.admin`, `operator.approvals`, `operator.pairing`, `operator.talk`, `operator.talk.secrets`. `operator.write` sigue satisfaciendo `operator.talk` por compatibilidad. Los prefijos core reservados `config.*`, `exec.approvals.*`, `wizard.*`, `update.*` resuelven siempre a `operator.admin`.
 
-Los nodos declaran **claims**: `caps` (camera, canvas, screen, location, voice, talk), `commands` (allowlist de invoke), `permissions` (toggles granulares). El Gateway aplica allowlists server-side. Los descriptores de plugin tools no se aceptan en params de `connect`; la unica via de publicacion es `node.pluginTools.update` tras connect.
+Los nodos declaran **claims**: `caps` (camera, canvas, screen, location, voice, talk), `commands` (allowlist de invoke), `permissions` (toggles granulares). El Gateway aplica allowlists server-side. Los descriptores de plugin tools no se aceptan en params de `connect`; la única vía de publicación es `node.pluginTools.update` tras connect.
 
-Los clientes operator pueden anunciar capacidades opcionales en `connect.params.caps`: `tool-events` e `inline-widgets`. Las capacidades de cliente describen el cliente conectado, no autorizacion. Las corridas originadas en canal no tienen capacidades de cliente Gateway, asi que las tools gated por capacidad no estan disponibles aunque la policy de tools las permita.
+Los clientes operator pueden anunciar capacidades opcionales en `connect.params.caps`: `tool-events` e `inline-widgets`. Las capacidades de cliente describen el cliente conectado, no autorización. Las corridas originadas en canal no tienen capacidades de cliente Gateway, así que las tools gated por capacidad no están disponibles aunque la policy de tools las permita.
 
 ## Versionado y constantes de cliente
 
@@ -88,7 +88,7 @@ Clientes y servidores actuales corren protocolo v4. `PROTOCOL_VERSION`, `MIN_CLI
 | Timeout de request por RPC | 30000 ms |
 | Timeout preauth / connect-challenge | 15000 ms |
 | Backoff inicial de reconnect | 1000 ms |
-| Backoff maximo de reconnect | 30000 ms |
+| Backoff máximo de reconnect | 30000 ms |
 | Tick por defecto (pre hello-ok) | 30000 ms |
 | `MAX_PAYLOAD_BYTES` | 25 MiB |
 | Techo de attachment de chat | `agents.defaults.mediaMaxMb`, 20 MB decodificados por defecto |
@@ -96,77 +96,77 @@ Clientes y servidores actuales corren protocolo v4. `PROTOCOL_VERSION`, `MIN_CLI
 
 Los clientes autenticados con `role` `node` y `client.mode` `node` pueden usar el protocolo node N-1 (hoy v3). Auth de dispositivo, pairing, scopes, policy de commands y exec approvals no cambian con esa ventana. Las capacidades node de plugins se retienen hasta que el nodo sube al protocolo actual.
 
-El close por tick-timeout usa codigo 4000 cuando el silencio supera `tickIntervalMs` por 2. El cliente de referencia no repona requests rechazados tras reconnect (OpenClaw, *Gateway protocol*, s. f.).
+El close por tick-timeout usa código 4000 cuando el silencio supera `tickIntervalMs` por 2. El cliente de referencia no repona requests rechazados tras reconnect (OpenClaw, *Gateway protocol*, s. f.).
 
 ## Protocolo worker cerrado
 
-Los workers usan un protocolo cerrado por `/__openclaw__/worker` o un ingress loopback dedicado. La ruta selecciona modo worker antes de leer frames, asi que nunca despacha auth general, eventos node, RPC operator ni metodos de plugin. La allowlist cerrada contiene `worker.heartbeat`, `worker.transcript.commit`, `worker.live-event`, `worker.inference.start` y `worker.inference.cancel`. Los frames quedan bajo 64 KiB, salvo un `worker.inference.start` negociado de hasta 25 MiB (OpenClaw, *Gateway protocol*, s. f.).
+Los workers usan un protocolo cerrado por `/__openclaw__/worker` o un ingress loopback dedicado. La ruta selecciona modo worker antes de leer frames, así que nunca despacha auth general, eventos node, RPC operator ni métodos de plugin. La allowlist cerrada contiene `worker.heartbeat`, `worker.transcript.commit`, `worker.live-event`, `worker.inference.start` y `worker.inference.cancel`. Los frames quedan bajo 64 KiB, salvo un `worker.inference.start` negociado de hasta 25 MiB (OpenClaw, *Gateway protocol*, s. f.).
 
 No llamen `health` en la ruta worker. No traten worker-hello-ok como hello-ok de operator.
 
 ## Idempotencia, eventos, discovery
 
-Los metodos con efecto exigen claves de idempotencia. La pagina de arquitectura nombra `send` y `agent` (OpenClaw, *Gateway architecture*, s. f.). El servidor guarda una cache de dedupe de vida corta.
+Los métodos con efecto exigen claves de idempotencia. La página de arquitectura nombra `send` y `agent` (OpenClaw, *Gateway architecture*, s. f.). El servidor guarda una caché de dedupe de vida corta.
 
-`hello-ok.features.methods` es discovery conservadora, no un dump de cada helper invocable. La pagina de protocolo nombra metodos excluidos a proposito del discovery: `push.test`, `web.login.start`, `web.login.wait`, `sessions.usage`.
+`hello-ok.features.methods` es discovery conservadora, no un dump de cada helper invocable. La página de protocolo nombra métodos excluidos a propósito del discovery: `push.test`, `web.login.start`, `web.login.wait`, `sessions.usage`.
 
-Los eventos broadcast van gated por scope. Los frames de chat, agent y tool-result exigen al menos `operator.read`. Heartbeat, presence, tick y ciclo connect/disconnect quedan sin restriccion. Las familias de broadcast desconocidas fallan cerradas (OpenClaw, *Gateway protocol*, s. f.).
+Los eventos broadcast van gated por scope. Los frames de chat, agent y tool-result exigen al menos `operator.read`. Heartbeat, presence, tick y ciclo connect/disconnect quedan sin restricción. Las familias de broadcast desconocidas fallan cerradas (OpenClaw, *Gateway protocol*, s. f.).
 
-Cada conexion de cliente guarda su propio numero de secuencia. Los eventos aun no se reponen tras un reconnect.
+Cada conexión de cliente guarda su propio número de secuencia. Los eventos aun no se reponen tras un reconnect.
 
 ## Auth en connect
 
-Auth de secreto compartido usa `connect.params.auth.token` o `connect.params.auth.password`, segun `gateway.auth.mode` (`none`, `token`, `password`, `trusted-proxy`). Los modos con identidad como Tailscale Serve o trusted-proxy fuera de loopback satisfacen el check de auth de connect desde headers (OpenClaw, *Gateway protocol*, s. f.). El modo `none` de ingress privado salta auth de secreto compartido; no lo expongan en ingress publico.
+Auth de secreto compartido usa `connect.params.auth.token` o `connect.params.auth.password`, según `gateway.auth.mode` (`none`, `token`, `password`, `trusted-proxy`). Los modos con identidad como Tailscale Serve o trusted-proxy fuera de loopback satisfacen el check de auth de connect desde headers (OpenClaw, *Gateway protocol*, s. f.). El modo `none` de ingress privado salta auth de secreto compartido; no lo expongan en ingress público.
 
-Tras el pairing, el gateway emite un device token acotado al role de la conexion mas el grant aprobado, devuelto en `hello-ok.auth.deviceToken`. `hello-ok.auth.scopes` es la autoridad viva del socket y coincide con los scopes que aplica el dispatch RPC.
+Tras el pairing, el gateway emite un device token acotado al role de la conexión más el grant aprobado, devuelto en `hello-ok.auth.deviceToken`. `hello-ok.auth.scopes` es la autoridad viva del socket y coincide con los scopes que aplica el dispatch RPC.
 
-Los clientes backend same-process de confianza (client.id gateway-client, client.mode backend) pueden omitir device en loopback directo al autenticar con el token o password compartido del gateway. Clientes remotos, de origen browser, node y de device-token explicito siguen el pairing normal (OpenClaw, *Gateway protocol*, s. f.).
+Los clientes backend same-process de confianza (client.id gateway-client, client.mode backend) pueden omitir device en loopback directo al autenticar con el token o password compartido del gateway. Clientes remotos, de origen browser, node y de device-token explícito siguen el pairing normal (OpenClaw, *Gateway protocol*, s. f.).
 
 ## Comparar, sin mezclar mandos
 
 <VisualSlot id="openclaw-protocol:3" />
 
-Hermes no tiene un plano de control WebSocket publico de esta forma. Los adapters emiten eventos in-process dentro de GatewayRunner (Nous Research, *Gateway Internals*, s. f.). El ACP de Hermes es JSON-RPC stdio envolviendo AIAgent (Nous Research, *ACP Internals*, s. f.). El protocolo OpenClaw es el contrato de cada cliente y nodo en el socket del Gateway.
+Hermes no tiene un plano de control WebSocket público de esta forma. Los adapters emiten eventos in-process dentro de GatewayRunner (Nous Research, *Gateway Internals*, s. f.). El ACP de Hermes es JSON-RPC stdio envolviendo AIAgent (Nous Research, *ACP Internals*, s. f.). El protocolo OpenClaw es el contrato de cada cliente y nodo en el socket del Gateway.
 
-No peguen MessageEvent de Hermes en un cliente WS OpenClaw. No peguen connect.challenge de OpenClaw en el stdout de hermes acp. Citen la pagina que implementan.
+No peguen MessageEvent de Hermes en un cliente WS OpenClaw. No peguen connect.challenge de OpenClaw en el stdout de hermes acp. Citen la página que implementan.
 
-**Caso.** Un dashboard envia health antes de connect. El socket cierra sin cuerpo util. El handshake es obligatorio. Luego health, status o agent.
+**Caso.** Un dashboard envía health antes de connect. El socket cierra sin cuerpo útil. El handshake es obligatorio. Luego health, status o agent.
 
-**Caso.** Un retry de agent omite la clave de idempotencia. Se aceptan dos corridas. La correccion documentada es la clave mas la cache de dedupe de vida corta, no un prompt que pida no doble-enviar.
+**Caso.** Un retry de agent omite la clave de idempotencia. Se aceptan dos corridas. La corrección documentada es la clave más la caché de dedupe de vida corta, no un prompt que pida no doble-enviar.
 
 <TryThis>
-Escriban los tres sobres JSON (req, res, event) solo con las claves requeridas. Nombren protocolo v4 y la excepcion node N-1. Nombren el conjunto cerrado de scopes de operator.
+Escriban los tres sobres JSON (req, res, event) solo con las claves requeridas. Nombren protocolo v4 y la excepción node N-1. Nombren el conjunto cerrado de scopes de operator.
 </TryThis>
 
 Los schemas son TypeBox. JSON Schema se genera de esos schemas. Los modelos Swift se generan del JSON Schema. El paquete gateway-protocol publica protocol.schema.json (OpenClaw, *Gateway protocol*, s. f.).
 
-Citen OpenClaw, *Gateway protocol*, s. f., como padre de cada campo de esta leccion. Citen *Gateway architecture* para los tres invariantes. Citen Nous Research solo en el parrafo de comparar.
+Citen OpenClaw, *Gateway protocol*, s. f., como padre de cada campo de esta lección. Citen *Gateway architecture* para los tres invariantes. Citen Nous Research solo en el párrafo de comparar.
 
-Esta leccion se detiene en sobres, handshake, roles, scopes, versionado, allowlist worker e idempotencia. El catalogo de metodos no es un dump de ensenanza: los methods de hello-ok son discovery, no enumeracion. Los RPC de sesion viven en la leccion de sessions. Los RPC de cron viven en la leccion de cron.
+Esta lección se detiene en sobres, handshake, roles, scopes, versionado, allowlist worker e idempotencia. El catálogo de métodos no es un dump de enseñanza: los methods de hello-ok son discovery, no enumeración. Los RPC de sesión viven en la lección de sessions. Los RPC de cron viven en la lección de cron.
 
 Lean *Pairing* cuando la identidad de dispositivo es rechazada. Lean *Operator scopes* cuando FORBIDDEN lleva MISSING_SCOPE. Lean *Security* cuando el modo es none. Lean Hermes *Gateway Internals* solo cuando el producto es Hermes.
 
-El metodo sessions.observer.ask fue eliminado; usen sessions.companion.ask (OpenClaw, *Gateway protocol*, s. f.). No resuciten el nombre viejo en un cliente.
+El método sessions.observer.ask fue eliminado; usen sessions.companion.ask (OpenClaw, *Gateway protocol*, s. f.). No resuciten el nombre viejo en un cliente.
 
-Todos los connects deben firmar el nonce connect.challenge. El payload de firma v3 tambien ata platform y deviceFamily. Los cambios de metadatos exigen repair pairing.
+Todos los connects deben firmar el nonce connect.challenge. El payload de firma v3 también ata platform y deviceFamily. Los cambios de metadatos exigen repair pairing.
 
-Validacion de attachments antes de enviar: comprueben el tamano decodificado de cada fichero contra maxImageBytes para imagenes y maxBytes para el resto; luego el tamano encoded del frame contra policy.maxPayload. Un fichero de 20 MB en base64 son unos 26.7 MB en el cable y supera por si solo el limite de frame por defecto de 25 MiB (OpenClaw, *Gateway protocol*, s. f.).
+Validación de attachments antes de enviar: comprueben el tamaño decodificado de cada fichero contra maxImageBytes para imágenes y maxBytes para el resto; luego el tamaño encoded del frame contra policy.maxPayload. Un fichero de 20 MB en base64 son unos 26.7 MB en el cable y supera por si solo el límite de frame por defecto de 25 MiB (OpenClaw, *Gateway protocol*, s. f.).
 
-Releán los valores de policy en cada reconnect. Son un snapshot de tiempo de conexion. Un edit vivo de mediaMaxMb llega a conexiones existentes solo tras reconnect.
+Relean los valores de policy en cada reconnect. Son un snapshot de tiempo de conexión. Un edit vivo de mediaMaxMb llega a conexiones existentes solo tras reconnect.
 
 node.pair.request y node.pair.verify se eliminaron en 2026.7 junto con el almacén standalone de pairing de nodos; las peticiones pendientes las crea el Gateway durante los connects de nodo (OpenClaw, *Gateway protocol*, s. f.).
 
-Los frames inbound sobredimensionados y los buffers outbound lentos, con diagnosticos activos, emiten eventos payload.large antes de que el gateway cierre o descarte el frame. Esos eventos llevan surface, tamanos en bytes, limites y un reason code seguro, nunca cuerpos de mensaje, contenidos de attachment, bytes crudos de frame, tokens, cookies o secretos.
+Los frames inbound sobredimensionados y los buffers outbound lentos, con diagnósticos activos, emiten eventos payload.large antes de que el gateway cierre o descarte el frame. Esos eventos llevan surface, tamaños en bytes, límites y un reason code seguro, nunca cuerpos de mensaje, contenidos de attachment, bytes crudos de frame, tokens, cookies o secretos.
 
-Los clientes deben persistir hello-ok.auth.deviceToken con hello-ok.auth.scopes tras un connect exitoso cuando el token es nuevo o distinto del almacenado. Cuando el deviceToken devuelto coincide exactamente con el token ya guardado para el mismo gateway, dispositivo, cliente y role, conserven los scopes almacenados de ese registro en vez de sustituirlos por un set vivo mas estrecho (OpenClaw, *Gateway protocol*, s. f.).
+Los clientes deben persistir hello-ok.auth.deviceToken con hello-ok.auth.scopes tras un connect exitoso cuando el token es nuevo o distinto del almacenado. Cuando el deviceToken devuelto coincide exactamente con el token ya guardado para el mismo gateway, dispositivo, cliente y role, conserven los scopes almacenados de ese registro en vez de sustituirlos por un set vivo más estrecho (OpenClaw, *Gateway protocol*, s. f.).
 
-El close por tick-timeout usa codigo 4000. El servidor anuncia policy.tickIntervalMs efectivo en hello-ok; los clientes deben honrarlo en vez del default 30000 ms previo al handshake (OpenClaw, *Gateway protocol*, s. f.).
+El close por tick-timeout usa código 4000. El servidor anuncia policy.tickIntervalMs efectivo en hello-ok; los clientes deben honrarlo en vez del default 30000 ms previo al handshake (OpenClaw, *Gateway protocol*, s. f.).
 
-La idempotencia es un requisito de schema para metodos con efecto, no una cortesia del cliente. send y agent son los ejemplos de la pagina de arquitectura. Ensenar retry como seguro sin la clave es un bug de protocolo en el cliente, no un bug del Gateway.
+La idempotencia es un requisito de schema para métodos con efecto, no una cortesía del cliente. send y agent son los ejemplos de la página de arquitectura. Enseñar retry como seguro sin la clave es un bug de protocolo en el cliente, no un bug del Gateway.
 
-hello-ok.features.methods mas events son metadatos de discovery. Algunos metodos reales se excluyen a proposito. Traten un nombre ausente en esa lista como desconocido-para-discovery, no como prueba de que el metodo no existe. Confirmen contra la pagina de protocolo antes de inventar ausencia.
+hello-ok.features.methods más events son metadatos de discovery. Algunos métodos reales se excluyen a propósito. Traten un nombre ausente en esa lista como desconocido-para-discovery, no como prueba de que el método no existe. Confirmen contra la página de protocolo antes de inventar ausencia.
 
-Los frames worker quedan bajo 64 KiB salvo worker.inference.start negociado hasta 25 MiB. La admision worker publica colapsa detalles de credencial y entorno a admission-rejected (OpenClaw, *Gateway protocol*, s. f.).
+Los frames worker quedan bajo 64 KiB salvo worker.inference.start negociado hasta 25 MiB. La admisión worker publica colapsa detalles de credencial y entorno a admission-rejected (OpenClaw, *Gateway protocol*, s. f.).
 
 ## Caso — el frame que llegó a medias
 
@@ -186,7 +186,7 @@ OpenClaw. (s. f.). *Security*. https://docs.openclaw.ai/gateway/security
 
 OpenClaw. (s. f.). *Operator scopes*. https://docs.openclaw.ai/gateway/operator-scopes
 
-Nous Research. (s. f.). *Gateway internals*. Guia de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals
+Nous Research. (s. f.). *Gateway internals*. Guía de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals
 
-Nous Research. (s. f.). *ACP internals*. Guia de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/acp-internals
+Nous Research. (s. f.). *ACP internals*. Guía de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/acp-internals
 

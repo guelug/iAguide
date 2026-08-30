@@ -103,7 +103,7 @@ Sea `x_t` el token que entra a una capa KDA. Por cada cabeza:
 
 Camino de salida: KDA → RMSNorm por cabeza → puerta sigmoid (low-rank, mismo presupuesto que una puerta full-rank, también el asesino del attention sink) → `W_o`. Quitar la puerta de salida empeora un poco; cambiarla a Swish empeora mucho. Copia esas no linealidades; se ablaron.
 
-El head dim 128 × 128 es un estado **cuadrado**. Por eso se dice "el chip KDA." No crece cuando escribes. El estado de convolución de ShortConv son unas posiciones extra (kernel 4), también constante. Cuando un sistema de prefix-cache pide "la KV," debes entregarle un **grupo de objetos distinto** para este estado o reproducirás basura. La lección de servir nombra LMCache. Aquí solo hace falta saber que el tensor no es KV.
+El head dim 128 × 128 es un estado **cuadrado**. Por eso se dice "el chip KDA." No crece cuando escribes. El estado de convolución de ShortConv son unas posiciones extra (kernel 4), también constante. Cuando un sistema de prefix-caché pide "la KV," debes entregarle un **grupo de objetos distinto** para este estado o reproducirás basura. La lección de servir nombra LMCache. Aquí solo hace falta saber que el tensor no es KV.
 
 La pila es MoE siguiendo Moonlight / DeepSeek-V3: **48B total / 3B activos**, 8 de 256 expertos enrutados más uno compartido, primera capa densa. Contexto hasta **1M** en los checkpoints publicados. Optimizador MuonClip, corrida justa de 1.4T y luego una corrida de release de 5.7T.
 

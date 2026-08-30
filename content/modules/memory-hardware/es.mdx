@@ -41,7 +41,7 @@ Un inference server carga tres cosas, no una:
 
 ## Cómo crece la KV con el contexto
 
-La KV cache es proporcional a **longitud de contexto × número de capas × cabezas × head_dim**. Lo que cambia entre arquitecturas:
+La KV caché es proporcional a **longitud de contexto × número de capas × cabezas × head_dim**. Lo que cambia entre arquitecturas:
 
 - **MHA** (multi-head attention clásico) — la KV se almacena por cabeza. Cara.
 - **MQA / GQA** (multi-query / grouped-query) — varias cabezas Q comparten una cabeza KV. **Reduce la KV por un factor de 4-8.** Por eso un Llama 3 con GQA aguanta contextos largos donde un MHA antiguo no.

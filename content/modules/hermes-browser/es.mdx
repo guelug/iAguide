@@ -1,93 +1,93 @@
 ## Dos huecos que un snapshot no cierra
 
-La fuente primaria es [*Browser CDP Supervisor*](https://hermes-agent.nousresearch.com/docs/developer-guide/browser-supervisor) de Nous Research (s. f.). Hermes ya tenia tools de navegador. Dos fallos a nivel de pagina seguian colgando o cegando al agente. La leccion generica [browser tools](/es/m/browser-tools) permanece agnostica del harness; esta es la particularidad de Hermes: un `CDPSupervisor` por `task_id`.
+La fuente primaria es [*Browser CDP Supervisor*](https://hermes-agent.nousresearch.com/docs/developer-guide/browser-supervisor) de Nous Research (s. f.). Hermes ya tenía tools de navegador. Dos fallos a nivel de página seguian colgando o cegando al agente. La lección genérica [browser tools](/es/m/browser-tools) permanece agnóstica del harness; esta es la particularidad de Hermes: un `CDPSupervisor` por `task_id`.
 
-Hueco uno. Los dialogos nativos de JS — `alert`, `confirm`, `prompt`, `beforeunload` — bloquean el hilo de JavaScript de la pagina. Sin supervision el agente no tiene forma de saber que hay un dialogo abierto. Las llamadas posteriores a tools cuelgan o lanzan errores opacos (Nous Research, *Browser CDP Supervisor*, s. f.).
+Hueco uno. Los diálogos nativos de JS — `alert`, `confirm`, `prompt`, `beforeunload` — bloquean el hilo de JavaScript de la página. Sin supervision el agente no tiene forma de saber que hay un diálogo abierto. Las llamadas posteriores a tools cuelgan o lanzan errores opacos (Nous Research, *Browser CDP Supervisor*, s. f.).
 
-Hueco dos. Los iframes cross-origin (OOPIF) son invisibles para `Runtime.evaluate` de nivel superior. El agente puede ver nodos iframe en el snapshot del DOM pero no puede escribir ni evaluar dentro sin una sesion CDP unida al target hijo.
+Hueco dos. Los iframes cross-origin (OOPIF) son invisibles para `Runtime.evaluate` de nivel superior. El agente puede ver nodos iframe en el snapshot del DOM pero no puede escribir ni evaluar dentro sin una sesión CDP unida al target hijo.
 
-El supervisor cierra ambos manteniendo un WebSocket persistente al endpoint CDP del backend por tarea de navegador, sacando dialogos pendientes y estructura de frames a `browser_snapshot`, y exponiendo la tool `browser_dialog` para respuestas explicitas.
+El supervisor cierra ambos manteniendo un WebSocket persistente al endpoint CDP del backend por tarea de navegador, sacando diálogos pendientes y estructura de frames a `browser_snapshot`, y exponiendo la tool `browser_dialog` para respuestas explícitas.
 
 <VisualSlot caption="Supervisor, dialogos, sesiones OOPIF, campos de snapshot, politica." />
 
 ## Soporte de backends
 
-Nous Research publica una tabla cerrada en *Browser CDP Supervisor* (s. f.). Tres backends, cuatro columnas: detectar dialogo, responder dialogo, arbol de frames, y evaluate OOPIF mediante `browser_cdp` con un `frame_id`.
+Nous Research publica una tabla cerrada en *Browser CDP Supervisor* (s. f.). Tres backends, cuatro columnas: detectar diálogo, responder diálogo, árbol de frames, y evaluate OOPIF mediante `browser_cdp` con un `frame_id`.
 
-| Backend | Detectar dialogo | Responder dialogo | Arbol de frames | Evaluate OOPIF via browser_cdp |
+| Backend | Detectar diálogo | Responder diálogo | Árbol de frames | Evaluate OOPIF vía browser_cdp |
 | --- | --- | --- | --- | --- |
 | Chrome local / `/browser connect` | si | flujo completo | si | si |
-| Browserbase | si, via puente | flujo completo, via puente | si | si |
-| Camofox | sin CDP, solo REST | no | parcial via snapshot DOM | no |
+| Browserbase | si, vía puente | flujo completo, vía puente | si | si |
+| Camofox | sin CDP, solo REST | no | parcial vía snapshot DOM | no |
 
-Chrome local con depuracion remota y `/browser connect` llena todas las columnas. Browserbase llena todas las columnas mediante un puente documentado. Camofox no tiene superficie CDP. Es solo REST. Detectar y responder dialogos no estan soportados. El arbol de frames es solo parcial via el snapshot del DOM. El evaluate OOPIF no esta soportado (Nous Research, *Browser CDP Supervisor*, s. f.).
+Chrome local con depuración remota y `/browser connect` llena todas las columnas. Browserbase llena todas las columnas mediante un puente documentado. Camofox no tiene superficie CDP. Es solo REST. Detectar y responder diálogos no están soportados. El árbol de frames es solo parcial vía el snapshot del DOM. El evaluate OOPIF no está soportado (Nous Research, *Browser CDP Supervisor*, s. f.).
 
 Camofox es un hueco upstream, seguido aparte. No es un `check_fn` ausente que se pueda tapar.
 
 <Callout>
-Ambas superficies de agente se gatedan con `_browser_cdp_check`. El supervisor solo corre cuando un endpoint CDP es alcanzable. En Camofox o sesiones sin backend la tool de dialogo se oculta y el snapshot omite los campos nuevos. Sin hinchar el schema para un backend que no habla CDP.
+Ambas superficies de agente se gatedan con `_browser_cdp_check`. El supervisor solo corre cuando un endpoint CDP es alcanzable. En Camofox o sesiones sin backend la tool de diálogo se oculta y el snapshot omite los campos nuevos. Sin hinchar el schema para un backend que no habla CDP.
 </Callout>
 
-## Puente de Browserbase, en terminos academicos
+## Puente de Browserbase, en términos académicos
 
-El proxy CDP de Browserbase auto-descarta dialogos nativos en unos 10 milisegundos, de modo que el manejador nativo de dialogos JS no llega a tiempo (Nous Research, *Browser CDP Supervisor*, s. f.). El supervisor inyecta por eso un script de arranque de documento que sustituye `window.alert`, `window.confirm` y `window.prompt` por un XHR sincrono a un host magico llamado `hermes-dialog-bridge.invalid`. La interceptacion Fetch captura esos XHR antes de tocar la red. El dialogo se convierte en un evento de peticion pausada que el supervisor registra. La via de respuesta cumple la peticion con un cuerpo JSON que el script inyectado decodifica.
+El proxy CDP de Browserbase auto-descarta diálogos nativos en unos 10 milisegundos, de modo que el manejador nativo de diálogos JS no llega a tiempo (Nous Research, *Browser CDP Supervisor*, s. f.). El supervisor inyecta por eso un script de arranque de documento que sustituye `window.alert`, `window.confirm` y `window.prompt` por un XHR síncrono a un host mágico llamado `hermes-dialog-bridge.invalid`. La interceptación Fetch captura esos XHR antes de tocar la red. El diálogo se convierte en un evento de petición pausada que el supervisor registra. La vía de respuesta cumple la petición con un cuerpo JSON que el script inyectado decodifica.
 
-Desde la pagina, `prompt()` sigue devolviendo la cadena que suministro el agente. Desde el agente, es la misma API `browser_dialog` en ambos backends.
+Desde la página, `prompt()` sigue devolviendo la cadena que suministro el agente. Desde el agente, es la misma API `browser_dialog` en ambos backends.
 
-El host magico nunca toca la red. La interceptacion ocurre antes. Por eso Browserbase puede seguir presentando un valor de retorno de `prompt()` al JS de la pagina mientras el proxy CDP descarta el dialogo nativo.
+El host mágico nunca toca la red. La interceptación ocurre antes. Por eso Browserbase puede seguir presentando un valor de retorno de `prompt()` al JS de la página mientras el proxy CDP descarta el diálogo nativo.
 
 ## CDPSupervisor
 
 Una tarea asyncio corre en un hilo daemon de fondo por cada `task_id` de Hermes. Mantiene un WebSocket persistente al endpoint CDP del backend (Nous Research, *Browser CDP Supervisor*, s. f.). Mantiene cuatro almacenes en memoria:
 
-- Cola de dialogos: una lista de `PendingDialog` con id, type, message, default_prompt, session_id, opened_at.
-- Arbol de frames: un mapa de `frame_id` a `FrameInfo` con padres, URL, origin, y si es una sesion hija cross-origin.
-- Mapa de sesiones: un mapa de `session_id` a `SessionInfo` para que las tools de interaccion enruten a la sesion unida correcta en operaciones OOPIF.
-- Errores recientes de consola: un ring buffer de los ultimos 50 para diagnostico.
+- Cola de diálogos: una lista de `PendingDialog` con id, type, message, default_prompt, session_id, opened_at.
+- Árbol de frames: un mapa de `frame_id` a `FrameInfo` con padres, URL, origin, y si es una sesión hija cross-origin.
+- Mapa de sesiones: un mapa de `session_id` a `SessionInfo` para que las tools de interacción enruten a la sesión unida correcta en operaciones OOPIF.
+- Errores recientes de consola: un ring buffer de los últimos 50 para diagnóstico.
 
-Al unirse, el supervisor habilita eventos Page (`javascriptDialogOpening`, `frameAttached`, `frameNavigated`, `frameDetached`), eventos Runtime (`executionContextCreated`, `consoleAPICalled`, `exceptionThrown`), y auto-attach de targets hijos con flatten true. Los targets OOPIF hijos tambien reciben Page mas Runtime.
+Al unirse, el supervisor habilita eventos Page (`javascriptDialogOpening`, `frameAttached`, `frameNavigated`, `frameDetached`), eventos Runtime (`executionContextCreated`, `consoleAPICalled`, `exceptionThrown`), y auto-attach de targets hijos con flatten true. Los targets OOPIF hijos también reciben Page más Runtime.
 
-El acceso al estado es thread-safe via un lock de snapshot. Los handlers de tools son sync. Leen el snapshot congelado sin await.
+El acceso al estado es thread-safe vía un lock de snapshot. Los handlers de tools son sync. Leen el snapshot congelado sin await.
 
 ## Ciclo de vida
 
-El arranque es `SupervisorRegistry.get_or_start(task_id, cdp_url)`. Llamadores: `browser_navigate`, creacion de sesion Browserbase, `/browser connect`. La llamada es idempotente (Nous Research, *Browser CDP Supervisor*, s. f.).
+El arranque es `SupervisorRegistry.get_or_start(task_id, cdp_url)`. Llamadores: `browser_navigate`, creación de sesión Browserbase, `/browser connect`. La llamada es idempotente (Nous Research, *Browser CDP Supervisor*, s. f.).
 
-La parada es el teardown de sesion o `/browser disconnect`. Cancela la tarea asyncio, cierra el WebSocket y descarta el estado.
+La parada es el teardown de sesión o `/browser disconnect`. Cancela la tarea asyncio, cierra el WebSocket y descarta el estado.
 
 Rebind: si la URL CDP cambia porque el usuario se reconecta a un Chrome nuevo, el supervisor viejo se detiene y se arranca uno fresco. El estado nunca se reutiliza entre endpoints.
 
-Esa frase es la particularidad. Un supervisor esta unido a una URL CDP. Una reconexion no es un resume de la cola de dialogos previa.
+Esa frase es la particularidad. Un supervisor está unido a una URL CDP. Una reconexion no es un resume de la cola de diálogos previa.
 
-## Politica de dialogos
+## Política de diálogos
 
 Se configura en `config.yaml` bajo `browser.dialog_policy` (Nous Research, *Browser CDP Supervisor*, s. f.):
 
 | Modo | Comportamiento |
 | --- | --- |
-| `must_respond` | Por defecto. Captura, muestra en `browser_snapshot`, espera una llamada explicita a `browser_dialog`. Tras un timeout de seguridad de 300 segundos sin respuesta, auto-descarta y registra. Impide que un agente con bug se quede eterno. |
-| `auto_dismiss` | Registra y descarta de inmediato. El agente lo ve a posteriori via `browser_state` dentro de `browser_snapshot`. |
-| `auto_accept` | Registra y acepta. Util para `beforeunload` cuando el flujo quiere navegar fuera con limpieza. |
+| `must_respond` | Por defecto. Captura, muestra en `browser_snapshot`, espera una llamada explícita a `browser_dialog`. Tras un timeout de seguridad de 300 segundos sin respuesta, auto-descarta y registra. Impide que un agente con bug se quede eterno. |
+| `auto_dismiss` | Registra y descarta de inmediato. El agente lo ve a posteriori vía `browser_state` dentro de `browser_snapshot`. |
+| `auto_accept` | Registra y acepta. Útil para `beforeunload` cuando el flujo quiere navegar fuera con limpieza. |
 
-La politica es por tarea. No hay overrides por dialogo. El agente aun puede nombrar un `dialog_id` cuando hay varios en cola, lo cual es raro. `browser.dialog_timeout_s` vive junto a la politica en los defaults de `hermes_cli/config.py`.
+La política es por tarea. No hay overrides por diálogo. El agente aun puede nombrar un `dialog_id` cuando hay varios en cola, lo cual es raro. `browser.dialog_timeout_s` vive junto a la política en los defaults de `hermes_cli/config.py`.
 
 <Callout>
-`must_respond` es el default porque un confirm colgado es peor que un paso retrasado. El watchdog de 300 segundos es un timeout de seguridad, no una feature de producto que se afine por sitio. Si necesitan dismiss silencioso, pasen la tarea a `auto_dismiss`. Si necesitan navegar a traves de `beforeunload`, pasen a `auto_accept`.
+`must_respond` es el default porque un confirm colgado es peor que un paso retrasado. El watchdog de 300 segundos es un timeout de seguridad, no una feature de producto que se afine por sitio. Si necesitan dismiss silencioso, pasen la tarea a `auto_dismiss`. Si necesitan navegar a través de `beforeunload`, pasen a `auto_accept`.
 </Callout>
 
 ## Superficie de agente: browser_dialog
 
-La tool es solo de respuesta. El agente lee los dialogos pendientes del output de `browser_snapshot` antes de llamar (Nous Research, *Browser CDP Supervisor*, s. f.).
+La tool es solo de respuesta. El agente lee los diálogos pendientes del output de `browser_snapshot` antes de llamar (Nous Research, *Browser CDP Supervisor*, s. f.).
 
 ```text
 browser_dialog(action, prompt_text=None, dialog_id=None)
 ```
 
-- `action` es `accept` o `dismiss`. Obligatorio. Responde al dialogo indicado o al unico pendiente.
-- `prompt_text` es el texto a entregar a un dialogo `prompt()`.
-- `dialog_id` desambigua cuando hay varios dialogos en cola.
+- `action` es `accept` o `dismiss`. Obligatorio. Responde al diálogo indicado o al único pendiente.
+- `prompt_text` es el texto a entregar a un diálogo `prompt()`.
+- `dialog_id` desambigua cuando hay varios diálogos en cola.
 
-No inventen una tool `browser_alert`. No inventen un argumento de timeout en la tool. El watchdog es politica, no un parametro de tool.
+No inventen una tool `browser_alert`. No inventen un argumento de timeout en la tool. El watchdog es política, no un parámetro de tool.
 
 ## Superficie de agente: campos de snapshot
 
@@ -113,25 +113,25 @@ Cuando hay un supervisor unido, tres campos opcionales se suman al snapshot exis
 }
 ```
 
-`pending_dialogs` son dialogos que ahora bloquean el hilo JS de la pagina. El agente debe llamar a `browser_dialog` para responder. La lista esta vacia en Browserbase porque su proxy CDP auto-descarta en unos 10 milisegundos.
+`pending_dialogs` son diálogos que ahora bloquean el hilo JS de la página. El agente debe llamar a `browser_dialog` para responder. La lista esta vacía en Browserbase porque su proxy CDP auto-descarta en unos 10 milisegundos.
 
-`recent_dialogs` es un ring buffer de hasta 20 dialogos cerrados recientemente con una etiqueta `closed_by`: `agent` (respondimos), `auto_policy` (auto_dismiss o auto_accept local), `watchdog` (timeout de must_respond), o `remote` (el navegador o backend lo cerro, por ejemplo Browserbase). Asi los agentes en Browserbase siguen viendo que ocurrio.
+`recent_dialogs` es un ring buffer de hasta 20 diálogos cerrados recientemente con una etiqueta `closed_by`: `agent` (respondimos), `auto_policy` (auto_dismiss o auto_accept local), `watchdog` (timeout de must_respond), o `remote` (el navegador o backend lo cerro, por ejemplo Browserbase). Así los agentes en Browserbase siguen viendo que ocurrio.
 
-`frame_tree` incluye hijos cross-origin (OOPIF). Tope de 30 entradas mas profundidad OOPIF 2 para acotar el tamano del snapshot en paginas con anuncios. `truncated` true avisa cuando se golpearon los limites. Los agentes que necesiten el arbol completo pueden usar `browser_cdp` con `Page.getFrameTree` (Nous Research, *Browser CDP Supervisor*, s. f.).
+`frame_tree` incluye hijos cross-origin (OOPIF). Tope de 30 entradas más profundidad OOPIF 2 para acotar el tamaño del snapshot en páginas con anuncios. `truncated` true avisa cuando se golpearon los límites. Los agentes que necesiten el árbol completo pueden usar `browser_cdp` con `Page.getFrameTree` (Nous Research, *Browser CDP Supervisor*, s. f.).
 
 ## Frames cross-origin
 
 `browser_cdp` con un `frame_id` enruta llamadas CDP, en especial `Runtime.evaluate`, por el WebSocket ya conectado del supervisor usando el `sessionId` hijo del OOPIF. Los agentes toman ids de frame de `browser_snapshot.frame_tree.children` donde `is_oopif` es true y los pasan a `browser_cdp`.
 
-Para iframes same-origin no hay sesion CDP dedicada. El agente usa `contentWindow` o `contentDocument` desde un `Runtime.evaluate` de nivel superior. El supervisor muestra un error que apunta a ese fallback cuando el `frame_id` pertenece a un no-OOPIF (Nous Research, *Browser CDP Supervisor*, s. f.).
+Para iframes same-origin no hay sesión CDP dedicada. El agente usa `contentWindow` o `contentDocument` desde un `Runtime.evaluate` de nivel superior. El supervisor muestra un error que apunta a ese fallback cuando el `frame_id` pertenece a un no-OOPIF (Nous Research, *Browser CDP Supervisor*, s. f.).
 
-En Browserbase esta es la unica via fiable para interactuar con iframes. Conexiones CDP sin estado abiertas por cada llamada a `browser_cdp` chocan con la caducidad de URL firmada, mientras la conexion larga del supervisor mantiene una sesion valida.
+En Browserbase esta es la única vía fiable para interactuar con iframes. Conexiones CDP sin estado abiertas por cada llamada a `browser_cdp` chocan con la caducidad de URL firmada, mientras la conexión larga del supervisor mantiene una sesión valida.
 
-**Caso.** El agente envia un formulario. La pagina se congela. Las tools posteriores lanzan errores opacos. Lean `pending_dialogs`. Llamen a `browser_dialog`. Luego sigan. Esa es la recuperacion documentada, no un reintento de `browser_navigate`.
+**Caso.** El agente envía un formulario. La página se congela. Las tools posteriores lanzan errores opacos. Lean `pending_dialogs`. Llamen a `browser_dialog`. Luego sigan. Esa es la recuperación documentada, no un reintento de `browser_navigate`.
 
-**Caso.** En Browserbase, `pending_dialogs` esta vacio aunque disparo un confirm. Lean `recent_dialogs` y la etiqueta `closed_by` `remote`. El proxy ya descarto. El puente aun deja al agente aceptar o descartar con la misma API `browser_dialog` para dialogos que el supervisor capturo via el XHR del host magico.
+**Caso.** En Browserbase, `pending_dialogs` está vacío aunque disparo un confirm. Lean `recent_dialogs` y la etiqueta `closed_by` `remote`. El proxy ya descarto. El puente aun deja al agente aceptar o descartar con la misma API `browser_dialog` para diálogos que el supervisor capturo vía el XHR del host mágico.
 
-## Disposicion de ficheros
+## Disposición de ficheros
 
 Nous Research lista los ficheros (s. f.):
 
@@ -141,47 +141,47 @@ Nous Research lista los ficheros (s. f.):
 - `toolsets.py` — registra `browser_dialog` en `browser`, `hermes-acp`, `hermes-api-server` y toolsets core, gated a alcanzabilidad CDP.
 - `hermes_cli/config.py` — defaults de `browser.dialog_policy` y `browser.dialog_timeout_s`.
 
-Los tests unitarios viven en `tests/tools/test_browser_supervisor.py`. Usan un servidor CDP mock asyncio que habla suficiente protocolo para ejercer attach, enable, navigate, disparo de dialogo, dismiss, attach y detach de frames, attach de target hijo y teardown de sesion. El E2E de backend real (Browserbase mas navegador de familia Chromium local) es manual: `/browser connect` a un Chromium vivo y correr los casos de dialogo y frames de la misma pagina.
+Los tests unitarios viven en `tests/tools/test_browser_supervisor.py`. Usan un servidor CDP mock asyncio que habla suficiente protocolo para ejercer attach, enable, navigate, disparo de diálogo, dismiss, attach y detach de frames, attach de target hijo y teardown de sesión. El E2E de backend real (Browserbase más navegador de familia Chromium local) es manual: `/browser connect` a un Chromium vivo y correr los casos de diálogo y frames de la misma página.
 
 ## No-objetivos
 
-La pagina es explicita sobre lo que el supervisor **no** hace (Nous Research, *Browser CDP Supervisor*, s. f.):
+La página es explícita sobre lo que el supervisor **no** hace (Nous Research, *Browser CDP Supervisor*, s. f.):
 
-- Deteccion o interaccion para Camofox (hueco upstream).
-- Streaming en vivo de dialogos o frames al usuario (exigiria hooks del gateway).
-- Persistir historial de dialogos entre sesiones (solo en memoria).
-- Politicas de dialogo por iframe (el agente puede expresarlo via `dialog_id`).
+- Detección o interacción para Camofox (hueco upstream).
+- Streaming en vivo de diálogos o frames al usuario (exigiria hooks del gateway).
+- Persistir historial de diálogos entre sesiones (solo en memoria).
+- Políticas de diálogo por iframe (el agente puede expresarlo vía `dialog_id`).
 - Reemplazar `browser_cdp`. Sigue como escape hatch de la cola larga: cookies, viewport, throttling de red.
 
-No abran un bug porque el supervisor no hace stream de dialogos a Telegram. Eso es un no-objetivo documentado.
+No abran un bug porque el supervisor no hace stream de diálogos a Telegram. Eso es un no-objetivo documentado.
 
 ## Comparar, sin mezclar mandos
 
-Hermes une un supervisor al backend que las tools de navegador ya usen: Chrome local, Browserbase, o nada. OpenClaw corre un perfil dedicado de Chrome, Brave, Edge o Chromium llamado `openclaw` a traves de un servicio local de control dentro del Gateway, solo loopback, aislado del navegador personal (OpenClaw, *Browser (OpenClaw-managed)*, s. f., https://docs.openclaw.ai/tools/browser).
+Hermes une un supervisor al backend que las tools de navegador ya usen: Chrome local, Browserbase, o nada. OpenClaw corre un perfil dedicado de Chrome, Brave, Edge o Chromium llamado `openclaw` a través de un servicio local de control dentro del Gateway, solo loopback, aislado del navegador personal (OpenClaw, *Browser (OpenClaw-managed)*, s. f., https://docs.openclaw.ai/tools/browser).
 
-La via por defecto de OpenClaw es ese perfil aislado `openclaw`. Un perfil built-in `user` se une a un Chrome real con sesion via Chrome DevTools MCP. Un perfil `chrome` conduce Chrome con sesion a traves de una extension. Hermes no tiene esos tres perfiles con nombre. Hermes tiene un `CDPSupervisor` por `task_id`.
+La vía por defecto de OpenClaw es ese perfil aislado `openclaw`. Un perfil built-in `user` se une a un Chrome real con sesión vía Chrome DevTools MCP. Un perfil `chrome` conduce Chrome con sesión a través de una extension. Hermes no tiene esos tres perfiles con nombre. Hermes tiene un `CDPSupervisor` por `task_id`.
 
-Las respuestas de accion del navegador gestionado de OpenClaw incluyen estado de dialogos pendientes; los operadores responden con el comando de dialogo de OpenClaw mas accept o dismiss mas un dialog id (OpenClaw, *Browser (OpenClaw-managed)*, s. f.). Los agentes de Hermes leen `pending_dialogs` de `browser_snapshot` y llaman a `browser_dialog`. Misma necesidad humana. Objeto distinto. Pagina distinta.
+Las respuestas de acción del navegador gestionado de OpenClaw incluyen estado de diálogos pendientes; los operadores responden con el comando de diálogo de OpenClaw más accept o dismiss más un dialog id (OpenClaw, *Browser (OpenClaw-managed)*, s. f.). Los agentes de Hermes leen `pending_dialogs` de `browser_snapshot` y llaman a `browser_dialog`. Misma necesidad humana. Objeto distinto. Página distinta.
 
-No peguen `browser.defaultProfile` de OpenClaw en el `config.yaml` de Hermes. No peguen `browser.dialog_policy` de Hermes en el `openclaw.json` de OpenClaw. Citen la pagina que implementan.
+No peguen `browser.defaultProfile` de OpenClaw en el `config.yaml` de Hermes. No peguen `browser.dialog_policy` de Hermes en el `openclaw.json` de OpenClaw. Citen la página que implementan.
 
-**Caso.** Un iframe de anuncio tiene `is_oopif` true. Un `Runtime.evaluate` de nivel superior no lo alcanza. Pasen el `frame_id` de ese hijo a `browser_cdp`. Si pasan un frame id same-origin, el supervisor errora y apunta al fallback de `contentDocument`. Ese error es la ensenanza documentada, no un bucle de reintentos.
+**Caso.** Un iframe de anuncio tiene `is_oopif` true. Un `Runtime.evaluate` de nivel superior no lo alcanza. Pasen el `frame_id` de ese hijo a `browser_cdp`. Si pasan un frame id same-origin, el supervisor errora y apunta al fallback de `contentDocument`. Ese error es la enseñanza documentada, no un bucle de reintentos.
 
 <TryThis>
-Nombren los tres modos de politica de dialogo. Digan cual es el default y que ocurre a los 300 segundos. Nombren las cuatro etiquetas `closed_by` de `recent_dialogs`. Digan por que Camofox oculta `browser_dialog` en vez de devolver un error de runtime.
+Nombren los tres modos de política de diálogo. Digan cual es el default y que ocurre a los 300 segundos. Nombren las cuatro etiquetas `closed_by` de `recent_dialogs`. Digan por que Camofox oculta `browser_dialog` en vez de devolver un error de runtime.
 </TryThis>
 
-Citen Nous Research, *Browser CDP Supervisor*, s. f., como padre de cada numero de esta leccion: auto-dismiss de Browserbase a 10 milisegundos, watchdog must_respond de 300 segundos, ring de 50 errores de consola, ring de 20 dialogos recientes, 30 entradas de frame-tree, profundidad OOPIF 2.
+Citen Nous Research, *Browser CDP Supervisor*, s. f., como padre de cada número de esta lección: auto-dismiss de Browserbase a 10 milisegundos, watchdog must_respond de 300 segundos, ring de 50 errores de consola, ring de 20 diálogos recientes, 30 entradas de frame-tree, profundidad OOPIF 2.
 
-Una reconexion a un Chrome nuevo es un supervisor nuevo. El historial de dialogos no sobrevive ese rebind. Tampoco sobrevive un reinicio de proceso: es solo en memoria. Si un briefing necesita transcripcion de confirms descartados, el agente debe leer `recent_dialogs` antes del teardown.
+Una reconexion a un Chrome nuevo es un supervisor nuevo. El historial de diálogos no sobrevive ese rebind. Tampoco sobrevive un reinicio de proceso: es solo en memoria. Si un briefing necesita transcripción de confirms descartados, el agente debe leer `recent_dialogs` antes del teardown.
 
-Lean *Tools Runtime* para por que `browser_dialog` se registra en varios toolsets y aun asi esta gated. Lean *ACP Internals* para por que la misma tool aparece en `hermes-acp`. Lean OpenClaw *Browser (OpenClaw-managed)* solo cuando el producto es OpenClaw.
+Lean *Tools Runtime* para por que `browser_dialog` se registra en varios toolsets y aun así está gated. Lean *ACP Internals* para por que la misma tool aparece en `hermes-acp`. Lean OpenClaw *Browser (OpenClaw-managed)* solo cuando el producto es OpenClaw.
 
-Esta leccion se detiene en el supervisor, los dos huecos, las tres politicas, los campos de snapshot y la via OOPIF. Cookies, viewport y throttling siguen en `browser_cdp` como escape hatch documentado.
+Esta lección se detiene en el supervisor, los dos huecos, las tres políticas, los campos de snapshot y la vía OOPIF. Cookies, viewport y throttling siguen en `browser_cdp` como escape hatch documentado.
 
-`toolsets.py` registra `browser_dialog` en `browser`, `hermes-acp`, `hermes-api-server` y core. La disponibilidad sigue gated a alcanzabilidad CDP. Por eso una sesion ACP sin endpoint CDP no anuncia la tool de dialogo.
+`toolsets.py` registra `browser_dialog` en `browser`, `hermes-acp`, `hermes-api-server` y core. La disponibilidad sigue gated a alcanzabilidad CDP. Por eso una sesión ACP sin endpoint CDP no anuncia la tool de diálogo.
 
-El lock de snapshot existe para que un handler sync de tool nunca haga await de la tarea asyncio. Ensenar ese lock como "usen tools async" es incorrecto. La pagina eligio un snapshot congelado a proposito (Nous Research, *Browser CDP Supervisor*, s. f.).
+El lock de snapshot existe para que un handler sync de tool nunca haga await de la tarea asyncio. Enseñar ese lock como "usen tools async" es incorrecto. La página eligió un snapshot congelado a propósito (Nous Research, *Browser CDP Supervisor*, s. f.).
 
 ## Caso — el snapshot que no vio el login
 
@@ -191,12 +191,12 @@ Un agente de scraping capturaba el DOM antes de que el login terminara. El snaps
 
 ## Fuentes
 
-Nous Research. (s. f.). *Browser CDP supervisor*. Guia de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/browser-supervisor
+Nous Research. (s. f.). *Browser CDP supervisor*. Guía de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/browser-supervisor
 
-Nous Research. (s. f.). *Tools runtime*. Guia de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/tools-runtime
+Nous Research. (s. f.). *Tools runtime*. Guía de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/tools-runtime
 
-Nous Research. (s. f.). *ACP internals*. Guia de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/acp-internals
+Nous Research. (s. f.). *ACP internals*. Guía de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/acp-internals
 
-Nous Research. (s. f.). *Gateway internals*. Guia de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals
+Nous Research. (s. f.). *Gateway internals*. Guía de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals
 
 OpenClaw. (s. f.). *Browser (OpenClaw-managed)*. https://docs.openclaw.ai/tools/browser

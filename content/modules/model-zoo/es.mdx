@@ -62,7 +62,7 @@ Abre cualquier ficha instruct que de verdad podrías ejecutar. Anota licencia, c
 La cifra "8B" o "70B" oculta tres números distintos:
 
 - **Memoria del archivo** — bytes en disco. FP16 = 2×params, Q4 ≈ 0.5×params, Q8 ≈ 1×params. Esto es lo que cabe en VRAM.
-- **Memoria total con KV** — suma pesos + KV cache + overhead runtime. Para un 8B denso a 8k contexto: ~5 GB Q4 + ~1 GB KV + ~3 GB runtime ≈ 9 GB. A 128k contexto: KV sube a 8-16 GB.
+- **Memoria total con KV** — suma pesos + KV caché + overhead runtime. Para un 8B denso a 8k contexto: ~5 GB Q4 + ~1 GB KV + ~3 GB runtime ≈ 9 GB. A 128k contexto: KV sube a 8-16 GB.
 - **FLOPs por token** — para dense es ~2 × params por token (forward pass). Para MoE son ~2 × activos. Esto determina latencia de prefill y, en parte, de decode.
 
 <Compare>

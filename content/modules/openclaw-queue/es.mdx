@@ -1,14 +1,14 @@
-## Un escritor por lane de sesion
+## Un escritor por lane de sesión
 
-La fuente primaria es [*Command queue*](https://docs.openclaw.ai/concepts/queue) de OpenClaw (s. f.). OpenClaw serializa las corridas de auto-reply de todos los canales con una cola minuscula in-process para que varias corridas de agente no colisionen, y aun permite paralelismo seguro entre sesiones.
+La fuente primaria es [*Command queue*](https://docs.openclaw.ai/concepts/queue) de OpenClaw (s. f.). OpenClaw serializa las corridas de auto-reply de todos los canales con una cola minúscula in-process para que varias corridas de agente no colisionen, y aun permite paralelismo seguro entre sesiones.
 
-La leccion generica [agent loop](/es/m/agent-loop) permanece agnostica del harness. Esta es la lane OpenClaw.
+La lección genérica [agent loop](/es/m/agent-loop) permanece agnóstica del harness. Esta es la lane OpenClaw.
 
-Las corridas de auto-reply son caras (llamadas LLM) y colisionan cuando varios mensajes inbound llegan juntos. Serializar evita competir por estado de sesion, logs y stdin de CLI, y reduce presion de rate-limit aguas arriba (OpenClaw, *Command queue*, s. f.).
+Las corridas de auto-reply son caras (llamadas LLM) y colisionan cuando varios mensajes inbound llegan juntos. Serializar evita competir por estado de sesión, logs y stdin de CLI, y reduce presión de rate-limit aguas arriba (OpenClaw, *Command queue*, s. f.).
 
-Una cola FIFO consciente de lanes drena cada lane con un tope de concurrencia configurable (1 por defecto para lanes no configuradas; `main` usa `min(16, max(8, available CPU parallelism))`, y `subagent` por defecto 8). `runEmbeddedAgent` encola por **session key** (lane `session:<key>`) para garantizar solo una corrida activa por sesion. Cada corrida de sesion se encola luego en una **lane global** (`main` por defecto) de modo que el paralelismo total lo recorta `agents.defaults.maxConcurrent`.
+Una cola FIFO consciente de lanes drena cada lane con un tope de concurrencia configurable (1 por defecto para lanes no configuradas; `main` usa `min(16, max(8, available CPU parallelism))`, y `subagent` por defecto 8). `runEmbeddedAgent` encola por **session key** (lane `session:<key>`) para garantizar solo una corrida activa por sesión. Cada corrida de sesión se encola luego en una **lane global** (`main` por defecto) de modo que el paralelismo total lo recorta `agents.defaults.maxConcurrent`.
 
-Los indicadores de escritura siguen disparandose al encolar (cuando el canal los soporta) para que la UX no cambie mientras la corrida espera su turno. Los logs verbose emiten un aviso corto si una corrida encolada espero mas de unos 2 segundos antes de arrancar.
+Los indicadores de escritura siguen disparandose al encolar (cuando el canal los soporta) para que la UX no cambie mientras la corrida espera su turno. Los logs verbose emiten un aviso corto si una corrida encolada espero más de unos 2 segundos antes de arrancar.
 
 <VisualSlot caption="steer, followup, collect, interrupt, lanes." />
 
@@ -21,18 +21,18 @@ Cuando no se configura, todas las superficies inbound usan (OpenClaw, *Command q
 - `cap: 20`
 - `drop: "summarize"`
 
-El steering en el mismo turno es el default. Un prompt que llega a mitad de corrida se inyecta en el runtime activo cuando la corrida puede aceptar steering, de modo que no se arranca una segunda corrida de sesion. Si la corrida activa no puede aceptar steering, OpenClaw espera a que termine antes de arrancar el prompt.
+El steering en el mismo turno es el default. Un prompt que llega a mitad de corrida se inyecta en el runtime activo cuando la corrida puede aceptar steering, de modo que no se arranca una segunda corrida de sesión. Si la corrida activa no puede aceptar steering, OpenClaw espera a que termine antes de arrancar el prompt.
 
 ## Cuatro modos
 
-`/queue` controla que hacen los mensajes inbound normales mientras una sesion ya tiene una corrida activa. Copia los cuatro nombres en la respuesta de TryThis. No inventes un quinto llamado `pause`.
+`/queue` controla que hacen los mensajes inbound normales mientras una sesión ya tiene una corrida activa. Copia los cuatro nombres en la respuesta de TryThis. No inventes un quinto llamado `pause`.
 
-- `steer`: inyecta mensajes en el runtime activo. OpenClaw deja terminar un tool ya en marcha, salta llamadas secuenciales que no han arrancado, y hace visible el steer antes del siguiente lanzamiento de tool o decision de modelo. Las llamadas paralelas continuan una vez que su lote cruza el checkpoint de lanzamiento. Codex app-server recibe un `turn/steer` agrupado y lo aplica en el siguiente limite de modelo. Si la corrida no esta haciendo streaming o el steering no esta disponible, OpenClaw espera a que termine la corrida activa antes de arrancar el prompt.
+- `steer`: inyecta mensajes en el runtime activo. OpenClaw deja terminar un tool ya en marcha, salta llamadas secuenciales que no han arrancado, y hace visible el steer antes del siguiente lanzamiento de tool o decisión de modelo. Las llamadas paralelas continúan una vez que su lote cruza el checkpoint de lanzamiento. Codex app-server recibe un `turn/steer` agrupado y lo aplica en el siguiente límite de modelo. Si la corrida no está haciendo streaming o el steering no está disponible, OpenClaw espera a que termine la corrida activa antes de arrancar el prompt.
 - `followup`: no hace steer. Encola cada mensaje para un turno de agente posterior cuando termina la corrida actual.
-- `collect`: no hace steer. Fusiona mensajes encolados en un **unico** turno followup tras la ventana de silencio. Si los mensajes apuntan a canales o threads distintos, drenan individualmente para preservar el enrutado.
-- `interrupt`: aborta la corrida activa de esa sesion y luego corre el mensaje mas nuevo.
+- `collect`: no hace steer. Fusiona mensajes encolados en un **único** turno followup tras la ventana de silencio. Si los mensajes apuntan a canales o threads distintos, drenan individualmente para preservar el enrutado.
+- `interrupt`: aborta la corrida activa de esa sesión y luego corre el mensaje más nuevo.
 
-El timing especifico del runtime vive en [*Steering queue*](https://docs.openclaw.ai/concepts/queue-steering) (OpenClaw, s. f.). El command explicito `/steer` vive en [*Steer*](https://docs.openclaw.ai/tools/steer).
+El timing específico del runtime vive en [*Steering queue*](https://docs.openclaw.ai/concepts/queue-steering) (OpenClaw, s. f.). El command explícito `/steer` vive en [*Steer*](https://docs.openclaw.ai/tools/steer).
 
 Configura global o por canal via `messages.queue`:
 
@@ -56,119 +56,119 @@ Configura global o por canal via `messages.queue`:
 
 ## Opciones: debounce, cap, drop
 
-Las opciones `/queue` por sesion aplican a la entrega encolada. La opcion `debounce` tambien fija la ventana de silencio de steering Codex en modo `steer` (OpenClaw, *Command queue*, s. f.):
+Las opciones `/queue` por sesión aplican a la entrega encolada. La opción `debounce` también fija la ventana de silencio de steering Codex en modo `steer` (OpenClaw, *Command queue*, s. f.):
 
-- `debounce`: ventana de silencio antes de drenar followups o lotes collect; en `steer` Codex, ventana de silencio antes de enviar el `turn/steer` agrupado. Numeros sueltos son milisegundos; se aceptan unidades `ms`, `s`, `m`, `h` y `d`.
-- `cap`: maximo de mensajes encolados por sesion. Valores bajo `1` se ignoran.
-- `drop: "summarize"` (default): descarta las entradas mas viejas segun hace falta, conserva resúmenes compactos y los inyecta como prompt followup sintetico.
-- `drop: "old"`: descarta las entradas mas viejas segun hace falta, sin conservar resúmenes.
-- `drop: "new"`: rechaza el mensaje mas nuevo cuando la cola ya esta llena.
+- `debounce`: ventana de silencio antes de drenar followups o lotes collect; en `steer` Codex, ventana de silencio antes de enviar el `turn/steer` agrupado. Números sueltos son milisegundos; se aceptan unidades `ms`, `s`, `m`, `h` y `d`.
+- `cap`: máximo de mensajes encolados por sesión. Valores bajo `1` se ignoran.
+- `drop: "summarize"` (default): descarta las entradas más viejas según hace falta, conserva resúmenes compactos y los inyecta como prompt followup sintético.
+- `drop: "old"`: descarta las entradas más viejas según hace falta, sin conservar resúmenes.
+- `drop: "new"`: rechaza el mensaje más nuevo cuando la cola ya esta llena.
 
 La cola usa un debounce integrado de 500ms. `cap` por defecto es `20`. `drop` por defecto es `summarize`.
 
 ## Steer y streaming
 
-Cuando el streaming del canal es `partial` o `block`, el steering puede parecer varias respuestas cortas visibles mientras la corrida activa alcanza limites de runtime (OpenClaw, *Command queue*, s. f.):
+Cuando el streaming del canal es `partial` o `block`, el steering puede parecer varias respuestas cortas visibles mientras la corrida activa alcanza límites de runtime (OpenClaw, *Command queue*, s. f.):
 
 - `partial`: el preview puede finalizar pronto, y luego un preview nuevo arranca tras aceptar el steering.
-- `block`: bloques de tamano borrador pueden crear la misma apariencia secuencial.
+- `block`: bloques de tamaño borrador pueden crear la misma apariencia secuencial.
 - Sin streaming, el steering cae a un followup tras la corrida activa cuando el runtime no puede aceptar steering en el mismo turno.
 
 Los prompts inbound que llegan a mitad de corrida se dirigen a la corrida actual por defecto. El runtime OpenClaw comprueba steering antes de lanzamientos de tool no arrancados y de la siguiente llamada al modelo (OpenClaw, *Agent runtime*, s. f., https://docs.openclaw.ai/concepts/agent).
 
 ## Precedencia
 
-Para la seleccion de modo, OpenClaw resuelve (OpenClaw, *Command queue*, s. f.):
+Para la selección de modo, OpenClaw resuelve (OpenClaw, *Command queue*, s. f.):
 
-1. Override `/queue` inline o almacenado por sesion.
+1. Override `/queue` inline o almacenado por sesión.
 2. `messages.queue.byChannel.<channel>`.
 3. `messages.queue.mode`.
 4. Default `steer`.
 
-Para opciones, las opciones `/queue` inline o almacenadas ganan sobre config. Luego se aplican debounce por canal (`messages.queue.debounceMsByChannel`), defaults de plugin y defaults integrados, en ese orden. `cap` y `drop` son opciones globales/de sesion, no claves por canal.
+Para opciones, las opciones `/queue` inline o almacenadas ganan sobre config. Luego se aplican debounce por canal (`messages.queue.debounceMsByChannel`), defaults de plugin y defaults integrados, en ese orden. `cap` y `drop` son opciones globales/de sesión, no claves por canal.
 
-## Overrides por sesion
+## Overrides por sesión
 
-- Envia `/queue <steer|followup|collect|interrupt>` como command suelto para guardar el modo de cola de la sesion actual.
+- Envía `/queue <steer|followup|collect|interrupt>` como command suelto para guardar el modo de cola de la sesión actual.
 - Las opciones se combinan: `/queue collect debounce:0.5s cap:25 drop:summarize`
-- `/queue default` o `/queue reset` limpia el override de sesion.
+- `/queue default` o `/queue reset` limpia el override de sesión.
 
-**Caso.** Un canal Discord es ruidoso. Fija `messages.queue.byChannel.discord` a `collect` para que varios mensajes en la ventana de silencio se vuelvan un turno followup. Un DM de Telegram permanece en `steer` por defecto para que una correccion a mitad de corrida se inyecte en el runtime activo (OpenClaw, *Command queue*, s. f.).
+**Caso.** Un canal Discord es ruidoso. Fija `messages.queue.byChannel.discord` a `collect` para que varios mensajes en la ventana de silencio se vuelvan un turno followup. Un DM de Telegram permanece en `steer` por defecto para que una corrección a mitad de corrida se inyecte en el runtime activo (OpenClaw, *Command queue*, s. f.).
 
-## Cancelacion de turnos encolados
+## Cancelación de turnos encolados
 
 Mientras un prompt espera en la cola followup/collect (por ejemplo un TUI o webchat `chat.send` que llega con otro turno activo), el Gateway guarda una **identidad de cancel Gateway-owned** para ese `runId` de cliente hasta que el contenido encolado corre o se descarta. La identidad sigue el contenido plegado en un resumen de overflow (OpenClaw, *Command queue*, s. f.).
 
-- `chat.abort` con un `runId` concreto cancela ese turno mientras sigue encolado, si el requester esta autorizado (mismas reglas de ownership que las corridas activas).
-- `chat.abort` para una sesion sin `runId` cancela **primero los turnos encolados autorizados** y luego aborta corridas activas autorizadas. Ese orden evita que el drenaje de cola promueva trabajo a una sesion a medio parar.
-- Vaciar toda la cola de sesion sin checks por requester no es el camino de stop para sesiones multi-owner.
-- Las esperas encoladas no se proyectan como corridas de agente activas para `sessions.list` y no poseen la semantica de timeout de corrida activa; solo la fase activa lo hace.
+- `chat.abort` con un `runId` concreto cancela ese turno mientras sigue encolado, si el requester está autorizado (mismas reglas de ownership que las corridas activas).
+- `chat.abort` para una sesión sin `runId` cancela **primero los turnos encolados autorizados** y luego aborta corridas activas autorizadas. Ese orden evita que el drenaje de cola promueva trabajo a una sesión a medio parar.
+- Vaciar toda la cola de sesión sin checks por requester no es el camino de stop para sesiones multi-owner.
+- Las esperas encoladas no se proyectan como corridas de agente activas para `sessions.list` y no poseen la semántica de timeout de corrida activa; solo la fase activa lo hace.
 
-Los clientes backed por Gateway (incluido `openclaw tui`) reenvian prompts a mitad de corrida y dejan que el Gateway aplique el modo de cola. Esc o `/stop` usa un abort con alcance de sesion para que handles locales perdidos no dejen un prompt aun encolado corriendo.
+Los clientes backed por Gateway (incluido `openclaw tui`) reenvían prompts a mitad de corrida y dejan que el Gateway aplique el modo de cola. Esc o `/stop` usa un abort con alcance de sesión para que handles locales perdidos no dejen un prompt aun encolado corriendo.
 
-`openclaw chat` y `openclaw tui --local` aplican los mismos cuatro modos en el runtime embebido. El `steer` local inyecta en una corrida embebida activa cuando ese runtime acepta steering; si no, se vuelve followup. El command explicito `/steer` no es un command de modo local.
+`openclaw chat` y `openclaw tui --local` aplican los mismos cuatro modos en el runtime embebido. El `steer` local inyecta en una corrida embebida activa cuando ese runtime acepta steering; si no, se vuelve followup. El command explícito `/steer` no es un command de modo local.
 
-## Lanes y garantias
+## Lanes y garantías
 
 Aplica a corridas de auto-reply en todos los canales inbound que usan el pipeline de reply del gateway: WhatsApp web, Telegram, Slack, Discord, Signal, iMessage, webchat y otros (OpenClaw, *Command queue*, s. f.).
 
 La lane default (`main`) es de proceso entero para turnos inbound; fija `agents.defaults.maxConcurrent` para permitir varias sesiones en paralelo.
 
-Las corridas embebidas de heartbeat usan la lane acotada `cron-nested` para admision global de modo que el trabajo de fondo lento no bloquee replies inbound, mientras su lane de sesion de heartbeat sigue serializando trabajo para esa sesion.
+Las corridas embebidas de heartbeat usan la lane acotada `cron-nested` para admisión global de modo que el trabajo de fondo lento no bloquee replies inbound, mientras su lane de sesión de heartbeat sigue serializando trabajo para esa sesión.
 
-Existen lanes adicionales (`cron`, `cron-nested`, `nested`, `subagent`) para que jobs de fondo corran en paralelo sin bloquear replies inbound. Los turnos de agente cron aislados sostienen un slot `cron` mientras su ejecucion interna usa `cron-nested`. Esas corridas desprendidas se rastrean como background tasks (OpenClaw, *Background tasks*, s. f., https://docs.openclaw.ai/automation/tasks).
+Existen lanes adicionales (`cron`, `cron-nested`, `nested`, `subagent`) para que jobs de fondo corran en paralelo sin bloquear replies inbound. Los turnos de agente cron aislados sostienen un slot `cron` mientras su ejecución interna usa `cron-nested`. Esas corridas desprendidas se rastrean como background tasks (OpenClaw, *Background tasks*, s. f., https://docs.openclaw.ai/automation/tasks).
 
-Las lanes por sesion garantizan que solo una corrida de agente toca una sesion dada a la vez. Sin dependencias externas ni hilos worker de fondo; TypeScript puro mas promises.
+Las lanes por sesión garantizan que solo una corrida de agente toca una sesión dada a la vez. Sin dependencias externas ni hilos worker de fondo; TypeScript puro más promises.
 
 <TryThis>
-Nombra los cuatro modos de cola y el default. Escribe el modelo de dos lanes: lane por sesion mas lane global. Nombra las tres politicas drop. Escribe que lane usa heartbeat para admision global de modo que los replies inbound no se bloqueen.
+Nombra los cuatro modos de cola y el default. Escribe el modelo de dos lanes: lane por sesión más lane global. Nombra las tres políticas drop. Escribe que lane usa heartbeat para admisión global de modo que los replies inbound no se bloqueen.
 </TryThis>
 
 ## Compara, sin mezclar knobs
 
-Hermes interrumpe **abandonando el hilo HTTP** y no inyecta un assistant parcial (Nous Research, *Agent Loop Internals*, s. f., https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop). El default de OpenClaw es `steer`: inyectar en el runtime activo. Ambos disenos protegen un escritor. La reivindicacion de escritor de OpenClaw es una corrida por lane de sesion. La proteccion de escritor de Hermes es "no anexar hasta que la llamada termina o se descarta."
+Hermes interrumpe **abandonando el hilo HTTP** y no inyecta un assistant parcial (Nous Research, *Agent Loop Internals*, s. f., https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop). El default de OpenClaw es `steer`: inyectar en el runtime activo. Ambos diseños protegen un escritor. La reivindicación de escritor de OpenClaw es una corrida por lane de sesión. La protección de escritor de Hermes es "no anexar hasta que la llamada termina o se descarta."
 
-No importes modos de cola OpenClaw (`steer`, `followup`, `collect`, `interrupt`) a un config Hermes. No son knobs de Hermes. El equivalente Hermes de interrupt es `/stop` mas el hilo HTTP de fondo.
+No importes modos de cola OpenClaw (`steer`, `followup`, `collect`, `interrupt`) a un config Hermes. No son knobs de Hermes. El equivalente Hermes de interrupt es `/stop` más el hilo HTTP de fondo.
 
-**Caso.** Un usuario de WhatsApp envia un segundo mensaje mientras OpenClaw sigue llamando al proveedor. El `steer` por defecto inyecta el prompt nuevo en el runtime activo antes del siguiente lanzamiento de tool o llamada al modelo. Un tool en marcha continua. Las llamadas secuenciales no arrancadas se saltan y reciben resultados emparejados sinteticos. Si querias abortar-luego-el-mas-nuevo, eso es `/queue interrupt`, no Hermes `/stop` (OpenClaw, *Command queue*, s. f.; *Agent runtime*, s. f.).
+**Caso.** Un usuario de WhatsApp envía un segundo mensaje mientras OpenClaw sigue llamando al proveedor. El `steer` por defecto inyecta el prompt nuevo en el runtime activo antes del siguiente lanzamiento de tool o llamada al modelo. Un tool en marcha continua. Las llamadas secuenciales no arrancadas se saltan y reciben resultados emparejados sintéticos. Si querías abortar-luego-el-más-nuevo, eso es `/queue interrupt`, no Hermes `/stop` (OpenClaw, *Command queue*, s. f.; *Agent runtime*, s. f.).
 
-Si los commands parecen atascados, activa logs verbose y busca lineas "queued for ...ms". Las corridas Codex app-server que aceptan un turno y luego dejan de emitir progreso las interrumpe el adapter Codex para que la lane de sesion activa se libere en vez de esperar el timeout exterior.
+Si los commands parecen atascados, activa logs verbose y busca líneas "queued for ...ms". Las corridas Codex app-server que aceptan un turno y luego dejan de emitir progreso las interrumpe el adapter Codex para que la lane de sesión activa se libere en vez de esperar el timeout exterior.
 
-Cuando los diagnosticos estan activos, las sesiones que permanecen en `processing` mas alla del umbral de aviso se clasifican como `session.long_running`, `session.stalled` o `session.stuck`. `session.stuck` siempre dispara recuperacion que puede liberar la lane de sesion afectada. Una clasificacion `session.stalled` mas alla del umbral de abort tambien puede disparar recuperacion de abort activo (OpenClaw, *Command queue*, s. f.).
+Cuando los diagnósticos están activos, las sesiones que permanecen en `processing` más allá del umbral de aviso se clasifican como `session.long_running`, `session.stalled` o `session.stuck`. `session.stuck` siempre dispara recuperación que puede liberar la lane de sesión afectada. Una clasificación `session.stalled` más allá del umbral de abort también puede disparar recuperación de abort activo (OpenClaw, *Command queue*, s. f.).
 
 ## Por que dos lanes, no un lock global
 
 <VisualSlot id="openclaw-queue:3" />
 
-La lane de sesion es el lock de escritor. Sin ella, dos mensajes inbound del mismo DM de Telegram llamarian ambos a `runEmbeddedAgent` contra la misma fila SQLite de sesion. Los commits de transcript competirian. Los resultados de tools se entremezclarian. El modelo veria una historia que nunca ocurrio (OpenClaw, *Command queue*, s. f.).
+La lane de sesión es el lock de escritor. Sin ella, dos mensajes inbound del mismo DM de Telegram llamarian ambos a `runEmbeddedAgent` contra la misma fila SQLite de sesión. Los commits de transcript competirian. Los resultados de tools se entremezclarian. El modelo vería una historia que nunca ocurrio (OpenClaw, *Command queue*, s. f.).
 
 La lane global `main` es el presupuesto de proceso. Un Gateway que aloja veinte group chats puede seguir corriendo varias sesiones en paralelo, hasta `agents.defaults.maxConcurrent`, sin arrancar veinte llamadas de proveedor a la vez. El trabajo subagent usa su propia lane (concurrencia por defecto 8) para que un swarm no deje sin aire a los replies inbound.
 
-Heartbeat y cron aislado no deben sentarse en `main`. Por eso existe `cron-nested`: el trabajo de fondo lento se admite aparte. Los turnos de agente cron aislados sostienen un slot `cron` mientras su ejecucion interna usa `cron-nested`. Los flujos nested no-cron compartidos conservan su propia conducta de lane.
+Heartbeat y cron aislado no deben sentarse en `main`. Por eso existe `cron-nested`: el trabajo de fondo lento se admite aparte. Los turnos de agente cron aislados sostienen un slot `cron` mientras su ejecución interna usa `cron-nested`. Los flujos nested no-cron compartidos conservan su propia conducta de lane.
 
-La cola es TypeScript in-process mas promises. No hay Redis, ni pool de workers, ni log de replay. Si el proceso Gateway muere, el estado de cola en vuelo muere con el. Las filas durables de sesion sobreviven en SQLite; la cola misma no (OpenClaw, *Command queue*, s. f.; *Session management*, s. f., https://docs.openclaw.ai/concepts/session).
+La cola es TypeScript in-process más promises. No hay Redis, ni pool de workers, ni log de replay. Si el proceso Gateway muere, el estado de cola en vuelo muere con el. Las filas durables de sesión sobreviven en SQLite; la cola misma no (OpenClaw, *Command queue*, s. f.; *Session management*, s. f., https://docs.openclaw.ai/concepts/session).
 
-El block streaming esta apagado por defecto (`agents.defaults.blockStreamingDefault: "off"`). Ajusta el limite via `agents.defaults.blockStreamingBreak` (`text_end` vs `message_end`; por defecto `text_end`). Controla el chunking suave con `agents.defaults.blockStreamingChunk` (por defecto 800-1200 chars). Los canales no-Telegram requieren `*.streaming.block.enabled: true` explicito para habilitar replies de bloque (OpenClaw, *Agent runtime*, s. f.).
+El block streaming está apagado por defecto (`agents.defaults.blockStreamingDefault: "off"`). Ajusta el límite vía `agents.defaults.blockStreamingBreak` (`text_end` vs `message_end`; por defecto `text_end`). Controla el chunking suave con `agents.defaults.blockStreamingChunk` (por defecto 800-1200 chars). Los canales no-Telegram requieren `*.streaming.block.enabled: true` explícito para habilitar replies de bloque (OpenClaw, *Agent runtime*, s. f.).
 
-Collect es el modo de sala ruidosa. El debounce espera silencio y luego un turno. Si dos mensajes aterrizan en threads distintos, drenan individualmente para que el topic A de Discord no se trague el topic B. Esa preservacion de enrutado es por que collect no es "concatenar todo en el proceso."
+Collect es el modo de sala ruidosa. El debounce espera silencio y luego un turno. Si dos mensajes aterrizan en threads distintos, drenan individualmente para que el topic A de Discord no se trague el topic B. Esa preservación de enrutado es por que collect no es "concatenar todo en el proceso."
 
-Followup es la cola estricta: cada mensaje se vuelve su propio turno posterior. Usalo cuando cada linea inbound debe responderse por separado y el steering las mezclaria en el plan actual.
+Followup es la cola estricta: cada mensaje se vuelve su propio turno posterior. Úsalo cuando cada línea inbound debe responderse por separado y el steering las mezclaria en el plan actual.
 
-Interrupt es el abort. Es el unico modo que mata la corrida activa. Steer, followup y collect dejan que la corrida actual termine su tool en vuelo. Ensenar interrupt como default es como pagar una llamada de proveedor tirada en cada correccion.
+Interrupt es el abort. Es el único modo que mata la corrida activa. Steer, followup y collect dejan que la corrida actual termine su tool en vuelo. Enseñar interrupt como default es como pagar una llamada de proveedor tirada en cada corrección.
 
-**Caso.** Un operador teclea `/queue interrupt` en una sesion que tiene un snapshot de browser en vuelo. La corrida activa aborta. El mensaje mas nuevo arranca. Contrastalo con el `steer` por defecto, donde el snapshot terminaria, las llamadas secuenciales no arrancadas se saltarian con resultados emparejados sinteticos, y el steer aterrizaria antes de la siguiente llamada al modelo (OpenClaw, *Command queue*, s. f.).
+**Caso.** Un operador teclea `/queue interrupt` en una sesión que tiene un snapshot de browser en vuelo. La corrida activa aborta. El mensaje más nuevo arranca. Contrastalo con el `steer` por defecto, donde el snapshot terminaria, las llamadas secuenciales no arrancadas se saltarian con resultados emparejados sintéticos, y el steer aterrizaria antes de la siguiente llamada al modelo (OpenClaw, *Command queue*, s. f.).
 
-Cita *Command queue* para modos, lanes, debounce, cap y drop. Cita *Steering queue* para timing especifico del runtime. Cita *Agent runtime* para el checkpoint de steer antes de tools no arrancados. Cita Hermes *Agent Loop Internals* solo en el parrafo de compara.
+Cita *Command queue* para modos, lanes, debounce, cap y drop. Cita *Steering queue* para timing específico del runtime. Cita *Agent runtime* para el checkpoint de steer antes de tools no arrancados. Cita Hermes *Agent Loop Internals* solo en el párrafo de compara.
 
-El overflow descartado bajo `drop: "summarize"` no es borrado silencioso. Las entradas encoladas mas viejas dejan resúmenes compactos que se inyectan como prompt followup sintetico, de modo que el modelo sigue viendo que llegaron mensajes. `drop: "old"` tira esas entradas. `drop: "new"` rechaza el mas nuevo cuando el cap ya esta lleno. El cap por defecto es 20; valores bajo 1 se ignoran (OpenClaw, *Command queue*, s. f.).
+El overflow descartado bajo `drop: "summarize"` no es borrado silencioso. Las entradas encoladas más viejas dejan resúmenes compactos que se inyectan como prompt followup sintético, de modo que el modelo sigue viendo que llegaron mensajes. `drop: "old"` tira esas entradas. `drop: "new"` rechaza el más nuevo cuando el cap ya esta lleno. El cap por defecto es 20; valores bajo 1 se ignoran (OpenClaw, *Command queue*, s. f.).
 
-`/queue collect debounce:0.5s cap:25 drop:summarize` es un override combinado legal. `/queue default` y `/queue reset` limpian ambos el override de sesion y te devuelven a config mas el default integrado `steer`.
+`/queue collect debounce:0.5s cap:25 drop:summarize` es un override combinado legal. `/queue default` y `/queue reset` limpian ambos el override de sesión y te devuelven a config más el default integrado `steer`.
 
-Prefiere logs verbose antes de inventar un RPC de corrida atascada. Busca "queued for ...ms" para confirmar el drenaje. Las cuatro clases diagnosticas (`session.long_running`, `session.stalled`, `session.stuck`, mas processing ordinario) son etiquetas de log, no methods de protocolo. No inventes un frame `queue.status`; cita *Command queue* y *Gateway protocol* para los methods reales (OpenClaw, *Command queue*, s. f.; *Gateway protocol*, s. f., https://docs.openclaw.ai/gateway/protocol).
+Prefiere logs verbose antes de inventar un RPC de corrida atascada. Busca "queued for ...ms" para confirmar el drenaje. Las cuatro clases diagnosticas (`session.long_running`, `session.stalled`, `session.stuck`, más processing ordinario) son etiquetas de log, no methods de protocolo. No inventes un frame `queue.status`; cita *Command queue* y *Gateway protocol* para los methods reales (OpenClaw, *Command queue*, s. f.; *Gateway protocol*, s. f., https://docs.openclaw.ai/gateway/protocol).
 
-Heartbeat no alarga la frescura de reset idle o daily. Encolar un turno de heartbeat sigue serializando en la lane de sesion de heartbeat, pero `lastInteractionAt` no se mueve. Esa regla vive en la leccion de reset; esta leccion solo necesita el split de lanes para que los replies inbound permanezcan en `main` (OpenClaw, *Session management*, s. f.).
+Heartbeat no alarga la frescura de reset idle o daily. Encolar un turno de heartbeat sigue serializando en la lane de sesión de heartbeat, pero `lastInteractionAt` no se mueve. Esa regla vive en la lección de reset; esta lección solo necesita el split de lanes para que los replies inbound permanezcan en `main` (OpenClaw, *Session management*, s. f.).
 
-Esta leccion se detiene en lanes, los cuatro modos, debounce/cap/drop y el orden de cancelacion. Los detalles de lanes cron continuan en la leccion cron. Las session keys continuan en la leccion de sesiones.
+Esta lección se detiene en lanes, los cuatro modos, debounce/cap/drop y el orden de cancelación. Los detalles de lanes cron continúan en la lección cron. Las session keys continúan en la lección de sesiones.
 
 ## Caso — el auto-reply que se pisaba
 
@@ -190,4 +190,4 @@ OpenClaw. (s. f.). *Background tasks*. https://docs.openclaw.ai/automation/tasks
 
 OpenClaw. (s. f.). *Gateway architecture*. https://docs.openclaw.ai/concepts/architecture
 
-Nous Research. (s. f.). *Agent loop internals*. Guia de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop
+Nous Research. (s. f.). *Agent loop internals*. Guía de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop

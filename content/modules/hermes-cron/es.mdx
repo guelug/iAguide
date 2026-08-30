@@ -1,16 +1,16 @@
 ## Jobs de agente, no cron de shell
 
-La fuente primaria es *Cron Internals* de Nous Research (s. f.). El cron de Hermes es ejecucion **de agente** programada: un `AIAgent` fresco, skills opcionales, un prompt autocontenido, luego entrega. No es `/usr/bin/cron` envolviendo una linea de shell. La leccion generica [scheduled jobs](/es/m/scheduled-jobs) permanece agnostica del harness.
+La fuente primaria es *Cron Internals* de Nous Research (s. f.). El cron de Hermes es ejecución **de agente** programada: un `AIAgent` fresco, skills opcionales, un prompt autocontenido, luego entrega. No es `/usr/bin/cron` envolviendo una línea de shell. La lección genérica [scheduled jobs](/es/m/scheduled-jobs) permanece agnóstica del harness.
 
-Ficheros clave: `cron/jobs.py` (modelo de job, lectura/escritura atomica a `jobs.json`), `cron/scheduler.py` (deteccion de due, ejecucion, repeats), `tools/cronjob_tools.py` (tool `cronjob` de cara al modelo), `gateway/run.py` (tick en el loop longevo), `hermes_cli/cron.py` (subcomandos `hermes cron`).
+Ficheros clave: `cron/jobs.py` (modelo de job, lectura/escritura atomica a `jobs.json`), `cron/scheduler.py` (detección de due, ejecución, repeats), `tools/cronjob_tools.py` (tool `cronjob` de cara al modelo), `gateway/run.py` (tick en el loop longevo), `hermes_cli/cron.py` (subcomandos `hermes cron`).
 
 Cuatro formatos de horario (Nous Research, *Cron Internals*, s. f.):
 
 | Formato | Ejemplo | Comportamiento |
 | --- | --- | --- |
-| Retraso relativo | `30m`, `2h`, `1d` | Un disparo tras la duracion |
+| Retraso relativo | `30m`, `2h`, `1d` | Un disparo tras la duración |
 | Intervalo | `every 2h`, `every 30m` | Recurrente a intervalos |
-| Expresion cron | `0 9 * * *` | Cron estandar de 5 campos |
+| Expresión cron | `0 9 * * *` | Cron estándar de 5 campos |
 | Timestamp ISO | `2025-01-15T09:00:00` | Un disparo a la hora exacta |
 
 La superficie de cara al modelo es una tool `cronjob` con acciones `create`, `list`, `update`, `pause`, `resume`, `run`, `remove`.
@@ -23,15 +23,15 @@ Los jobs viven en `~/.hermes/cron/jobs.json` con escritura atomica (temp y renam
 
 | Estado | Significado |
 | --- | --- |
-| `scheduled` | Activo, disparara a la proxima hora |
+| `scheduled` | Activo, disparara a la próxima hora |
 | `paused` | Suspendido hasta resume |
 | `completed` | Repeat agotado o one-shot ya disparado |
 | `running` | Ejecutandose (transitorio) |
 
-Jobs antiguos pueden tener un campo `skill` unico; el scheduler lo promociona a `skills: [skill]` al cargar (Nous Research, *Cron Internals*, s. f.).
+Jobs antiguos pueden tener un campo `skill` único; el scheduler lo promociona a `skills: [skill]` al cargar (Nous Research, *Cron Internals*, s. f.).
 
 <Callout>
-Cada job corre en una sesion de agente completamente fresca: sin historial de conversacion de corridas previas, sin memoria de ejecuciones cron previas. La memoria persistente (`MEMORY.md` / `USER.md`) sigue cargando, como cualquier otra corrida. El prompt debe ser autocontenido. Los jobs de cron no pueden hacer preguntas de aclaracion. El toolset `cronjob` esta desactivado (guardia de recursion).
+Cada job corre en una sesión de agente completamente fresca: sin historial de conversación de corridas previas, sin memoria de ejecuciones cron previas. La memoria persistente (`MEMORY.md` / `USER.md`) sigue cargando, como cualquier otra corrida. El prompt debe ser autocontenido. Los jobs de cron no pueden hacer preguntas de aclaración. El toolset `cronjob` está desactivado (guardia de recursión).
 </Callout>
 
 ## Ciclo de tick
@@ -47,31 +47,31 @@ El tick por defecto es cada 60 segundos (Nous Research, *Cron Internals*, s. f.)
 
 Si no se puede adquirir el lock, `tick()` devuelve 0 de inmediato. El locking es entre procesos (`fcntl.flock` en Unix, `msvcrt.locking` en Windows) para que el ticker del gateway y un `hermes cron` standalone no disparen dos veces el mismo lote.
 
-En modo gateway el disparador (Eje B: *cuando* dispara un job due) es un `CronScheduler` enchufable. `resolve_cron_scheduler()` en `cron/scheduler_provider.py` corre `start()` del proveedor en un hilo de fondo, junto a un hilo de housekeeping. `cron.provider` vacio significa `InProcessCronScheduler` built-in (loop de 60 segundos, identico al comportamiento previo). Un proveedor con nombre como `chronos` se descubre en `plugins/cron_providers/` o `$HERMES_HOME/plugins/`. Si falta, falla al cargar o `is_available() == False`, el resolver **cae al built-in con un warning**: el cron nunca se queda sin disparador. El built-in vive en el nucleo, no en `plugins/`. Ejecucion y entrega siguen en `scheduler.run_job()` / `_deliver_result()`; un proveedor solo controla el disparador.
+En modo gateway el disparador (Eje B: *cuando* dispara un job due) es un `CronScheduler` enchufable. `resolve_cron_scheduler()` en `cron/scheduler_provider.py` corre `start()` del proveedor en un hilo de fondo, junto a un hilo de housekeeping. `cron.provider` vacío significa `InProcessCronScheduler` built-in (loop de 60 segundos, idéntico al comportamiento previo). Un proveedor con nombre como `chronos` se descubre en `plugins/cron_providers/` o `$HERMES_HOME/plugins/`. Si falta, falla al cargar o `is_available() == False`, el resolver **cae al built-in con un warning**: el cron nunca se queda sin disparador. El built-in vive en el núcleo, no en `plugins/`. Ejecución y entrega siguen en `scheduler.run_job()` / `_deliver_result()`; un proveedor solo controla el disparador.
 
 En modo CLI, los jobs disparan solo cuando corren comandos `hermes cron` o durante sesiones CLI activas.
 
 ## Chronos, skills, scripts, fallback
 
-Los gateways hospedados pueden poner `cron.provider: chronos` para scale-to-zero. Chronos pide a la infraestructura de Nous armar exactamente un one-shot gestionado por job en `next_run_at`. A la hora del fuego Nous llama `POST {callback_url}/api/cron/fire` con un JWT de proposito acotado. El gateway verifica, reclama el job (compare-and-set, como mucho una vez entre replicas), corre el mismo `run_one_job`, y rearma. Entre fuegos el proceso puede estar parado. Claves de config (no secretas): `cron.chronos.portal_url`, `callback_url`, `expected_audience`, `nas_jwks_url`. Chronos mal configurado cae al ticker built-in. El contrato de cable vive en `docs/chronos-managed-cron-contract.md` (Nous Research, *Cron Internals*, s. f.).
+Los gateways hospedados pueden poner `cron.provider: chronos` para scale-to-zero. Chronos pide a la infraestructura de Nous armar exactamente un one-shot gestionado por job en `next_run_at`. A la hora del fuego Nous llama `POST {callback_url}/api/cron/fire` con un JWT de propósito acotado. El gateway verifica, reclama el job (compare-and-set, como mucho una vez entre replicas), corre el mismo `run_one_job`, y rearma. Entre fuegos el proceso puede estar parado. Claves de config (no secretas): `cron.chronos.portal_url`, `callback_url`, `expected_audience`, `nas_jwks_url`. Chronos mal configurado cae al ticker built-in. El contrato de cable vive en `docs/chronos-managed-cron-contract.md` (Nous Research, *Cron Internals*, s. f.).
 
-Los jobs con skills cargan SKILL.md en el orden listado y luego anaden el prompt del job. Los jobs con script corren un Python via el campo `script` primero; stdout se inyecta como contexto. Timeout de script por defecto 3600 segundos, resuelto por `_SCRIPT_TIMEOUT` (tests), `HERMES_CRON_SCRIPT_TIMEOUT`, `cron.script_timeout_seconds`, luego 3600. Ese timeout acota el **script previo**, no el agente. Los jobs skill/LLM usan presupuesto de inactividad `HERMES_CRON_TIMEOUT` (600s idle por defecto, `0` = ilimitado). Los scripts corren en un pool de hilos persistente, no bajo el lock del tick.
+Los jobs con skills cargan SKILL.md en el orden listado y luego añaden el prompt del job. Los jobs con script corren un Python vía el campo `script` primero; stdout se inyecta como contexto. Timeout de script por defecto 3600 segundos, resuelto por `_SCRIPT_TIMEOUT` (tests), `HERMES_CRON_SCRIPT_TIMEOUT`, `cron.script_timeout_seconds`, luego 3600. Ese timeout acota el **script previo**, no el agente. Los jobs skill/LLM usan presupuesto de inactividad `HERMES_CRON_TIMEOUT` (600s idle por defecto, `0` = ilimitado). Los scripts corren en un pool de hilos persistente, no bajo el lock del tick.
 
-`run_job()` pasa fallback providers y credential pool a `AIAgent`, igual que el gateway: lista `fallback_providers` o dict legacy `fallback_model`, mas `load_pool(provider)` cuando el pool tiene credenciales. Sin eso, los agentes de cron fallarian en 429 sin recuperacion (Nous Research, *Cron Internals*, s. f.; *Provider Runtime Resolution*, s. f.). Los subagentes **no** heredan fallback; las tareas auxiliares tienen su propia cadena.
+`run_job()` pasa fallback providers y credential pool a `AIAgent`, igual que el gateway: lista `fallback_providers` o dict legacy `fallback_model`, más `load_pool(provider)` cuando el pool tiene credenciales. Sin eso, los agentes de cron fallarian en 429 sin recuperación (Nous Research, *Cron Internals*, s. f.; *Provider Runtime Resolution*, s. f.). Los subagentes **no** heredan fallback; las tareas auxiliares tienen su propia cadena.
 
-**Caso.** Un job crea mas jobs para siempre. El guardia de recursion desactiva el toolset `cronjob` dentro de las sesiones cron. Ese es el arreglo documentado, no un prompt que diga "por favor no programes mas cron".
+**Caso.** Un job crea más jobs para siempre. El guardia de recursión desactiva el toolset `cronjob` dentro de las sesiones cron. Ese es el arreglo documentado, no un prompt que diga "por favor no programes más cron".
 
 ## Entrega y wrapping
 
-Un nombre de plataforma desnudo (`telegram`, `slack`) entrega al canal home. `platform:target` se resuelve en el **momento del fuego**, asi que un job puede nombrar un destino aun no conectado. La mayoria acepta `platform:chat_id:thread_id`. `origin` entrega al chat creador. `local` guarda en `~/.hermes/cron/output/`. Los canales con nombre (`slack:#engineering`) se resuelven contra el directorio de canales del gateway; los IDs crudos siempre funcionan.
+Un nombre de plataforma desnudo (`telegram`, `slack`) entrega al canal home. `platform:target` se resuelve en el **momento del fuego**, así que un job puede nombrar un destino aun no conectado. La mayoría acepta `platform:chat_id:thread_id`. `origin` entrega al chat creador. `local` guarda en `~/.hermes/cron/output/`. Los canales con nombre (`slack:#engineering`) se resuelven contra el directorio de canales del gateway; los IDs crudos siempre funcionan.
 
-Bot Chat (`bot-chat` o `bot-chat:profile`) es una pseudo-plataforma local a la maquina: el scheduler corre `hermes chat` hacia el Bot Chat canonico del perfil. Queda fuera del token de routing `all` y del preflight de entrega. Timeout por defecto `cron.bot_chat_delivery_timeout_seconds` 600.
+Bot Chat (`bot-chat` o `bot-chat:profile`) es una pseudo-plataforma local a la máquina: el scheduler corre `hermes chat` hacia el Bot Chat canónico del perfil. Queda fuera del token de routing `all` y del preflight de entrega. Timeout por defecto `cron.bot_chat_delivery_timeout_seconds` 600.
 
 Por defecto (`cron.wrap_response: true`) las entregas llevan cabecera (nombre del job y tarea) y pie notando que el agente no puede ver el mensaje entregado. Un prefijo `[SILENT]` suprime la entrega por completo para jobs que solo escriben ficheros.
 
-**Las entregas de cron NO se espejan en el historial de sesion del gateway.** Existen solo en la sesion propia del job, para evitar violaciones de alternancia (Nous Research, *Cron Internals*, s. f.; *Gateway Internals*, s. f.).
+**Las entregas de cron NO se espejan en el historial de sesión del gateway.** Existen solo en la sesión propia del job, para evitar violaciones de alternancia (Nous Research, *Cron Internals*, s. f.; *Gateway Internals*, s. f.).
 
-Las automatizaciones de OpenClaw viven en SQLite del Gateway con modos announce/webhook y sesion isolated/main (OpenClaw, *Gateway protocol*, s. f., metodos `cron.*`). Hermes usa `jobs.json` mas un `AIAgent` fresco. No inventen filtros `cron.runs` de OpenClaw en Hermes.
+Las automatizaciones de OpenClaw viven en SQLite del Gateway con modos announce/webhook y sesión isolated/main (OpenClaw, *Gateway protocol*, s. f., métodos `cron.*`). Hermes usa `jobs.json` más un `AIAgent` fresco. No inventen filtros `cron.runs` de OpenClaw en Hermes.
 
 CLI: `hermes cron list|create|edit|pause|resume|run|remove`.
 
@@ -79,91 +79,91 @@ CLI: `hermes cron list|create|edit|pause|resume|run|remove`.
 Escriban un stub JSON de job: diario 09:00, skill `ai-funding-daily-report`, deliver `telegram:chat_id`. Nombren los cuatro estados de ciclo de vida y el toolset que se desactiva dentro de la corrida.
 </TryThis>
 
-**Caso.** Chronos esta mal configurado en un agente hospedado. El cron no se apaga. `resolve_cron_scheduler()` cae al ticker in-process con un warning. Ese fallback es por lo que el proveedor built-in no es un plugin que puedan borrar.
+**Caso.** Chronos está mal configurado en un agente hospedado. El cron no se apaga. `resolve_cron_scheduler()` cae al ticker in-process con un warning. Ese fallback es por lo que el proveedor built-in no es un plugin que puedan borrar.
 
-## Tabla de destinos de entrega (seleccion)
+## Tabla de destinos de entrega (selección)
 
-Nous Research lista sintaxis de destino explicita y validada para el primer grupo de plataformas (Cron Internals, s. f.). Telegram acepta nombre desnudo, chat_id, chat_id mas thread_id, o at-username. Discord acepta nombre desnudo, hash-canal, channel_id, o channel_id mas thread_id. Slack acepta nombre desnudo, hash-canal, channel_id, o channel_id mas thread_ts. Matrix, Feishu, WhatsApp, Signal, SMS, email, Weixin, Mattermost, Home Assistant, DingTalk, WeCom, BlueBubbles y QQ Bot tienen formas documentadas en la misma pagina. Un nombre de plataforma desnudo siempre entrega al canal home. El resto acepta la forma generica platform colon chat_id usada tal cual.
+Nous Research lista sintaxis de destino explícita y validada para el primer grupo de plataformas (Cron Internals, s. f.). Telegram acepta nombre desnudo, chat_id, chat_id más thread_id, o at-username. Discord acepta nombre desnudo, hash-canal, channel_id, o channel_id más thread_id. Slack acepta nombre desnudo, hash-canal, channel_id, o channel_id más thread_ts. Matrix, Feishu, WhatsApp, Signal, SMS, email, Weixin, Mattermost, Home Assistant, DingTalk, WeCom, BlueBubbles y QQ Bot tienen formas documentadas en la misma página. Un nombre de plataforma desnudo siempre entrega al canal home. El resto acepta la forma genérica platform colon chat_id usada tal cual.
 
-Los canales con nombre se resuelven contra el directorio que el gateway construye desde adaptadores conectados, asi que el gateway debe haber descubierto el canal para que el nombre funcione. Los IDs crudos siempre funcionan. Para temas de Telegram usen chat_id mas thread_id. Para hilos de Slack el tercer segmento es el thread_ts del mensaje padre, solo al responder bajo un mensaje existente.
+Los canales con nombre se resuelven contra el directorio que el gateway construye desde adaptadores conectados, así que el gateway debe haber descubierto el canal para que el nombre funcione. Los IDs crudos siempre funcionan. Para temas de Telegram usen chat_id más thread_id. Para hilos de Slack el tercer segmento es el thread_ts del mensaje padre, solo al responder bajo un mensaje existente.
 
-## Recursion, lock y CLI
+## Recursión, lock y CLI
 
-Las sesiones de cron tienen el toolset cronjob desactivado. Eso impide que un job programado cree nuevos jobs, una programacion recursiva que explote tokens, y la mutacion accidental del horario desde dentro del job (Nous Research, Cron Internals, s. f.).
+Las sesiones de cron tienen el toolset cronjob desactivado. Eso impide que un job programado cree nuevos jobs, una programación recursiva que explote tokens, y la mutación accidental del horario desde dentro del job (Nous Research, Cron Internals, s. f.).
 
-hermes cron list muestra todos los jobs. create es interactivo (alias add). edit, pause, resume, run y remove toman un job_id. run dispara ejecucion inmediata sin esperar next_run_at.
+hermes cron list muestra todos los jobs. create es interactivo (alias add). edit, pause, resume, run y remove toman un job_id. run dispara ejecución inmediata sin esperar next_run_at.
 
-Los RPC cron de OpenClaw incluyen cron.get, cron.list, cron.status, cron.add, cron.update, cron.remove, cron.run y cron.runs; cron.run sigue siendo estilo enqueue y cron.runs acepta un filtro runId opcional (OpenClaw, Gateway protocol, s. f.). No peguen esos nombres de metodo en un jobs.json de Hermes.
+Los RPC cron de OpenClaw incluyen cron.get, cron.list, cron.status, cron.add, cron.update, cron.remove, cron.run y cron.runs; cron.run sigue siendo estilo enqueue y cron.runs acepta un filtro runId opcional (OpenClaw, Gateway protocol, s. f.). No peguen esos nombres de método en un jobs.json de Hermes.
 
 **Caso.** Dos procesos hacen tick a la vez: el ticker in-process del gateway y un hermes cron manual. El lock de fichero hace que el segundo tick devuelva cero. Sin el lock el mismo job due correria dos veces y se entregaria doble.
 
 ## Lo que Chronos no posee
 
-Un proveedor solo controla el disparador, nunca la ejecucion. Disparar sigue significando run_job mas deliver. Los jobs recurrentes se rearman tras cada fuego. Los jobs repeat-N paran limpio cuando se agota el recuento, sin one-shot huerfano. El agente no guarda credenciales del scheduler; Nous arma el one-shot con el token Nous existente del agente (Nous Research, Cron Internals, s. f.).
+Un proveedor solo controla el disparador, nunca la ejecución. Disparar sigue significando run_job más deliver. Los jobs recurrentes se rearman tras cada fuego. Los jobs repeat-N paran limpio cuando se agota el recuento, sin one-shot huérfano. El agente no guarda credenciales del scheduler; Nous arma el one-shot con el token Nous existente del agente (Nous Research, Cron Internals, s. f.).
 
-Si necesitan scale-to-zero, Chronos es el proveedor nombrado. Si necesitan un gateway de portatil, dejen cron.provider vacio. Mezclar eso sin leer el parrafo de fallback es como los operadores creen que el cron murio cuando Chronos solo estaba mal configurado.
+Si necesitan scale-to-zero, Chronos es el proveedor nombrado. Si necesitan un gateway de portátil, dejen cron.provider vacío. Mezclar eso sin leer el párrafo de fallback es como los operadores creen que el cron murió cuando Chronos solo estaba mal configurado.
 
 Lean Gateway Internals para por que las entregas no se espejan. Lean Creating Skills para por que un blueprint es una sugerencia, no un job, hasta accept. Lean Provider Runtime Resolution para la cadena de fallback que cron ahora comparte con el gateway.
 
-## Detalles de recuperacion de proveedor
+## Detalles de recuperación de proveedor
 
-run_job pasa los fallback providers configurados y el credential pool a la instancia AIAgent. Los fallback leen fallback_providers como lista o fallback_model como dict legacy de config.yaml, igual que _load_fallback_model del gateway. Se pasa como fallback_model al init de AIAgent, que normaliza ambos formatos a una cadena. El credential pool carga via load_pool con el nombre de proveedor runtime resuelto y solo se pasa cuando el pool tiene credenciales. Eso permite rotar claves del mismo proveedor en errores 429 (Nous Research, Cron Internals, s. f.).
+run_job pasa los fallback providers configurados y el credential pool a la instancia AIAgent. Los fallback leen fallback_providers como lista o fallback_model como dict legacy de config.yaml, igual que _load_fallback_model del gateway. Se pasa como fallback_model al init de AIAgent, que normaliza ambos formatos a una cadena. El credential pool carga vía load_pool con el nombre de proveedor runtime resuelto y solo se pasa cuando el pool tiene credenciales. Eso permite rotar claves del mismo proveedor en errores 429 (Nous Research, Cron Internals, s. f.).
 
-Esto espeja el gateway. Sin ello, los agentes de cron fallarian en rate limits sin intentar recuperacion. La delegacion de subagente sigue sin heredar fallback. Las tareas auxiliares mantienen su propia cadena. Cron era el camino facil de dejar sin recuperacion; la pagina ahora documenta que esta cableado.
+Esto espeja el gateway. Sin ello, los agentes de cron fallarian en rate limits sin intentar recuperación. La delegación de subagente sigue sin heredar fallback. Las tareas auxiliares mantienen su propia cadena. Cron era el camino fácil de dejar sin recuperación; la página ahora documenta que está cableado.
 
 ## Cadena de timeout de script
 
-_get_script_timeout resuelve el limite en una cadena de tres capas tras el override de test: variable HERMES_CRON_SCRIPT_TIMEOUT, config cron.script_timeout_seconds, default 3600 segundos. El _SCRIPT_TIMEOUT de modulo es para tests y monkeypatch y solo se usa cuando difiere del default. Los scripts largos no bloquean otros jobs due porque se despachan a un pool de hilos persistente, no se retienen bajo el lock del tick (Nous Research, Cron Internals, s. f.).
+_get_script_timeout resuelve el límite en una cadena de tres capas tras el override de test: variable HERMES_CRON_SCRIPT_TIMEOUT, config cron.script_timeout_seconds, default 3600 segundos. El _SCRIPT_TIMEOUT de módulo es para tests y monkeypatch y solo se usa cuando difiere del default. Los scripts largos no bloquean otros jobs due porque se despachan a un pool de hilos persistente, no se retienen bajo el lock del tick (Nous Research, Cron Internals, s. f.).
 
 Los jobs basados en skill pueden correr horas mientras sigan llamando tools o haciendo streaming. Solo se matan tras el periodo idle configurado sin actividad. No confundan el tope de script con el tope idle del agente.
 
-**Caso.** Un script de diff de competidores corre 20 minutos. Otros jobs due en esa ventana siguen disparando. Si el script corriera bajo el lock del tick, todo el scheduler se pararia. El pool de hilos es la razon documentada de que no ocurra.
+**Caso.** Un script de diff de competidores corre 20 minutos. Otros jobs due en esa ventana siguen disparando. Si el script corriera bajo el lock del tick, todo el scheduler se pararía. El pool de hilos es la razón documentada de que no ocurra.
 
 ## SILENT y wrap_response
 
-wrap_response true es el default. La cabecera identifica el nombre del job y la tarea. El pie nota que el agente no puede ver el mensaje entregado en la conversacion. El prefijo SILENT en una respuesta de cron suprime la entrega por completo, util para jobs que solo escriben ficheros o hacen efectos (Nous Research, Cron Internals, s. f.).
+wrap_response true es el default. La cabecera identifica el nombre del job y la tarea. El pie nota que el agente no puede ver el mensaje entregado en la conversación. El prefijo SILENT en una respuesta de cron suprime la entrega por completo, útil para jobs que solo escriben ficheros o hacen efectos (Nous Research, Cron Internals, s. f.).
 
-El aislamiento de sesion se mantiene: las entregas no se espejan en el historial del gateway. Es un invariante de alternancia, reiterado desde Gateway Internals, no una preferencia del modulo de entrega.
+El aislamiento de sesión se mantiene: las entregas no se espejan en el historial del gateway. Es un invariante de alternancia, reiterado desde Gateway Internals, no una preferencia del módulo de entrega.
 
 Citen Cron Internals por URL en cada cambio a cron/jobs.py o cron/scheduler.py. Citen Gateway Internals al tocar entrega. Citen Creating Skills cuando el job adjunta una skill blueprint.
 
 ## Repeat y completed
 
-repeat.times null significa sin tope. repeat.completed cuenta fuegos con exito. Cuando times es un numero y completed lo alcanza, el estado pasa a completed y Chronos no deja un one-shot huerfano. Los retrasos relativos one-shot y los timestamps ISO completan tras un unico fuego con exito (Nous Research, Cron Internals, s. f.).
+repeat.times null significa sin tope. repeat.completed cuenta fuegos con éxito. Cuando times es un número y completed lo alcanza, el estado pasa a completed y Chronos no deja un one-shot huérfano. Los retrasos relativos one-shot y los timestamps ISO completan tras un único fuego con éxito (Nous Research, Cron Internals, s. f.).
 
-last_status documenta el resultado mas reciente. last_run_at y next_run_at son cadenas con zona en el registro de ejemplo de la misma pagina. No inventen nombres de estado extra. Los cuatro estados son el conjunto cerrado.
+last_status documenta el resultado más reciente. last_run_at y next_run_at son cadenas con zona en el registro de ejemplo de la misma página. No inventen nombres de estado extra. Los cuatro estados son el conjunto cerrado.
 
-enabled false no es lo mismo que paused. La accion pause documentada pone paused. Mantenganlos distintos al ensenar la CLI: pause y resume son el par; enabled es un campo del registro.
+enabled false no es lo mismo que paused. La acción pause documentada pone paused. Mantenganlos distintos al enseñar la CLI: pause y resume son el par; enabled es un campo del registro.
 
 ## Comparar, sin mezclar palancas
 
-Hermes: jobs.json, AIAgent fresco, array skills, string deliver, ticker in-process o Chronos, guardia de recursion sobre el toolset cronjob. OpenClaw: SQLite del Gateway, RPC cron.*, announce o webhook, sesion isolated o main (OpenClaw, Gateway protocol, s. f.). Misma necesidad humana (correr luego). Distintos almacenes. Distinto aislamiento. Distinto cableado de fallback.
+Hermes: jobs.json, AIAgent fresco, array skills, string deliver, ticker in-process o Chronos, guardia de recursión sobre el toolset cronjob. OpenClaw: SQLite del Gateway, RPC cron.*, announce o webhook, sesión isolated o main (OpenClaw, Gateway protocol, s. f.). Misma necesidad humana (correr luego). Distintos almacenes. Distinto aislamiento. Distinto cableado de fallback.
 
-Si un briefing debe aterrizar en Telegram sin envenenar un transcript de chat vivo, Hermes ya eligio aislamiento. Si un briefing debe ser un RPC de Gateway que una Control UI pueda sondear por runId, eso es cron.runs de OpenClaw. Elijan el producto y citen su pagina.
+Si un briefing debe aterrizar en Telegram sin envenenar un transcript de chat vivo, Hermes ya eligió aislamiento. Si un briefing debe ser un RPC de Gateway que una Control UI pueda sondear por runId, eso es cron.runs de OpenClaw. Elijan el producto y citen su página.
 
-Relean el ejemplo jobs.json de Cron Internals. Si su stub no puede nombrar skills como array, schedule.kind y deliver, aun no ensenan el registro, solo la idea de cron.
+Relean el ejemplo jobs.json de Cron Internals. Si su stub no puede nombrar skills como array, schedule.kind y deliver, aun no enseñan el registro, solo la idea de cron.
 
-Los alias de CLI documentados importan para ensenar: create tambien es add. Quien busque solo add lo encontrara. Quien invente schedule como subcomando no. Quedense con list, create, edit, pause, resume, run, remove (Nous Research, Cron Internals, s. f.).
+Los alias de CLI documentados importan para enseñar: create también es add. Quien busque solo add lo encontrara. Quien invente schedule como subcomando no. Quédense con list, create, edit, pause, resume, run, remove (Nous Research, Cron Internals, s. f.).
 
-Ficheros relacionados en la misma guia: Gateway Internals para entrega al canal home y la regla de no espejo; Creating Skills para blueprint mas suggestions accept; Agent Loop Internals para por que una fila assistant de cron no debe aterrizar entre un user y un assistant vivos; Provider Runtime Resolution para fallback_providers en el AIAgent fresco.
+Ficheros relacionados en la misma guía: Gateway Internals para entrega al canal home y la regla de no espejo; Creating Skills para blueprint más suggestions accept; Agent Loop Internals para por que una fila assistant de cron no debe aterrizar entre un user y un assistant vivos; Provider Runtime Resolution para fallback_providers en el AIAgent fresco.
 
-Esta leccion se detiene en jobs.json, el tick, el aislamiento, el fallback de Chronos y el guardia de recursion. La trivia de destinos de entrega vive en Cron Internals; citen esa pagina en lugar de memorizar cada forma platform colon.
+Esta lección se detiene en jobs.json, el tick, el aislamiento, el fallback de Chronos y el guardia de recursión. La trivia de destinos de entrega vive en Cron Internals; citen esa página en lugar de memorizar cada forma platform colon.
 
 Escritura atomica significa escribir a un temp y luego rename. Dos lectores pueden ver el fichero completo previo; nunca ven un JSON roto. Por eso jobs.json es un almacén de fichero que sobrevive a un crash durante el tick (Nous Research, Cron Internals, s. f.).
 
-No reemplacen jobs.json por una base de datos porque OpenClaw usa SQLite. Citen la pagina que implementan. El cron de Hermes es jobs.json mas un lock mas un AIAgent fresco. Esa frase es la particularidad.
+No reemplacen jobs.json por una base de datos porque OpenClaw usa SQLite. Citen la página que implementan. El cron de Hermes es jobs.json más un lock más un AIAgent fresco. Esa frase es la particularidad.
 
-Si el prompt de un job hace una pregunta de aclaracion, la corrida no puede esperar a un humano en la sesion cron. Pongan la respuesta en el prompt o adjunte una skill que ya conoce el procedimiento. El parrafo de aislamiento no es opcional.
+Si el prompt de un job hace una pregunta de aclaración, la corrida no puede esperar a un humano en la sesión cron. Pongan la respuesta en el prompt o adjunte una skill que ya conoce el procedimiento. El párrafo de aislamiento no es opcional.
 
 El job de ejemplo en Cron Internals usa skills como array con ai-funding-daily-report, deliver como telegram colon chat id, y schedule.kind cron con expr 0 9 star star star. Copien esa forma en la respuesta de TryThis. Inventar un string crontab como campo de nivel superior no es el registro.
 
-Citen Nous Research, Cron Internals, s. f., como padre de cada numero de esta leccion: tick de 60 segundos, default de script 3600, default idle 600, estados scheduled paused completed running.
+Citen Nous Research, Cron Internals, s. f., como padre de cada número de esta lección: tick de 60 segundos, default de script 3600, default idle 600, estados scheduled paused completed running.
 
-El modo gateway hace tick en un hilo de fondo. El modo CLI no hace tick de un daemon por si solo. Esa division es por que un portatil con solo hermes chat abierto no disparara jobs diarios hasta que corra hermes cron o una sesion CLI activa (Nous Research, Cron Internals, s. f.).
+El modo gateway hace tick en un hilo de fondo. El modo CLI no hace tick de un daemon por si solo. Esa división es por que un portátil con solo hermes chat abierto no disparara jobs diarios hasta que corra hermes cron o una sesión CLI activa (Nous Research, Cron Internals, s. f.).
 
 El alias CLI list de Cron Internals no es un segundo scheduler. Es una vista humana del mismo jobs.json. Si list discrepa del fichero, el fichero es la fuente de verdad (Nous Research, Cron Internals, s. f.).
 
-Pause, resume y trigger son mutaciones de ese fichero mas el lock, no de una cola en memoria (Nous Research, Cron Internals, s. f.).
+Pause, resume y trigger son mutaciones de ese fichero más el lock, no de una cola en memoria (Nous Research, Cron Internals, s. f.).
 
 ## Caso — el job que creaba jobs
 
@@ -173,14 +173,14 @@ Un job programado generaba más jobs en cada corrida. La factura de tokens se di
 
 ## Fuentes
 
-Nous Research. (s. f.). *Cron internals*. Guia de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/cron-internals
+Nous Research. (s. f.). *Cron internals*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/cron-internals
 
-Nous Research. (s. f.). *Gateway internals*. Guia de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals
+Nous Research. (s. f.). *Gateway internals*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals
 
-Nous Research. (s. f.). *Creating skills*. Guia de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/creating-skills
+Nous Research. (s. f.). *Creating skills*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/creating-skills
 
-Nous Research. (s. f.). *Provider runtime resolution*. Guia de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/provider-runtime
+Nous Research. (s. f.). *Provider runtime resolution*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/provider-runtime
 
-Nous Research. (s. f.). *Agent loop internals*. Guia de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop
+Nous Research. (s. f.). *Agent loop internals*. Guía de desarrollo de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop
 
 OpenClaw. (s. f.). *Gateway protocol*. https://docs.openclaw.ai/gateway/protocol

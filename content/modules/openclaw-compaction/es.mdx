@@ -1,28 +1,28 @@
-## Los resumenes no son un session id nuevo
+## Los resúmenes no son un session id nuevo
 
-La fuente primaria es [*Compaction*](https://docs.openclaw.ai/concepts/compaction) de OpenClaw (s. f.). Cada modelo tiene una ventana de contexto. Cuando una conversacion se acerca a ese limite, OpenClaw **compacta** mensajes viejos en un resumen para que el chat continue.
+La fuente primaria es [*Compaction*](https://docs.openclaw.ai/concepts/compaction) de OpenClaw (s. f.). Cada modelo tiene una ventana de contexto. Cuando una conversación se acerca a ese límite, OpenClaw **compacta** mensajes viejos en un resumen para que el chat continue.
 
 1. Los turnos viejos se resumen en una entrada compacta.
-2. El resumen se guarda en la transcripcion de sesion.
+2. El resumen se guarda en la transcripción de sesión.
 3. Los mensajes recientes se conservan intactos.
 
-OpenClaw conserva las llamadas de tool del assistant emparejadas con sus `toolResult` al elegir un punto de split de compaction. Si el punto cae dentro de un bloque de tool, OpenClaw mueve el limite para que el par se quede junto y se conserve la cola actual no resumida (OpenClaw, *Compaction*, s. f.).
+OpenClaw conserva las llamadas de tool del assistant emparejadas con sus `toolResult` al elegir un punto de split de compaction. Si el punto cae dentro de un bloque de tool, OpenClaw mueve el límite para que el par se quede junto y se conserve la cola actual no resumida (OpenClaw, *Compaction*, s. f.).
 
-El historial completo de la conversacion se queda en disco. Compaction solo cambia lo que el modelo ve en el siguiente turno.
+El historial completo de la conversación se queda en disco. Compaction solo cambia lo que el modelo ve en el siguiente turno.
 
-Los configs nuevos defaultan `agents.defaults.compaction.mode` a `"safeguard"` (guardrails mas estrictos, auditorias de calidad de resumen). Pongan `mode: "default"` explicito para optar out.
+Los configs nuevos defaultan `agents.defaults.compaction.mode` a `"safeguard"` (guardrails más estrictos, auditorias de calidad de resumen). Pongan `mode: "default"` explícito para optar out.
 
-La leccion generica [sessions](/es/m/sessions) permanece agnostica del harness. Esta es compaction safeguard de OpenClaw.
+La lección genérica [sessions](/es/m/sessions) permanece agnóstica del harness. Esta es compaction safeguard de OpenClaw.
 
 <VisualSlot caption="resumir, pares tool, safeguard, flush, /compact." />
 
 ## Auto, manual, flush
 
-Auto-compaction esta on por defecto. Corre cuando la sesion se acerca al limite de contexto, o cuando el modelo devuelve un error de overflow de contexto (OpenClaw compacta y reintenta). Pongan `agents.defaults.compaction.enabled: false` para deshabilitar la compaction proactiva de umbral del runtime embebido. Los caminos de preflight y overflow-recovery siguen disponibles, igual que `/compact` manual.
+Auto-compaction esta on por defecto. Corre cuando la sesión se acerca al límite de contexto, o cuando el modelo devuelve un error de overflow de contexto (OpenClaw compacta y reintenta). Pongan `agents.defaults.compaction.enabled: false` para deshabilitar la compaction proactiva de umbral del runtime embebido. Los caminos de preflight y overflow-recovery siguen disponibles, igual que `/compact` manual.
 
 Veran `embedded run auto-compaction start` / `complete` en logs del Gateway, `Auto-compaction complete` en modo verbose, y `/status` mostrando un conteo de compaction.
 
-Antes de compactar, OpenClaw recuerda automaticamente al agente guardar notas importantes en archivos de memoria. Eso evita perdida de contexto. Un turno silencioso de **memory flush** puede guardar notas durables a disco. Pongan `agents.defaults.compaction.memoryFlush.model` cuando ese turno de housekeeping deba usar un modelo local. El override de modelo de memory-flush es exacto y no hereda la cadena de fallback de sesion (OpenClaw, *Compaction*, s. f.; *Memory*, s. f., https://docs.openclaw.ai/concepts/memory).
+Antes de compactar, OpenClaw recuerda automáticamente al agente guardar notas importantes en archivos de memoria. Eso evita perdida de contexto. Un turno silencioso de **memory flush** puede guardar notas durables a disco. Pongan `agents.defaults.compaction.memoryFlush.model` cuando ese turno de housekeeping deba usar un modelo local. El override de modelo de memory-flush es exacto y no hereda la cadena de fallback de sesión (OpenClaw, *Compaction*, s. f.; *Memory*, s. f., https://docs.openclaw.ai/concepts/memory).
 
 ```text
 /compact Focus on the API design decisions
@@ -31,24 +31,24 @@ Antes de compactar, OpenClaw recuerda automaticamente al agente guardar notas im
 La compaction manual usa `agents.defaults.compaction.keepRecentTokens` (default: 20,000) como presupuesto de cut-point y conserva esa cola reciente en el contexto reconstruido.
 
 <Callout>
-Necesitan pizarra limpia? `/new` arranca una sesion fresca sin compactar. Reset acuna un `sessionId` nuevo. Compaction conserva la identidad de sesion actual para el compactador SQLite builtin. Tres verbos, tres paginas (OpenClaw, *Compaction*, s. f.; *Session management*, s. f., https://docs.openclaw.ai/concepts/session).
+Necesitan pizarra limpia? `/new` arranca una sesión fresca sin compactar. Reset acuña un `sessionId` nuevo. Compaction conserva la identidad de sesión actual para el compactador SQLite builtin. Tres verbos, tres páginas (OpenClaw, *Compaction*, s. f.; *Session management*, s. f., https://docs.openclaw.ai/concepts/session).
 </Callout>
 
 ## Calidad safeguard
 
-Con el guard de calidad safeguard builtin habilitado, OpenClaw aplica el presupuesto final de resumen antes de validar. Los headings requeridos deben permanecer en el cuerpo generado retenido, mientras pending asks e identificadores exactos deben permanecer en el texto exacto que se guardaria. El output invalido recibe solo el numero configurado de intentos correctivos. Si ningun resumen finalizado pasa, compaction se detiene antes de escribir una entrada de transcripcion, conserva el historial original y muestra el recovery outcome existente (OpenClaw, *Compaction*, s. f.).
+Con el guard de calidad safeguard builtin habilitado, OpenClaw aplica el presupuesto final de resumen antes de validar. Los headings requeridos deben permanecer en el cuerpo generado retenido, mientras pending asks e identificadores exactos deben permanecer en el texto exacto que se guardaria. El output inválido recibe solo el número configurado de intentos correctivos. Si ningún resumen finalizado pasa, compaction se detiene antes de escribir una entrada de transcripción, conserva el historial original y muestra el recovery outcome existente (OpenClaw, *Compaction*, s. f.).
 
-La preservacion de identificadores defaulta a `identifierPolicy: "strict"`. Override con `"off"` para deshabilitar.
+La preservación de identificadores defaulta a `identifierPolicy: "strict"`. Override con `"off"` para deshabilitar.
 
-Poner un `provider` custom fuerza automaticamente `mode: "safeguard"`. Si el provider falla o devuelve vacio, OpenClaw cae a summarization LLM builtin. La auditoria de calidad builtin y sus retries correctivos aplican solo a summarization builtin.
+Poner un `provider` custom fuerza automáticamente `mode: "safeguard"`. Si el provider falla o devuelve vacío, OpenClaw cae a summarization LLM builtin. La auditoría de calidad builtin y sus retries correctivos aplican solo a summarization builtin.
 
 ## Modelo, bytes, sucesores
 
-Por defecto, compaction usa el modelo primario del agente. Pongan `agents.defaults.compaction.model` para delegar el resumen (`provider/model-id` o un alias configurado). Cuando no esta puesto, compaction empieza con el modelo activo de sesion. Si el resumen falla con un error de proveedor elegible para fallback, OpenClaw reintenta por la cadena de fallback existente de la sesion. La eleccion de fallback es temporal y no se escribe de vuelta al estado de sesion. Un override explicito de compaction.model permanece exacto y no hereda esa cadena (OpenClaw, *Compaction*, s. f.).
+Por defecto, compaction usa el modelo primario del agente. Pongan `agents.defaults.compaction.model` para delegar el resumen (`provider/model-id` o un alias configurado). Cuando no está puesto, compaction empieza con el modelo activo de sesión. Si el resumen falla con un error de proveedor elegible para fallback, OpenClaw reintenta por la cadena de fallback existente de la sesión. La elección de fallback es temporal y no se escribe de vuelta al estado de sesión. Un override explícito de compaction.model permanece exacto y no hereda esa cadena (OpenClaw, *Compaction*, s. f.).
 
-Cuando `agents.defaults.compaction.maxActiveTranscriptBytes` esta puesto, OpenClaw dispara compaction local normal antes de un run si el historial de transcripcion alcanza ese tamano. Pongan un conteo positivo de bytes o un string de tamano como `"20mb"`; `0` o unset deshabilita el guard. No parte bytes crudos; pide al pipeline normal de compaction un resumen semantico. Para sesiones Codex app-server, el mismo umbral capa transcripciones native rollout y los threads nativos oversized arrancan frescos. El byte guard aplica al historial activo de transcripcion SQLite. Los artefactos checkpoint JSONL legacy no son el target activo de compaction.
+Cuando `agents.defaults.compaction.maxActiveTranscriptBytes` está puesto, OpenClaw dispara compaction local normal antes de un run si el historial de transcripción alcanza ese tamaño. Pongan un conteo positivo de bytes o un string de tamaño como `"20mb"`; `0` o unset deshabilita el guard. No parte bytes crudos; pide al pipeline normal de compaction un resumen semantico. Para sesiones Codex app-server, el mismo umbral capa transcripciones native rollout y los threads nativos oversized arrancan frescos. El byte guard aplica al historial activo de transcripción SQLite. Los artefactos checkpoint JSONL legacy no son el target activo de compaction.
 
-Un context engine puede devolver una identidad de sesion sucesora compactada explicita. OpenClaw la adopta y registra metadatos de checkpoint contra ella. El **compactador SQLite builtin conserva la identidad de sesion actual** y no crea una segunda transcripcion de runtime. OpenClaw ya no escribe copias `.checkpoint.*.jsonl` separadas para compactions nuevas.
+Un context engine puede devolver una identidad de sesión sucesora compactada explícita. OpenClaw la adopta y registra metadatos de checkpoint contra ella. El **compactador SQLite builtin conserva la identidad de sesión actual** y no crea una segunda transcripción de runtime. OpenClaw ya no escribe copias `.checkpoint.*.jsonl` separadas para compactions nuevas.
 
 Por defecto, compaction corre en silencio. Pongan `notifyUser` true para mostrar mensajes breves de status cuando compaction empieza y termina, y para mostrar un aviso degraded cuando el memory flush pre-compaction se agota pero el reply sigue.
 
@@ -56,113 +56,113 @@ Por defecto, compaction corre en silencio. Pongan `notifyUser` true para mostrar
 
 | | Compaction | Pruning | Reset |
 | --- | --- | --- | --- |
-| Que hace | Resume conversacion vieja | Recorta resultados de tool viejos | Acuna un sessionId nuevo |
-| Guardado? | Si, en la transcripcion | No, in-memory por request | Id nuevo; archivos pueden quedar |
-| Alcance | Toda la conversacion | Solo resultados de tool | Identidad de sesion |
+| Que hace | Resume conversación vieja | Recorta resultados de tool viejos | Acuña un sessionId nuevo |
+| Guardado? | Si, en la transcripción | No, in-memory por request | Id nuevo; archivos pueden quedar |
+| Alcance | Toda la conversación | Solo resultados de tool | Identidad de sesión |
 
 Citen *Session pruning* (OpenClaw, s. f., https://docs.openclaw.ai/concepts/session-pruning) para recorte de tool-result. Citen *Session management* para reset daily/idle.
 
 **Caso.** El contexto se siente viejo tras auto-compact. Usen `/compact Focus on <topic>` o activen memory flush para que las notas sobrevivan. No activen reset daily porque "el resumen es lossy" salvo que realmente quieran un id nuevo (OpenClaw, *Compaction*, s. f.).
 
-**Caso.** Compacta demasiado a menudo. La ventana del modelo puede ser pequena, o los outputs de tool grandes. Prueben session pruning primero (OpenClaw, *Compaction*, s. f.).
+**Caso.** Compacta demasiado a menudo. La ventana del modelo puede ser pequeña, o los outputs de tool grandes. Prueben session pruning primero (OpenClaw, *Compaction*, s. f.).
 
 <TryThis>
-Escribe el modo de compaction default para configs nuevos. Escribe si el compactador SQLite builtin cambia sessionId. Nombra que pasa con los pares tool-call en el split. Escribe el keepRecentTokens default. Escribe el command que arranca una sesion fresca sin compactar.
+Escribe el modo de compaction default para configs nuevos. Escribe si el compactador SQLite builtin cambia sessionId. Nombra que pasa con los pares tool-call en el split. Escribe el keepRecentTokens default. Escribe el command que arranca una sesión fresca sin compactar.
 </TryThis>
 
 ## Comparar, sin mezclar knobs
 
 <VisualSlot id="openclaw-compaction:3" />
 
-La compression de Hermes crea un linaje de sesion hija; `/resume` retoma una sesion (Nous Research, *Agent Loop Internals*, s. f., https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop). La compaction builtin de OpenClaw conserva la identidad de sesion sqlite actual. No peguen `compression.protect_last_n` de Hermes en `keepRecentTokens`. Citen *Compaction* para resumenes. Citen *Session management* para reset.
+La compression de Hermes crea un linaje de sesión hija; `/resume` retoma una sesión (Nous Research, *Agent Loop Internals*, s. f., https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop). La compaction builtin de OpenClaw conserva la identidad de sesión sqlite actual. No peguen `compression.protect_last_n` de Hermes en `keepRecentTokens`. Citen *Compaction* para resúmenes. Citen *Session management* para reset.
 
-OpenClaw matchea docenas de strings de overflow de proveedor (`request_too_large`, `context length exceeded`, errores de token-count de Bedrock, context length exceeded de Ollama, y mas listados en la pagina). No inventen un matcher custom; el runtime ya mapea esos errores a compact-and-retry.
+OpenClaw matchea docenas de strings de overflow de proveedor (`request_too_large`, `context length exceeded`, errores de token-count de Bedrock, context length exceeded de Ollama, y más listados en la página). No inventen un matcher custom; el runtime ya mapea esos errores a compact-and-retry.
 
-Los plugins registran un compaction provider custom via `registerCompactionProvider()`. Configuren su id bajo `agents.defaults.compaction.provider`. Los providers reciben las mismas instrucciones y politica de preservacion de identificadores. OpenClaw sigue conservando contexto de recent-turn y split-turn suffix tras el output del provider.
+Los plugins registran un compaction provider custom vía `registerCompactionProvider()`. Configuren su id bajo `agents.defaults.compaction.provider`. Los providers reciben las mismas instrucciones y política de preservación de identificadores. OpenClaw sigue conservando contexto de recent-turn y split-turn suffix tras el output del provider.
 
 Hooks: `before_compaction` y `after_compaction` viven en *Hooks* (OpenClaw, s. f., https://docs.openclaw.ai/automation/hooks).
 
-Los hilos incognito saltan el memory flush automatico y no crean un archivo de transcripcion. Compactar un hilo incognito sigue siendo in-memory. Citen *Session management*.
+Los hilos incognito saltan el memory flush automático y no crean un archivo de transcripción. Compactar un hilo incognito sigue siendo in-memory. Citen *Session management*.
 
-Los knobs avanzados (reserve tokens, context engines custom, compaction server-side de OpenAI) viven en *Session management deep dive* (OpenClaw, s. f., https://docs.openclaw.ai/reference/session-management-compaction). Esta leccion se queda en safeguard, pares tool, flush y `/compact`.
+Los knobs avanzados (reserve tokens, context engines custom, compaction server-side de OpenAI) viven en *Session management deep dive* (OpenClaw, s. f., https://docs.openclaw.ai/reference/session-management-compaction). Esta lección se queda en safeguard, pares tool, flush y `/compact`.
 
 La particularidad: compaction cambia lo que el modelo ve, no la identidad de la fila sqlite, salvo que un context engine devuelva un sucesor. El modo default es safeguard. Hagan flush de memoria antes de plegar la cola.
 
-Esta leccion se detiene en resumir, pares tool, auditorias safeguard, memory flush, y el split compaction/pruning/reset. Las sesiones cron aisladas arrancan vacias y no heredan esto como forma de mantener pequeno un hilo de chore; ya son frescas por run.
+Esta lección se detiene en resumir, pares tool, auditorias safeguard, memory flush, y el split compaction/pruning/reset. Las sesiones cron aisladas arrancan vacías y no heredan esto como forma de mantener pequeño un hilo de chore; ya son frescas por run.
 
 Overflow recovery no es entretenimiento opcional. Cuando el modelo devuelve overflow de contexto, OpenClaw compacta y reintenta. Deshabilitar compaction proactiva de umbral no deshabilita ese camino de recovery ni compact manual.
 
-Delegar a un summarizer mas barato es el movimiento de produccion usual: conserven el modelo de conversacion caro, pongan compaction.model a un id capaz pero mas pequeno. Ejemplo local en la pagina: ollama/llama3.1:8b. Valores bare unmatched se quedan como model id en el proveedor activo.
+Delegar a un summarizer más barato es el movimiento de producción usual: conserven el modelo de conversación caro, pongan compaction.model a un id capaz pero más pequeño. Ejemplo local en la página: ollama/llama3.1:8b. Valores bare unmatched se quedan como model id en el proveedor activo.
 
-La guia custom para identificadores pertenece a una implementacion summarize de compaction provider, no a prompt text aleatorio. La politica strict es el default para ids opacos.
+La guía custom para identificadores pertenece a una implementación summarize de compaction provider, no a prompt text aleatorio. La política strict es el default para ids opacos.
 
-Las sesiones Codex app-server comparten el umbral de byte-guard. Los threads nativos oversized arrancan frescos. Eso es comportamiento nativo de Codex documentado en la pagina de compaction; no es spawn ACP.
+Las sesiones Codex app-server comparten el umbral de byte-guard. Los threads nativos oversized arrancan frescos. Eso es comportamiento nativo de Codex documentado en la página de compaction; no es spawn ACP.
 
-OpenClaw ya no escribe copias checkpoint jsonl separadas para compactions nuevas. Los archivos checkpoint legacy existentes pueden usarse mientras estan referenciados y se podan por cleanup normal de sesion. No ensenen a los estudiantes a ls archivos checkpoint como el store vivo.
+OpenClaw ya no escribe copias checkpoint jsonl separadas para compactions nuevas. Los archivos checkpoint legacy existentes pueden usarse mientras están referenciados y se podan por cleanup normal de sesión. No enseñen a los estudiantes a ls archivos checkpoint como el store vivo.
 
-notifyUser tambien muestra un aviso degraded cuando el memory flush pre-compaction se agota pero el reply sigue. Silent-by-default es como una sesion main personal evita un mensaje de broom cada tarde.
+notifyUser también muestra un aviso degraded cuando el memory flush pre-compaction se agota pero el reply sigue. Silent-by-default es como una sesión main personal evita un mensaje de broom cada tarde.
 
-Queue mode guardado en la sesion no lo borra compaction. Un reset posterior acuna un id nuevo y tira ese override. Citen la leccion de reset para ese detalle operativo; esta pagina solo promete el mismo sessionId para el compactador builtin.
+Queue mode guardado en la sesión no lo borra compaction. Un reset posterior acuña un id nuevo y tira ese override. Citen la lección de reset para ese detalle operativo; esta página solo promete el mismo sessionId para el compactador builtin.
 
-Heartbeat y turnos cron pueden crecer la transcripcion. Siguen sin alargar frescura idle. Compaction puede correr en una sesion que se ve idle. Esos son relojes independientes.
+Heartbeat y turnos cron pueden crecer la transcripción. Siguen sin alargar frescura idle. Compaction puede correr en una sesión que se ve idle. Esos son relojes independientes.
 
-Si ningun resumen safeguard finalizado pasa, compaction se detiene antes de escribir una entrada de transcripcion. El historial original permanece. Esa auditoria fail-closed es por que los configs nuevos defaultan a safeguard en vez de default.
+Si ningún resumen safeguard finalizado pasa, compaction se detiene antes de escribir una entrada de transcripción. El historial original permanece. Esa auditoría fail-closed es por que los configs nuevos defaultan a safeguard en vez de default.
 
-Tokenjuice es un plugin para compactar output ruidoso de exec y bash. No es este pipeline de compaction. Citen Tools overview si el ruido es output de tool mas que turnos de conversacion.
+Tokenjuice es un plugin para compactar output ruidoso de exec y bash. No es este pipeline de compaction. Citen Tools overview si el ruido es output de tool más que turnos de conversación.
 
-La leccion de context explica como se construye el siguiente turno tras un compact. Leanla cuando el resumen existe pero el modelo sigue perdiendo un archivo que debia estar en AGENTS.md. Los archivos bootstrap se inyectan en sesiones nuevas, no en compact, salvo que los archivos de workspace sigan en la cola no resumida.
+La lección de context explica como se construye el siguiente turno tras un compact. Leanla cuando el resumen existe pero el modelo sigue perdiendo un archivo que debía estar en AGENTS.md. Los archivos bootstrap se inyectan en sesiones nuevas, no en compact, salvo que los archivos de workspace sigan en la cola no resumida.
 
-**Caso.** Un operador pone compaction.enabled false porque los resumenes se sentian lossy, luego pega overflow en cada hilo largo. Preflight y overflow-recovery siguen existiendo, pero la sesion ahora golpea la ventana. Reactiven auto, anadan un modelo de flush, y usen /compact con instrucciones (OpenClaw, *Compaction*, s. f.).
+**Caso.** Un operador pone compaction.enabled false porque los resúmenes se sentian lossy, luego pega overflow en cada hilo largo. Preflight y overflow-recovery siguen existiendo, pero la sesión ahora golpea la ventana. Reactiven auto, añadan un modelo de flush, y usen /compact con instrucciones (OpenClaw, *Compaction*, s. f.).
 
-**Caso.** Un context engine devuelve una identidad sucesora. OpenClaw la adopta. El camino SQLite builtin nunca hace eso. Ensenar cada compact como una sesion hija es la historia de Hermes filtrandose.
+**Caso.** Un context engine devuelve una identidad sucesora. OpenClaw la adopta. El camino SQLite builtin nunca hace eso. Enseñar cada compact como una sesión hija es la historia de Hermes filtrandose.
 
 Relacionadas: Session, Session pruning, Context, Hooks. Architecture sigue diciendo que el Gateway posee el store en el que compaction escribe.
 
-Esta version de aula conserva safeguard, integridad de pares tool, flush-antes-de-plegar, keepRecentTokens 20000, y el split de tres verbos. Los knobs deep-dive se quedan en la pagina de referencia.
+Esta versión de aula conserva safeguard, integridad de pares tool, flush-antes-de-plegar, keepRecentTokens 20000, y el split de tres verbos. Los knobs deep-dive se quedan en la página de referencia.
 
-Citen Doctor solo si un leftover de migracion sigue apuntando a checkpoints JSONL como si fueran vivos.
+Citen Doctor solo si un leftover de migración sigue apuntando a checkpoints JSONL como si fueran vivos.
 
 La particularidad otra vez: resumir in place, conservar pares tool, auditar el resumen, flush de memoria primero, /new si realmente quieren un id nuevo.
 
-Los strings de overflow de proveedor incluyen request_too_large, context length exceeded, input exceeds the maximum number of tokens, y ollama error: context length exceeded. La pagina lista mas. Copien de Compaction, no de memoria.
+Los strings de overflow de proveedor incluyen request_too_large, context length exceeded, input exceeds the maximum number of tokens, y ollama error: context length exceeded. La página lista más. Copien de Compaction, no de memoria.
 
-Las instrucciones de compact manual son texto de chat ordinario tras el slash. Guian el resumen. No son una segunda politica session.reset.
+Las instrucciones de compact manual son texto de chat ordinario tras el slash. Guian el resumen. No son una segunda política session.reset.
 
 keepRecentTokens es un presupuesto de tokens para la cola no resumida en compact manual, no un conteo de mensajes. No lo pongan en 5 pensando que significa cinco turnos.
 
-Cuando compaction.model no esta puesto y el resumen falla con un error elegible para fallback, el retry usa la cadena de fallback de sesion sin escribir esa eleccion de vuelta. Un override explicito de modelo no recibe esa cortesia.
+Cuando compaction.model no está puesto y el resumen falla con un error elegible para fallback, el retry usa la cadena de fallback de sesión sin escribir esa elección de vuelta. Un override explícito de modelo no recibe esa cortesía.
 
-Los plugins que registran un provider deben esperar que OpenClaw conserve contexto suffix de recent-turn tras su output. Output vacio de provider cae a summarization LLM builtin.
+Los plugins que registran un provider deben esperar que OpenClaw conserve contexto suffix de recent-turn tras su output. Output vacío de provider cae a summarization LLM builtin.
 
 before_compaction es el hook para persistir estado extra. after_compaction es el hook para observar el resultado. Ninguno sustituye memory flush.
 
-Incognito mas compact: no hay archivo para /resume. El hilo igual muere en restart del Gateway.
+Incognito más compact: no hay archivo para /resume. El hilo igual muere en restart del Gateway.
 
-Reset daily a las 04:00 mas compaction durante el dia son dos cuchillos distintos sobre la misma familia de filas sqlite. Dejen mode none si el DM personal debe rodar meses.
+Reset daily a las 04:00 más compaction durante el día son dos cuchillos distintos sobre la misma familia de filas sqlite. Dejen mode none si el DM personal debe rodar meses.
 
 Vean Architecture para el proceso Gateway que corre este pipeline.
 
-Citen Active Memory cuando el target de flush es MEMORY.md mas que el resumen de transcripcion.
+Citen Active Memory cuando el target de flush es MEMORY.md más que el resumen de transcripción.
 
 Citen Agent runtime cuando los archivos bootstrap deban re-inyectarse, que es reset, no compact.
 
-Citen Session pruning cuando el problema es tool results gordos, no una conversacion gorda.
+Citen Session pruning cuando el problema es tool results gordos, no una conversación gorda.
 
-Citen Hermes Agent Loop Internals solo en el parrafo de comparar.
+Citen Hermes Agent Loop Internals solo en el párrafo de comparar.
 
-Safeguard es el default porque los resumenes pueden mentir. Los pares tool se quedan juntos porque partir una llamada de su resultado miente mas.
+Safeguard es el default porque los resúmenes pueden mentir. Los pares tool se quedan juntos porque partir una llamada de su resultado miente más.
 
 maxActiveTranscriptBytes es opt-in. Unset o cero deshabilita el byte guard.
 
 notifyUser es opt-in. Compaction default es silenciosa.
 
-identifierPolicy strict es el default. off deshabilita preservacion de identificadores.
+identifierPolicy strict es el default. off deshabilita preservación de identificadores.
 
-Esta leccion es el cuchillo de resumen. Reset es el cuchillo de identidad. Pruning es el cuchillo de tool-result.
+Esta lección es el cuchillo de resumen. Reset es el cuchillo de identidad. Pruning es el cuchillo de tool-result.
 
-Lean la pagina Compaction antes de cambiar agents.defaults.compaction en produccion.
+Lean la página Compaction antes de cambiar agents.defaults.compaction en producción.
 
-Tres verbos. Tres paginas. No los mezclen.
+Tres verbos. Tres páginas. No los mezclen.
 
 ## Caso — el resumen que perdió el contexto
 
@@ -186,4 +186,4 @@ OpenClaw. (s. f.). *Hooks*. https://docs.openclaw.ai/automation/hooks
 
 OpenClaw. (s. f.). *Session management deep dive*. https://docs.openclaw.ai/reference/session-management-compaction
 
-Nous Research. (s. f.). *Agent loop internals*. Guia de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop
+Nous Research. (s. f.). *Agent loop internals*. Guía de desarrollador de Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop
