@@ -131,6 +131,8 @@ Unsloth's free GPU story is **two** products. [The notebooks index](https://unsl
 
 ## Hyperparameters you always explain
 
+<VisualSlot id="unsloth:4" />
+
 Unsloth's [LoRA hyperparameters guide](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide/lora-hyperparameters-guide) and the [fine-tuning guide](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide) are the source. Defaults exist so you have a starting point, not so you can skip the sentence that says what the knob does.
 
 **`r` (LoRA rank).** Inner dimension of the A/B pair. Suggested values: 8, 16, 32, 64, 128. Unsloth's usual start is **16 or 32**. Higher rank is more capacity and more memory. Too high overfits a small set. For a first run, 16 is the number in the Qwen3.8 recipe as well.
