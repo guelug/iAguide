@@ -87,6 +87,8 @@ Provider-owned CLI sessions default to no automatic reset so a long Codex or Cla
 
 ## Why default is none
 
+<VisualSlot id="openclaw-reset:3" />
+
 The default `mode: "none"` exists because a personal main session is supposed to be a rolling conversation. Compaction, not reset, is how a months-long DM stays inside the model window. Turning on daily reset because "context feels stale" throws away the thread identity; `/compact Focus on <topic>` or a memory flush is usually the smaller knife (OpenClaw, *Session management*, n.d.; *Compaction*, n.d.).
 
 Idle reset is the group-chat knife. A Slack room that goes quiet for two hours often should not resume yesterday's half-finished debug as if it were still live. `resetByType.group` with `idleMinutes: 120` does that without rolling the owner's main DM at 04:00.

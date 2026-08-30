@@ -84,6 +84,8 @@ Las sesiones CLI poseidas por proveedor default a no-reset-automatico para que u
 
 ## Por que el default es none
 
+<VisualSlot id="openclaw-reset:3" />
+
 El default `mode: "none"` existe porque una sesion main personal se supone una conversacion continua. Compaction, no reset, es como un DM de meses se queda dentro de la ventana del modelo. Activar reset daily porque "el contexto se siente viejo" tira la identidad del hilo; `/compact Focus on <topic>` o un memory flush suele ser el cuchillo mas pequeño (OpenClaw, *Session management*, s. f.; *Compaction*, s. f.).
 
 Idle reset es el cuchillo de chat de grupo. Un room de Slack que se queda en silencio dos horas a menudo no deberia retomar el debug a medias de ayer como si siguiera vivo. `resetByType.group` con `idleMinutes: 120` hace eso sin rodar el DM main del dueño a las 04:00.

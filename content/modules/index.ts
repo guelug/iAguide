@@ -464,6 +464,7 @@ export const VISUALS_EXTRA: Record<
   "openclaw-protocol:2": () => import("./openclaw-protocol/Visual2"),
   "openclaw-queue:2": () => import("./openclaw-queue/Visual2"),
   "openclaw-reset:2": () => import("./openclaw-reset/Visual2"),
+  "openclaw-reset:3": () => import("./openclaw-reset/Visual3"),
   "openclaw-runtime:2": () => import("./openclaw-runtime/Visual2"),
   "openclaw-sandbox:2": () => import("./openclaw-sandbox/Visual2"),
   "openclaw-sandbox:3": () => import("./openclaw-sandbox/Visual3"),
