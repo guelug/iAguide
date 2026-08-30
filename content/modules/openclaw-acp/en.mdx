@@ -59,6 +59,8 @@ Write which command makes OpenClaw the ACP server to an editor. Write which plug
 
 ## Compare, without mixing knobs
 
+<VisualSlot id="openclaw-acp:3" />
+
 <VisualSlot id="openclaw-acp:2" />
 
 Hermes `hermes acp` is an ACP **server** wrapping `AIAgent` over stdio (Nous Research, *ACP Internals*, n.d.). OpenClaw `openclaw acp` is also an ACP server, but it forwards into a Gateway session rather than running the loop in-process. OpenClaw `/acp spawn` is the other direction: OpenClaw is the **client** that starts an external harness. Three shapes, two products, one protocol name. Do not paste Hermes `use_unstable_protocol=True` into `acp.backend`. Cite *ACP* for bridge capabilities. Cite *ACP agents* for spawn.

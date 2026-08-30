@@ -77,6 +77,8 @@ Escribe el nombre CLI y su alias. Escribe donde corren las automations. Nombra i
 
 ## Comparar, sin mezclar knobs
 
+<VisualSlot id="openclaw-cron:3" />
+
 El cron de Hermes, cuando existe, es un scheduler Hermes (Nous Research, *Agent Loop Internals*, s. f., https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop). Las automations de OpenClaw son jobs sqlite poseidos por el Gateway. No peguen una linea crontab en `session.reset`. Citen *Automations* para jobs. Citen *Heartbeat* para el monitor. Citen *Session management* para relojes idle que las automations no alargan.
 
 Deshabiliten automations con `cron.enabled: false` o `OPENCLAW_SKIP_CRON=1`. `cron.store` esta retirado; usen CLI o API del Gateway.

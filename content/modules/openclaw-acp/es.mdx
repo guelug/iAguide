@@ -59,6 +59,8 @@ Escribe que command hace de OpenClaw el servidor ACP para un editor. Escribe que
 
 ## Comparar, sin mezclar knobs
 
+<VisualSlot id="openclaw-acp:3" />
+
 `hermes acp` de Hermes es un **servidor** ACP que envuelve `AIAgent` por stdio (Nous Research, *ACP Internals*, s. f.). `openclaw acp` de OpenClaw tambien es un servidor ACP, pero reenvia a una sesion del Gateway en vez de correr el loop in-process. `/acp spawn` de OpenClaw es la otra direccion: OpenClaw es el **cliente** que arranca un harness externo. Tres formas, dos productos, un nombre de protocolo. No peguen `use_unstable_protocol=True` de Hermes en `acp.backend`. Citen *ACP* para capacidades del bridge. Citen *ACP agents* para spawn.
 
 Los controles de runtime (`spawn`, `cancel`, `steer`, `close`, `status`, `set-mode`, `cwd`, `permissions`, `timeout`, `model`) exigen identidad de owner desde canales externos y `operator.admin` desde clientes internos del Gateway. Los no-owners aun pueden usar `sessions`, `doctor`, `install` y `help`.

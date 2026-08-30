@@ -85,6 +85,8 @@ Nombra los tres controles y que pregunta responde cada uno. Nombra los tres valo
 
 ## Comparar, sin mezclar knobs
 
+<VisualSlot id="openclaw-sandbox:3" />
+
 El sandboxing de Hermes, cuando existe, es un asunto del loop Hermes (Nous Research, *Agent Loop Internals*, s. f., https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop). El sandbox de OpenClaw son backends provisionados por el Gateway mas una capa separada de tool-policy mas un hatch elevated solo-exec. No peguen un flag Docker en `tools.deny`. Citen la pagina de comparacion para que clave cambiar.
 
 Fixes comunes de jaula: deshabilitar sandboxing ordinario con `agents.defaults.sandbox.mode=off` (no sobreescribe un sandbox required de creator role); o permitir la tool dentro del sandbox quitandola del deny de sandbox o anadiendola al allow de sandbox. Chequen `openclaw logs` por la entrada `agents/tool-policy`.
