@@ -138,6 +138,8 @@ Cuando los diagnosticos estan activos, las sesiones que permanecen en `processin
 
 ## Por que dos lanes, no un lock global
 
+<VisualSlot id="openclaw-queue:3" />
+
 La lane de sesion es el lock de escritor. Sin ella, dos mensajes inbound del mismo DM de Telegram llamarian ambos a `runEmbeddedAgent` contra la misma fila SQLite de sesion. Los commits de transcript competirian. Los resultados de tools se entremezclarian. El modelo veria una historia que nunca ocurrio (OpenClaw, *Command queue*, s. f.).
 
 La lane global `main` es el presupuesto de proceso. Un Gateway que aloja veinte group chats puede seguir corriendo varias sesiones en paralelo, hasta `agents.defaults.maxConcurrent`, sin arrancar veinte llamadas de proveedor a la vez. El trabajo subagent usa su propia lane (concurrencia por defecto 8) para que un swarm no deje sin aire a los replies inbound.

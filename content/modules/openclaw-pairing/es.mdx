@@ -94,6 +94,8 @@ Nombra las dos puertas de pairing. Escribe longitud del codigo, regla de charset
 
 ## Comparar, sin mezclar knobs
 
+<VisualSlot id="openclaw-pairing:3" />
+
 El pairing del gateway de Hermes, cuando existe, es otro producto (Nous Research, *Gateway internals*, s. f., https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals). El pairing de OpenClaw son filas sqlite mas un `connect.challenge` firmado. No peguen un token de pairing de Hermes en `channel_pairing_allow_entries`. Citen *Pairing* para codigos DM. Citen *Node pairing* para `node.pair.*`. Citen *Gateway protocol* para el campo challenge (OpenClaw, s. f., https://docs.openclaw.ai/gateway/protocol).
 
 La auto-aprobacion SSH-verified de dispositivo esta **on por defecto** para pairing first-time `role: node` desde una direccion privada/CGNAT cuando el Gateway puede probar ownership de maquina por SSH: conecta de vuelta, corre `openclaw node identity --json`, y aprueba solo cuando el device id remoto y la clave publica coinciden exacto. La reachability sola nunca aprueba. Deshabiliten con `gateway.nodes.pairing.sshVerify: false` (OpenClaw, *Node pairing*, s. f.).

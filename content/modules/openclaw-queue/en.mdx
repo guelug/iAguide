@@ -141,6 +141,8 @@ When diagnostics are enabled, sessions that remain in `processing` past the buil
 
 ## Why two lanes, not one global lock
 
+<VisualSlot id="openclaw-queue:3" />
+
 The session lane is the writer lock. Without it, two inbound messages for the same Telegram DM would both call `runEmbeddedAgent` against the same SQLite session row. Transcript commits would race. Tool results would interleave. The model would see a history that never happened (OpenClaw, *Command queue*, n.d.).
 
 The global `main` lane is the process budget. A Gateway hosting twenty group chats can still run several sessions in parallel, up to `agents.defaults.maxConcurrent`, without starting twenty provider calls at once. Subagent work uses its own lane (default concurrency 8) so a swarm does not starve inbound replies.
