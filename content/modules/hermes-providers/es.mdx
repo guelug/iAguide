@@ -138,6 +138,8 @@ Dibujen las tres capas como anillos concéntricos: pool de credenciales (mismo p
 
 ## Pools de credenciales: mismo proveedor, siguiente clave
 
+<VisualSlot id="hermes-providers:3" caption="El pool rota claves del mismo proveedor. El fallback cambia de proveedor solo cuando el pool se agota. La rotación resetea la prompt caché." />
+
 Los pools registran varias claves API o tokens OAuth para el **mismo** proveedor. Cuando una clave choca con un rate limit o una cuota de facturación, Hermes rota a la siguiente clave sana. Esto es distinto del fallback, que cambia de proveedor. Los pools se prueban primero; si se agotan todas las claves del pool, entonces se activa el fallback (Nous Research, *Credential Pools*, s. f.).
 
 Estrategias de rotación, bajo `credential_pool_strategies` en `config.yaml`: `fill_first` (default), `round_robin`, `least_used`, `random`.

@@ -41,6 +41,8 @@ On a toy repo (not production), follow **one** of the two linked Quickstarts. La
 
 ## Agent View: dispatch, do not chat
 
+<VisualSlot id="claude-code-and-codex:3" caption="The input is not a chat: Enter starts a new session. Space peeks without attaching. The table survives sleep; a host shutdown does not." />
+
 `claude agents` opens Agent View. Before it opens, Claude Code shows a **workspace trust** dialog. Decline and the process exits. That is not a bug: Anthropic will not leave a background supervisor on a tree you did not accept ([Agent view](https://code.claude.com/docs/en/agent-view#manage-multiple-agents-with-agent-view)).
 
 The dispatch input **is not a chat**. Each `Enter` starts a **new** background session. It is not a follow-up to the selected row. To continue a task, **attach** to that session and type there.

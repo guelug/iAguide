@@ -85,6 +85,8 @@ Do not run Full AttnRes in a production pipeline-parallel job. Full still needs 
 
 ## Two-phase inference (Algorithm 1)
 
+<VisualSlot id="attnres-optimize:5" caption="Phase 1 batches the S queries against previous K/V once. Phase 2 merges the partial with online softmax. I/O: residual 3d, Block 5.5d, Full 24d." />
+
 Naive Block inference, at every layer, scores `w_l` against all previous block summaries. That is `O(L N)` memory accesses per token: every layer rereads the same cache. The trick is that `w_l` is a **parameter**, not a function of `h`. All `S = L/N` queries inside a block are known before the block runs. You can **batch** them.
 
 **Phase 1.** Stack the `S` queries of the current block. One batched attention against the previous block K/V. Return, for each query: the weighted output, the **max**, and the **log-sum-exp**. You read the previous blocks once, not `S` times.

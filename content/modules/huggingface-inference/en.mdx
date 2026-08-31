@@ -13,6 +13,8 @@ Self-hosted **TGI** and **vLLM** sit beside (1) as local or cluster servers. Thi
 
 ## Inference Providers is a router, not a disk
 
+<VisualSlot id="huggingface-inference:3" caption="One HF_TOKEN hits the router; partners sit behind it. HF charges partner rates with no surcharge. $0.10 a month does not survive an agent loop." />
+
 The Providers index, as of August 2026, describes a unified OpenAI-shaped API in front of partner backends: Groq, Together, Fireworks, Cerebras, Novita, Replicate, fal, and others, plus the legacy **hf-inference** pool. Chat completions, vision-language, embeddings, text-to-image, speech — which partner supports which task is a table on that page, not a rumor.
 
 Authentication is a Hugging Face User Access Token with the **Make calls to Inference Providers** permission on a fine-grained token. Create it at [Settings → Access Tokens](https://huggingface.co/settings/tokens). Put it in `HF_TOKEN`. The Hub tokens lesson still applies: one token per app, revoke leaks, never a write token in a notebook.

@@ -184,6 +184,8 @@ Install with the official script (`curl -LsSf https://hf.co/cli/install.sh | bas
 
 ## Upload is a write-token operation
 
+<VisualSlot id="huggingface-hub:4" caption="Model, dataset and Space are three Git families. hf upload walks them with a write token. A read token stops at the gate with 403." />
+
 `hf upload` is the documented push. Default usage is `hf upload repo_id local_path path_in_repo`. If the repo does not exist, the CLI creates it. `--repo-type dataset` or `--repo-type space` targets the other Git families. `--create-pr` opens a pull request when you cannot push to `main`. `--every 10` is the training-loop helper: push a logs folder every ten minutes. `--commit-message` is how you stop committing "Upload files using huggingface_hub".
 
 A write token is required. A read token will 403. That is the same role table as the tokens page, not a new ACL. Prefer uploading adapters and cards from a machine you control, not from a shared notebook. Unsloth's Core export (`save_pretrained`, `push_to_hub`) is this same Hub API with a Python coat. The Hub lesson still owns the token.

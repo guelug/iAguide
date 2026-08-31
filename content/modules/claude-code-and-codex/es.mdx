@@ -41,6 +41,8 @@ En un repo de juguete (no producción), sigue **una** de las dos Quickstart enla
 
 ## Agent View: despachar, no conversar
 
+<VisualSlot id="claude-code-and-codex:3" caption="El input no es un chat: Enter arranca una sesión nueva. Space mira sin adjuntar. La tabla sobrevive al sleep; un shutdown del host no." />
+
 `claude agents` abre Agent View. Antes de entrar, Claude Code muestra un diálogo de **confianza del workspace**. Si lo rechazas, el proceso sale. Eso no es un bug: Anthropic no deja un supervisor de segundo plano sobre un árbol que no has aceptado ([Agent view](https://code.claude.com/docs/en/agent-view#manage-multiple-agents-with-agent-view)).
 
 El input de despacho **no es un chat**. Cada `Enter` arranca una **sesión nueva** en segundo plano. No es un follow-up a la fila seleccionada. Si quieres continuar una tarea, **adjunta** a esa sesión (teclas más abajo) y escribe allí.

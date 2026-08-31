@@ -177,6 +177,8 @@ Si quieres las unidades de agentes que este curso ya reescribe — bucle dummy, 
 
 ## Subir es una operación de token write
 
+<VisualSlot id="huggingface-hub:4" caption="Modelo, dataset y Space son tres familias Git. hf upload las atraviesa con un token write. Un token read se queda en la puerta con 403." />
+
 `hf upload` es el push documentado. El uso por defecto es `hf upload repo_id local_path path_in_repo`. Si el repo no existe, la CLI lo crea. `--repo-type dataset` o `--repo-type space` apuntan a las otras familias Git. `--create-pr` abre un pull request cuando no puedes hacer push a `main`. `--every 10` es el ayudante del bucle de train: sube una carpeta de logs cada diez minutos. `--commit-message` es cómo dejas de commitear "Upload files using huggingface_hub".
 
 Hace falta un token write. Un token read dará 403. Es la misma tabla de roles de la página de tokens, no una ACL nueva. Prefiere subir adapters y cards desde una máquina que controlas, no desde un notebook compartido. El export de Unsloth Core (`save_pretrained`, `push_to_hub`) es esta misma API del Hub con una capa Python. La lección del Hub sigue siendo dueña del token.

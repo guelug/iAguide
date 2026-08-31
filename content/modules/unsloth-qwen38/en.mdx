@@ -270,6 +270,8 @@ GRPO learning rate in the hyperparameter guide starts near **`5e-6`**, not `2e-4
 
 ## Export: same template, same EOS
 
+<VisualSlot id="unsloth-qwen38:4" caption="Adapters, GGUF and merged 16-bit keep the Qwen template and EOS you trained with. A second wrapper at serve time is the silent loop." />
+
 Whatever you ship — adapter, GGUF, merged 16-bit — must use the **same chat template and EOS** you trained with. Mismatch is a silent quality bug. The GGUF troubleshooting page is the same story as the previous lesson, now with a Qwen template attached.
 
 **Adapters only:**

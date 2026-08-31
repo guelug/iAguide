@@ -140,6 +140,8 @@ Draw the three layers as concentric rings: credential pool (same provider, next 
 
 ## Credential pools: same provider, next key
 
+<VisualSlot id="hermes-providers:3" caption="The pool rotates keys of the same provider. Fallback changes provider only after the pool is exhausted. Rotation resets the prompt cache." />
+
 Pools register multiple API keys or OAuth tokens for the **same** provider. When one key hits a rate limit or billing quota, Hermes rotates to the next healthy key. This is different from fallback, which switches provider. Pools are tried first; if all pool keys are exhausted, then fallback activates (Nous Research, *Credential Pools*, n.d.).
 
 Rotation strategies, configured under `credential_pool_strategies` in `config.yaml`: `fill_first` (default), `round_robin`, `least_used`, `random`.

@@ -88,6 +88,8 @@ No corras Full AttnRes en un trabajo pipeline-parallel de producción. Full sigu
 
 ## Inferencia en dos fases (Algoritmo 1)
 
+<VisualSlot id="attnres-optimize:5" caption="Fase 1 agrupa las S queries contra K/V previos una vez. Fase 2 fusiona el parcial con softmax online. I/O: residual 3d, Block 5.5d, Full 24d." />
+
 La inferencia Block ingenua, en cada capa, puntúa `w_l` contra todos los resúmenes de bloque previos. Eso es `O(L N)` accesos de memoria por token: cada capa relee la misma caché. El truco es que `w_l` es un **parámetro**, no una función de `h`. Las `S = L/N` queries dentro de un bloque se conocen antes de que el bloque corra. Puedes **agruparlas**.
 
 **Fase 1.** Apila las `S` queries del bloque actual. Una atención agrupada contra las K/V de bloques previos. Devuelve, para cada query: la salida ponderada, el **máximo** y el **log-sum-exp**. Lees los bloques previos una vez, no `S` veces.
