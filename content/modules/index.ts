@@ -60,6 +60,7 @@ import hermesAssembly from "./hermes-assembly/meta.json";
 import hermesCompression from "./hermes-compression/meta.json";
 import hermesSessions from "./hermes-sessions/meta.json";
 import hermesGateway from "./hermes-gateway/meta.json";
+import hermesSlash from "./hermes-slash/meta.json";
 import hermesTools from "./hermes-tools/meta.json";
 import hermesPlugins from "./hermes-plugins/meta.json";
 import hermesPlatforms from "./hermes-platforms/meta.json";
@@ -149,6 +150,7 @@ const RAW = [
   hermesCompression,
   hermesSessions,
   hermesGateway,
+  hermesSlash,
   hermesTools,
   hermesPlugins,
   hermesPlatforms,
@@ -285,6 +287,7 @@ export const VISUALS: Record<string, () => Promise<{ default: ComponentType }>> 
   "hermes-compression": () => import("./hermes-compression/Visual"),
   "hermes-sessions": () => import("./hermes-sessions/Visual"),
   "hermes-gateway": () => import("./hermes-gateway/Visual"),
+  "hermes-slash": () => import("./hermes-slash/Visual"),
   "hermes-tools": () => import("./hermes-tools/Visual"),
   "hermes-plugins": () => import("./hermes-plugins/Visual"),
   "hermes-platforms": () => import("./hermes-platforms/Visual"),

@@ -61,7 +61,7 @@ HF pages to fetch (not a closed list):
 ## Hermes Agent (Nous Research)
 
 Site: https://hermes-agent.nousresearch.com  
-iAguide slugs: `hermes-ownership`, `hermes-aiagent`, `hermes-providers`, `hermes-loop`, `hermes-assembly`, `hermes-compression`, `hermes-sessions`, `hermes-gateway`, `hermes-tools`, `hermes-plugins`, `hermes-platforms`, `hermes-skills`, `hermes-cron`, `hermes-browser`, `hermes-acp`, `hermes-egress`. Coverage is the full developer guide, not the first eight pages. General harness layer stays generic (`agent-loop`, `prompt-assembly`, `tools-runtime`, `sessions`, `gateway`, `compression-caching`, `plugins-and-skills`, `scheduled-jobs`, `browser-tools`, `programmatic-access`).
+iAguide slugs: `hermes-ownership`, `hermes-aiagent`, `hermes-providers`, `hermes-loop`, `hermes-assembly`, `hermes-compression`, `hermes-sessions`, `hermes-gateway`, `hermes-slash`, `hermes-tools`, `hermes-plugins`, `hermes-platforms`, `hermes-skills`, `hermes-cron`, `hermes-browser`, `hermes-acp`, `hermes-egress`. Coverage is the full developer guide, not the first eight pages. Slash commands reference: https://hermes-agent.nousresearch.com/docs/reference/slash-commands. General harness layer stays generic (`agent-loop`, `prompt-assembly`, `tools-runtime`, `sessions`, `gateway`, `compression-caching`, `plugins-and-skills`, `scheduled-jobs`, `browser-tools`, `programmatic-access`).
 
 ## OpenClaw
 

@@ -1,0 +1,180 @@
+## Un registro, dos superficies
+
+Los slash commands de Hermes no son un menú de Telegram pegado a un CLI. Nous Research (*Slash Commands Reference*, s. f.) documenta **un** `COMMAND_REGISTRY` en `hermes_cli/commands.py` que alimenta dos superficies:
+
+1. La CLI interactiva: `cli.py` despacha, el autocompletado sale del registro.
+2. El gateway de mensajería: `gateway/run.py` despacha, y los menús de plataforma se generan del mismo registro.
+
+Las skills instaladas también aparecen como slash commands dinámicos (`/nombre-de-skill`). `/plan` **fue** una skill; ahora es un builtin para sobrevivir a los topes de menú de Telegram y Discord (Nous Research, *Slash Commands Reference*, s. f.).
+
+<VisualSlot caption="Misma tecla /: el registro decide si es /btw, /bg, /model o una skill." />
+
+Teclear `/` en la CLI abre el menú. En Slack **dentro de un hilo** la barra nativa no llega a Hermes: usen el prefijo `!` (`!stop`, `!new`, `!status`). `@Hermes /stop` y `@Hermes !stop` también valen. Solo se mira el primer token: `!nice work` pasa al agente intacto.
+
+## `/btw` no es `/bg`
+
+Este es el malentendido que arruina una sesión.
+
+| Comando | Qué hace de verdad | Qué no hace |
+| --- | --- | --- |
+| `/btw <pregunta>` | Una llamada LLM auxiliar de un solo tiro sobre un **snapshot de solo lectura** del transcript. La historia viva y la prompt caché de la sesión **no se tocan**. El turno actual sigue corriendo. | No abre un agente paralelo con tools. No es trabajo independiente. |
+| `/bg <prompt>` | Arranca una **sesión de fondo aparte**. El agente procesa el prompt con su propio contexto. En CLI el resultado llega como panel; en mensajería vuelve al mismo chat cuando termina. | No «pregunta al margen» del hilo actual. El contexto es fresco, no el snapshot. |
+
+<FigureImage src="/images/hermes-slash/slash-landscape.png" label="Ilustración de /btw (snapshot) frente a /bg (sesión hermana)" caption="Tres escritorios, no dos nombres para lo mismo: el cuaderno teal sigue escribiendo; la hoja ámbar es una copia de carbón que el bolígrafo no lee; el pupitre violeta está vacío porque /bg no hereda el hilo." />
+
+**Mito.** «`/btw` es el alias corto de `/bg`.» En la referencia china aparece esa fusión; la referencia inglesa vigente las separa. En iAguide vale la página inglesa canónica: *by the way* = pregunta lateral; *background* = sesión hermana (Nous Research, *Slash Commands Reference*, s. f.; Nous Research, *CLI Interface*, s. f.).
+
+**Caso.** El agente está leyendo un diff de 40 archivos. Quieres saber «¿en qué modelo estamos y cuántos tokens lleva esta sesión?» sin cortar el turno. Eso es `/btw`. Si quieres «analiza `/var/log` y resume errores de hoy» mientras sigues chateando, eso es `/bg`. Mezclarlos o bien interrumpe el trabajo o bien ignora el hilo que querías consultar.
+
+<Callout>
+`/queue` (alias `/q`) y `/steer` son la tercera y cuarta palanca. `/queue` no interrumpe: el prompt espera al siguiente turno. `/steer` inyecta una nota **después de la siguiente tool**, sin nuevo turno de usuario. `/busy queue|steer|interrupt` decide qué pasa si escribes mientras Hermes trabaja.
+</Callout>
+
+## `/model`: sesión, global, una vez
+
+`/model` sin argumentos abre el picker (filtro fuzzy en la lista; la selección **siempre** resuelve a un modelo concreto). Con argumentos cambia el modelo de la sesión:
+
+```text
+/model claude-sonnet-4
+/model zai:glm-5
+/model custom:qwen-2.5
+/model fav
+/model grok --global
+/model claude-opus-4.6 --once
+```
+
+Reglas documentadas (Nous Research, *Slash Commands Reference*, s. f.; Nous Research, *Configuring Models*, s. f.; Nous Research, *CLI Commands Reference*, s. f.):
+
+1. `/model` **solo** cambia entre proveedores **ya configurados**. Añadir Anthropic, una clave o OAuth es `hermes model` **fuera** de la sesión, en la terminal.
+2. Por defecto el cambio es **solo sesión**. `--global` escribe `config.yaml`. `--session` fuerza sesión. `--once` vale para el **siguiente** turno y restaura el modelo anterior (éxito, error o interrupt). Un reinicio del gateway a mitad de un `--once` vuelve al original.
+3. `model.persist_switch_by_default: true` hace que un `/model nombre` plano persista.
+4. **Coste.** Cambiar de modelo a mitad de conversación **resetea la prompt caché**: la clave incluye el modelo. El siguiente turno relee todo el hilo a precio de input completo, no al ~75 % cacheado. Esperable e inevitable. La lección `compression-caching` ya avisaba de este caso.
+
+Mientras un agente corre, el gateway **rechaza** `/model`: hay que esperar o `/stop` primero (Nous Research, *Gateway Internals*, s. f.). No es un bug del chat.
+
+Los alias de usuario van en `~/.hermes/config.yaml` (`model_aliases`) o con `hermes config set model.aliases.fav anthropic/claude-opus-4.6`. Un alias llamado `sonnet` **sombra** el corto builtin. Los nombres no distinguen mayúsculas.
+
+## Comandos que sí vas a usar el primer día
+
+Esto no es el catálogo entero. Es el conjunto con el que se conduce una sesión sin abrir la referencia cada diez segundos. Todos están en *Slash Commands Reference* (Nous Research, s. f.).
+
+**Sesión.** `/help` (por defecto oculta el bloque de skills; `/help skills` los lista; `/help <texto>` filtra). `/new` o `/reset` [nombre] — sesión nueva; `now`, `--yes` o `-y` saltan el modal. `/stop` mata procesos de fondo e interrumpe el agente en marcha. `/status` es recap **local**: modelo, perfil, tokens, tools recientes, último prompt. Cero llamada LLM. `/context` (alias `/ctx`) dibuja la ventana; `/context all` añade coste por skill y toolset. También local.
+
+**Curso del trabajo.** `/retry` reenvía el último mensaje. `/undo` quita el último par user/assistant (destructivo: pide confirmación en CLI). `/compress [here [N] | tema]` resume; `here` deja verbatim los N intercambios recientes (default 2). `/rollback [n]` lista o restaura checkpoints de filesystem. `/diff [staged|all|session]` es el git del working directory.
+
+**Gobernanza.** `/yolo` salta aprobaciones peligrosas. `/approvals manual|smart|off` fija el modo persistente. `/whoami` enseña si eres admin o user en ese ámbito. En gateway, `allow_admin_from` + `user_allowed_commands` (en el `extra:` de la plataforma, `~/.hermes/gateway-config.yaml`) parten el menú: el suelo siempre permitido es `/help` y `/whoami`. Si `allow_admin_from` no está puesto, el ámbito queda en modo compat: todo usuario autorizado corre todo comando.
+
+**Skills y plan.** `/plan [tarea]` escribe markdown en `.hermes/plans/` **sin ejecutar**. `/init [notas]` genera o fusiona `AGENTS.md` (puerto de Codex `/init`). `/learn <descripción>` destila una skill. `/reload-skills` reescanea `~/.hermes/skills/`. `/reload-mcp` recarga servidores MCP.
+
+## Quick commands: los tuyos
+
+No son skills y no son builtins. En `~/.hermes/config.yaml`:
+
+```yaml
+quick_commands:
+  status:
+    type: exec
+    command: systemctl status hermes-agent
+  inbox:
+    type: alias
+    target: /gmail unread
+```
+
+Luego `/status` o `/inbox` en CLI y en mensajería. Se resuelven en el despacho; **pueden no salir** en todas las tablas de help. No hay atajos de prompt como string: el texto largo vive en una skill, o un `type: alias` apunta a un slash existente (Nous Research, *Slash Commands Reference*, s. f.).
+
+La coincidencia de prefijo es real: `/h` → `/help`, `/mod` → `/model`. Si el prefijo es ambiguo, gana el **primero del registro**. El nombre completo y los alias registrados pisan al prefijo.
+
+## CLI frente a gateway: no inventes paridad
+
+Algunos comandos son **solo CLI**: `/skin`, `/snapshot`, `/export`, `/import`, `/reload`, `/tools`, `/toolsets`, `/browser`, `/config`, `/cron`, `/platforms`, `/paste`, `/image`, `/statusbar`, `/focus`, `/plugins`, `/clear`, `/history`, `/save`, `/quit`, `/handoff`, `/prompt`, `/pet`, `/subscription`.
+
+Algunos son **solo mensajería**: `/sethome`, `/restart`, `/approve`, `/deny`, `/topic`, `/platform`, `/commands`, `/start` (Telegram/Discord mandan `/start` solos; Hermes lo traga en silencio, sin quemar un turno).
+
+`/verbose` es CLI por defecto. En chats está **apagado** hasta `display.tool_progress_command: true` en `config.yaml`. `/focus` y `/verbose` comparten `display.tool_progress`: no pueden contradecirse. Focus es **solo display**: no cambia historial, system prompt ni lo que se envía al modelo. Impacto de caché: cero.
+
+`/bg`, `/btw`, `/model`, `/queue`, `/steer`, `/status`, `/stop`, `/help` existen en **ambas** superficies.
+
+En CLI, `/new`, `/clear`, `/undo` y `/quit --delete` abren un modal de tres opciones (una vez / siempre / cancelar) porque tiran estado de sesión. `approvals.destructive_slash_confirm: false` lo apaga en config.
+
+<Myth>
+«Si el comando existe en la CLI, el bot de Telegram lo tiene.» Falso. El registro es común; la **superficie** no. `/cron` en un DM no es el scheduler: eso es `hermes cron` o los subcomandos documentados en la CLI. `/tools disable` resetea la sesión de CLI; no es un botón de WhatsApp.
+</Myth>
+
+## Permisos, no un segundo ACL inventado
+
+Telegram, Discord, Slack, Matrix, Mattermost, Signal: allowlist por usuario **y** corte admin/user. Admins ven todos los registrados. Users solo `user_allowed_commands` más el suelo `/help` `/whoami`. Hay equivalentes de grupo (`group_allow_admin_from`, `group_user_allowed_commands`). La estructura es idéntica entre plataformas; los ejemplos viven en la doc de cada una, no aquí (Nous Research, *Slash Commands Reference*, s. f.).
+
+No copien scopes `operator.read` de OpenClaw sobre estos nombres. Hermes no tiene ese plano.
+
+<TryThis>
+Clasifica, sin abrir el chat, cuatro intenciones. (1) «¿Cuánto contexto queda?» (2) «Mientras sigues, resume los logs de hoy.» (3) «Cuando termines este tool, céntrate en auth.» (4) «Pasa a Opus solo el próximo turno.» Escribe el slash exacto, con flags si hace falta. Comprueba contra la tabla de esta lección, no contra el folklore del Discord.
+</TryThis>
+
+## Relación con el gateway
+
+La lección `hermes-gateway` cubre el runner y las dos guardias. Aquí solo el contrato de usuario: si el agente está bloqueado, `/approve`, `/deny` y `/stop` saltan la cola; `/model` no. Un slash custom que deba funcionar a mitad de corrida tiene que estar en el conjunto de bypass del runner, o se trata como mensaje nuevo e interrumpe la llamada que querías dirigir.
+
+## Fuentes
+
+Nous Research. (s. f.). *Slash commands reference*. Hermes Agent. https://hermes-agent.nousresearch.com/docs/reference/slash-commands
+
+Nous Research. (s. f.). *CLI interface* (slash commands y background sessions). Hermes Agent. https://hermes-agent.nousresearch.com/docs/user-guide/cli
+
+Nous Research. (s. f.). *Messaging gateway* (comandos de plataforma y `/bg` / `/btw`). Hermes Agent. https://hermes-agent.nousresearch.com/docs/user-guide/messaging/
+
+Nous Research. (s. f.). *CLI commands reference* (`/model` mid-session frente a `hermes model`). Hermes Agent. https://hermes-agent.nousresearch.com/docs/reference/cli-commands
+
+Nous Research. (s. f.). *Configuring models*. Hermes Agent. https://hermes-agent.nousresearch.com/docs/user-guide/configuring-models
+
+Nous Research. (s. f.). *Gateway internals* (rechazo de `/model` con agente en marcha). Hermes Agent. https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals
+
+## `/goal`, latidos y cron: no los mezcles
+
+`/goal <texto>` es el bucle Ralph de Hermes: un juez auxiliar marca DONE/CONTINUE; presupuesto por defecto 20 turnos (`goals.max_turns`). Un mensaje de usuario real **preempta** la continuación. Subcomandos: `status`, `pause`, `resume`, `clear`. `/subgoal` añade criterios al goal activo. Poner un goal nuevo a mitad de corrida en gateway exige `/stop` primero (Nous Research, *Slash Commands Reference*, s. f.).
+
+`/heartbeat every <intervalo>` (alias `/hb`, mínimo 60 s) reinyecta un prompt en **esta** sesión cuando está idle. No es `hermes cron`: el heartbeat muere con el proceso. En Slack el slash nativo choca; usen `/hermes heartbeat …`.
+
+**Caso.** Quieres un informe cada mañana a las 9, aunque el portátil esté cerrado. Eso no es `/heartbeat`. Es un job de cron (lección `hermes-cron`) con entrega al home channel (`/sethome`). El heartbeat es para «si este chat se queda quieto un minuto, empuja otra iteración».
+
+## Confirmación destructiva
+
+La CLI pregunta antes de tirar estado no guardado:
+
+| Comando | Qué destruye |
+| --- | --- |
+| `/clear` | Pantalla + sesión nueva. El ID y el historial en memoria se van. |
+| `/new` / `/reset` | Sesión nueva (ID nuevo, historial vacío). |
+| `/undo` | El último par user/assistant. |
+| `/quit --delete` | Sale y borra SQLite e transcripts de esa sesión. |
+
+Modal de tres opciones: una vez, siempre (`approvals.destructive_slash_confirm: false`) o cancelar. `now` / `--yes` / `-y` saltan el modal una vez. En Windows PowerShell nativo el modal a veces no pinta; por eso existe el skip (Nous Research, *Slash Commands Reference*, s. f.).
+
+
+## `/refine`, `/review`, `/branch`: salidas distintas
+
+La referencia (Nous Research, *Slash Commands Reference*, s. f.) documenta tres salidas más que se confunden con `/btw` y `/bg`:
+
+`/refine [foco]` corre **ahora** la revisión de memoria y skills, sin esperar al trigger post-turno. Lo hace en un fork de fondo contra un **snapshot** de la conversación: la sesión viva y la prompt caché **no se tocan**. El resultado llega cuando termina. Es pariente de `/btw` (snapshot, el hilo sigue), no de `/bg`.
+
+`/review [instrucciones]` abre un subagente revisor de privilegio completo sobre el trabajo recién discutido — un PR, código, docs, cualquier artefacto de los últimos diez mensajes. Investiga en segundo plano y su revisión reentra como un completion de subagente. El modelo se fija con `auxiliary.review` en `config.yaml`; si no hay pin, usa el modelo principal. Esto es trabajo independiente con tools, no una pregunta lateral.
+
+`/branch [nombre]` (alias `/fork`) parte la sesión actual para explorar otro camino. No es un snapshot de solo lectura ni un contexto fresco: es una ramificación del hilo.
+
+`/moa <prompt>` pasa un prompt por el preset Mixture of Agents y restaura el modelo de la sesión. Un tiro. No cambia el modelo de la sesión.
+
+En Slack, `/refine` y `/review` chocan con el slash nativo: usen `/hermes refine …` y `/hermes review …` (Nous Research, *Slash Commands Reference*, s. f.).
+
+**Caso.** El agente está a mitad de un refactor. «¿Esta sesión ya tocó `auth.ts`?» sin cortar el turno: `/btw`. «Revisa el PR como si fueras el reviewer»: `/review`. «Explora una rama que tira el caché viejo, sin perder este hilo»: `/branch`. Tres verbos, tres superficies.
+
+<Callout>
+`/kanban` en el gateway **salta** la guardia del agente en marcha: `unblock`, `comment` y `list` funcionan a mitad de turno. `/model` no. El runner tiene un conjunto de bypass; si un slash custom debe dirigir una corrida, tiene que estar ahí, o se trata como mensaje nuevo e interrumpe la llamada (Nous Research, *Slash Commands Reference*, s. f.). `/kanban create` además suscribe el chat de origen a los eventos del task.
+
+`/palette` (también Ctrl+P en la CLI) filtra comandos y skills; Enter **inserta** el comando en el compositor y nunca lo ejecuta solo.
+</Callout>
+
+`/title` nombra la sesión actual. `/sessions` (en la TUI, alias `/switch`) cambia entre las abiertas; `/sessions new` arranca otra en el mismo proceso. Ninguno toca el modelo ni la prompt caché (Nous Research, *Slash Commands Reference*, s. f.).
+
+
+## Cierre
+
+Un slash command de Hermes es una entrada del registro, no un texto mágico. `/btw` lee el hilo sin tocarlo. `/bg` abre otro hilo. `/model` cambia el cerebro de **esta** sesión y, si no pones `--global`, el YAML ni se entera. El resto es gobernanza: quién puede qué, qué existe en Telegram y qué solo en el TUI. Cuando un comando «no existe» en el bot, miren la tabla CLI-only de esta lección antes de abrir un issue.

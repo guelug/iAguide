@@ -1,0 +1,25 @@
+{
+  "id": "hermes-slash",
+  "order": 6.275,
+  "slug": "hermes-slash",
+  "track": "harness",
+  "title": {
+    "en": "Hermes: slash commands (/btw, /bg, /model)",
+    "es": "Hermes: comandos rápidos (/btw, /bg, /model)"
+  },
+  "summary": {
+    "en": "COMMAND_REGISTRY drives CLI and gateway. /btw is a read-only side question; /bg is a fresh background session; /model is session-only unless --global.",
+    "es": "COMMAND_REGISTRY alimenta CLI y gateway. /btw es una pregunta lateral de solo lectura; /bg es una sesión de fondo nueva; /model es de sesión salvo --global."
+  },
+  "status": "complete",
+  "prereqs": [
+    "the-harness",
+    "hermes-gateway"
+  ],
+  "durationMin": 28,
+  "tags": [
+    "hermes",
+    "slash-commands",
+    "cli"
+  ]
+}

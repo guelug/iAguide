@@ -1,0 +1,52 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "¿Qué distingue /btw de /bg en Hermes?",
+      options: [
+        { id: "a", text: "Son alias. /btw es la forma corta de /bg." },
+        { id: "b", text: "/btw es una pregunta lateral de un tiro sobre un snapshot de solo lectura; /bg abre una sesión de fondo con contexto fresco." },
+        { id: "c", text: "/btw mata el turno actual; /bg lo pone en cola." },
+        { id: "d", text: "/bg solo existe en Telegram." }
+      ],
+      correct: "b",
+      explanation: "La referencia oficial separa /btw (snapshot de solo lectura, el turno sigue) de /bg (sesión hermana). No son alias."
+    },
+    {
+      id: "q2",
+      stem: "Por defecto, ¿qué persiste un /model claude-sonnet-4 a mitad de sesión?",
+      options: [
+        { id: "a", text: "Escribe config.yaml enseguida." },
+        { id: "b", text: "Solo esta sesión, salvo --global o persist_switch_by_default." },
+        { id: "c", text: "Todos los chats abiertos del dashboard." },
+        { id: "d", text: "Añade el proveedor si no estaba configurado." }
+      ],
+      correct: "b",
+      explanation: "El cambio es de sesión. --global escribe YAML. Añadir un proveedor nuevo es hermes model fuera de la sesión."
+    },
+    {
+      id: "q3",
+      stem: "Cambias de modelo a mitad de un hilo largo. ¿Qué pasa con la prompt cache?",
+      options: [
+        { id: "a", text: "Nada: la cache es por sesión, no por modelo." },
+        { id: "b", text: "Se invalida. El siguiente turno relee el hilo a precio de input completo." },
+        { id: "c", text: "Hermes comprime automáticamente y ahorra un 75 %." },
+        { id: "d", text: "Solo se pierde si usas --once." }
+      ],
+      correct: "b",
+      explanation: "La clave de cache incluye el modelo. Un /model mid-session resetea la cache. Esperable e inevitable."
+    },
+    {
+      id: "q4",
+      stem: "En un hilo de Slack el slash nativo no llega a Hermes. ¿Qué usas?",
+      options: [
+        { id: "a", text: "Solo la CLI." },
+        { id: "b", text: "El prefijo ! (!stop, !new) o @Hermes /stop." },
+        { id: "c", text: "Un webhook aparte." },
+        { id: "d", text: "Nada: Slack no soporta comandos." }
+      ],
+      correct: "b",
+      explanation: "Slack bloquea slash commands en hilos. El gateway acepta !stop y las menciones con /stop."
+    }
+  ]}
+/>

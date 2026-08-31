@@ -1,0 +1,43 @@
+## One registry, two surfaces
+
+Hermes slash commands are not a Telegram menu glued onto a CLI. Nous Research (*Slash Commands Reference*, n.d.) documents **one** `COMMAND_REGISTRY` in `hermes_cli/commands.py` driving:
+
+1. Interactive CLI — `cli.py` plus registry autocomplete.
+2. Messaging gateway — `gateway/run.py` plus platform menus from the same registry.
+
+Installed skills also show up as dynamic `/skill-name` commands. `/plan` used to be a skill; it is now built-in so it survives Telegram/Discord menu caps.
+
+The canonical Spanish lesson is the full course. This English page is the same contract, shorter.
+
+<VisualSlot caption="One slash: the registry decides /btw, /bg, /model, or a skill." />
+
+## `/btw` is not `/bg`
+
+| Command | What it actually does |
+| --- | --- |
+| `/btw <question>` | One-shot auxiliary LLM call on a **read-only transcript snapshot**. Live history and prompt cache stay untouched. The current turn keeps running. |
+| `/bg <prompt>` | A **separate background session** with fresh context. CLI: result panel. Messaging: delivered back to the same chat. |
+
+<FigureImage src="/images/hermes-slash/slash-landscape.png" label="Illustration of /btw (snapshot) versus /bg (sister session)" caption="Three desks, not two names for one thing: the teal notebook keeps writing; the amber sheet is a carbon copy the pen never reads; the violet desk is empty because /bg does not inherit the thread." />
+
+They are not aliases on the English reference (Nous Research, *Slash Commands Reference*, n.d.). `/queue` / `/q` waits for the next turn. `/steer` injects a note after the next tool. `/busy queue|steer|interrupt` sets what happens if you type while Hermes is working.
+
+## `/model`
+
+Default is **this session only**. `--global` writes `config.yaml`. `--once` is the next turn, then restore. `/model` only switches already-configured providers; adding a provider is `hermes model` in a terminal. Mid-session switch **resets the prompt cache** (cache key includes the model). While an agent is running, the gateway **rejects** `/model` — wait or `/stop` first.
+
+Slack threads: native `/` never reaches Hermes. Use `!stop` or `@Hermes /stop`.
+
+Quick commands live under `quick_commands:` in `~/.hermes/config.yaml` (`type: exec` or `type: alias`). Prefix match: `/h` → `/help`; ambiguous prefixes take the first registry hit.
+
+## Sources
+
+Nous Research. (n.d.). *Slash commands reference*. https://hermes-agent.nousresearch.com/docs/reference/slash-commands
+
+Nous Research. (n.d.). *CLI interface*. https://hermes-agent.nousresearch.com/docs/user-guide/cli
+
+Nous Research. (n.d.). *Messaging gateway*. https://hermes-agent.nousresearch.com/docs/user-guide/messaging/
+
+Nous Research. (n.d.). *Configuring models*. https://hermes-agent.nousresearch.com/docs/user-guide/configuring-models
+
+Nous Research. (n.d.). *Gateway internals*. https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals

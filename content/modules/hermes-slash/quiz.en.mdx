@@ -1,0 +1,52 @@
+<Quiz
+  questions={[
+    {
+      id: "q1",
+      stem: "What distinguishes /btw from /bg in Hermes?",
+      options: [
+        { id: "a", text: "They are aliases. /btw is the short form of /bg." },
+        { id: "b", text: "/btw is a one-shot side question on a read-only snapshot; /bg opens a background session with fresh context." },
+        { id: "c", text: "/btw kills the current turn; /bg queues it." },
+        { id: "d", text: "/bg exists only on Telegram." }
+      ],
+      correct: "b",
+      explanation: "The official English reference splits /btw (read-only snapshot, turn keeps running) from /bg (sister session). They are not aliases."
+    },
+    {
+      id: "q2",
+      stem: "By default, what does /model claude-sonnet-4 persist mid-session?",
+      options: [
+        { id: "a", text: "It writes config.yaml immediately." },
+        { id: "b", text: "This session only, unless --global or persist_switch_by_default." },
+        { id: "c", text: "Every open dashboard chat." },
+        { id: "d", text: "It adds the provider if missing." }
+      ],
+      correct: "b",
+      explanation: "The switch is session-scoped. --global writes YAML. Adding a provider is hermes model outside the session."
+    },
+    {
+      id: "q3",
+      stem: "You switch models mid-thread. What happens to the prompt cache?",
+      options: [
+        { id: "a", text: "Nothing: cache is per session, not per model." },
+        { id: "b", text: "It invalidates. The next turn re-reads the thread at full input price." },
+        { id: "c", text: "Hermes compresses automatically and saves 75%." },
+        { id: "d", text: "You only lose it with --once." }
+      ],
+      correct: "b",
+      explanation: "The cache key includes the model. A mid-session /model resets it."
+    },
+    {
+      id: "q4",
+      stem: "In a Slack thread the native slash never reaches Hermes. What do you use?",
+      options: [
+        { id: "a", text: "CLI only." },
+        { id: "b", text: "The ! prefix (!stop, !new) or @Hermes /stop." },
+        { id: "c", text: "A separate webhook." },
+        { id: "d", text: "Nothing: Slack has no commands." }
+      ],
+      correct: "b",
+      explanation: "Slack blocks slash commands in threads. The gateway accepts !stop and mention+/stop."
+    }
+  ]}
+/>
