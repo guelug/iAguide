@@ -4,6 +4,8 @@ After SFT, the model can imitate. Preference methods push it toward answers peop
 
 None of these add a truth module. They change which completions are likely. Reward hacking is the failure: the policy finds a loophole in the score (verbosity, sycophancy, empty tool calls that look busy).
 
+<FigureImage src="/images/reinforcement-learning/reward-hacking.png" label="Illustration of reward hacking: the judge scores the gesture, not the outcome" caption="The judge scores the gesture. The pile of empty envelopes beats the honest teal slip: that is reward hacking, not alignment." />
+
 <VisualSlot caption="Chosen versus rejected, then a group of rollouts. Switch through SFT, DPO, GRPO." />
 
 <TryThis>

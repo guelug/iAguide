@@ -4,6 +4,8 @@ Weights in FP16/BF16 take 2 bytes each. A dense 8B model is already on the order
 
 <VisualSlot caption="Same count of weights. FP16 is wide bars; Q4/NF4 packs many more into the same width. A packing metaphor, not a bit-exact layout." />
 
+<VisualSlot id="quantization:3" caption="Prefill is FLOPs-bound; decode re-reads the weights. Quantization pays on the streaming side." />
+
 Quality is the bill. Some tasks (tight code, exact names) notice 4-bit more than casual chat does. There is no universal “Q4 loses X%.” Measure on your prompts.
 
 <Path>

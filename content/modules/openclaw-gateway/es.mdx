@@ -127,6 +127,8 @@ Los frames pre-connect están acotados a 64 KiB. Tras el handshake, sigan `hello
 
 ## hello-ok es un snapshot, no config viva
 
+<VisualSlot id="openclaw-gateway:3" caption="hello-ok es una fotografía al conectar: el daemon sigue escribiendo, la placa no. Reconectar toma otra foto. El discovery no es el catálogo vivo." />
+
 `hello-ok` lleva protocolo, versión de servidor y connId, discovery de features, un snapshot, auth (role y scopes efectivos) y policy. `deviceToken`, cuando esta presente, es la credencial reutilizable primaria para el mismo dispositivo y role (OpenClaw, *Gateway protocol*, s. f.).
 
 Los techos de attachment en `policy.attachments` son opcionales en gateways viejos. `maxBytes` es el tamaño decodificado máximo de un attachment (`agents.defaults.mediaMaxMb`, 20 MB por defecto). `maxImageBytes` es el min de eso y un cap de hidratación de agente de 6 MB. Relean esos valores en cada reconnect. Son un snapshot de tiempo de conexión.

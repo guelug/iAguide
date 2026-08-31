@@ -223,6 +223,8 @@ If it looked good in Unsloth chat, the GGUF is fine. No. Wrong **chat template**
 
 ## Context is a job size, not a trophy
 
+<FigureImage src="/images/unsloth-qwen38-run/context-job.png" label="Illustration of context window as a job size, not a trophy" caption="The weights already occupy the desk; the KV cache is the roll that falls on the floor. 262k is a trophy on the shelf, not the job size that fits beside 16–19 GB." />
+
 262,144 is the maximum. YaRN can stretch toward 1M. Neither number is what a 24GB card holds together with 27B 4-bit weights **and** a KV cache.
 
 KV cache grows with tokens, layers, and batch. A thinking trace is more tokens. Preserve Thinking is more still. Vision tokens are not free. If you set context to 262k on a 24GB 4090, you are asking the cache to sit next to 16–19GB of weights. That subtraction does not work. The run page's own offload sentence is the fallback: it will spill to disk and crawl.

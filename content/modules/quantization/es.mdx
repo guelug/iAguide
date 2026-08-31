@@ -23,6 +23,8 @@ El truco mental: la cuantización no cambia los FLOPs del modelo — el número 
 
 ## Prefill frente a decode: dónde ayuda la cuantización
 
+<VisualSlot id="quantization:3" caption="Prefill está acotado por FLOPs; decode relee los pesos enteros. La cuantización paga sobre todo en el streaming." />
+
 No todas las fases del inference se benefician igual:
 
 - **Prefill** — procesa el prompt en paralelo. Es **compute-bound**: el cuello son los FLOPs por segundo del chip. La cuantización *ayuda*, pero no tanto: las matrices se hacen más pequeñas, sí, pero el cálculo matricial dominante escala con el número de operaciones, no con los bytes de los pesos. Un Q4 puede ser marginalmente más rápido que FP16 en prefill.

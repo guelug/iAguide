@@ -133,6 +133,8 @@ Pre-connect frames are capped at 64 KiB. After handshake, follow `hello-ok.polic
 
 ## hello-ok is a snapshot, not a live config
 
+<VisualSlot id="openclaw-gateway:3" caption="hello-ok is a photograph at connect time: the daemon keeps writing, the plate does not. Reconnect for a new photo. Discovery is not the live catalog." />
+
 `hello-ok` carries protocol, server version and connId, feature discovery, a snapshot, auth (role and effective scopes), and policy. `deviceToken`, when present, is the primary reusable credential for the same device and role (OpenClaw, *Gateway protocol*, n.d.).
 
 Attachment ceilings in `policy.attachments` are optional on older gateways. `maxBytes` is the largest decoded size for a single attachment (`agents.defaults.mediaMaxMb`, default 20 MB). `maxImageBytes` is min of that and a 6 MB agent-hydration cap. Re-read those values on every reconnect. They are a connection-time snapshot.

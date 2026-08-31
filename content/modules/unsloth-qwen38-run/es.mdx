@@ -220,6 +220,8 @@ Si se veía bien en el chat de Unsloth, el GGUF está bien. No. Una **plantilla 
 
 ## El contexto es un tamaño de trabajo, no un trofeo
 
+<FigureImage src="/images/unsloth-qwen38-run/context-job.png" label="Ilustración de la ventana de contexto como tamaño de trabajo, no como trofeo" caption="Los pesos ya ocupan el pupitre; la caché KV es el rollo que se cae al suelo. 262k es un trofeo en el estante, no el tamaño de trabajo que cabe junto a 16–19 GB." />
+
 262.144 es el máximo. YaRN puede estirar hacia 1M. Ninguno de los dos números es lo que una tarjeta de 24GB sostiene junto a pesos 27B 4-bit **y** una caché KV.
 
 La caché KV crece con tokens, capas y batch. Una traza thinking son más tokens. Preserve Thinking son todavía más. Los tokens de visión no son gratis. Si pones el contexto a 262k en una 4090 de 24GB, estás pidiendo que la caché se siente junto a 16–19GB de pesos. Esa resta no sale. La propia frase de offload de la página de ejecución es el plan B: volcará a disco y se arrastrará.
