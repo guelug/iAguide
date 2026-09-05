@@ -50,7 +50,17 @@ export function Figure({
         </div>
       ) : null}
 
-      <div className={`relative w-full ${height} ${flush ? "" : "bg-paper"}`}>
+      {/* Hidden from assistive tech on purpose. The labels inside a scene
+          are drei <Html> overlays, so they are real DOM text with no
+          structure — a screen reader would read them as a loose stream of
+          words between the heading and the note. Everything the figure
+          means is already prose right here: the label above, the note
+          below, and the legend. The controls live outside this element,
+          so none of them are hidden with it. */}
+      <div
+        aria-hidden
+        className={`relative w-full ${height} ${flush ? "" : "bg-paper"}`}
+      >
         {children}
       </div>
 
