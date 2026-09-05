@@ -2,7 +2,7 @@
 
 La fuente primaria es [*Nodes*](https://docs.openclaw.ai/nodes) de OpenClaw (s. f.). Un **nodo** es un dispositivo compañero (macOS, iOS, watchOS, Android, headless) que se conecta al Gateway con `role` igual a `node` y expone una superficie de commands vía `node.invoke`. La mayoría de nodos usa el WebSocket del Gateway en el puerto de operador. El nodo directo de Apple Watch usa polling HTTPS firmado en ese mismo puerto porque watchOS bloquea el networking de bajo nivel genérico para apps ordinarias (OpenClaw, *Nodes*, s. f.). Los frames de protocolo viven en [*Gateway protocol*](https://docs.openclaw.ai/gateway/protocol).
 
-La leccion generica [gateway](/es/m/gateway) permanece agnóstica del harness. Esta es el periferico OpenClaw.
+La leccion generica [gateway](/es/m/gateway) permanece agnóstica del harness. Esta es el periférico OpenClaw.
 
 Los nodos **no** ejecutan el servicio Gateway. Los mensajes de canal (Telegram, WhatsApp, Slack, Discord) aterrizan en el Gateway, no en los nodos. Dos Gateways es un conflicto. Un Gateway más nodos es la topología prevista (OpenClaw, *Nodes*, s. f.; *Gateway architecture*, s. f., https://docs.openclaw.ai/concepts/architecture).
 
@@ -137,11 +137,11 @@ Escribe las dos puertas de command. Nombra el breaking change de 2026.3.31. Escr
 
 ## Compara, sin mezclar knobs
 
-Hermes no tiene una malla periferica `role` `node`. Hermes ACP es un editor que conduce `AIAgent` por stdio (Nous Research, *ACP Internals*, s. f., https://hermes-agent.nousresearch.com/docs/developer-guide/acp-internals). Los nodos OpenClaw son dispositivos en el WebSocket del Gateway. No pegues ids de sesión ACP de Hermes en `openclaw nodes invoke`. Cita *Nodes* para camera, screen, location y exec host.
+Hermes no tiene una malla periférica `role` `node`. Hermes ACP es un editor que conduce `AIAgent` por stdio (Nous Research, *ACP Internals*, s. f., https://hermes-agent.nousresearch.com/docs/developer-guide/acp-internals). Los nodos OpenClaw son dispositivos en el WebSocket del Gateway. No pegues ids de sesión ACP de Hermes en `openclaw nodes invoke`. Cita *Nodes* para camera, screen, location y exec host.
 
 **Caso.** Portátil y telefono quieren una foto para el agente. El Gateway posee WhatsApp. El telefono es un nodo. El snap va por `node.invoke` en el telefono, no por una segunda sesión Baileys en el telefono (OpenClaw, *Nodes*, s. f.; *Gateway architecture*, s. f.).
 
-El estado de identidad headless vive en tres registros SQLite bajo `~/.openclaw/state/openclaw.sqlite`: `node_host_config` (ID de instancia de cliente, display name, metadata de conexión), `device_identities` clave `primary` (par de claves firmado) y `device_auth_tokens` (tokens emparejados por ID criptografico de dispositivo y role). Cambiar `--node-id` no reinicia el pairing (OpenClaw, *Nodes*, s. f.).
+El estado de identidad headless vive en tres registros SQLite bajo `~/.openclaw/state/openclaw.sqlite`: `node_host_config` (ID de instancia de cliente, display name, metadata de conexión), `device_identities` clave `primary` (par de claves firmado) y `device_auth_tokens` (tokens emparejados por ID criptográfico de dispositivo y role). Cambiar `--node-id` no reinicia el pairing (OpenClaw, *Nodes*, s. f.).
 
 Los nodos emparejados pueden publicar descriptores de tools de plugin visibles al agente por defecto, pero el command de cada descriptor debe seguir en la superficie aprobada. Fija `gateway.nodes.pluginTools.enabled` a false para ignorar todos esos descriptores.
 
@@ -185,7 +185,7 @@ En modo nodo macOS, `system.run` está gated por exec approvals en la app macOS 
 
 Los node hosts ignoran overrides de `PATH` en el objeto `env` y recortan un conjunto amplio de variables de arranque de interprete/shell (por ejemplo `NODE_OPTIONS`, `PYTHONPATH`, `BASH_ENV`, `DYLD_*`, `LD_*`) antes de correr un command. Si necesitas entradas extra de PATH, configura el entorno del servicio node host en vez de pasar `PATH` vía `env` (OpenClaw, *Nodes*, s. f.).
 
-Esta lección se detiene en el contrato periferico: role, pairing, dos puertas de command, camera/screen/location, exec host. El proxy de browser vive en la lección de browser. Tailscale Serve para acceso de nodos vive en la lección Tailscale. Los códigos de pairing DM viven en la lección de pairing.
+Esta lección se detiene en el contrato periférico: role, pairing, dos puertas de command, camera/screen/location, exec host. El proxy de browser vive en la lección de browser. Tailscale Serve para acceso de nodos vive en la lección Tailscale. Los códigos de pairing DM viven en la lección de pairing.
 
 ## Caso — el nodo con versión vieja
 

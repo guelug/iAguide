@@ -79,7 +79,7 @@ Escribe el nombre CLI y su alias. Escribe donde corren las automations. Nombra i
 
 <VisualSlot id="openclaw-cron:3" />
 
-El cron de Hermes, cuando existe, es un scheduler Hermes (Nous Research, *Agent Loop Internals*, s. f., https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop). Las automations de OpenClaw son jobs sqlite poseidos por el Gateway. No peguen una línea crontab en `session.reset`. Citen *Automations* para jobs. Citen *Heartbeat* para el monitor. Citen *Session management* para relojes idle que las automations no alargan.
+El cron de Hermes, cuando existe, es un scheduler Hermes (Nous Research, *Agent Loop Internals*, s. f., https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop). Las automations de OpenClaw son jobs sqlite poseídos por el Gateway. No peguen una línea crontab en `session.reset`. Citen *Automations* para jobs. Citen *Heartbeat* para el monitor. Citen *Session management* para relojes idle que las automations no alargan.
 
 Deshabiliten automations con `cron.enabled: false` o `OPENCLAW_SKIP_CRON=1`. `cron.store` está retirado; usen CLI o API del Gateway.
 
@@ -93,7 +93,7 @@ Los hooks HTTP del Gateway (`/hooks/wake`, `/hooks/agent`) necesitan `hooks.enab
 
 El override de modelo `--model` es el primario del job. Si no está permitido, el run falla con error de validación en vez de caer en silencio. Las cadenas de fallback configuradas siguen aplicando salvo que `--fallbacks ""` haga el run estricto.
 
-Esta lección se detiene en jobs poseidos por el Gateway, isolated frente a main, announce frente a webhook, persistencia sqlite, y operator.admin para payloads command. Pairing no es un recipient de cron. Compaction no es como los jobs isolated se quedan pequeños; ya arrancan frescos.
+Esta lección se detiene en jobs poseídos por el Gateway, isolated frente a main, announce frente a webhook, persistencia sqlite, y operator.admin para payloads command. Pairing no es un recipient de cron. Compaction no es como los jobs isolated se quedan pequeños; ya arrancan frescos.
 
 Presupuesto wall-clock por run: `--timeout-seconds` cuando está puesto. Si no, los jobs isolated agent-turn se acotan por el watchdog de 60 minutos del scheduler antes del timeout subyacente de agent-turn (`agents.defaults.timeoutSeconds`, default 48 horas). Los jobs command defaultan a 10 minutos. Los payloads script defaultan a 5 minutos.
 
@@ -103,7 +103,7 @@ Los runs isolated cierran best-effort tabs de browser trackeados para su sesión
 
 Los runs isolated con el grant estrecho de self-cleanup de automation pueden leer status del scheduler y quitar solo su propio job.
 
-Cuando un job pega timeoutSeconds, el scheduler aborta y da una ventana corta de cleanup. Si no drena, el cleanup poseido por el Gateway force-clears la ownership de sesión de ese run para que el chat en cola no se quede atascado.
+Cuando un job pega timeoutSeconds, el scheduler aborta y da una ventana corta de cleanup. Si no drena, el cleanup poseído por el Gateway force-clears la ownership de sesión de ese run para que el chat en cola no se quede atascado.
 
 Pacing: los jobs recurrentes pueden poner pacing.min y pacing.max. Durante un run agent-turn, un job paced puede llamar automations con action next_check. Los runs fallidos y skipped descartan la proposal.
 
@@ -115,7 +115,7 @@ Los jobs nuevos que pueden correr tools siempre guardan una tool policy explíci
 
 Antes de que un run isolated arranque, OpenClaw chequea endpoints locales alcanzables para proveedores ollama y openai-completions configurados en loopback o red privada. Un endpoint caído registra skipped en vez de empezar una llamada de modelo. El resultado se cachea 5 minutos por endpoint.
 
-Las notificaciones de fallo usan un umbral y cooldown poseidos por el scheduler. Cobertura default tras 2 fallos consecutivos con cooldown de 1 hora cuando existe una ruta. Un job recurrente basado en tiempo se auto-deshabilita tras 10 fallos de ejecución consecutivos; enable limpia la razón.
+Las notificaciones de fallo usan un umbral y cooldown poseídos por el scheduler. Cobertura default tras 2 fallos consecutivos con cooldown de 1 hora cuando existe una ruta. Un job recurrente basado en tiempo se auto-deshabilita tras 10 fallos de ejecución consecutivos; enable limpia la razón.
 
 Los jobs de automation no infieren un idioma de reply desde canal o locale. Pongan la regla de idioma en el mensaje scheduled.
 
@@ -153,7 +153,7 @@ Citen Architecture: un Gateway por host es también un scheduler por host. Dos G
 
 Citen Queue cuando isolated announce no debe colisionar con un steer vivo. Heartbeat usa un lane nested; las automations siguen encolando.
 
-Esta versión de aula conserva jobs sqlite poseidos por el Gateway, isolated frente a main, announce frente a webhook, operator.admin para commands, y el split de timezone. Los detalles del wizard Gmail se quedan en la página Automations.
+Esta versión de aula conserva jobs sqlite poseídos por el Gateway, isolated frente a main, announce frente a webhook, operator.admin para commands, y el split de timezone. Los detalles del wizard Gmail se quedan en la página Automations.
 
 openclaw automations enable limpia streaks de auto-disable tras arreglar la causa.
 

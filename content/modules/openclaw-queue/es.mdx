@@ -164,7 +164,7 @@ El overflow descartado bajo `drop: "summarize"` no es borrado silencioso. Las en
 
 `/queue collect debounce:0.5s cap:25 drop:summarize` es un override combinado legal. `/queue default` y `/queue reset` limpian ambos el override de sesión y te devuelven a config más el default integrado `steer`.
 
-Prefiere logs verbose antes de inventar un RPC de corrida atascada. Busca "queued for ...ms" para confirmar el drenaje. Las cuatro clases diagnosticas (`session.long_running`, `session.stalled`, `session.stuck`, más processing ordinario) son etiquetas de log, no methods de protocolo. No inventes un frame `queue.status`; cita *Command queue* y *Gateway protocol* para los methods reales (OpenClaw, *Command queue*, s. f.; *Gateway protocol*, s. f., https://docs.openclaw.ai/gateway/protocol).
+Prefiere logs verbose antes de inventar un RPC de corrida atascada. Busca "queued for ...ms" para confirmar el drenaje. Las cuatro clases diagnósticas (`session.long_running`, `session.stalled`, `session.stuck`, más processing ordinario) son etiquetas de log, no methods de protocolo. No inventes un frame `queue.status`; cita *Command queue* y *Gateway protocol* para los methods reales (OpenClaw, *Command queue*, s. f.; *Gateway protocol*, s. f., https://docs.openclaw.ai/gateway/protocol).
 
 Heartbeat no alarga la frescura de reset idle o daily. Encolar un turno de heartbeat sigue serializando en la lane de sesión de heartbeat, pero `lastInteractionAt` no se mueve. Esa regla vive en la lección de reset; esta lección solo necesita el split de lanes para que los replies inbound permanezcan en `main` (OpenClaw, *Session management*, s. f.).
 

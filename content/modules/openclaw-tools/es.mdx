@@ -26,7 +26,7 @@ La tabla del overview es representativa, no la referencia completa de política.
 | Gateway and nodes | `gateway`, `nodes` |
 | Media | `view_image`, `image_generate`, `tts` |
 
-Code Mode y Tool Search son superficies experimentales de agente OpenClaw. Los runs del harness Codex usan code mode nativo de Codex, tool search nativo, tools dinamicas diferidas y llamadas anidadas en vez de `tools.codeMode` o `tools.toolSearch` (OpenClaw, *Tools overview*, s. f.).
+Code Mode y Tool Search son superficies experimentales de agente OpenClaw. Los runs del harness Codex usan code mode nativo de Codex, tool search nativo, tools dinámicas diferidas y llamadas anidadas en vez de `tools.codeMode` o `tools.toolSearch` (OpenClaw, *Tools overview*, s. f.).
 
 ## Perfiles y luego allow/deny
 
@@ -93,7 +93,7 @@ Nombra los tres nombres (tool, skill, plugin). Nombra los cuatro perfiles y cual
 
 <VisualSlot id="openclaw-tools:3" />
 
-Las tools de Hermes se registran en `AIAgent` y las filtra la política de tools de Hermes en el loop (Nous Research, *Agent Loop Internals*, s. f., https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop). Las tools de OpenClaw son schemas poseidos por el Gateway enviados al modelo tras perfil más allow/deny más sandbox más disponibilidad de plugin. Misma necesidad humana (una superficie invocable). Distinto dueño. Distintos shorthands de grupo.
+Las tools de Hermes se registran en `AIAgent` y las filtra la política de tools de Hermes en el loop (Nous Research, *Agent Loop Internals*, s. f., https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop). Las tools de OpenClaw son schemas poseídos por el Gateway enviados al modelo tras perfil más allow/deny más sandbox más disponibilidad de plugin. Misma necesidad humana (una superficie invocable). Distinto dueño. Distintos shorthands de grupo.
 
 No peguen nombres de tools de Hermes en `tools.deny`. No inventen un `group:hermes`. Citen *Tools overview* para los nombres y *Tools and custom providers* para los knobs.
 

@@ -2,7 +2,7 @@
 
 La fuente primaria es *Cron Internals* de Nous Research (s. f.). El cron de Hermes es ejecución **de agente** programada: un `AIAgent` fresco, skills opcionales, un prompt autocontenido, luego entrega. No es `/usr/bin/cron` envolviendo una línea de shell. La lección genérica [scheduled jobs](/es/m/scheduled-jobs) permanece agnóstica del harness.
 
-Ficheros clave: `cron/jobs.py` (modelo de job, lectura/escritura atomica a `jobs.json`), `cron/scheduler.py` (detección de due, ejecución, repeats), `tools/cronjob_tools.py` (tool `cronjob` de cara al modelo), `gateway/run.py` (tick en el loop longevo), `hermes_cli/cron.py` (subcomandos `hermes cron`).
+Ficheros clave: `cron/jobs.py` (modelo de job, lectura/escritura atómica a `jobs.json`), `cron/scheduler.py` (detección de due, ejecución, repeats), `tools/cronjob_tools.py` (tool `cronjob` de cara al modelo), `gateway/run.py` (tick en el loop longevo), `hermes_cli/cron.py` (subcomandos `hermes cron`).
 
 Cuatro formatos de horario (Nous Research, *Cron Internals*, s. f.):
 
@@ -19,7 +19,7 @@ La superficie de cara al modelo es una tool `cronjob` con acciones `create`, `li
 
 ## Almacenamiento y ciclo de vida
 
-Los jobs viven en `~/.hermes/cron/jobs.json` con escritura atomica (temp y rename). Campos documentados: `id`, `name`, `prompt`, `schedule` (kind, expr, display), array `skills`, `deliver`, `repeat` (times, completed), `state`, `enabled`, `next_run_at`, `last_run_at`, `last_status`, `created_at`, `model`, `provider` y `script` opcionales.
+Los jobs viven en `~/.hermes/cron/jobs.json` con escritura atómica (temp y rename). Campos documentados: `id`, `name`, `prompt`, `schedule` (kind, expr, display), array `skills`, `deliver`, `repeat` (times, completed), `state`, `enabled`, `next_run_at`, `last_run_at`, `last_status`, `created_at`, `model`, `provider` y `script` opcionales.
 
 | Estado | Significado |
 | --- | --- |
@@ -149,7 +149,7 @@ Ficheros relacionados en la misma guía: Gateway Internals para entrega al canal
 
 Esta lección se detiene en jobs.json, el tick, el aislamiento, el fallback de Chronos y el guardia de recursión. La trivia de destinos de entrega vive en Cron Internals; citen esa página en lugar de memorizar cada forma platform colon.
 
-Escritura atomica significa escribir a un temp y luego rename. Dos lectores pueden ver el fichero completo previo; nunca ven un JSON roto. Por eso jobs.json es un almacén de fichero que sobrevive a un crash durante el tick (Nous Research, Cron Internals, s. f.).
+Escritura atómica significa escribir a un temp y luego rename. Dos lectores pueden ver el fichero completo previo; nunca ven un JSON roto. Por eso jobs.json es un almacén de fichero que sobrevive a un crash durante el tick (Nous Research, Cron Internals, s. f.).
 
 No reemplacen jobs.json por una base de datos porque OpenClaw usa SQLite. Citen la página que implementan. El cron de Hermes es jobs.json más un lock más un AIAgent fresco. Esa frase es la particularidad.
 

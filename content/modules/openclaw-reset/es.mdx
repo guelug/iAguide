@@ -23,7 +23,7 @@ Heartbeat, cron, exec y otros turnos de system-event pueden escribir metadatos d
 
 Cuando daily e idle están configurados, gana el que expire primero. Cuando un reset rueda la sesión, los avisos de system-event en cola para la sesión vieja se descartan para que updates de fondo obsoletos no se antepongan al primer prompt de la sesión nueva (OpenClaw, *Session management*, s. f.).
 
-Las sesiones con una sesión CLI poseida por el proveedor siguen el mismo default de no-reset-automático. Usen `/reset` o configuren `session.reset` explícitamente cuando esas sesiones deban caducar con un timer.
+Las sesiones con una sesión CLI poseída por el proveedor siguen el mismo default de no-reset-automático. Usen `/reset` o configuren `session.reset` explícitamente cuando esas sesiones deban caducar con un timer.
 
 <Callout>
 Heartbeat no alarga idle. Cron no alarga idle. Los eventos de sistema exec no alargan idle. Solo una interacción real de usuario o canal mueve `lastInteractionAt`. El reset daily ignora `lastInteractionAt` por completo y lee `sessionStartedAt` (OpenClaw, *Session management*, s. f.).
@@ -78,9 +78,9 @@ Escribe el modo de reset default. Escribe que timestamp usa daily y cual usa idl
 
 ## Comparar, sin mezclar knobs
 
-La compression de Hermes crea un linaje de sesión hija; `/resume` retoma una sesión (Nous Research, *Agent Loop Internals*, s. f., https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop). El reset de OpenClaw acuña un `sessionId` nuevo en la misma familia de filas sqlite poseida por el Gateway. Compaction en OpenClaw conserva la identidad de sesión actual para el compactador SQLite builtin. No peguen `compression.protect_last_n` de Hermes en `session.reset.idleMinutes`. Citen *Session management* para reset. Citen *Compaction* para resúmenes.
+La compression de Hermes crea un linaje de sesión hija; `/resume` retoma una sesión (Nous Research, *Agent Loop Internals*, s. f., https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop). El reset de OpenClaw acuña un `sessionId` nuevo en la misma familia de filas sqlite poseída por el Gateway. Compaction en OpenClaw conserva la identidad de sesión actual para el compactador SQLite builtin. No peguen `compression.protect_last_n` de Hermes en `session.reset.idleMinutes`. Citen *Session management* para reset. Citen *Compaction* para resúmenes.
 
-Las sesiones CLI poseidas por proveedor default a no-reset-automático para que un hilo largo de Codex o Claude CLI no se mate a las 04:00 salvo que hayas optado. Eso es lo contrario de "el Gateway siempre rueda a las 4." Lean la página.
+Las sesiones CLI poseídas por proveedor default a no-reset-automático para que un hilo largo de Codex o Claude CLI no se mate a las 04:00 salvo que hayas optado. Eso es lo contrario de "el Gateway siempre rueda a las 4." Lean la página.
 
 ## Por que el default es none
 
@@ -118,7 +118,7 @@ Filas legacy: si falta `sessionStartedAt`, OpenClaw lo recupera del header JSONL
 
 ¿Necesitas pizarra limpia sin esperar las 04:00? `/new`. ¿Necesitas que el modelo olvide el medio de un hilo largo pero conserve el id? `/compact`. ¿Necesitas que el DM humano sobreviva la noche? deja `mode` `none`. Tres respuestas, tres páginas.
 
-Las sesiones CLI poseidas por proveedor (Claude CLI y similares) siguen el mismo default `none`. Un timer en esas sesiones es un opt-in explícito para que un hilo CLI alojado no se mate por la hora local del Gateway (OpenClaw, *Session management*, s. f.).
+Las sesiones CLI poseídas por proveedor (Claude CLI y similares) siguen el mismo default `none`. Un timer en esas sesiones es un opt-in explícito para que un hilo CLI alojado no se mate por la hora local del Gateway (OpenClaw, *Session management*, s. f.).
 
 Queue mode se guarda por sesión y no lo borra compaction; un reset acuña un id nuevo, así que un override `/queue collect` no sigue en silencio el hilo de la mañana nueva salvo que lo pongas otra vez. Confirmen en la página viva si dependen de eso operativamente; esta lección solo promete el `sessionId` nuevo.
 

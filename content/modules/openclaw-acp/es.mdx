@@ -119,7 +119,7 @@ El cliente debug `openclaw acp client` auto-aprueba solo ids de tools core de co
 
 No usen `openclaw gateway call sessions.list` como única prueba ACP. Ese camino CLI puede pedir un upgrade de scope de operador. Prueben corrección del bridge con frames stdio ACP más el log `sessions.list` del Gateway.
 
-El binding nativo de conversación Codex es el camino default de control de chat cuando el plugin `codex` está habilitado. Las tools dinamicas OpenClaw siguen ejecutandose por OpenClaw, mientras tools nativas de Codex como shell/apply-patch ejecutan dentro de Codex. `Command blocked by PreToolUse hook: Native hook relay unavailable` es un mensaje de Codex; no lo depuren como acpx (OpenClaw, *ACP agents*, s. f.).
+El binding nativo de conversación Codex es el camino default de control de chat cuando el plugin `codex` está habilitado. Las tools dinámicas OpenClaw siguen ejecutandose por OpenClaw, mientras tools nativas de Codex como shell/apply-patch ejecutan dentro de Codex. `Command blocked by PreToolUse hook: Native hook relay unavailable` es un mensaje de Codex; no lo depuren como acpx (OpenClaw, *ACP agents*, s. f.).
 
 **Caso.** Un ingeniero de IDE apunta Zed a `openclaw acp` y también escribe `/acp spawn cursor` en Telegram. Ambos son "ACP" en el chat. Son flechas opuestas. El primero es bridge (OpenClaw como servidor). El segundo es spawn (OpenClaw como cliente de Cursor). Dibujen la flecha antes de cambiar config.
 

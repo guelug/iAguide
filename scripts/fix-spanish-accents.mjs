@@ -348,6 +348,33 @@ const CORPUS = {
    the correct subjunctive and "afines" the correct plural adjective. */
 const OVER = { releán: "relean", afinés: "afines" };
 
+/* Words this corpus always spells wrong, so comparing spellings could
+   never find them. These come from morphology instead: an adjective in
+   -ico/-ica is esdrújula and always carries the accent, and -ído after
+   a strong vowel is a hiatus, not a diphthong.
+
+   The rule is not applied blind. Most -ica words here are verbs —
+   significa, multiplica, identifica, justifica — which are llanas and
+   correct as they stand, and "abanico" is llana too. So the rule
+   produced candidates and each one was read before landing here. */
+const MORPH = {
+  atomica: "atómica",
+  canonica: "canónica",
+  canonicos: "canónicos",
+  criptografico: "criptográfico",
+  diagnostica: "diagnóstica",
+  diagnosticas: "diagnósticas",
+  dinamicas: "dinámicas",
+  periferica: "periférica",
+  periferico: "periférico",
+  semantico: "semántico",
+  poseido: "poseído",
+  poseidos: "poseídos",
+  poseida: "poseída",
+  poseidas: "poseídas",
+  extraida: "extraída",
+};
+
 const SION = {
   precision: "precisión",
   decision: "decisión",
@@ -420,7 +447,7 @@ function matchCase(src, out) {
   return out;
 }
 
-const TABLE = { ...SAFE, ...JUDGED, ...SION, ...NTILDE, ...MORE, ...CORPUS, ...OVER };
+const TABLE = { ...SAFE, ...JUDGED, ...SION, ...NTILDE, ...MORE, ...CORPUS, ...OVER, ...MORPH };
 const words = Object.keys(TABLE).sort((a, b) => b.length - a.length);
 const RX = new RegExp(B0 + "(" + words.join("|") + ")" + B1, "gi");
 const AMB = new RegExp(B0 + "(" + AMBIGUOUS.join("|") + ")" + B1, "gi");

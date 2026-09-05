@@ -13,14 +13,14 @@ Los runtimes se confunden fácil con providers porque ambos aparecen cerca de la
 | Agent runtime | `claude-cli`, `codex`, `copilot`, `openclaw` | El loop o backend de bajo nivel que ejecuta el turno preparado |
 | Channel | Discord, Slack, Telegram, WhatsApp | Donde los mensajes entran y salen de OpenClaw |
 
-Un **harness** es la implementación que provee un agent runtime (termino de código). Por ejemplo, el harness Codex bundled implementa el runtime `codex`. La config publica usa `agentRuntime.id` en entradas de provider o modelo; las claves de runtime de agente entero son legacy y se ignoran. `openclaw doctor --fix` quita pins viejos de runtime de agente entero y reescribe refs de modelo legacy a refs canonicos provider/model más política de runtime con alcance de modelo donde hace falta.
+Un **harness** es la implementación que provee un agent runtime (termino de código). Por ejemplo, el harness Codex bundled implementa el runtime `codex`. La config publica usa `agentRuntime.id` en entradas de provider o modelo; las claves de runtime de agente entero son legacy y se ignoran. `openclaw doctor --fix` quita pins viejos de runtime de agente entero y reescribe refs de modelo legacy a refs canónicos provider/model más política de runtime con alcance de modelo donde hace falta.
 
 <VisualSlot caption="Embedded, agent RPC, Codex native, ACP spawn, writer claim." />
 
 ## Dos familias de runtime
 
 - **Harnesses embebidos** corren dentro del loop de agente preparado de OpenClaw: el runtime built-in `openclaw`, más harnesses de plugin registrados como `codex` y `copilot`.
-- **CLI backends** corren un proceso CLI local manteniendo la ref de modelo canonica. Por ejemplo, `anthropic/claude-opus-5` con un `agentRuntime.id: "claude-cli"` de alcance de modelo significa "selecciona el modelo Anthropic, ejecuta por Claude CLI." `claude-cli` no es un id de harness embebido y no debe pasarse a la selección AgentHarness (OpenClaw, *Agent runtimes*, s. f.).
+- **CLI backends** corren un proceso CLI local manteniendo la ref de modelo canónica. Por ejemplo, `anthropic/claude-opus-5` con un `agentRuntime.id: "claude-cli"` de alcance de modelo significa "selecciona el modelo Anthropic, ejecuta por Claude CLI." `claude-cli` no es un id de harness embebido y no debe pasarse a la selección AgentHarness (OpenClaw, *Agent runtimes*, s. f.).
 
 El harness `copilot` es un plugin externo opt-in para GitHub Copilot CLI. Reclama el provider de suscripción canónico `github-copilot` y **nunca** lo selecciona `auto`. Opta por modelo o por provider vía `agentRuntime.id` (OpenClaw, *Agent runtimes*, s. f.; *GitHub Copilot agent runtime*, s. f., https://docs.openclaw.ai/plugins/copilot).
 
@@ -52,7 +52,7 @@ Distintos runtimes poseen distintas cantidades del loop (OpenClaw, *Agent runtim
 | --- | --- | --- |
 | Owner del loop de modelo | OpenClaw, vía el runner embebido OpenClaw | Codex app-server |
 | Estado canónico de thread | transcript OpenClaw | thread Codex, más espejo de transcript OpenClaw |
-| Tools dinamicas OpenClaw | loop nativo de tools OpenClaw | puenteadas por el adapter Codex |
+| Tools dinámicas OpenClaw | loop nativo de tools OpenClaw | puenteadas por el adapter Codex |
 | Tools nativas de shell y archivos | camino OpenClaw | tools nativas Codex, puenteadas por hooks nativos donde se soporta |
 | Context engine | ensamblado nativo OpenClaw | OpenClaw proyecta contexto ensamblado al turno Codex |
 | Compaction | OpenClaw o context engine seleccionado | compaction nativa Codex, con notificaciones OpenClaw y mantenimiento de espejo |
@@ -115,7 +115,7 @@ La salida de status puede mostrar etiquetas `Execution` y `Runtime`. Léelas com
 
 Si una corrida muestra un runtime inesperado, inspecciona primero la política de runtime del provider/model seleccionado. Los pins de runtime de sesión legacy ya no deciden el enrutado (OpenClaw, *Agent runtimes*, s. f.).
 
-El runtime de agente embebido es poseido por OpenClaw: descubrimiento de modelo, cableado de tools, ensamblado de prompt, gestión de sesiones y entrega de canal comparten una superficie de runtime integrada (OpenClaw, *Agent runtime*, s. f.).
+El runtime de agente embebido es poseído por OpenClaw: descubrimiento de modelo, cableado de tools, ensamblado de prompt, gestión de sesiones y entrega de canal comparten una superficie de runtime integrada (OpenClaw, *Agent runtime*, s. f.).
 
 <TryThis>
 Nombra las cuatro capas: provider, model, agent runtime, channel. Escribe que superficie posee `/codex` frente a `/acp`. Escribe el orden de selección: política de alcance de modelo, política de alcance de provider, auto, fallback `openclaw`. Nombra un pin de agente entero que se ignora.
@@ -139,14 +139,14 @@ Cuando un runtime no es OpenClaw, su docs debe enunciar que superficies OpenClaw
 
 | Pregunta | Por que importa |
 | --- | --- |
-| Quien posee el loop de modelo? | Determina donde ocurren retries, continuación de tools y la decisión de respuesta final |
-| Quien posee la historia canonica de thread? | Determina si OpenClaw puede editar historia o solo espejarla |
-| Funcionan las tools dinamicas OpenClaw? | Messaging, sesiones, cron y tools poseidas por OpenClaw dependen de esto |
-| Funcionan los hooks de tools dinamicas? | Los plugins esperan `before_tool_call`, `after_tool_call` y middleware alrededor de tools poseidas por OpenClaw |
-| Funcionan los hooks de tools nativas? | Shell, patch y tools poseidas por el runtime necesitan soporte de hook nativo para política y observación |
-| Corre el ciclo de vida del context engine? | Memory y plugins de contexto dependen de assemble, ingest, after-turn y compaction |
-| Que datos de compaction se exponen? | Algunos plugins solo necesitan notificaciones; otros necesitan metadata de kept/dropped |
-| Que queda sin soporte a propósito? | El usuario no debe asumir equivalencia OpenClaw donde el runtime nativo posee más estado |
+| ¿Quién posee el loop de modelo? | Determina donde ocurren retries, continuación de tools y la decisión de respuesta final |
+| ¿Quién posee la historia canónica de thread? | Determina si OpenClaw puede editar historia o solo espejarla |
+| ¿Funcionan las tools dinámicas OpenClaw? | Messaging, sesiones, cron y tools poseídas por OpenClaw dependen de esto |
+| ¿Funcionan los hooks de tools dinámicas? | Los plugins esperan `before_tool_call`, `after_tool_call` y middleware alrededor de tools poseídas por OpenClaw |
+| ¿Funcionan los hooks de tools nativas? | Shell, patch y tools poseídas por el runtime necesitan soporte de hook nativo para política y observación |
+| ¿Corre el ciclo de vida del context engine? | Memory y plugins de contexto dependen de assemble, ingest, after-turn y compaction |
+| ¿Qué datos de compaction se exponen? | Algunos plugins solo necesitan notificaciones; otros necesitan metadata de kept/dropped |
+| ¿Qué queda sin soporte a propósito? | El usuario no debe asumir equivalencia OpenClaw donde el runtime nativo posee más estado |
 
 El contrato de soporte del runtime Codex está documentado en *Codex harness runtime* (OpenClaw, s. f., https://docs.openclaw.ai/plugins/codex-harness-runtime#v1-support-contract).
 

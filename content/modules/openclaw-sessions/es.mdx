@@ -119,13 +119,13 @@ Los cron jobs reciben una sesión nueva por run. Las automatizaciones aisladas u
 
 <VisualSlot id="openclaw-sessions:3" />
 
-Las session tools de cara al agente (`sessions_list`, `sessions_history`, `sessions_send`, `sessions_spawn`) honran `tools.sessions.visibility`. El default `tree` significa sesión actual más subagentes spawned; cuando el caller es la sesión main canonica, incluye cada sesión del mismo agente para list, history, search, send y status. `self` es solo la session key actual. `agent` es cualquier sesión que pertenece al agent id actual (puede incluir otros usuarios si corres sesiones per-sender bajo el mismo agent id). `all` es cualquier sesión; el targeting cross-agent sigue exigiendo `tools.agentToAgent` (OpenClaw, *Tools and custom providers*, s. f.).
+Las session tools de cara al agente (`sessions_list`, `sessions_history`, `sessions_send`, `sessions_spawn`) honran `tools.sessions.visibility`. El default `tree` significa sesión actual más subagentes spawned; cuando el caller es la sesión main canónica, incluye cada sesión del mismo agente para list, history, search, send y status. `self` es solo la session key actual. `agent` es cualquier sesión que pertenece al agent id actual (puede incluir otros usuarios si corres sesiones per-sender bajo el mismo agent id). `all` es cualquier sesión; el targeting cross-agent sigue exigiendo `tools.agentToAgent` (OpenClaw, *Tools and custom providers*, s. f.).
 
 `self` permanece estricto para main. La denegación incognito permanece absoluta. Cuando no es `all`, `sessions_list` incluye un campo compacto `visibility` que describe el modo efectivo y un aviso de que algunas sesiones pueden omitirse.
 
 Los watches ambientales de grupo siguen encolando avisos de actividad y dicen a la sesión main donde paso algo. No otorgan acceso: el acceso same-agent de main está construido en `tree`. En un setup multi-usuario, `session.dmScope: "main"` comparte esa sesión main entre usuarios; usa un DM scope per-peer para aislamiento, o pon `tools.sessions.visibility: "self"` para acceso estricto a la sesión actual.
 
-Para continuar la misma sesión poseida por el Gateway en el Control UI, terminal o un harness de código, vean *Session synchronization and attachment* (OpenClaw, s. f., https://docs.openclaw.ai/concepts/session-attachment). El modo bridge ACP mapea sesiones ACP sobre session keys del Gateway; eso continua en la lección ACP.
+Para continuar la misma sesión poseída por el Gateway en el Control UI, terminal o un harness de código, vean *Session synchronization and attachment* (OpenClaw, s. f., https://docs.openclaw.ai/concepts/session-attachment). El modo bridge ACP mapea sesiones ACP sobre session keys del Gateway; eso continua en la lección ACP.
 
 Lectura adicional en el mismo sitio de docs: *Session search*, *Session pruning*, *Compaction*, *Session tools*, *Session management deep dive*, *Multi-agent*, *Background tasks*, *Channel routing* (OpenClaw, s. f.).
 

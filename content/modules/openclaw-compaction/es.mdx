@@ -31,7 +31,7 @@ Antes de compactar, OpenClaw recuerda automáticamente al agente guardar notas i
 La compaction manual usa `agents.defaults.compaction.keepRecentTokens` (default: 20,000) como presupuesto de cut-point y conserva esa cola reciente en el contexto reconstruido.
 
 <Callout>
-Necesitan pizarra limpia? `/new` arranca una sesión fresca sin compactar. Reset acuña un `sessionId` nuevo. Compaction conserva la identidad de sesión actual para el compactador SQLite builtin. Tres verbos, tres páginas (OpenClaw, *Compaction*, s. f.; *Session management*, s. f., https://docs.openclaw.ai/concepts/session).
+¿Necesitan pizarra limpia? `/new` arranca una sesión fresca sin compactar. Reset acuña un `sessionId` nuevo. Compaction conserva la identidad de sesión actual para el compactador SQLite builtin. Tres verbos, tres páginas (OpenClaw, *Compaction*, s. f.; *Session management*, s. f., https://docs.openclaw.ai/concepts/session).
 </Callout>
 
 ## Calidad safeguard
@@ -46,7 +46,7 @@ Poner un `provider` custom fuerza automáticamente `mode: "safeguard"`. Si el pr
 
 Por defecto, compaction usa el modelo primario del agente. Pongan `agents.defaults.compaction.model` para delegar el resumen (`provider/model-id` o un alias configurado). Cuando no está puesto, compaction empieza con el modelo activo de sesión. Si el resumen falla con un error de proveedor elegible para fallback, OpenClaw reintenta por la cadena de fallback existente de la sesión. La elección de fallback es temporal y no se escribe de vuelta al estado de sesión. Un override explícito de compaction.model permanece exacto y no hereda esa cadena (OpenClaw, *Compaction*, s. f.).
 
-Cuando `agents.defaults.compaction.maxActiveTranscriptBytes` está puesto, OpenClaw dispara compaction local normal antes de un run si el historial de transcripción alcanza ese tamaño. Pongan un conteo positivo de bytes o un string de tamaño como `"20mb"`; `0` o unset deshabilita el guard. No parte bytes crudos; pide al pipeline normal de compaction un resumen semantico. Para sesiones Codex app-server, el mismo umbral capa transcripciones native rollout y los threads nativos oversized arrancan frescos. El byte guard aplica al historial activo de transcripción SQLite. Los artefactos checkpoint JSONL legacy no son el target activo de compaction.
+Cuando `agents.defaults.compaction.maxActiveTranscriptBytes` está puesto, OpenClaw dispara compaction local normal antes de un run si el historial de transcripción alcanza ese tamaño. Pongan un conteo positivo de bytes o un string de tamaño como `"20mb"`; `0` o unset deshabilita el guard. No parte bytes crudos; pide al pipeline normal de compaction un resumen semántico. Para sesiones Codex app-server, el mismo umbral capa transcripciones native rollout y los threads nativos oversized arrancan frescos. El byte guard aplica al historial activo de transcripción SQLite. Los artefactos checkpoint JSONL legacy no son el target activo de compaction.
 
 Un context engine puede devolver una identidad de sesión sucesora compactada explícita. OpenClaw la adopta y registra metadatos de checkpoint contra ella. El **compactador SQLite builtin conserva la identidad de sesión actual** y no crea una segunda transcripción de runtime. OpenClaw ya no escribe copias `.checkpoint.*.jsonl` separadas para compactions nuevas.
 
@@ -57,7 +57,7 @@ Por defecto, compaction corre en silencio. Pongan `notifyUser` true para mostrar
 | | Compaction | Pruning | Reset |
 | --- | --- | --- | --- |
 | Que hace | Resume conversación vieja | Recorta resultados de tool viejos | Acuña un sessionId nuevo |
-| Guardado? | Si, en la transcripción | No, in-memory por request | Id nuevo; archivos pueden quedar |
+| ¿Guardado? | Sí, en la transcripción | No, in-memory por request | Id nuevo; archivos pueden quedar |
 | Alcance | Toda la conversación | Solo resultados de tool | Identidad de sesión |
 
 Citen *Session pruning* (OpenClaw, s. f., https://docs.openclaw.ai/concepts/session-pruning) para recorte de tool-result. Citen *Session management* para reset daily/idle.
