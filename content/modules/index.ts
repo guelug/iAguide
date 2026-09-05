@@ -513,6 +513,7 @@ export const VISUALS_EXTRA: Record<
   "quantization:3": () => import("./quantization/Visual3"),
   "quotas-and-pricing:2": () => import("./quotas-and-pricing/Visual2"),
   "quotas-and-pricing:3": () => import("./quotas-and-pricing/Visual3"),
+  "quotas-and-pricing:4": () => import("./quotas-and-pricing/Visual4"),
   "reinforcement-learning:2": () => import("./reinforcement-learning/Visual2"),
   "reinforcement-learning:3": () => import("./reinforcement-learning/Visual3"),
   "safety-and-injection:2": () => import("./safety-and-injection/Visual2"),

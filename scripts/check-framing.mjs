@@ -134,6 +134,9 @@ const SCENES = [
   // Union of the three failure modes, so the tallest one (the 15 GB
   // column, which is the point) has to fit alongside the widest.
   { name: "attnres:6 failures", fov: 40, dir: [9, 7.4, 9], min: [-6.5, 0, -5.0], max: [6.5, 4.9, 5.0] },
+  // At ten calls the row is at its widest and the history band at its
+  // tallest, so this is the state that has to fit.
+  { name: "quotas:4 turn", fov: 40, dir: [9, 7.4, 9], min: [-6.5, -0.4, -4.0], max: [6.5, 2.9, 4.0] },
 ];
 
 /**
@@ -189,6 +192,23 @@ const LABELLED = [
       { text: "8 × 1.9 GB", at: [0, 1.28, 0], center: true },
       { text: "8 × dispositivo", at: [0, 0.2, 2.9], center: true },
       { text: "el arreglo", at: [0, 4.9, -3.4], center: true },
+    ],
+  },
+  {
+    // Ten calls with the pool rotating: every label the scene can show
+    // at once. The per-call labels are deliberately only the first and
+    // last, because one per slip is what would collide.
+    name: "quotas:4 ten calls, rotating",
+    fov: 40,
+    dir: [9, 7.4, 9],
+    fit: 1.16,
+    min: [-6.5, -0.4, -4.0],
+    max: [6.5, 2.9, 4.0],
+    labels: [
+      { text: "prefijo a tarifa cacheada · 4k", at: [0, 1.07, 2.6], center: true },
+      { text: "llamada 1", at: [-4.7, -0.35, 0], center: true },
+      { text: "llamada 10", at: [4.7, -0.35, 0], center: true },
+      { text: "429 · clave nueva, caché fría", at: [-1.57, 2.9, 0], center: true },
     ],
   },
 ];
