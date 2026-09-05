@@ -159,6 +159,8 @@ Do not file a bug that the supervisor does not stream dialogs to Telegram. That 
 
 ## Compare, without mixing knobs
 
+<VisualSlot id="hermes-browser:3" />
+
 Hermes attaches a supervisor to whichever backend the browser tools already use: local Chrome, Browserbase, or nothing. OpenClaw runs a dedicated Chrome, Brave, Edge, or Chromium profile named `openclaw` through a small local control service inside the Gateway, loopback only, isolated from the personal browser (OpenClaw, *Browser (OpenClaw-managed)*, n.d., https://docs.openclaw.ai/tools/browser).
 
 OpenClaw's default agent path is that isolated `openclaw` profile. A built-in `user` profile attaches to a real signed-in Chrome via Chrome DevTools MCP. A `chrome` profile drives signed-in Chrome through an extension. Hermes has none of those three named profiles. Hermes has a `CDPSupervisor` per `task_id`.

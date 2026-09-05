@@ -442,6 +442,7 @@ export const VISUALS_EXTRA: Record<
   "hermes-aiagent:2": () => import("./hermes-aiagent/Visual2"),
   "hermes-assembly:2": () => import("./hermes-assembly/Visual2"),
   "hermes-browser:2": () => import("./hermes-browser/Visual2"),
+  "hermes-browser:3": () => import("./hermes-browser/Visual3"),
   "hermes-compression:2": () => import("./hermes-compression/Visual2"),
   "hermes-cron:2": () => import("./hermes-cron/Visual2"),
   "hermes-cron:3": () => import("./hermes-cron/Visual3"),
