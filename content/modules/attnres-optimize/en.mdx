@@ -178,6 +178,8 @@ Train with **Block**, `N` about **8**, `w_l = 0`, RMSNorm on keys. Do **not** ru
 
 Three failure modes, named, so you recognise them in a profiler.
 
+<VisualSlot id="attnres-optimize:6" />
+
 1. **You trained Full, then pipelined.** Activations and comm explode as `O(L d)`. The trace shows every stage sending a stack of hidden states. Fix: train Block. Do not "add cache" to Full and hope; cache helps Block because `N` is small.
 2. **You implemented depth attention as a Python loop over layers, each scoring all blocks.** That is the `O(L N)` naive inference. Fix: Phase 1 batch. If your engine cannot batch `w_l`, you are not running the paper's Algorithm 1.
 3. **You allocated `N × T × d` on one GPU for 128K prefill.** 15 GB appears, allocator dies, you blame AttnRes. Fix: sequence-shard across TP, then chunked prefill. The merge already wants to live in the all-reduce.

@@ -174,6 +174,8 @@ Entrena con **Block**, `N` unos **8**, `w_l = 0`, RMSNorm en las keys. **No** co
 
 Tres modos de fallo, con nombre, para reconocerlos en un profiler.
 
+<VisualSlot id="attnres-optimize:6" />
+
 1. **Entrenaste Full y luego hiciste pipeline.** Activaciones y comm explotan como `O(L d)`. La traza muestra cada etapa enviando una pila de estados ocultos. Arreglo: entrena Block. No "añadas caché" a Full y esperes; la caché ayuda a Block porque `N` es pequeño.
 2. **Implementaste la atención de profundidad como un bucle Python sobre capas, cada una puntuando todos los bloques.** Esa es la inferencia ingenua `O(L N)`. Arreglo: agrupa la Fase 1. Si tu motor no puede agrupar `w_l`, no estás corriendo el Algoritmo 1 del paper.
 3. **Asignaste `N × T × d` en una GPU para prefill de 128K.** Aparecen 15 GB, el allocator muere, culpas a AttnRes. Arreglo: parte la secuencia en TP, luego prefill por chunks. La fusión ya quiere vivir en el all-reduce.

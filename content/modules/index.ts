@@ -415,6 +415,7 @@ export const VISUALS_EXTRA: Record<
   "attnres-optimize:3": () => import("./attnres-optimize/Visual3"),
   "attnres-optimize:4": () => import("./attnres-optimize/Visual4"),
   "attnres-optimize:5": () => import("./attnres-optimize/Visual5"),
+  "attnres-optimize:6": () => import("./attnres-optimize/Visual6"),
   "game-agents:2": () => import("./game-agents/Visual2"),
   "game-agents:3": () => import("./game-agents/Visual3"),
   "agent-loop:2": () => import("./agent-loop/Visual2"),

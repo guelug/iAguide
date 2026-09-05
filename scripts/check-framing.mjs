@@ -131,6 +131,9 @@ const SCENES = [
   { name: "training:4 landscape", fov: 38, dir: [3.4, 4.6, 6.2], min: [-4.2, -3.5, -3.1], max: [4.2, 1.6, 3.1] },
   { name: "embeddings:3 cones", fov: 42, dir: [3.2, 2.2, 4.4], min: [-2.8, -3.5, -2.8], max: [2.8, 2.6, 2.8] },
   { name: "memory:3 budget", fov: 38, dir: [3.6, 2.4, 5.4], min: [-2.0, -2.7, -1.0], max: [3.6, 2.4, 1.0] },
+  // Union of the three failure modes, so the tallest one (the 15 GB
+  // column, which is the point) has to fit alongside the widest.
+  { name: "attnres:6 failures", fov: 40, dir: [9, 7.4, 9], min: [-6.5, 0, -5.0], max: [6.5, 4.9, 5.0] },
 ];
 
 /**
@@ -171,6 +174,22 @@ const LABELLED = [
       at: [-4.2, 0.42, -2.6 + i * 1.05],
       center: true,
     })),
+  },
+  {
+    // The densest state the scene can be in: tensor parallel at P = 8.
+    // Labelling each column collided at every width, so the row carries
+    // one label and the columns carry none. This entry keeps it that way.
+    name: "attnres:6 sharded devices",
+    fov: 40,
+    dir: [9, 7.4, 9],
+    fit: 1.16,
+    min: [-6.5, 0, -5.0],
+    max: [6.5, 4.9, 5.0],
+    labels: [
+      { text: "8 × 1.9 GB", at: [0, 1.28, 0], center: true },
+      { text: "8 × dispositivo", at: [0, 0.2, 2.9], center: true },
+      { text: "el arreglo", at: [0, 4.9, -3.4], center: true },
+    ],
   },
 ];
 
