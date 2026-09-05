@@ -145,23 +145,15 @@ function StudioEnvironment() {
  * Direct light on top of the environment. Kept low: the studio does most
  * of the work, and this only has to carve the shadow that tells a reader
  * which object is in front.
+ *
+ * The key light is separate because it has to be fitted to the scene;
+ * see KeyLight.
  */
-function DefaultLights({ shadows }: { shadows: boolean }) {
+function DefaultLights() {
   return (
     <>
       <ambientLight intensity={0.5} />
       <hemisphereLight args={[P.paper, P.sunken, 0.45]} />
-      <directionalLight
-        position={[4.5, 8, 5.5]}
-        intensity={1.15}
-        color="#ffffff"
-        castShadow={shadows}
-        shadow-mapSize={[1024, 1024]}
-        shadow-bias={-0.0009}
-        shadow-normalBias={0.02}
-      >
-        <orthographicCamera attach="shadow-camera" args={[-9, 9, 9, -9, 0.1, 32]} />
-      </directionalLight>
       <directionalLight position={[-6, 2, -3]} intensity={0.3} color={P.tealWash} />
     </>
   );
@@ -205,7 +197,12 @@ export function Stage({
       className={className}
       style={{ maxWidth: "100%", overflow: "clip", touchAction: "pan-y" }}
     >
-      {onScreen || still ? (
+      {/* Mount on approach only. Keeping every canvas alive for reduced
+          motion handed the heaviest path — one WebGL context, environment
+          bake and shadow map per figure, all at once — to the readers most
+          likely to be on a modest machine. They get the same lazy mount,
+          and `demand` below means it draws once and then stops. */}
+      {onScreen ? (
         <Canvas
           /* `flat` disables tone mapping: diagram colours must match the
              CSS swatches beside them exactly, or the legend lies. */
@@ -230,8 +227,10 @@ export function Stage({
           <StageContext.Provider value={env}>
             <PerfGovernor onChange={setQuality} enabled={!still} />
             <StudioEnvironment />
-            <DefaultLights shadows={castShadows} />
-            {castShadows ? <Floor /> : null}
+            <DefaultLights />
+            {/* Always mounted: it owns the key light, which the scene
+                needs whether or not that light casts a shadow. */}
+            <Floor shadows={castShadows} quality={quality} />
             {fit !== false && !controls ? <CameraRig fit={fit} /> : null}
             <Suspense fallback={null}>{children}</Suspense>
             {controls ? (
@@ -306,8 +305,17 @@ const _zAxis = new Vector3();
 const _up = new Vector3();
 
 
-/* Scratch for the floor probe, kept apart from the rig's own scratch. */
+/* Scratch for the key light and its floor, kept apart from the rig's. */
 const _fbox = new Box3();
+const _fcenter = new Vector3();
+const _fcorner = new Vector3();
+const _lx = new Vector3();
+const _ly = new Vector3();
+const _lz = new Vector3();
+const _lup = new Vector3();
+
+/** The direction the key light comes from. Distance is solved, not fixed. */
+const KEY_DIR = new Vector3(4.5, 8, 5.5).normalize();
 
 /**
  * A shadow catcher that finds its own height.
@@ -319,8 +327,9 @@ const _fbox = new Box3();
  * same geometry read as objects standing in a room. The plane paints
  * nothing but the shadow, so the page's paper still shows through.
  */
-function Floor() {
+function Floor({ shadows, quality }: { shadows: boolean; quality: number }) {
   const ref = useRef<THREE.Mesh>(null);
+  const light = useRef<THREE.DirectionalLight>(null);
   const since = useRef(0);
 
   useFrame((state, dt) => {
@@ -330,10 +339,12 @@ function Floor() {
     if (since.current < 0.5) return;
     since.current = 0;
 
+    /* One traversal serves both the floor and the shadow frustum. They
+       used to walk the scene separately, twice a second each. */
     _fbox.makeEmpty();
     let found = false;
     state.scene.traverse((obj) => {
-      if (obj === mesh || obj.userData?.noFit || obj.userData?.noFloor) return;
+      if (obj === mesh || obj.userData?.noFit) return;
       if (!(obj as THREE.Mesh).geometry) return;
       for (let p = obj.parent; p; p = p.parent) {
         if (p.userData?.noFit) return;
@@ -347,19 +358,100 @@ function Floor() {
     mesh.position.y = MathUtils.damp(mesh.position.y, target, 5, dt);
     mesh.position.x = (_fbox.min.x + _fbox.max.x) / 2;
     mesh.position.z = (_fbox.min.z + _fbox.max.z) / 2;
+
+    /* Fit the shadow camera to what is actually on the plate.
+       A fixed ±9 frustum was wrong in both directions: the widest iso
+       scenes project to about 9.8 units in the light's own basis, so
+       objects near the edge silently lost their shadow, while a small
+       scene spread the same 1024² map over four times the area it
+       needed and came out soft and stepped. */
+    const dl = light.current;
+    if (!dl || !dl.castShadow) return;
+
+    _fbox.getCenter(_fcenter);
+
+    _lz.copy(KEY_DIR);
+    _lup.set(0, 1, 0);
+    if (Math.abs(_lz.dot(_lup)) > 0.999) _lup.set(0, 0, 1);
+    _lx.copy(_lup).cross(_lz).normalize();
+    _ly.copy(_lz).cross(_lx).normalize();
+
+    /* The frustum has to hold the shadows, not just the objects, and an
+       oblique light throws them well past the geometry. Rather than pad
+       by a guessed factor, each corner is also traced along the light
+       ray to the ground and that landing point is measured too — which
+       is exactly where its shadow falls. */
+    const groundY = _fbox.min.y;
+    let halfW = 0;
+    let halfH = 0;
+    let halfD = 0;
+    for (let i = 0; i < 16; i++) {
+      _fcorner.set(
+        i & 1 ? _fbox.max.x : _fbox.min.x,
+        i & 2 ? _fbox.max.y : _fbox.min.y,
+        i & 4 ? _fbox.max.z : _fbox.min.z,
+      );
+      if (i >= 8) {
+        // Where the light ray through this corner meets the ground.
+        _fcorner.addScaledVector(_lz, -(_fcorner.y - groundY) / _lz.y);
+      }
+      _fcorner.sub(_fcenter);
+      halfW = Math.max(halfW, Math.abs(_fcorner.dot(_lx)));
+      halfH = Math.max(halfH, Math.abs(_fcorner.dot(_ly)));
+      halfD = Math.max(halfD, Math.abs(_fcorner.dot(_lz)));
+    }
+
+    const w = halfW + 0.4;
+    const h = halfH + 0.4;
+    const dist = halfD + 6;
+
+    dl.position.copy(_fcenter).addScaledVector(_lz, dist);
+    dl.target.position.copy(_fcenter);
+    dl.target.updateMatrixWorld();
+
+    const cam = dl.shadow.camera;
+    if (cam.left !== -w || cam.top !== h || cam.far !== dist + halfD + 2) {
+      cam.left = -w;
+      cam.right = w;
+      cam.top = h;
+      cam.bottom = -h;
+      cam.near = 0.1;
+      cam.far = dist + halfD + 2;
+      cam.updateProjectionMatrix();
+    }
   });
 
+  /* The map is the one shadow cost that scales with nothing else, so it
+     follows the perf governor down instead of staying at 1024 while
+     everything else gives ground. */
+  const map = quality > 0.7 ? 1024 : 512;
+
   return (
-    <mesh
-      ref={ref}
-      rotation={[-Math.PI / 2, 0, 0]}
-      position={[0, -50, 0]}
-      receiveShadow
-      userData={{ noFit: true }}
-    >
-      <planeGeometry args={[80, 80]} />
-      <shadowMaterial transparent opacity={0.17} color={P.ink} />
-    </mesh>
+    <>
+      <directionalLight
+        ref={light}
+        position={[4.5, 8, 5.5]}
+        intensity={1.15}
+        color="#ffffff"
+        castShadow={shadows}
+        shadow-mapSize={[map, map]}
+        shadow-bias={-0.0009}
+        shadow-normalBias={0.02}
+      >
+        <orthographicCamera attach="shadow-camera" args={[-9, 9, 9, -9, 0.1, 32]} />
+      </directionalLight>
+      <mesh
+        ref={ref}
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, -50, 0]}
+        receiveShadow
+        visible={shadows}
+        userData={{ noFit: true }}
+      >
+        <planeGeometry args={[80, 80]} />
+        <shadowMaterial transparent opacity={0.17} color={P.ink} />
+      </mesh>
+    </>
   );
 }
 
