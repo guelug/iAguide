@@ -58,18 +58,29 @@ export type SurfaceCompareCopy = {
   hazard?: { text: string; from: number; to: number };
 };
 
-const SLOT_X = [-4.1, 0, 4.1];
+/**
+ * Where each platform stands, centred for however many there are.
+ *
+ * This used to be a fixed array of three, so a module with only two
+ * surfaces to compare got them at -4.1 and 0 with the right third of the
+ * plate empty — the rig then framed that emptiness as if it were part of
+ * the diagram. Spacing is unchanged, so the three-surface scenes that
+ * already exist land exactly where they did.
+ */
+const SLOT_GAP = 4.1;
+const slotX = (index: number, count: number) =>
+  (index - (count - 1) / 2) * SLOT_GAP;
 
 function Platform({
   surface,
-  index,
+  x,
   active,
   onSelect,
   roles,
   knobsLabel,
 }: {
   surface: Surface;
-  index: number;
+  x: number;
   active: boolean;
   onSelect: () => void;
   roles: SurfaceCompareCopy["roles"];
@@ -82,7 +93,6 @@ function Platform({
     g.position.y = MathUtils.damp(g.position.y, active ? 0.34 : 0, 6, dt);
   });
 
-  const x = SLOT_X[index] ?? 0;
   const dir = surface.role;
 
   return (
@@ -224,7 +234,7 @@ export function SurfaceCompare({
           <Platform
             key={s.name}
             surface={s}
-            index={i}
+            x={slotX(i, surfaces.length)}
             active={i === active}
             onSelect={() => setActive(i)}
             roles={copy.roles}
@@ -236,8 +246,8 @@ export function SurfaceCompare({
             confused in the first place. */}
         {surfaces.length > 1 ? (
           <AxisLine
-            from={[SLOT_X[0], 1.9, 0]}
-            to={[SLOT_X[Math.min(surfaces.length, 3) - 1], 1.9, 0]}
+            from={[slotX(0, surfaces.length), 1.9, 0]}
+            to={[slotX(surfaces.length - 1, surfaces.length), 1.9, 0]}
             overrun={0.9}
             color={P.lineStrong}
             opacity={0.45}
@@ -248,15 +258,17 @@ export function SurfaceCompare({
         {hazard ? (
           <group>
             <AxisLine
-              from={[SLOT_X[hazard.from] ?? 0, 1.2, 0.9]}
-              to={[SLOT_X[hazard.to] ?? 0, 1.2, 0.9]}
+              from={[slotX(hazard.from, surfaces.length), 1.2, 0.9]}
+              to={[slotX(hazard.to, surfaces.length), 1.2, 0.9]}
               overrun={0}
               color={P.rose}
               opacity={0.5}
             />
             <group
               position={[
-                ((SLOT_X[hazard.from] ?? 0) + (SLOT_X[hazard.to] ?? 0)) / 2,
+                (slotX(hazard.from, surfaces.length) +
+                  slotX(hazard.to, surfaces.length)) /
+                  2,
                 1.2,
                 0.9,
               ]}

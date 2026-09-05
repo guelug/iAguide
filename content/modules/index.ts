@@ -444,6 +444,7 @@ export const VISUALS_EXTRA: Record<
   "hermes-browser:2": () => import("./hermes-browser/Visual2"),
   "hermes-compression:2": () => import("./hermes-compression/Visual2"),
   "hermes-cron:2": () => import("./hermes-cron/Visual2"),
+  "hermes-cron:3": () => import("./hermes-cron/Visual3"),
   "hermes-egress:2": () => import("./hermes-egress/Visual2"),
   "hermes-gateway:2": () => import("./hermes-gateway/Visual2"),
   "hermes-loop:2": () => import("./hermes-loop/Visual2"),
