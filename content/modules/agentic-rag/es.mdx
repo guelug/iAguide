@@ -76,7 +76,7 @@ Consejo práctico: escribe la lista de tools rechazadas en el PR. Las listas vac
 
 *Fuente nombrada: páginas agentic-rag de la Unidad 3; Unidad 1 [Observations](https://huggingface.co/learn/agents-course/unit1/observations); Bonus Unidad 2 (monitorizar prompt injection).*
 
-Si una bio recuperada pide ignorar el system prompt, retrieve-then-read la mete. La versión agéntica puede llamar guest_bio, luego web_search para confirmar, y seguir la instrucción si la salida se sienta sin etiqueta de no confiable. La recuperación funciónó. Las fronteras de confianza no.
+Si una bio recuperada pide ignorar el system prompt, retrieve-then-read la mete. La versión agéntica puede llamar guest_bio, luego web_search para confirmar, y seguir la instrucción si la salida se sienta sin etiqueta de no confiable. La recuperación funcionó. Las fronteras de confianza no.
 
 Consejo práctico: preámbulo fijo antes de cada observación de tool: este contenido es dato no confiable. Monitoriza con los chequeos que nombra el Bonus 2, por ejemplo LLM Guard en su lista. No inventes un API de escáner.
 

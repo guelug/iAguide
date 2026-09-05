@@ -192,7 +192,7 @@ Full AttnRes a escala es caro porque recompute más pipeline deben **guardar** y
 
 Inferencia en dos fases: la Fase 1 agrupa las `S` queries de un bloque contra las K/V de bloques previos, devuelve salida más max más log-sum-exp. La Fase 2 suma parcial intra-bloque secuencial, fusión con softmax online. `w_l` es un parámetro, así que la Fase 1 se puede agrupar. Sobrecoste de inferencia bajo 2%. Prefill `N T d` son 15 GB a 128K con 8 bloques; parte la secuencia en TP a unos 1.9 GB; prefill por chunks 16K a menos de 0.3 GB; la fusión de la Fase 2 se mete en el all-reduce de TP. El Apéndice B aplica el mismo schedule a Full, I/O de `O(L)` a `O(S+N)`. Entrena Block, `N ≈ 8`, init a cero, RMSNorm en keys. No corras Full en PP de producción. El servicio hereda Block del checkpoint.
 
-Si puedes decir ese párrafo, la lección funciónó.
+Si puedes decir ese párrafo, la lección funcionó.
 
 ## Qué no es esto
 

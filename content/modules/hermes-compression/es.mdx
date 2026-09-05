@@ -2,7 +2,7 @@
 
 Hermes Agent usa un sistema dual de compresión y prompt caching de Anthropic para gestionar el contexto en conversaciones largas. *Context Compression and Caching* de Nous Research (s. f.) es la fuente de verdad. Archivos fuente: `agent/context_engine.py` (ABC), `agent/context_compressor.py` (motor por defecto), `agent/prompt_caching.py`, `gateway/run.py` (higiene de sesión), `run_agent.py` (buscar `_compress_context`).
 
-La [particularidad del bucle](/es/m/hermes-loop) menciónó de paso los dos disparadores. Esta lección es el algoritmo, el id de sesión in-place y por qué `system_and_3` más la identidad del modelo son portantes.
+La [particularidad del bucle](/es/m/hermes-loop) mencionó de paso los dos disparadores. Esta lección es el algoritmo, el id de sesión in-place y por qué `system_and_3` más la identidad del modelo son portantes.
 
 <VisualSlot caption="gateway 85%, bucle 50%, 4 fases, in-place, system_and_3." />
 

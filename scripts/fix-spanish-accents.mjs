@@ -24,6 +24,17 @@ import { join } from "node:path";
 const DRY = process.argv.includes("--dry");
 const ROOT = "content/modules";
 
+/* JavaScript's \b is ASCII-only, so it sees a word boundary in the
+   middle of "mencionó" — right before the accented vowel. That let the
+   -cion rule bite inside the word and produce "menciónó". Every pattern
+   here therefore uses explicit Unicode-aware edges instead. Digits and
+   the underscore count as word characters too, so an identifier like
+   cache_control is never split into a Spanish word plus a suffix. */
+const L = "0-9_a-zA-ZáéíóúüñÁÉÍÓÚÜÑ";
+const B0 = "(?<![" + L + "])";
+const B1 = "(?![" + L + "])";
+
+
 /** Forms that do not exist in Spanish without the accent. */
 const SAFE = {
   sesion: "sesión",
@@ -104,7 +115,7 @@ const KEEP = [/producción seria/gi, /\bdiffusion\b/gi, /\bstateversion\b/gi];
    (a paper title), "[conclusion](…)" (a link label). So -sion is a
    short list of forms read in context, and the genuinely mixed ones
    (extension, supervision, conclusion) are deliberately left alone. */
-const ENDINGS = [[/\b([a-záéíóúñ]{2,})cion\b/gi, "ción"]];
+const ENDINGS = [[new RegExp(B0 + "([a-záéíóúñ]{2,})cion" + B1, "gi"), "ción"]];
 
 /* Dropped tildes on the n. These are not accents but a different
    letter, and losing it changes the word: "ano" and "año" are not the
@@ -354,10 +365,17 @@ const SION = {
    only accented in front of the words that make it unmistakably a verb:
    a participle, a gerund, or one of a few fixed complements. */
 const ESTA =
-  /\besta\b(?=\s+(?:bien|mal|en|hecho|listo|vac[ií]o|activo|apagado|encendido|puesto|disponible|documentado|soportado|permitido|corriendo|esperando|haciendo|gated|el\b|la\b|[a-záéíóúñ]+(?:ado|ido|ando|iendo)\b))/gi;
+  new RegExp(B0 + "esta" + B1 + "(?=\s+(?:bien|mal|en|hecho|listo|vac[ií]o|activo|apagado|encendido|puesto|disponible|documentado|soportado|permitido|corriendo|esperando|haciendo|gated|el\b|la\b|[a-záéíóúñ]+(?:ado|ido|ando|iendo)" + B1 + "))", "gi");
 
 /** Still ambiguous and left alone: reported for a human to read. */
 const AMBIGUOUS = ["practica", "critico"];
+
+/* JavaScript's \b is ASCII-only, so it sees a word boundary in the
+   middle of "mencionó" — right before the accented vowel. That let the
+   -cion rule bite inside the word and produce "menciónó". Every pattern
+   here therefore uses explicit Unicode-aware edges instead. Digits and
+   the underscore count as word characters too, so an identifier like
+   cache_control is never split into a Spanish word plus a suffix. */
 
 /* Private-use codepoints, so a placeholder can never collide with prose.
    A plain " 12 " marker would: the lessons are full of bare numbers. */
@@ -404,8 +422,8 @@ function matchCase(src, out) {
 
 const TABLE = { ...SAFE, ...JUDGED, ...SION, ...NTILDE, ...MORE, ...CORPUS, ...OVER };
 const words = Object.keys(TABLE).sort((a, b) => b.length - a.length);
-const RX = new RegExp("\\b(" + words.join("|") + ")\\b", "gi");
-const AMB = new RegExp("\\b(" + AMBIGUOUS.join("|") + ")\\b", "gi");
+const RX = new RegExp(B0 + "(" + words.join("|") + ")" + B1, "gi");
+const AMB = new RegExp(B0 + "(" + AMBIGUOUS.join("|") + ")" + B1, "gi");
 
 const dirs = (await readdir(ROOT, { withFileTypes: true }))
   .filter((d) => d.isDirectory())
