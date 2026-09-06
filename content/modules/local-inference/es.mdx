@@ -60,6 +60,18 @@ No renombres `.safetensors` a `.gguf`. Convierte con la herramienta que document
 # python -m mlx_lm.generate --model <mlx-or-hf-id> --prompt "..."
 ```
 
+Tres flags deciden si eso arranca. El resto es afinado.
+
+- **`-c` / `--max-model-len` — cuánto contexto reservas.** No es un máximo permisivo: es una reserva. La <Term id="kv-cache">caché KV</Term> crece con esa cifra, así que subirla te come VRAM aunque tus prompts sean cortos. Es la causa más común de un OOM que la gente atribuye a los pesos. En vLLM la reserva es explícita y falla al arrancar, lo cual es una cortesía: te enteras en un segundo, no a mitad de una demo.
+- **`-ngl` — cuántas capas van a la GPU.** `99` es el idioma de "todas las que quepan". Pasarte hace OOM; quedarte corto deja capas en CPU y el decode se arrastra a velocidad de RAM del host. Cuando no cabe entero, este es el mando que negocia, y la [lección de memoria](/m/memory-hardware) explica por qué cruzar PCIe cuesta tanto.
+- **`--gpu-memory-utilization` (vLLM) — cuánta tarjeta se puede quedar.** Subirlo hacia 0.95 saca algo más de sitio; no fabrica memoria.
+
+Y una distinción que confunde a todo el mundo el primer día: `llama-cli` y `ollama run` son de una sola tirada, para probar. `llama-server` y `ollama serve` levantan HTTP, que es lo que un arnés necesita. Un arnés no habla con un binario interactivo.
+
+<Callout>
+Dimensiona `-c` con los prompts que tu arnés envía de verdad — system prompt, esquemas de tools, hilo y margen de respuesta — no con el número redondo de la model card. Un `-c` copiado de un README es una reserva de memoria hecha por un desconocido.
+</Callout>
+
 Las flags cambian. `llama-cli` antes era `main`. Lee `--help` del binario que compilaste.
 
 ## Contexto frente a velocidad
