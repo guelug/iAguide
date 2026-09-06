@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import VisualLegacy from "./VisualLegacy";
 import { useLocale } from "next-intl";
 import { RoundedBox } from "@react-three/drei";
 import { Figure, Knob, Switcher } from "@/components/three/Figure";
@@ -461,8 +462,11 @@ function OpticalBench({ t, focus, denoise, separation, onFocus }: { t: Copy; foc
 }
 
 export default function Visual() {
-  const locale = useLocale();
-  const t = locale === "es" ? COPY.es : COPY.en;
+  return useLocale() === "es" ? <SpanishVisual /> : <VisualLegacy />;
+}
+
+function SpanishVisual() {
+  const t = COPY.es;
   const [focus, setFocus] = useState<Focus>("denoiser");
   const [denoise, setDenoise] = useState(58);
   const [separation, setSeparation] = useState(36);

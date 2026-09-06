@@ -47,3 +47,7 @@ Criterios para cada rediseño:
 5. Verificar escritorio y móvil, estados extremos, pausa y movimiento reducido. Un build verde no certifica el acabado visual.
 
 La nueva `attention:4` sustituye un uso duplicado de la escena de atención que tenía una leyenda de caché KV incorrecta para su contenido. La nueva maqueta representa ocho capas y dieciséis posiciones; cada posición agrupa K y V de dos cabezas de dimensión cuatro en FP16, con batch uno. Cada token añade 256 bytes. Se muestra explícitamente que las bandejas no son tarjetas físicas.
+
+En esta ampliación se rehacen los principales ES de tokenización (fusiones BPE calculadas), modelos de imagen (banco con carcasas y textura RGB procedimental), memoria/hardware (GPU desmontable y presupuesto en GiB) y entrenamiento (superficie MSE y descenso calculado). Sus componentes ingleses se conservan por separado. La alta definición se activa inicialmente en el laboratorio, donde solo hay un visor, y sigue siendo opcional en la lección.
+
+Verificación numérica: KV de ocho tokens = 2048 B, nueve = 2304 B; modelo de 8B a cuatro bits = 3,725 GiB ideales, más 4 GiB de KV a 32 × 1024 tokens y 1,5 GiB de reserva; descenso MSE con tasa 0,12 desde (2,4; −0,8) produce (2,016; 0,2128) y baja la pérdida de 11,468 a 3,89015168. Estas cifras se contrastaron con la interfaz. Catálogo: 262 diagramas en 96 módulos. El resto de escenas conserva su geometría anterior: el catálogo completo no debe presentarse como 262 rediseños terminados.

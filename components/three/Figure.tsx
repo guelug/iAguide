@@ -42,7 +42,7 @@ export function Figure({
   const [elevation, setElevation] = useState(0);
   const [labels, setLabels] = useState(true);
   const [paused, setPaused] = useState(false);
-  const [detail, setDetail] = useState(false);
+  const [detail, setDetail] = useState(lab);
   const [zoom, setZoom] = useState(1);
   const [view, setView] = useState<ViewerSettings["view"]>("original");
   const host = useRef<HTMLDivElement>(null);

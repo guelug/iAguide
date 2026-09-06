@@ -7,7 +7,7 @@ import { LabContext } from "./LabContext";
 import type { CatalogModule } from "@/lib/visual-catalog";
 
 const normalized = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-const FEATURED = ["tokenization", "image-models", "memory-hardware", "attention"];
+const FEATURED = ["tokenization", "image-models", "memory-hardware", "training", "attention"];
 
 export function VisualLaboratory({catalog, initialScene}: {catalog: CatalogModule[]; initialScene?: string}) {
   const all = useMemo(() => catalog.flatMap(module => module.figures.map(figure => ({module, figure}))), [catalog]);
