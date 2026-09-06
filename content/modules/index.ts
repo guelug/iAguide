@@ -370,6 +370,7 @@ export const VISUALS_EXTRA: Record<
   string,
   () => Promise<{ default: ComponentType }>
 > = {
+  "attention:4": () => import("./attention/Visual4"),
   "agent-patterns:2": () => import("./agent-patterns/Visual2"),
   "agent-patterns:3": () => import("./agent-patterns/Visual3"),
   "observability:2": () => import("./observability/Visual2"),

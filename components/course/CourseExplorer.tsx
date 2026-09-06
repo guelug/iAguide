@@ -90,6 +90,7 @@ export function CourseExplorer({ cards, tracks, initialTrack, strings, locale }:
           )}
           {active?.status === "complete" && <details key={active.slug} className="mt-6 rounded-2xl border border-line bg-surface p-4">
             <summary className="cursor-pointer font-display text-xl text-ink">{es ? "Explorar diagrama 3D" : "Explore 3D diagram"} · {active.title}</summary>
+            <Link href={`/lab?scene=${active.slug}`} className="mt-3 inline-block text-sm text-teal">Abrir en el laboratorio ↗</Link>
             <div className="mt-4"><VisualSlot id={active.slug} wide={false} /></div>
           </details>}
         </div>

@@ -22,7 +22,7 @@ import {
 } from "react";
 import { useViewer } from "./ViewerContext";
 import { P } from "@/lib/palette";
-import { BackSide, Box3, MathUtils, Vector3 } from "three";
+import { BackSide, Box3, MathUtils, Spherical, Vector3 } from "three";
 import type * as THREE from "three";
 
 type ControlsConfig = {
@@ -208,9 +208,8 @@ export function Stage({
           and `demand` below means it draws once and then stops. */}
       {onScreen ? (
         <Canvas
-          /* `flat` disables tone mapping: diagram colours must match the
-             CSS swatches beside them exactly, or the legend lies. */
-          flat
+          /* Studio tone mapping keeps physical highlights readable in ES. */
+          flat={!viewer.studio}
           dpr={[1, (viewer.detail ? Math.max(2, maxDpr) : maxDpr) * quality]}
           frameloop={still ? "demand" : onScreen ? "always" : "never"}
           gl={{
@@ -235,7 +234,7 @@ export function Stage({
             {/* Always mounted: it owns the key light, which the scene
                 needs whether or not that light casts a shadow. */}
             <Floor shadows={castShadows} quality={quality} />
-            {fit !== false && !controls ? <CameraRig fit={fit / viewer.zoom} view={viewer.view} /> : null}
+            {fit !== false && !controls ? <CameraRig fit={fit / viewer.zoom} view={viewer.view} azimuth={viewer.azimuth} elevation={viewer.elevation} /> : null}
             <Suspense fallback={null}>{children}</Suspense>
             {controls ? (
               <OrbitControls
@@ -614,7 +613,8 @@ function measureOrtho(
  * `userData.noFit`, so a dust cloud with a nine-unit radius cannot push
  * the subject into the distance.
  */
-function CameraRig({ fit, view }: { fit: number; view: "original" | "front" | "overhead" }) {
+function CameraRig({ fit, view, azimuth, elevation }: { fit: number; view: "original" | "front" | "overhead"; azimuth: number; elevation: number }) {
+  const spherical = useRef(new Spherical());
   const dir = useRef<Vector3 | null>(null);
   const goalPos = useRef(new Vector3());
   const goalLook = useRef(new Vector3());
@@ -633,12 +633,16 @@ function CameraRig({ fit, view }: { fit: number; view: "original" | "front" | "o
       dir.current = d.normalize();
     }
 
-    const config = `${fit}:${view}:${state.size.width}:${state.size.height}`;
+    const config = `${fit}:${view}:${azimuth}:${elevation}:${state.size.width}:${state.size.height}`;
     const changed = lastConfig.current !== config;
     lastConfig.current = config;
     if (view === "front") viewDir.current.set(0, 0, 1);
     else if (view === "overhead") viewDir.current.set(0.01, 1, 0.01).normalize();
     else viewDir.current.copy(dir.current);
+    spherical.current.setFromVector3(viewDir.current);
+    spherical.current.theta += MathUtils.degToRad(azimuth);
+    spherical.current.phi = MathUtils.clamp(spherical.current.phi - MathUtils.degToRad(elevation), 0.05, Math.PI - 0.05);
+    viewDir.current.setFromSpherical(spherical.current);
     since.current += dt;
     if (state.frameloop === "demand" || since.current > 0.4 || !settled.current || changed) {
       since.current = 0;

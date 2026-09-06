@@ -96,7 +96,7 @@ Los transformers no saben nada de orden hasta que se lo dices. La opción clási
 
 El prefill escribe un bloque de keys y values para todos los tokens del prompt, de todas las capas. El decode añade las keys y values de **un solo token** por capa y atiende sobre todo lo cacheado.
 
-<VisualSlot caption="KV cache: prefill escribe N×layers×heads bloques; decode añade 1×layers×heads bloques por paso." />
+<VisualSlot id="attention:4" caption="El prefill llena la caché; cada paso de decode añade una columna y consulta el historial. Separa las ocho capas y cuenta las parejas K/V." />
 
 Cuanto crece la caché, en concreto, para un modelo con L capas, H cabezas KV (atención: en GQA, H puede ser menor que las cabezas de atención), dimensión d y precisión fp16 (2 bytes por número):
 

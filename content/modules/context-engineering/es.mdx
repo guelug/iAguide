@@ -52,7 +52,7 @@ Un manifiesto de 20k es uno de esos asientos, inflado hasta llenar los otros. Es
 Empujar es el modo de fallo ámbar: pegar todo el índice de skills, cada markdown de proyecto, cada resumen de conversación previa, todo en el system prompt "por si acaso." Los costes:
 
 - **Coste de prefill** sube linealmente con el prefijo. Duplicar el system prompt duplica el trabajo que el motor hace en el primer token nuevo de cada turno.
-- **Tasa de acierto de caché de prefijo** baja. Cualquier cambio en cualquiera de ese texto inválida la caché. El coste no es "tu prompt se hizo más largo," es "cada turno re-paga el prefill del bloque entero empujado."
+- **Tasa de acierto de caché de prefijo** baja. Cualquier cambio en cualquiera de ese texto invalida la caché. El coste no es "tu prompt se hizo más largo," es "cada turno re-paga el prefill del bloque entero empujado."
 - **Distracción** — el modelo atiende a todo, diluye atención entre el ruido, y empieza a ignorar piezas que *eran* importantes (la tercera skill en el caso de CodexNest más abajo).
 
 Recuperar es la alternativa: mantén un índice en el prefijo, deja que una tool `load_skill(name)` o `retrieve(query)` traiga el cuerpo bajo demanda. El cuerpo traído pasa a ser parte de la cola volátil, donde no contamina la caché. Coste pagado solo cuando hace falta; la caché sobrevive entre necesidades.

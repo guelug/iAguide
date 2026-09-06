@@ -1,9 +1,10 @@
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { LocaleSwitcher } from "./LocaleSwitcher";
 
 export async function Header() {
   const t = await getTranslations("nav");
+  const es = await getLocale() === "es";
   return (
     <header className="sticky top-0 z-40 border-b border-line/70 bg-paper/85 backdrop-blur-md">
       <a href="#content" className="skip-link">
@@ -27,13 +28,14 @@ export async function Header() {
           <Link href="/course" className="text-muted no-underline transition-colors hover:text-ink">
             {t("course")}
           </Link>
+          {es && <Link href="/lab" className="text-teal no-underline transition-colors hover:text-ink">Laboratorio</Link>}
           <Link
             href="/glossary"
             className="hidden text-muted no-underline transition-colors hover:text-ink sm:inline"
           >
             {t("glossary")}
           </Link>
-          <Link href="/about" className="text-muted no-underline transition-colors hover:text-ink">
+          <Link href="/about" className={`${es ? "hidden sm:inline" : ""} text-muted no-underline transition-colors hover:text-ink`}>
             {t("about")}
           </Link>
           <LocaleSwitcher />

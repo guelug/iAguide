@@ -16,7 +16,7 @@ Conviene recordar qué cachea la caché de prefijo para entender por qué una co
 - **Prefill** — el prompt y el historial cacheado se procesan **en paralelo** por cada capa. La KV caché para esos tokens se construye una vez. Está limitada por throughput (compute-heavy).
 - **Decode** — cada token nuevo se genera **secuencialmente**, atendiendo a la KV de cada token previo. Está limitada por latencia (memory-bandwidth-heavy). El coste por token crece con la longitud del prefijo.
 
-La caché de prefijo del proveedor reutiliza el **prefill**. Un prefijo de 12k cacheado cuesta ~10% del precio del prefill fresco; un prefijo que falla caché cuesta el 100%. Por eso compactar — que cambia el texto — inválida la región compactada de la caché.
+La caché de prefijo del proveedor reutiliza el **prefill**. Un prefijo de 12k cacheado cuesta ~10% del precio del prefill fresco; un prefijo que falla caché cuesta el 100%. Por eso compactar — que cambia el texto — invalida la región compactada de la caché.
 
 <Callout>
 Compactar mata caché por construcción. Si compactas cada 50 turnos en una región que de otro modo estaría cacheada, has convertido prefill cacheado en prefill fresco. Presupuesta el coste de compactar contra el coste de re-pagar el prefill.

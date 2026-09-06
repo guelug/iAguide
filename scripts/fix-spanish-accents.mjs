@@ -186,7 +186,6 @@ const MORE = {
   categoria: "categoría",
   categorias: "categorías",
   invalido: "inválido",
-  valido: "válido",
   maximo: "máximo",
   minimo: "mínimo",
   optimo: "óptimo",
@@ -215,6 +214,10 @@ const MORE = {
      paso/pasó, cambio/cambió, filtro/filtró and the other noun-versus-
        preterite pairs
      hacia/hacía, continua/continúa, publica/pública, perdida/pérdida
+     invalida/inválida and valido/válido, which are a verb one way and an
+       adjective the other — "el cambio invalida la caché" against "una
+       salida inválida" — and the table got that wrong until it corrupted
+       a sentence in cost-and-economics
      término/termino/terminó and envío/envio/envió, which are three ways
      video, which Spain and Latin America spell differently on purpose */
 const CORPUS = {
@@ -250,8 +253,6 @@ const CORPUS = {
   canonicas: "canónicas",
   todavia: "todavía",
   parrafo: "párrafo",
-  invalida: "inválida",
-  invalidas: "inválidas",
   validos: "válidos",
   continuan: "continúan",
   catalogo: "catálogo",

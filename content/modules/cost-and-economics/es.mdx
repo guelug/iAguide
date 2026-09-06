@@ -6,6 +6,18 @@ El punto de equilibrio es una hoja de cálculo, no un tuit. Mide tu mezcla real 
 
 <VisualSlot caption="Factura de entrada frente a salida. La caché de prefijo atenúa lo que ya computaste." />
 
+## Un turno de usuario no es una llamada
+
+La fórmula de arriba tiene una trampa en el denominador. Cuenta tokens por **llamada al modelo**, y tú presupuestas por **turno de usuario**. Un arnés que usa herramientas hace varias llamadas por turno: plan, herramienta, plan, herramienta, respuesta. Cada una reenvía el system prompt, el esquema de tools y el historial otra vez.
+
+Con seis llamadas en un turno, el prefijo estable se paga seis veces antes de contar una sola palabra de conversación. La [lección de cuotas](/m/quotas-and-pricing) hace la aritmética completa con números defendibles; aquí basta con quedarse con la identidad:
+
+```text
+llamadas_por_turno = 1 + rondas_de_tools
+```
+
+Nadie se sorprende de que un modelo cueste dinero. La gente se sorprende de que un turno cueste siete veces lo que presupuestó, y esa es siempre la misma división: presupuestaron por turno y facturaron por llamada.
+
 ## Por qué el precio importa en dos planos
 
 El precio por token no es un único número. Casi todas las APIs separan:
@@ -29,11 +41,50 @@ Pero hay trampas que revientan los hits:
 - **Un timestamp que cambia cada petición** en el system prompt. El servidor ve un prefijo distinto y no acierta. Caso real: añadir `Hoy es 2026-08-27` arriba de todo. Mueve esa fecha al final, o quítala.
 - **Tools con descripciones que cambian** entre despliegues. Mismo efecto: prefijo distinto, cero hit.
 - **Orden distinto de los mensajes** del historial. Si pones system → user → assistant, pero en otro cliente pones user → system → assistant, los prefijos no encajan.
-- **Inserciones al principio** del prompt aunque el resto sea estable. Cualquier cosa al *frente* inválida todo lo que viene detrás (los cachés son prefijos, no subsecuencias).
+- **Inserciones al principio** del prompt aunque el resto sea estable. Cualquier cosa al *frente* invalida todo lo que viene detrás (los cachés son prefijos, no subsecuencias).
 
 <Callout>
 **Mueve lo dinámico al final.** System prompt y herramientas al principio, datos del usuario al final. Si no puedes, factura caché caída.
 </Callout>
+
+## La factura de una sesión larga no es lineal
+
+Aquí está el número que casi nadie calcula. Cada turno reenvía todo lo anterior, así que el turno veinte no cuesta como el primero: carga con diecinueve turnos de historial a la espalda.
+
+Llama `b` al prefijo fijo — system prompt y esquema de tools, idéntico siempre — y `g` a lo que cada turno añade al historial. La entrada del turno `i` es `b + (i−1)·g`. Suma la sesión entera:
+
+```text
+entrada_total(N) = N·b + g · N(N−1)/2
+```
+
+El primer término crece con `N`. El segundo crece con `N²`. **El coste por turno sube en línea recta; el coste acumulado de la sesión sube como una parábola.**
+
+Ponle cifras, con supuestos honestos: `b` de 4k, `g` de 1,5k, veinte turnos.
+
+- El turno 1 envía 4.000 tokens de entrada.
+- El turno 20 envía 32.500. Son **8,1 veces** el primero, por la misma conversación.
+- La sesión entera son **365.000** tokens de entrada.
+- Si presupuestaste "veinte turnos como el primero", contaste 80.000. Te quedaste corto **4,6 veces**.
+
+<Myth>
+"Una conversación del doble de larga cuesta el doble." No. Con estos mismos supuestos, pasar de 20 a 40 turnos multiplica la entrada acumulada por **3,64** — de 365.000 a 1.330.000. El factor tiende a 4 cuanto más larga es la sesión, porque el término cuadrático se come al lineal. Nunca es 2.
+</Myth>
+
+Ahora vuelve a mirar la caché de prefijo con esta fórmula delante, porque hace algo que la sección anterior no llegó a decir. El historial de los turnos 1 a `i−1` **también es un prefijo estable** en el turno `i`. Si la caché aguanta, lo único fresco en cada turno es la cola nueva:
+
+```text
+entrada_fresca(N) = b + N·g
+```
+
+Eso es lineal. Con los mismos números son 34.000 tokens a precio completo en vez de 365.000: un factor de **10,7**.
+
+<Callout>
+La caché de prefijo no le hace un descuento a tu sesión larga. Le **cambia la forma**, de cuadrática a lineal. Por eso el hit rate importa más cuanto más larga es la conversación, y por eso una compactación agresiva a mitad de sesión puede salir cara: reescribir el historial invalida el prefijo y devuelve la curva a la parábola.
+</Callout>
+
+<TryThis>
+Coge una conversación real tuya de al menos quince turnos. Mide `b` (tu system prompt más el esquema de tools) y estima `g` (lo que crece el historial por turno). Calcula `N·b + g·N(N−1)/2` y compáralo con lo que habrías presupuestado multiplicando el primer turno por `N`. Escribe las dos cifras. La segunda es la que la gente lleva a las reuniones.
+</TryThis>
 
 ## El modelo A3B cambia la cuenta
 
@@ -66,6 +117,19 @@ No todo es el precio por token. Coste real incluye:
 - **<Term id="ttft">TTFT</Term>** — tiempo hasta el primer token. Si tu usuario ve una rueda girando 4 segundos, da igual que el precio sea de medio céntimo: la experiencia mata el producto. Caché de prefijo reduce TTFT porque el prefill del prefijo ya está hecho.
 - **Tiempo de cola** — en horas pico la cola crece. O pagas más capacidad, o aceptas degradación.
 - **Coste de las tools** — cada tool_call es round-trip, latencia y, en muchos proveedores, un cargo extra. Una tool que se llama 20 veces por turno cuesta más que el modelo.
+
+## Tokens que pagas y nadie lee
+
+No toda la salida llega al usuario, y toda la salida se factura.
+
+- **Razonamiento.** Un modelo en <Term id="thinking-mode">modo thinking</Term> emite una traza antes de la respuesta. Cuenta como salida, que es el tramo caro de la tarifa, y el usuario no la ve. Es dinero bien gastado en un problema que lo necesita y dinero tirado en "dame la fecha de hoy".
+- **Reintentos.** Una llamada que falla a mitad de streaming ya consumió su prefill. La vuelves a lanzar y la pagas dos veces. Un arnés con reintento automático puede triplicar el coste de un turno sin que aparezca un solo error en los logs de la aplicación.
+- **Salidas truncadas.** Si el modelo choca con el límite de tokens y cortas, pagaste todo lo generado y te quedas sin nada aprovechable. Suele ser más barato pedir menos y encadenar que pedir mucho y truncar.
+- **Subagentes.** Cada subagente tiene su propio system prompt y su propio esquema de tools. Su prefijo no es el tuyo, así que no comparte tu caché. Dos subagentes son tres facturas de prefijo, no una.
+
+<Callout>
+Antes de optimizar el modelo, instrumenta el turno. Cuenta llamadas por turno, tokens de razonamiento frente a tokens entregados, y reintentos. Casi siempre el hallazgo está en una de esas tres columnas y no en la tarifa del proveedor.
+</Callout>
 
 ## Cuándo local gana (honestamente)
 

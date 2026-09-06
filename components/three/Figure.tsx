@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { LabContext } from "@/components/lab/LabContext";
 import { useLocale } from "next-intl";
 import { ViewerContext, type ViewerSettings } from "./ViewerContext";
 
@@ -36,6 +37,9 @@ export function Figure({
   flush?: boolean;
 }) {
   const es = useLocale() === "es";
+  const lab = useContext(LabContext);
+  const [azimuth, setAzimuth] = useState(0);
+  const [elevation, setElevation] = useState(0);
   const [labels, setLabels] = useState(true);
   const [paused, setPaused] = useState(false);
   const [detail, setDetail] = useState(false);
@@ -79,12 +83,19 @@ export function Figure({
         <button type="button" className="chip" style={paused ? {background: "var(--teal-wash)", borderColor: "var(--teal)"} : undefined} onClick={() => setPaused(!paused)} aria-pressed={paused}>{paused ? (es ? "Reanudar" : "Resume") : (es ? "Pausar" : "Pause")}</button>
         <label className="text-xs text-muted"><span className="sr-only">{es ? "Ángulo de cámara" : "Camera angle"}</span><select className="rounded border border-line bg-surface p-1.5 text-xs" value={view} onChange={e => setView(e.target.value as ViewerSettings["view"])}><option value="original">{es ? "Vista de autor" : "Authored view"}</option><option value="front">{es ? "Frontal" : "Front"}</option><option value="overhead">{es ? "Desde arriba" : "Overhead"}</option></select></label>
         <button type="button" className="chip" disabled={zoom <= 0.8} aria-label={es ? "Alejar" : "Zoom out"} onClick={() => setZoom(z => Math.max(0.8, z - 0.2))}>−</button>
-        <button type="button" className="chip" onClick={() => {setZoom(1); setView("original");}} aria-label={es ? "Restablecer cámara" : "Reset camera"}>{Math.round(zoom * 100)}%</button>
+        <button type="button" className="chip" onClick={() => {setZoom(1); setView("original"); setAzimuth(0); setElevation(0);}} aria-label={es ? "Restablecer cámara" : "Reset camera"}>{Math.round(zoom * 100)}%</button>
         <button type="button" className="chip" disabled={zoom >= 1.6} aria-label={es ? "Acercar" : "Zoom in"} onClick={() => setZoom(z => Math.min(1.6, z + 0.2))}>+</button>
         <button type="button" className="chip" aria-pressed={labels} onClick={() => setLabels(!labels)}>{labels ? "Ocultar etiquetas" : "Mostrar etiquetas"}</button>
         <button type="button" className="chip" style={detail ? {background: "var(--teal-wash)", borderColor: "var(--teal)"} : undefined} aria-pressed={detail} onClick={() => setDetail(!detail)}>{es ? "Alta definición" : "High definition"}</button>
         {canExpand && <button type="button" className="chip" onClick={() => void fullscreen().catch(() => {})}>{expanded ? (es ? "Cerrar" : "Close") : (es ? "Ampliar" : "Expand")} ↗</button>}
       </div>}
+      {es && <details className="border-b border-line/70 bg-paper px-4 py-2">
+        <summary className="cursor-pointer font-mono text-[0.6rem] uppercase tracking-widest text-muted">Orientación del modelo · giro y elevación</summary>
+        <div className="grid gap-4 py-3 sm:grid-cols-2">
+          <label className="text-xs text-muted">Giro horizontal <output className="float-right font-mono">{azimuth}°</output><input aria-label="Giro horizontal" type="range" min={-180} max={180} step={5} value={azimuth} onChange={e=>setAzimuth(Number(e.target.value))} className="mt-2 block w-full accent-teal" /></label>
+          <label className="text-xs text-muted">Elevación <output className="float-right font-mono">{elevation}°</output><input aria-label="Elevación" type="range" min={-45} max={45} step={5} value={elevation} onChange={e=>setElevation(Number(e.target.value))} className="mt-2 block w-full accent-teal" /></label>
+        </div>
+      </details>}
       {/* Hidden from assistive tech on purpose. The labels inside a scene
           are drei <Html> overlays, so they are real DOM text with no
           structure — a screen reader would read them as a loose stream of
@@ -94,9 +105,9 @@ export function Figure({
           so none of them are hidden with it. */}
       <div
         aria-hidden
-        className={`relative w-full ${expanded ? "h-[65vh]" : height} ${flush ? "" : "bg-paper"}`}
+        className={`relative w-full ${expanded ? "h-[65vh]" : lab ? "h-[480px] md:h-[min(65vh,760px)] md:min-h-[540px]" : height} ${flush ? "" : "bg-paper"}`}
       >
-        <ViewerContext.Provider value={{paused, labels, detail, zoom, view}}>{children}</ViewerContext.Provider>
+        <ViewerContext.Provider value={{paused, labels, detail, zoom, view, azimuth, elevation, studio: es}}>{children}</ViewerContext.Provider>
       </div>
 
       {/* A div, not a p: callers pass readouts and lists in here, and a

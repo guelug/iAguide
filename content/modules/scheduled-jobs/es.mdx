@@ -27,7 +27,7 @@ Un job de las 09:00 que hereda el contexto del chat de ayer está mal diseñado 
 
 1. **El usuario no estaba ahí** — el job ejecuta sin que nadie le pida nada. Si contamina el contexto, el siguiente turno del usuario ve contenido raro.
 2. **Privacidad** — el job opera sobre datos que el usuario activo nunca aprobó para este turno (inbox, calendario, etc.).
-3. **Coste de caché** — si el job hereda el system prompt cacheado del chat, el prefill del job es gratis. Si muta algo (turno nuevo, modelo distinto, contexto más largo), inválida la caché del chat del usuario.
+3. **Coste de caché** — si el job hereda el system prompt cacheado del chat, el prefill del job es gratis. Si muta algo (turno nuevo, modelo distinto, contexto más largo), invalida la caché del chat del usuario.
 
 La práctica: **el job tiene su propia sesión, su propio perfil, su propio prefijo**. La única continuidad con el usuario es la entrega outbound.
 

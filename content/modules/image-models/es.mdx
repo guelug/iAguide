@@ -11,7 +11,7 @@ Son máquinas distintas:
 
 La página de modelos de Comfy-Org es el contrato de operador: en ComfyUI, **los modelos son los ficheros de pesos que de verdad ejecutan tu flujo**. Incluyen checkpoints, VAEs, LoRAs, ControlNets y upscalers. **La instalación de la app es pequeña. Estos ficheros no vienen incluidos por defecto.** Los descargas, los pones bajo `ComfyUI/models/` y eliges el fichero en el nodo **Load** que toca ([Comfy-Org, Models](https://docs.comfy.org/basic-concepts/models)).
 
-<VisualSlot caption="Cinco diapositivas: difusión latente de texto a denoise a píxeles, el checkpoint como cerebro del artista, CLIP como traductor del prompt, VAE como latente-a-RGB, y las carpetas ComfyUI/models." />
+<VisualSlot caption="Banco de difusión: separa CLIP, denoiser y VAE y compara el latente ruidoso con la salida RGB en una simulación didáctica." />
 
 <FigureImage src="/images/image-models/diffusion-landscape.png" label="Ilustración del proceso de difusión de ruido a imagen" caption="La difusión no empieza con píxeles limpios: parte de ruido en un latente y lo ordena paso a paso hasta una imagen coherente." />
 

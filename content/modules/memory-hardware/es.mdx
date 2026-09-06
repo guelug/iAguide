@@ -1,6 +1,6 @@
 ## Tres máquinas, tres historias de memoria
 
-<VisualSlot caption="Cambia la topología y arrastra el contexto. El relleno es un croquis: los pesos están quietos, la KV crece. No es una hoja de datos." />
+<VisualSlot caption="GPU desmontable: inspecciona sus componentes y calcula la memoria de pesos, caché KV y reserva con parámetros explícitos." />
 
 - **NVIDIA discreta (y similares)** — pesos y KV quieren vivir en <Term id="vram">VRAM</Term>. La RAM del host es otro planeta. Cruzar <Term id="pcie">PCIe</Term> para traer una capa es mucho más lento que quedarse en el dispositivo. Descargar capas a RAM (llama.cpp `-ngl`) funciona; es un compromiso.
 - **<Term id="unified-memory">Memoria unificada</Term> de Apple Silicon** — CPU y GPU comparten un pool. No hay copia PCIe del modelo entero para "ponerlo en la GPU". Sigues teniendo un pool *finito* (los 16 / 32 / 64 / 128 GB que compraste) y límites de **ancho de banda**. Unificado no significa infinito.
