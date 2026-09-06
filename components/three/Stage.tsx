@@ -8,6 +8,7 @@ import {
   PerformanceMonitor,
   Preload,
 } from "@react-three/drei";
+import { EffectComposer, N8AO } from "@react-three/postprocessing";
 import { Canvas, useFrame, type CanvasProps } from "@react-three/fiber";
 import {
   Suspense,
@@ -19,6 +20,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useViewer } from "./ViewerContext";
 import { P } from "@/lib/palette";
 import { BackSide, Box3, MathUtils, Vector3 } from "three";
 import type * as THREE from "three";
@@ -172,9 +174,11 @@ export function Stage({
   shadows = true,
 }: Props) {
   const host = useRef<HTMLDivElement>(null);
-  const [onScreen, setOnScreen] = useState(true);
+  const [onScreen, setOnScreen] = useState(false);
   const [quality, setQuality] = useState(1);
-  const still = useStillness();
+  const reducedMotion = useStillness();
+  const viewer = useViewer();
+  const still = reducedMotion || viewer.paused;
 
   useEffect(() => {
     const el = host.current;
@@ -207,7 +211,7 @@ export function Stage({
           /* `flat` disables tone mapping: diagram colours must match the
              CSS swatches beside them exactly, or the legend lies. */
           flat
-          dpr={[1, still ? 1.5 : maxDpr * quality]}
+          dpr={[1, (viewer.detail ? Math.max(2, maxDpr) : maxDpr) * quality]}
           frameloop={still ? "demand" : onScreen ? "always" : "never"}
           gl={{
             antialias: true,
@@ -231,7 +235,7 @@ export function Stage({
             {/* Always mounted: it owns the key light, which the scene
                 needs whether or not that light casts a shadow. */}
             <Floor shadows={castShadows} quality={quality} />
-            {fit !== false && !controls ? <CameraRig fit={fit} /> : null}
+            {fit !== false && !controls ? <CameraRig fit={fit / viewer.zoom} view={viewer.view} /> : null}
             <Suspense fallback={null}>{children}</Suspense>
             {controls ? (
               <OrbitControls
@@ -247,6 +251,11 @@ export function Stage({
                 dampingFactor={0.08}
               />
             ) : null}
+            {viewer.detail && quality > 0.7 && shadows && (
+              <EffectComposer multisampling={4}>
+                <N8AO aoRadius={0.35} intensity={0.55} distanceFalloff={1} quality="high" color={P.ink} />
+              </EffectComposer>
+            )}
             <AdaptiveDpr pixelated={false} />
             <Preload all />
           </StageContext.Provider>
@@ -331,12 +340,13 @@ function Floor({ shadows, quality }: { shadows: boolean; quality: number }) {
   const ref = useRef<THREE.Mesh>(null);
   const light = useRef<THREE.DirectionalLight>(null);
   const since = useRef(0);
+  const initialized = useRef(false);
 
   useFrame((state, dt) => {
     const mesh = ref.current;
     if (!mesh) return;
     since.current += dt;
-    if (since.current < 0.5) return;
+    if (initialized.current && since.current < 0.5 && state.frameloop !== "demand") return;
     since.current = 0;
 
     /* One traversal serves both the floor and the shadow frustum. They
@@ -355,7 +365,8 @@ function Floor({ shadows, quality }: { shadows: boolean; quality: number }) {
     if (!found || _fbox.isEmpty()) return;
 
     const target = _fbox.min.y - 0.05;
-    mesh.position.y = MathUtils.damp(mesh.position.y, target, 5, dt);
+    mesh.position.y = target;
+    initialized.current = true;
     mesh.position.x = (_fbox.min.x + _fbox.max.x) / 2;
     mesh.position.z = (_fbox.min.z + _fbox.max.z) / 2;
 
@@ -424,7 +435,7 @@ function Floor({ shadows, quality }: { shadows: boolean; quality: number }) {
   /* The map is the one shadow cost that scales with nothing else, so it
      follows the perf governor down instead of staying at 1024 while
      everything else gives ground. */
-  const map = quality > 0.7 ? 1024 : 512;
+  const map = quality > 0.9 ? 2048 : quality > 0.7 ? 1024 : 512;
 
   return (
     <>
@@ -603,13 +614,15 @@ function measureOrtho(
  * `userData.noFit`, so a dust cloud with a nine-unit radius cannot push
  * the subject into the distance.
  */
-function CameraRig({ fit }: { fit: number }) {
+function CameraRig({ fit, view }: { fit: number; view: "original" | "front" | "overhead" }) {
   const dir = useRef<Vector3 | null>(null);
   const goalPos = useRef(new Vector3());
   const goalLook = useRef(new Vector3());
   const settled = useRef(false);
   const since = useRef(0);
   const goalZoom = useRef(0);
+  const lastConfig = useRef("");
+  const viewDir = useRef(new Vector3());
 
   useFrame((state, dt) => {
     const cam = state.camera as THREE.PerspectiveCamera & THREE.OrthographicCamera;
@@ -620,8 +633,14 @@ function CameraRig({ fit }: { fit: number }) {
       dir.current = d.normalize();
     }
 
+    const config = `${fit}:${view}:${state.size.width}:${state.size.height}`;
+    const changed = lastConfig.current !== config;
+    lastConfig.current = config;
+    if (view === "front") viewDir.current.set(0, 0, 1);
+    else if (view === "overhead") viewDir.current.set(0.01, 1, 0.01).normalize();
+    else viewDir.current.copy(dir.current);
     since.current += dt;
-    if (since.current > 0.4 || !settled.current) {
+    if (state.frameloop === "demand" || since.current > 0.4 || !settled.current || changed) {
       since.current = 0;
       if (cam.isOrthographicCamera) {
         const z = measureOrtho(
@@ -629,7 +648,7 @@ function CameraRig({ fit }: { fit: number }) {
           state.size.width,
           state.size.height,
           fit,
-          dir.current,
+          viewDir.current,
           goalPos.current,
           goalLook.current,
         );
@@ -647,7 +666,7 @@ function CameraRig({ fit }: { fit: number }) {
           cam,
           state.size.width / Math.max(1, state.size.height),
           fit,
-          dir.current,
+          viewDir.current,
           goalPos.current,
           goalLook.current,
         );
@@ -660,10 +679,10 @@ function CameraRig({ fit }: { fit: number }) {
     }
 
     if (!settled.current) return;
-    cam.position.lerp(goalPos.current, 1 - Math.exp(-4 * dt));
+    cam.position.lerp(goalPos.current, state.frameloop === "demand" || changed ? 1 : 1 - Math.exp(-4 * dt));
     cam.lookAt(goalLook.current);
     if (cam.isOrthographicCamera && goalZoom.current > 0) {
-      cam.zoom = MathUtils.damp(cam.zoom, goalZoom.current, 4, dt);
+      cam.zoom = state.frameloop === "demand" || changed ? goalZoom.current : MathUtils.damp(cam.zoom, goalZoom.current, 4, dt);
     }
     cam.updateProjectionMatrix();
   });

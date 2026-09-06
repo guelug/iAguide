@@ -21,6 +21,8 @@ Consejo práctico, Comfy-Org: un solo checkpoint generativo suele ocupar **mucho
 
 ## Checkpoint = el cerebro del artista
 
+<VisualSlot id="image-models:4" />
+
 El artículo de primer flujo de CivitAI (artículo 22492, 15 de noviembre de 2025, actualizado en 2026) usa la metáfora que este curso conserva: el `.safetensors` o `.ckpt` es el **cerebro** del artista. Sin él, el artista no sabe ni coger el pincel. El nodo `Load Checkpoint` despierta al artista y entrega tres salidas: `MODEL` (cómo dibujar), `CLIP` (cómo leer tu prompt) y a veces `VAE` ([CivitAI, ComfyUI Tutorial #2](https://civitai.com/articles/22492/comfyui-tutorial-2-building-your-first-workflow)).
 
 La redacción de Comfy-Org es más seca y conviene preferirla al depurar rutas: **la cobertura nativa / de primera parte es limitada a propósito**. No todo checkpoint funciona de serie. Cuando una familia gana soporte de primera clase suele aparecer una entrada nueva en la [biblioteca de plantillas](https://docs.comfy.org/interface/features/template). Muchos otros modelos solo se habilitan con **nodos custom de la comunidad**; sigue siempre el README de ese proyecto ([Comfy-Org, Models](https://docs.comfy.org/basic-concepts/models)).

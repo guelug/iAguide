@@ -66,7 +66,7 @@
   },
   "course": {
     "title": "Mapa del curso",
-    "lede": "Veintisiete módulos en cuatro pistas. Arrastra el mapa. Pasa por encima de un nodo para leerlo. Haz clic para entrar.",
+    "lede": "Explora las cuatro pistas del curso. Busca una idea, selecciona un módulo y descubre sus secciones, diagramas y conexiones.",
     "wip": "En obras",
     "complete": "Listo",
     "min": "{n} min",

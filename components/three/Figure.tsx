@@ -1,12 +1,16 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useLocale } from "next-intl";
+import { ViewerContext, type ViewerSettings } from "./ViewerContext";
 
 /**
  * Shared chrome for every module diagram: a titled panel, the canvas, a
  * legend, and a controls strip. Every visual in the course looks like a
  * member of the same instrument family because of this file.
  */
+const subscribeToFullscreenSupport = () => () => {};
+
 export function Figure({
   label,
   hint,
@@ -31,25 +35,56 @@ export function Figure({
   height?: string;
   flush?: boolean;
 }) {
+  const es = useLocale() === "es";
+  const [labels, setLabels] = useState(true);
+  const [paused, setPaused] = useState(false);
+  const [detail, setDetail] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [view, setView] = useState<ViewerSettings["view"]>("original");
+  const host = useRef<HTMLDivElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  const canExpand = useSyncExternalStore(subscribeToFullscreenSupport, () => Boolean(document.fullscreenEnabled), () => false);
+  useEffect(() => {
+    const changed = () => setExpanded(document.fullscreenElement === host.current);
+    document.addEventListener("fullscreenchange", changed);
+    return () => document.removeEventListener("fullscreenchange", changed);
+  }, []);
+  const fullscreen = async () => {
+    if (document.fullscreenElement === host.current) await document.exitFullscreen();
+    else await host.current?.requestFullscreen?.();
+  };
+
   return (
-    <div className="not-prose overflow-hidden rounded-2xl border border-line bg-surface shadow-[var(--shadow-card)]">
+    <div ref={host} className={`not-prose overflow-hidden [&:fullscreen]:overflow-y-auto border bg-surface shadow-[var(--shadow-card)] ${es ? "rounded-sm border-line-strong p-1" : "rounded-2xl border-line"}`}>
       {label || hint ? (
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-line/70 px-4 py-3">
+        <div className="flex flex-wrap items-start justify-between gap-x-5 gap-y-3 border-b border-line px-5 py-5">
           {label ? (
-            <p className="font-mono text-[0.62rem] tracking-[0.2em] uppercase text-teal">
-              {label}
-            </p>
+            <div>
+              {es && <p className="mb-2 font-mono text-[0.55rem] uppercase tracking-[0.22em] text-muted">iAguide / Lámina de estudio</p>}
+              <p className={es ? "max-w-xl font-display text-[1.35rem] leading-tight text-ink" : "font-mono text-[0.62rem] tracking-[0.2em] uppercase text-teal"}>{label}</p>
+            </div>
           ) : (
             <span />
           )}
           {hint ? (
-            <p className="font-mono text-[0.6rem] tracking-[0.12em] uppercase text-faint">
+            <p className="font-mono text-[0.6rem] tracking-[0.12em] uppercase text-muted">
               {hint}
             </p>
           ) : null}
         </div>
       ) : null}
 
+      {es && <div className="flex flex-wrap items-center gap-2 border-b border-line/70 bg-paper px-4 py-3 [&_button]:min-h-8" aria-label={es ? "Controles del visor 3D" : "3D viewer controls"}>
+        <span className="mr-auto font-mono text-[0.6rem] tracking-widest text-muted">3D / {es ? "EXPLORAR" : "EXPLORE"}</span>
+        <button type="button" className="chip" style={paused ? {background: "var(--teal-wash)", borderColor: "var(--teal)"} : undefined} onClick={() => setPaused(!paused)} aria-pressed={paused}>{paused ? (es ? "Reanudar" : "Resume") : (es ? "Pausar" : "Pause")}</button>
+        <label className="text-xs text-muted"><span className="sr-only">{es ? "Ángulo de cámara" : "Camera angle"}</span><select className="rounded border border-line bg-surface p-1.5 text-xs" value={view} onChange={e => setView(e.target.value as ViewerSettings["view"])}><option value="original">{es ? "Vista de autor" : "Authored view"}</option><option value="front">{es ? "Frontal" : "Front"}</option><option value="overhead">{es ? "Desde arriba" : "Overhead"}</option></select></label>
+        <button type="button" className="chip" disabled={zoom <= 0.8} aria-label={es ? "Alejar" : "Zoom out"} onClick={() => setZoom(z => Math.max(0.8, z - 0.2))}>−</button>
+        <button type="button" className="chip" onClick={() => {setZoom(1); setView("original");}} aria-label={es ? "Restablecer cámara" : "Reset camera"}>{Math.round(zoom * 100)}%</button>
+        <button type="button" className="chip" disabled={zoom >= 1.6} aria-label={es ? "Acercar" : "Zoom in"} onClick={() => setZoom(z => Math.min(1.6, z + 0.2))}>+</button>
+        <button type="button" className="chip" aria-pressed={labels} onClick={() => setLabels(!labels)}>{labels ? "Ocultar etiquetas" : "Mostrar etiquetas"}</button>
+        <button type="button" className="chip" style={detail ? {background: "var(--teal-wash)", borderColor: "var(--teal)"} : undefined} aria-pressed={detail} onClick={() => setDetail(!detail)}>{es ? "Alta definición" : "High definition"}</button>
+        {canExpand && <button type="button" className="chip" onClick={() => void fullscreen().catch(() => {})}>{expanded ? (es ? "Cerrar" : "Close") : (es ? "Ampliar" : "Expand")} ↗</button>}
+      </div>}
       {/* Hidden from assistive tech on purpose. The labels inside a scene
           are drei <Html> overlays, so they are real DOM text with no
           structure — a screen reader would read them as a loose stream of
@@ -59,9 +94,9 @@ export function Figure({
           so none of them are hidden with it. */}
       <div
         aria-hidden
-        className={`relative w-full ${height} ${flush ? "" : "bg-paper"}`}
+        className={`relative w-full ${expanded ? "h-[65vh]" : height} ${flush ? "" : "bg-paper"}`}
       >
-        {children}
+        <ViewerContext.Provider value={{paused, labels, detail, zoom, view}}>{children}</ViewerContext.Provider>
       </div>
 
       {/* A div, not a p: callers pass readouts and lists in here, and a
@@ -118,7 +153,7 @@ export function Switcher<T extends string>({
       aria-label={ariaLabel}
       className="flex flex-wrap items-center gap-1 rounded-full border border-line p-0.5"
     >
-      {options.map((opt) => {
+      {options.map((opt, index) => {
         const on = opt.value === value;
         return (
           <button
@@ -126,6 +161,18 @@ export function Switcher<T extends string>({
             type="button"
             role="radio"
             aria-checked={on}
+            tabIndex={on ? 0 : -1}
+            onKeyDown={(event) => {
+              let next = index;
+              if (event.key === "ArrowRight" || event.key === "ArrowDown") next = (index + 1) % options.length;
+              else if (event.key === "ArrowLeft" || event.key === "ArrowUp") next = (index + options.length - 1) % options.length;
+              else if (event.key === "Home") next = 0;
+              else if (event.key === "End") next = options.length - 1;
+              else return;
+              event.preventDefault();
+              onChange(options[next].value);
+              (event.currentTarget.parentElement?.children[next] as HTMLButtonElement)?.focus();
+            }}
             onClick={() => onChange(opt.value)}
             className={`rounded-full px-3 py-1 font-mono text-[0.6rem] tracking-[0.12em] uppercase transition-colors ${
               on ? "text-paper" : "text-muted hover:text-ink"

@@ -531,6 +531,10 @@ export const VISUALS_EXTRA: Record<
   "unsloth-qwen38:4": () => import("./unsloth-qwen38/Visual4"),
   "unsloth-qwen38-run:2": () => import("./unsloth-qwen38-run/Visual2"),
   "unsloth-qwen38-run:3": () => import("./unsloth-qwen38-run/Visual3"),
+  "image-models:4": () => import("./image-models/Visual4"),
+  "huggingface-hub:5": () => import("./huggingface-hub/Visual5"),
+  "unsloth:5": () => import("./unsloth/Visual5"),
+  "hermes-slash:2": () => import("./hermes-slash/Visual2"),
 };
 
 export function getExtraVisualLoader(key: string) {

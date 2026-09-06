@@ -152,6 +152,8 @@ Modal de tres opciones: una vez, siempre (`approvals.destructive_slash_confirm: 
 
 ## `/refine`, `/review`, `/branch`: salidas distintas
 
+<VisualSlot id="hermes-slash:2" />
+
 La referencia (Nous Research, *Slash Commands Reference*, s. f.) documenta tres salidas más que se confunden con `/btw` y `/bg`:
 
 `/refine [foco]` corre **ahora** la revisión de memoria y skills, sin esperar al trigger post-turno. Lo hace en un fork de fondo contra un **snapshot** de la conversación: la sesión viva y la prompt caché **no se tocan**. El resultado llega cuando termina. Es pariente de `/btw` (snapshot, el hilo sigue), no de `/bg`.

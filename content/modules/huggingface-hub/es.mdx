@@ -10,6 +10,8 @@ Por debajo, un repo del Hub es un repositorio Git. Versionado, historial de comm
 
 ## Tres tipos de repo, un contrato Git
 
+<VisualSlot id="huggingface-hub:5" />
+
 Un repo de **modelo** guarda pesos, una model card, configs y a veces trazas de TensorBoard. El Hub quiere una [Model Card](https://huggingface.co/docs/hub/en/model-cards) para que el usuario vea límites y sesgos antes de `from_pretrained`. Tareas, idiomas y resultados de eval son metadatos, no adorno. El widget de inferencia en la página del modelo es una demo, no un servicio de producción.
 
 Un repo de **dataset** guarda filas, una [Dataset Card](https://huggingface.co/docs/hub/en/datasets-cards) y a menudo una vista Data Studio en el navegador. El índice del Hub sigue citando "más de 500k datasets públicos en más de 8k idiomas" en la sección Datasets — un recuento público más estrecho que la cifra de 1,5 millones en la línea heroica de la misma página. Cuando dos números oficiales conviven, cita ambos y di de qué encabezado salen. La librería `datasets` puede hacer streaming de un conjunto que no cabe en RAM. Eso es una feature del cliente. El repo sigue siendo Git más Xet.

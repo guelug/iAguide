@@ -23,6 +23,7 @@ import {
   Vector3,
 } from "three";
 import { P } from "@/lib/palette";
+import { useViewer } from "./ViewerContext";
 import { useStage } from "./Stage";
 
 export type V3 = [number, number, number];
@@ -76,7 +77,13 @@ export function Node3D({
   const { still } = useStage();
 
   useFrame(({ clock }) => {
-    if (!ref.current || !pulse || still) return;
+    if (!ref.current || !pulse) return;
+    if (still) {
+      // Reduced-motion scenes should settle on the authored size rather than
+      // preserving a frame from the breathing animation.
+      ref.current.scale.setScalar(1);
+      return;
+    }
     const t = clock.elapsedTime * 1.6 + pulse;
     ref.current.scale.setScalar(1 + Math.sin(t) * 0.08);
   });
@@ -108,16 +115,17 @@ export function Node3D({
       {faceted ? (
         <icosahedronGeometry args={[radius, 1]} />
       ) : (
-        <sphereGeometry args={[radius, 24, 24]} />
+        <sphereGeometry args={[radius, 32, 20]} />
       )}
       {matte ? (
         <meshBasicMaterial color={color} />
       ) : (
         <meshStandardMaterial
           color={color}
-          roughness={0.26}
-          metalness={0.06}
-          envMapIntensity={0.85}
+          roughness={faceted ? 0.36 : 0.3}
+          metalness={0.04}
+          envMapIntensity={0.95}
+          flatShading={faceted}
         />
       )}
       {children}
@@ -151,17 +159,32 @@ export function Slab({
   children?: ReactNode;
 }) {
   const [w, h, d] = size;
-  const edges = useMemo<V3[]>(() => {
+  const edgeLoops = useMemo(() => {
     const x = w / 2;
     const y = h / 2;
-    const z = d / 2 + 0.001;
-    return [
-      [-x, -y, z],
-      [x, -y, z],
-      [x, y, z],
-      [-x, y, z],
-      [-x, -y, z],
+    const frontZ = d / 2 + 0.003;
+    const backZ = -d / 2 - 0.001;
+    const front: V3[] = [
+      [-x, -y, frontZ],
+      [x, -y, frontZ],
+      [x, y, frontZ],
+      [-x, y, frontZ],
+      [-x, -y, frontZ],
     ];
+    const back: V3[] = [
+      [-x, -y, backZ],
+      [x, -y, backZ],
+      [x, y, backZ],
+      [-x, y, backZ],
+      [-x, -y, backZ],
+    ];
+    const sides: V3[][] = [
+      [front[0], back[0]],
+      [front[1], back[1]],
+      [front[2], back[2]],
+      [front[3], back[3]],
+    ];
+    return { front, back, sides };
   }, [w, h, d]);
 
   return (
@@ -197,13 +220,41 @@ export function Slab({
           color={color}
           transparent={fill < 1}
           opacity={fill}
-          roughness={0.34}
-          metalness={0.04}
-          envMapIntensity={0.7}
+          roughness={0.4}
+          metalness={0.03}
+          envMapIntensity={0.82}
           depthWrite={fill > 0.85}
+          polygonOffset={fill < 1}
+          polygonOffsetFactor={-1}
         />
       </RoundedBox>
-      <Line points={edges} color={color} lineWidth={1.6} transparent opacity={rim} />
+      <Line
+        points={edgeLoops.front}
+        color={color}
+        lineWidth={1.6}
+        transparent
+        opacity={rim}
+        depthWrite={false}
+      />
+      <Line
+        points={edgeLoops.back}
+        color={color}
+        lineWidth={1.05}
+        transparent
+        opacity={rim * 0.42}
+        depthWrite={false}
+      />
+      {edgeLoops.sides.map((segment, i) => (
+        <Line
+          key={i}
+          points={segment}
+          color={color}
+          lineWidth={1.05}
+          transparent
+          opacity={rim * 0.68}
+          depthWrite={false}
+        />
+      ))}
       {children}
     </group>
   );
@@ -235,6 +286,7 @@ export function Wire({
       dashed={dashed}
       dashSize={0.12}
       gapSize={0.1}
+      depthWrite={false}
     />
   );
 }
@@ -268,6 +320,8 @@ export function Flow({
   tension?: number;
 }) {
   const group = useRef<Group>(null);
+  const phase = useRef(((offset % 1) + 1) % 1);
+  const previousOffset = useRef(offset);
   const { still } = useStage();
 
   const curve = useMemo(
@@ -286,10 +340,18 @@ export function Flow({
     [curve, points.length],
   );
 
-  useFrame(({ clock }) => {
+  useFrame((_, dt) => {
     const g = group.current;
     if (!g) return;
-    const base = still || paused ? 0.2 : (clock.elapsedTime * speed + offset) % 1;
+    if (previousOffset.current !== offset) {
+      phase.current = ((offset % 1) + 1) % 1;
+      previousOffset.current = offset;
+    }
+    if (!still && !paused) {
+      phase.current = (phase.current + dt * speed) % 1;
+      if (phase.current < 0) phase.current += 1;
+    }
+    const base = phase.current;
     g.children.forEach((child, i) => {
       const t = (base + i / count) % 1;
       curve.getPointAt(t, tmpVec);
@@ -307,6 +369,7 @@ export function Flow({
         lineWidth={width}
         transparent
         opacity={lineOpacity}
+        depthWrite={false}
       />
       <group ref={group}>
         {Array.from({ length: count }, (_, i) => (
@@ -343,9 +406,10 @@ export function Ribbon({
         color={color}
         transparent={opacity < 1}
         opacity={opacity}
-        roughness={0.3}
-        metalness={0.05}
-        envMapIntensity={0.8}
+        roughness={0.36}
+        metalness={0.06}
+        envMapIntensity={0.9}
+        depthWrite={opacity >= 0.98}
       />
     </mesh>
   );
@@ -404,14 +468,19 @@ export function Lattice({
     >
       <boxGeometry args={[size, size, size]} />
       {matte ? (
-        <meshBasicMaterial transparent={opacity < 1} opacity={opacity} />
-      ) : (
-        <meshStandardMaterial
-          roughness={0.3}
-          metalness={0.06}
-          envMapIntensity={0.8}
+        <meshBasicMaterial
           transparent={opacity < 1}
           opacity={opacity}
+          depthWrite={opacity >= 0.98}
+        />
+      ) : (
+        <meshStandardMaterial
+          roughness={0.36}
+          metalness={0.06}
+          envMapIntensity={0.9}
+          transparent={opacity < 1}
+          opacity={opacity}
+          depthWrite={opacity >= 0.98}
         />
       )}
     </instancedMesh>
@@ -500,7 +569,7 @@ export function Halo({
   return (
     <mesh ref={ref} position={position} rotation={rotation}>
       <torusGeometry args={[radius, thickness, 8, 96]} />
-      <meshBasicMaterial color={color} transparent opacity={opacity} />
+      <meshBasicMaterial color={color} transparent opacity={opacity} depthWrite={false} />
     </mesh>
   );
 }
@@ -557,6 +626,8 @@ export function Tag({
   /** Paper chip behind the text so it stays legible over geometry. */
   plate?: boolean;
 }) {
+  const { labels } = useViewer();
+  if (!labels) return null;
   const tones: Record<string, string> = {
     teal: "text-teal",
     amber: "text-amber",
@@ -735,10 +806,18 @@ export function Arrow({
         dashed={dashed}
         dashSize={0.1}
         gapSize={0.08}
+        depthWrite={false}
       />
       <mesh position={tip} quaternion={quat}>
-        <coneGeometry args={[head * 0.52, head * 1.5, 14]} />
-        <meshStandardMaterial color={color} roughness={0.4} metalness={0.02} transparent opacity={opacity} />
+        <coneGeometry args={[head * 0.52, head * 1.5, 18]} />
+        <meshStandardMaterial
+          color={color}
+          roughness={0.42}
+          metalness={0.02}
+          transparent
+          opacity={opacity}
+          depthWrite={opacity >= 0.95}
+        />
       </mesh>
     </group>
   );
@@ -801,23 +880,25 @@ export function Bars({
         const color = bar.color ?? P.teal;
         return (
           <group key={bar.label ?? i} position={[x, 0, 0]}>
-            <mesh
+            <RoundedBox
               ref={(m) => {
                 refs.current[i] = m;
               }}
+              args={[width, height, depth]}
+              radius={Math.min(0.055, width / 4, depth / 4)}
+              smoothness={2}
               position={[0, baseline, 0]}
               scale={[1, 0.001, 1]}
               castShadow
               receiveShadow
             >
-              <boxGeometry args={[width, height, depth]} />
               <meshStandardMaterial
                 color={color}
-                roughness={0.28}
+                roughness={0.32}
                 metalness={0.06}
-                envMapIntensity={0.85}
+                envMapIntensity={0.92}
               />
-            </mesh>
+            </RoundedBox>
             {showTags && bar.label ? (
               <Tag position={[0, baseline - 0.24, depth / 2]} tone={tone} size="xs" center>
                 {bar.label}
@@ -845,6 +926,7 @@ export function Bars({
         lineWidth={1.2}
         transparent
         opacity={0.7}
+        depthWrite={false}
       />
     </group>
   );
@@ -919,20 +1001,33 @@ export function Panel({
       <RoundedBox args={[w, h, 0.07]} radius={0.05} smoothness={3} castShadow receiveShadow>
         <meshStandardMaterial
           color={P.surface}
-          roughness={0.32}
+          roughness={0.36}
           metalness={0.04}
-          envMapIntensity={0.9}
+          envMapIntensity={0.96}
         />
       </RoundedBox>
       {/* Header strip: the panel's identity, not a floating annotation. */}
       <mesh position={[0, h / 2 - head / 2, 0.038]}>
         <planeGeometry args={[w - 0.06, head]} />
-        <meshBasicMaterial color={color} transparent opacity={active ? 0.95 : 0.75} />
+        <meshBasicMaterial
+          color={color}
+          transparent
+          opacity={active ? 0.95 : 0.75}
+          depthWrite={false}
+        />
       </mesh>
       <mesh position={[0, -head / 2, 0.038]}>
         <planeGeometry args={[w - 0.06, h - head - 0.06]} />
-        <meshBasicMaterial color={color} transparent opacity={fill} />
+        <meshBasicMaterial color={color} transparent opacity={fill} depthWrite={false} />
       </mesh>
+      <Line
+        points={[[-w / 2 + 0.04, h / 2 - head, 0.046], [w / 2 - 0.04, h / 2 - head, 0.046]]}
+        color={color}
+        lineWidth={0.8}
+        transparent
+        opacity={active ? 0.8 : 0.45}
+        depthWrite={false}
+      />
       <Line
         points={[
           [-w / 2, -h / 2, 0.04],

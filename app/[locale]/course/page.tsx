@@ -1,5 +1,9 @@
+import fs from "node:fs/promises";
+import { lessonPath } from "@/lib/mdx";
+import { lessonOutline } from "@/lib/lesson-outline";
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
+import { CourseExplorerLegacy } from "@/components/course/CourseExplorerLegacy";
 import { CourseExplorer, type CourseCard } from "@/components/course/CourseExplorer";
 import { MODULES, TOTAL_MINUTES, getModule } from "@/content/modules";
 import { TRACKS, TRACK_BY_ID, type TrackId } from "@/content/tracks";
@@ -23,7 +27,7 @@ export default async function CoursePage({
   const t = await getTranslations("course");
   const loc = locale as Locale;
 
-  const cards: CourseCard[] = MODULES.map((m) => ({
+  const cards: CourseCard[] = await Promise.all(MODULES.map(async (m) => ({
     slug: m.slug,
     order: m.order,
     title: m.title[loc],
@@ -35,8 +39,10 @@ export default async function CoursePage({
     prereqTitles: m.prereqs.map((id) => getModule(id)?.title[loc] ?? id),
     durationLabel: t("min", { n: m.durationMin }),
     tags: m.tags,
-  }));
+    sections: lessonOutline(await fs.readFile(lessonPath(m.slug, loc), "utf8").catch(() => "")),
+  })));
 
+  const Explorer = loc === "es" ? CourseExplorer : CourseExplorerLegacy;
   const valid = TRACKS.some((x) => x.id === track) ? (track as TrackId) : null;
 
   return (
@@ -48,7 +54,8 @@ export default async function CoursePage({
         {t("modules", { n: MODULES.length })} · {t("totalTime", { n: TOTAL_MINUTES })}
       </p>
 
-      <CourseExplorer
+      <Explorer
+        locale={loc}
         cards={cards}
         initialTrack={valid}
         tracks={TRACKS.map((tr) => ({

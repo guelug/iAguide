@@ -85,13 +85,13 @@ function NodeMesh({
           onSelect(node.slug);
         }}
       >
-        <icosahedronGeometry args={[1, wip ? 0 : 1]} />
+        <icosahedronGeometry args={[1, wip ? 0 : 3]} />
         <meshStandardMaterial
           color={node.color}
           emissive={node.color}
-          emissiveIntensity={hovered ? 2.6 : dimmed ? 0.25 : 1.1}
-          roughness={0.3}
-          metalness={0.15}
+          emissiveIntensity={hovered ? 0.22 : dimmed ? 0.02 : 0.08}
+          roughness={0.22}
+          metalness={0.25}
           wireframe={wip}
           transparent
           opacity={dimmed ? 0.5 : 1}
@@ -102,7 +102,7 @@ function NodeMesh({
         <>
           <Halo radius={0.42} thickness={0.006} color={node.color} opacity={0.8} spin={1.2} />
           <Tag position={[0, 0.5, 0]} tone="ink" center>
-            {String(node.order).padStart(2, "0")} · {node.title}
+            {String(node.order).padStart(2, "0")}
           </Tag>
         </>
       ) : null}
@@ -167,12 +167,14 @@ export function CourseAtlas({
   onHover,
   onSelect,
   className,
+  selected,
 }: {
   nodes: AtlasNode[];
   activeTrack: string | null;
   onHover: (slug: string | null) => void;
   onSelect: (slug: string) => void;
   className?: string;
+  selected?: string;
 }) {
   const [hover, setHover] = useState<string | null>(null);
   const positions = useMemo(() => layout(nodes.length), [nodes.length]);
@@ -211,13 +213,14 @@ export function CourseAtlas({
       className={className}
       camera={{ position: [0, 2.6, 9.2], fov: 44 }}
       background={P.paper}
-      controls={{ enableZoom: true, autoRotate: !hover, autoRotateSpeed: 0.32, minDistance: 5, maxDistance: 16 }}
+      controls={{ enableZoom: true, autoRotate: !hover && !selected, autoRotateSpeed: 0.32, minDistance: 5, maxDistance: 16 }}
     >
       <group onPointerMissed={() => handleHover(null)}>
-        <Thread points={positions} dim={Boolean(activeTrack)} />
+        {positions.length > 1 && <Thread points={positions} dim={Boolean(activeTrack)} />}
 
         {chords.map((c) => {
-          const rel = hover ? c.key.includes(hover) : false;
+          const focus = hover ?? selected;
+          const rel = focus ? c.key.split("->").includes(focus) : false;
           const dim = activeTrack
             ? !nodes.find((n) => n.slug === c.slug && n.track === activeTrack)
             : false;
@@ -238,7 +241,7 @@ export function CourseAtlas({
             key={n.slug}
             node={n}
             position={positions[i]}
-            hovered={hover === n.slug}
+            hovered={(hover ?? selected) === n.slug}
             dimmed={Boolean(activeTrack) && n.track !== activeTrack}
             onHover={handleHover}
             onSelect={onSelect}
