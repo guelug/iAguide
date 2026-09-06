@@ -10,6 +10,9 @@ const STUDY_TITLES: Record<string, string> = {
   "tokenization": "Banco tipográfico · fusiones y tokens",
   "image-models": "Banco óptico de difusión",
   "memory-hardware": "GPU desmontable y presupuesto de memoria",
+  "memory-hardware:4": "NVIDIA y Apple Max · anatomía comparada",
+  "memory-hardware:5": "Del SSD al token · carga, prefill y decode",
+  "memory-hardware:6": "Capacidad y ancho de banda · RTX y Max",
   "training": "Descenso por gradiente",
   "attention:4": "Caché KV · prefill y decode",
 };

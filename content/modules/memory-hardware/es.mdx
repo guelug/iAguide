@@ -6,24 +6,47 @@
 - **<Term id="unified-memory">Memoria unificada</Term> de Apple Silicon** — CPU y GPU comparten un pool. No hay copia PCIe del modelo entero para "ponerlo en la GPU". Sigues teniendo un pool *finito* (los 16 / 32 / 64 / 128 GB que compraste) y límites de **ancho de banda**. Unificado no significa infinito.
 - **RAM + CPU** — llama.cpp corre solo en RAM. La capacidad es más fácil; el <Term id="bandwidth">ancho de banda</Term> es peor. Vale para lotes y experimentos; duele como chat ágil.
 
+## NVIDIA y Apple Max: anatomía de dos arquitecturas
+
+<VisualSlot id="memory-hardware:4" caption="NVIDIA y Apple Max: componentes, memoria y conexiones en un despiece interactivo." />
+
+Una GPU dedicada tiene su propia memoria: la **GeForce RTX 5090 incorpora 32 GB de GDDR7**. La CPU del equipo utiliza otra RAM, y PCIe conecta ambos dominios. La maquetación de esta lámina es didáctica: las piezas permiten entender conexiones y funciones, no reproducen el plano de una tarjeta comercial.
+
+En un Mac, **CPU y GPU del M4 Max comparten memoria unificada**. La variante de **16 núcleos CPU y 40 GPU** admite hasta **128 GB** y publica **546 GB/s** de ancho de banda; la variante de **14 CPU y 32 GPU** publica **410 GB/s**. Compartir memoria evita la necesidad de una copia del modelo entre RAM y VRAM separadas, pero sigue habiendo transferencias desde el SSD, coordinación de accesos y trabajo del motor. La capacidad también la utilizan macOS y otras aplicaciones.
+
+Son configuraciones identificadas, no una afirmación de que todos los chips Max sean iguales. Fuentes: [NVIDIA RTX 5090](https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5090/) y [Apple M4 Max](https://support.apple.com/en-mide/121553).
+
+## Del archivo al token: carga, prefill y decode
+
+<VisualSlot id="memory-hardware:5" caption="Sigue los datos desde el SSD hasta la generación, en NVIDIA y en memoria unificada." />
+
+1. **Carga**. El archivo de pesos sale del SSD. En la ruta convencional de una GPU dedicada pasa por memoria del equipo y se transfiere a VRAM. En Apple se carga en el espacio compartido que puede utilizar la GPU. Hay otras rutas de entrada y estrategias de descarga; la escena muestra este caso habitual.
+2. **Prefill**. El motor procesa los tokens de entrada y construye sus claves y valores. La KV se escribe en memoria; pesos, activaciones y temporales también participan. Los tamaños de bloque dependen del motor.
+3. **Decode**. Cada paso usa pesos y caché previa para calcular el siguiente token, y añade su nueva KV. Con un modelo denso y lote pequeño, el tráfico de memoria suele ser un factor importante. Con otros lotes o arquitecturas, el equilibrio cambia.
+
+Los paquetes y las duraciones animadas sirven para seguir el proceso. **No representan velocidades medidas** ni comparan latencias reales entre equipos.
+
 ## Capacidad frente a ancho de banda, las dos preguntas
 
-<VisualSlot id="memory-hardware:3" />
+<VisualSlot id="memory-hardware:6" caption="Capacidad y ancho de banda: RTX 5090, M4 Max y M3 Max con una carga editable." />
 
-Cuando te preguntas "¿cabe?" estás hablando de **capacidad**. Cuando te preguntas "¿va rápido?" estás hablando de **ancho de banda**. Las dos se confunden porque las GPUs tienen las dos, pero en sitios distintos:
+**Capacidad** responde a cuánto puedes mantener en memoria. **Ancho de banda** responde a cuántos bytes puedes mover por segundo. Ninguna de las dos cifras, por sí sola, determina la velocidad del modelo.
 
-| Memoria | Capacidad típica | Ancho de banda típico | Uso |
-| --- | --- | --- | --- |
-| VRAM (H100) | 80 GB | ~3 TB/s | pesos + KV en una H100 |
-| VRAM (4090) | 24 GB | ~1 TB/s | pesos + KV en una 4090 |
-| Unified (M3 Max) | 64–128 GB | ~400 GB/s | pesos + KV en Apple Silicon |
-| DDR5 (host) | 32–192 GB | ~80 GB/s | pesos en CPU; descarga parcial |
+| Configuración de referencia | Memoria | Ancho de banda publicado |
+| --- | --- | --- |
+| GeForce RTX 5090 | 32 GB GDDR7 dedicados | 1.792 GB/s |
+| M4 Max, 16 CPU / 40 GPU, configuración de 128 GB | 128 GB compartidos | 546 GB/s |
+| M3 Max, 16 CPU / 40 GPU, configuración de 128 GB | 128 GB compartidos | 400 GB/s |
 
-La cifra de **bytes por segundo** importa porque el decode relee los pesos del modelo entero para cada token nuevo. En una 4090 a 1 TB/s, un modelo Q4 de 8B (~4 GB) tarda ~4 ms en leerse — eso es el techo de tokens/segundo para un solo usuario. En unified memory a 400 GB/s, el mismo modelo tarda ~10 ms. Por eso una 4090 con un modelo que *cabe* en 24 GB puede dar 100+ tokens/segundo, mientras que un Mac con el mismo modelo da 40-50.
+El M3 Max de 14 CPU y 30 GPU tiene **300 GB/s**; no deben trasladarse los 400 GB/s de la variante superior a cualquier Mac con ese nombre. La tabla tampoco compara el ancho de banda de VRAM con el de PCIe: son enlaces distintos. Fuentes: [tabla de NVIDIA Blackwell](https://images.nvidia.com/aem-dam/Solutions/geforce/blackwell/nvidia-rtx-blackwell-gpu-architecture.pdf), [ficha de M4 Max](https://support.apple.com/en-mide/121553) y [ficha de M3 Max](https://support.apple.com/en-us/117737).
 
 <Callout>
-**Capacidad sin bandwidth no sirve para chat.** Un modelo puede caber en RAM del sistema, pero si la memoria del sistema va a 80 GB/s y los pesos ocupan 4 GB, tu techo de tokens/segundo por usuario es 80/4 = 20. Eso *es* tu límite, da igual el FLOPs del procesador.
+**Una cuenta de lectura no es un benchmark.** Leer 4 GB a 400 GB/s daría un mínimo ideal de 10 ms. Eso no incluye cómputo, lectura de KV, sincronización, cachés ni eficiencia del motor. No equivale a una promesa de tokens por segundo. En memoria unificada, otros consumidores también comparten el caudal.
 </Callout>
+
+## Presupuesto del modelo: pesos, KV y reserva
+
+<VisualSlot id="memory-hardware:3" />
 
 ## Lo que vive en memoria: tres inquilinos
 
@@ -31,7 +54,7 @@ Un inference server carga tres cosas, no una:
 
 1. **Pesos del modelo** — el archivo. Inmutable durante la sesión. Dense 8B FP16: 16 GB. A3B 48B FP16: 96 GB. A3B 48B Q4: ~24 GB. **Es un impuesto fijo**: si no cabe, no arranca.
 2. **<Term id="kv-cache">Caché KV</Term>** — la memoria de trabajo de la atención. Crece con la longitud del contexto y con el número de secuencias concurrentes. Fórmula aproximada:
-   `bytes_KV ≈ 2 × capas × cabezas_KV × head_dim × bytes_por_peso × tokens_de_contexto`
+   `bytes_KV ≈ 2 × capas × cabezas_KV × head_dim × bytes_por_elemento_KV × tokens_de_contexto × secuencias`
    En la práctica: un 8B denso con contexto 8k ocupa ~0.5-1 GB de KV; con 128k, ~8-16 GB. **Es el segundo inquilino** y el que más se subestima.
 3. **Runtime, activaciones, fragmentación** — el runtime de CUDA/Metal, las activaciones pico del prefill, los buffers temporales, el overhead del allocator. Suma entre 1 y 4 GB según el motor y la configuración. **Es el inquilino invisible** que nunca aparece en `params × bytes`.
 
@@ -80,7 +103,7 @@ Trampa 1: **los pesos caben, la KV no.** Caso típico: 8B en 4090 (24 GB), conte
 
 Trampa 2: **la VRAM parece libre pero el contexto CUDA se la come.** El runtime reserva 1-3 GB para sí mismo. Las activaciones del prefill pueden picar a varios GB en contextos largos. La fragmentación del allocator te roba otro tanto. Tu `nvidia-smi` dice 2 GB libres, tu modelo de 4 GB no carga.
 
-Trampa 3: **memoria unificada no es memoria de GPU.** En un Mac de 64 GB, macOS se come 8-12 GB para sistema, el navegador otros tantos, y los 40 GB que quedan no son una "GPU de 40 GB". El ancho de banda y los kernels son otros. Una 4090 con 24 GB dedicada es *mucho* más rápida para inference que un M3 Max con 64 GB.
+Trampa 3: **confundir memoria instalada con memoria disponible para el modelo.** En un Mac de 64 GB, el sistema y las aplicaciones comparten ese presupuesto con la GPU. La reserva necesaria varía: mídela en tu sesión. El rendimiento también depende del chip concreto, la precisión, el contexto y los kernels de CUDA o Metal; la capacidad no permite declarar un ganador universal.
 
 ## Reglas prácticas (marcadas como tales)
 
