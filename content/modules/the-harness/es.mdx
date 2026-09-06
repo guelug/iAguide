@@ -63,7 +63,14 @@ Si omites permisos, construiste un control remoto para quien hable con el modelo
 
 ## Hilos, no corazonadas
 
-Un hilo es la unidad durable: mensajes, resultados, a veces un directorio de trabajo. No es una cookie de <Term id="session">sesión</Term>. Diseña como si "este hilo fuera el contexto" y admite que lo vas a compactar.
+Un hilo es la unidad durable: mensajes, resultados de herramientas, a veces un directorio de trabajo y los ids con los que se casan las llamadas con sus respuestas. No es una cookie de <Term id="session">sesión</Term>.
+
+La diferencia importa cuando algo se rompe. Una cookie identifica a quien habla; un hilo **es** lo que el modelo sabe. Si los confundes, aparecen dos fallos con la misma cara:
+
+- **Reconstruir el hilo desde el almacén y perder los resultados de herramientas.** El modelo ve que pidió `read_file` y nunca ve la respuesta, así que la vuelve a pedir. Pagas dos veces por leer el mismo archivo y el usuario ve al agente dando vueltas.
+- **Dos clientes sobre el mismo identificador.** Dos ventanas escribiendo en el mismo hilo intercalan turnos, y el modelo lee una conversación que nadie tuvo.
+
+Diseña como si "este hilo fuera el contexto" y admite desde el principio que lo vas a compactar. Compactar es una decisión de producto, no una de infraestructura: eliges qué recuerda el agente. Un resumen que tira los resultados de herramientas pero conserva la charla amable optimizó exactamente la mitad equivocada.
 
 ## Subagentes
 
@@ -148,7 +155,21 @@ def turn(thread, user_text):
         thread.append(tool_result_message(out.tool_call.id, result))
 ```
 
-Cinco líneas. El resto es detalle (compactación, retries, persistencia). Si puedes testear esto sin un modelo, tienes el esqueleto.
+Cinco líneas de verdad, y el resto de este curso es lo que les falta. Vale la pena nombrar las ausencias, porque cada una es un fallo concreto que verás en producción:
+
+- **No hay reintentos.** Un 500 del proveedor a mitad de turno mata el turno y pierde el trabajo de las herramientas que ya corrieron.
+- **No hay tope de rondas.** Si el modelo pide la misma herramienta una y otra vez, el `while True` la complace para siempre. Un contador y un corte son dos líneas y evitan una factura.
+- **No hay compactación.** Cuando el hilo supera la <Term id="context-window">ventana</Term>, la conversación no se degrada: se acaba.
+- **No hay streaming.** El usuario espera al turno entero, incluidas todas las rondas de herramientas, antes de ver un carácter.
+- **No hay persistencia.** El hilo vive en memoria. Un reinicio y no ha pasado nada de esto.
+
+Fíjate también en dónde entra cada concepto anterior. `PROFILE` y `TOOLS` son el prefijo estable de `assemble_prompt`, que es lo que puede acertar en caché. `POLICY` es la comprobación de permisos, y va en `dispatch`, no en el modelo. `thread` es lo único que crece — y esa es exactamente la `g` de la aritmética de la [lección de coste](/m/cost-and-economics).
+
+<Callout>
+Si el bucle te cabe en la cabeza, los fallos también. Casi todo incidente de agente es una de esas cinco ausencias, no un modelo que "se volvió tonto".
+</Callout>
+
+Si puedes testear esto sin un modelo, tienes el esqueleto.
 
 ## Lo que el arnés NO es
 
