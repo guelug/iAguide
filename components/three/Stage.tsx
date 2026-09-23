@@ -9,6 +9,7 @@ import {
   Preload,
 } from "@react-three/drei";
 import { EffectComposer, N8AO } from "@react-three/postprocessing";
+import { BlendFunction, Effect } from "postprocessing";
 import { Canvas, useFrame, type CanvasProps } from "@react-three/fiber";
 import {
   Suspense,
@@ -22,7 +23,7 @@ import {
 } from "react";
 import { useViewer } from "./ViewerContext";
 import { P } from "@/lib/palette";
-import { BackSide, Box3, MathUtils, Spherical, Vector3 } from "three";
+import { BackSide, Box3, MathUtils, NeutralToneMapping, Spherical, Vector3 } from "three";
 import type * as THREE from "three";
 
 type ControlsConfig = {
@@ -97,7 +98,8 @@ export function useStillness() {
  * rather than black. It is baked once (`frames={1}`) and costs nothing
  * per frame after that.
  */
-function StudioEnvironment() {
+function StudioEnvironment({ studio }: { studio: boolean }) {
+  if (studio) return <PhotoStudio />;
   return (
     <Environment resolution={256} frames={1}>
       <mesh scale={60}>
@@ -151,13 +153,51 @@ function StudioEnvironment() {
  * The key light is separate because it has to be fitted to the scene;
  * see KeyLight.
  */
-function DefaultLights() {
+function DefaultLights({ studio }: { studio: boolean }) {
+  if (studio) {
+    return (
+      <>
+        <ambientLight intensity={0.06} />
+        <hemisphereLight args={["#FFFFFF", "#D9D3C4", 0.36]} />
+        <directionalLight position={[-6, 3, -4]} intensity={0.28} color="#DDEBF0" />
+      </>
+    );
+  }
   return (
     <>
       <ambientLight intensity={0.5} />
       <hemisphereLight args={[P.paper, P.sunken, 0.45]} />
       <directionalLight position={[-6, 2, -3]} intensity={0.3} color={P.tealWash} />
     </>
+  );
+}
+
+/**
+ * A product-photography cyclorama for the Spanish plates. The old studio
+ * fed a white object roughly three times the light it could reflect, so
+ * every pale surface clipped to flat white and low-opacity accents shifted
+ * toward cyan. This one keeps the key soft and moderate, darkens the lower
+ * hemisphere so reflections carry a horizon line, and adds two strip
+ * lights whose long highlights describe bevels and curvature.
+ */
+function PhotoStudio() {
+  return (
+    <Environment resolution={512} frames={1} environmentIntensity={0.6}>
+      <mesh scale={60}>
+        <sphereGeometry args={[1, 32, 32]} />
+        <meshBasicMaterial color="#EDEDEA" side={BackSide} />
+      </mesh>
+      {/* Floor of the cyclorama: a darker lower hemisphere. */}
+      <mesh position={[0, -8, 0]} rotation={[-Math.PI / 2, 0, 0]} scale={120}>
+        <circleGeometry args={[1, 48]} />
+        <meshBasicMaterial color="#B8B1A2" />
+      </mesh>
+      <Lightformer form="rect" intensity={1.9} color="#FFFFFF" position={[0.5, 7, 3]} rotation={[-Math.PI / 2.2, 0, 0]} scale={[10, 6, 1]} />
+      <Lightformer form="rect" intensity={2.4} color="#FFFFFF" position={[-6, 2.5, 3]} rotation={[0, Math.PI / 2.4, 0]} scale={[0.8, 9, 1]} />
+      <Lightformer form="rect" intensity={1.6} color="#FFF9F1" position={[6.5, 2, 1]} rotation={[0, -Math.PI / 2.3, 0]} scale={[0.8, 8, 1]} />
+      <Lightformer form="rect" intensity={0.55} color={P.tealWash} position={[-5, 0.5, -5]} rotation={[0, Math.PI / 4, 0]} scale={[6, 4, 1]} />
+      <Lightformer form="ring" intensity={1.2} color="#FFFFFF" position={[2, 5, -7]} scale={3} />
+    </Environment>
   );
 }
 
@@ -193,6 +233,10 @@ export function Stage({
 
   const env = useMemo<StageEnv>(() => ({ quality, still }), [quality, still]);
   const ctl = typeof controls === "object" ? controls : {};
+  /* Studio plates stay transparent over the viewer's own backdrop: a clear
+     colour inside the composer is tone-mapped with everything else, and
+     paper came out a visibly greyer rectangle than the page around it. */
+  const clear = viewer.studio ? undefined : background;
   const castShadows = shadows && quality > 0.7;
 
   return (
@@ -214,27 +258,35 @@ export function Stage({
           frameloop={still ? "demand" : onScreen ? "always" : "never"}
           gl={{
             antialias: true,
-            alpha: !background,
+            alpha: !clear,
             powerPreference: "high-performance",
             stencil: false,
           }}
           camera={camera}
           orthographic={orthographic}
+          onCreated={({ gl }) => {
+            /* Khronos PBR Neutral keeps the palette's hues where ACES
+               would desaturate and shift them; R3F applies its own tone
+               mapping only once, at creation, so this sticks. */
+            if (!viewer.studio) return;
+            gl.toneMapping = NeutralToneMapping;
+            gl.toneMappingExposure = 1;
+          }}
           /* PCFSoft, not drei's <SoftShadows>: that component patches
              three's shadow chunk with unpackRGBAToDepth, which r185 no
              longer ships, and every material silently fails to compile. */
           shadows={castShadows ? "soft" : false}
         >
-          {background ? <color attach="background" args={[background]} /> : null}
+          {clear ? <color attach="background" args={[clear]} /> : null}
           {fog ? <fog attach="fog" args={fog} /> : null}
           <StageContext.Provider value={env}>
             <PerfGovernor onChange={setQuality} enabled={!still} />
-            <StudioEnvironment />
-            <DefaultLights />
+            <StudioEnvironment studio={viewer.studio} />
+            <DefaultLights studio={viewer.studio} />
             {/* Always mounted: it owns the key light, which the scene
                 needs whether or not that light casts a shadow. */}
-            <Floor shadows={castShadows} quality={quality} />
-            {fit !== false && !controls ? <CameraRig fit={fit / viewer.zoom} view={viewer.view} azimuth={viewer.azimuth} elevation={viewer.elevation} /> : null}
+            <Floor shadows={castShadows} quality={quality} studio={viewer.studio} />
+            {fit !== false && !controls ? <CameraRig fit={fit / viewer.zoom} view={viewer.view} azimuth={viewer.azimuth} elevation={viewer.elevation} studio={viewer.studio} /> : null}
             <Suspense fallback={null}>{children}</Suspense>
             {controls ? (
               <OrbitControls
@@ -251,9 +303,21 @@ export function Stage({
               />
             ) : null}
             {viewer.detail && quality > 0.7 && shadows && (
-              <EffectComposer multisampling={4}>
-                <N8AO aoRadius={0.35} intensity={0.55} distanceFalloff={1} quality="high" color={P.ink} />
-              </EffectComposer>
+              viewer.studio ? (
+                /* No tone-mapping pass here on purpose. The composer's
+                   output is straight alpha, so one over a transparent canvas
+                   turned every translucent line cyan. The studio rig keeps
+                   almost everything inside Neutral's linear range instead,
+                   which makes this path match the tone-mapped one. */
+                <EffectComposer multisampling={4}>
+                  <N8AO aoRadius={0.5} intensity={1.1} distanceFalloff={0.8} quality="high" color="#2A2620" />
+                  <Premultiply />
+                </EffectComposer>
+              ) : (
+                <EffectComposer multisampling={4}>
+                  <N8AO aoRadius={0.35} intensity={0.55} distanceFalloff={1} quality="high" color={P.ink} />
+                </EffectComposer>
+              )
             )}
             <AdaptiveDpr pixelated={false} />
             <Preload all />
@@ -271,6 +335,27 @@ export function Stage({
       )}
     </div>
   );
+}
+
+/**
+ * The composer hands back straight alpha while the canvas is composited as
+ * premultiplied, so on a transparent studio plate every translucent line
+ * and ring came out brightened toward cyan. One multiply restores it.
+ */
+class PremultiplyEffect extends Effect {
+  constructor() {
+    super(
+      "Premultiply",
+      "void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) { outputColor = vec4(inputColor.rgb * inputColor.a, inputColor.a); }",
+      { blendFunction: BlendFunction.SET },
+    );
+  }
+}
+
+function Premultiply() {
+  const effect = useMemo(() => new PremultiplyEffect(), []);
+  useEffect(() => () => effect.dispose(), [effect]);
+  return <primitive object={effect} />;
 }
 
 /**
@@ -335,7 +420,7 @@ const KEY_DIR = new Vector3(4.5, 8, 5.5).normalize();
  * same geometry read as objects standing in a room. The plane paints
  * nothing but the shadow, so the page's paper still shows through.
  */
-function Floor({ shadows, quality }: { shadows: boolean; quality: number }) {
+function Floor({ shadows, quality, studio }: { shadows: boolean; quality: number; studio: boolean }) {
   const ref = useRef<THREE.Mesh>(null);
   const light = useRef<THREE.DirectionalLight>(null);
   const since = useRef(0);
@@ -441,8 +526,8 @@ function Floor({ shadows, quality }: { shadows: boolean; quality: number }) {
       <directionalLight
         ref={light}
         position={[4.5, 8, 5.5]}
-        intensity={1.15}
-        color="#ffffff"
+        intensity={studio ? 1.6 : 1.15}
+        color={studio ? "#FFFDF9" : "#ffffff"}
         castShadow={shadows}
         shadow-mapSize={[map, map]}
         shadow-bias={-0.0009}
@@ -459,7 +544,7 @@ function Floor({ shadows, quality }: { shadows: boolean; quality: number }) {
         userData={{ noFit: true }}
       >
         <planeGeometry args={[80, 80]} />
-        <shadowMaterial transparent opacity={0.17} color={P.ink} />
+        <shadowMaterial transparent opacity={studio ? 0.24 : 0.17} color={studio ? "#2A2620" : P.ink} />
       </mesh>
     </>
   );
@@ -613,7 +698,17 @@ function measureOrtho(
  * `userData.noFit`, so a dust cloud with a nine-unit radius cannot push
  * the subject into the distance.
  */
-function CameraRig({ fit, view, azimuth, elevation }: { fit: number; view: "original" | "front" | "overhead"; azimuth: number; elevation: number }) {
+/**
+ * Studio plates authored dead-on get a three-quarter view instead: seen
+ * square to the lens a card is a rectangle and its shadow falls straight
+ * behind it, where nobody can see it. Anything already composed at an
+ * angle keeps the author's direction.
+ */
+const FRONTAL_COS = Math.cos(MathUtils.degToRad(14));
+const STUDIO_AZIMUTH = -22;
+const STUDIO_ELEVATION = 16;
+
+function CameraRig({ fit, view, azimuth, elevation, studio }: { fit: number; view: "original" | "front" | "overhead"; azimuth: number; elevation: number; studio: boolean }) {
   const spherical = useRef(new Spherical());
   const dir = useRef<Vector3 | null>(null);
   const goalPos = useRef(new Vector3());
@@ -639,9 +734,10 @@ function CameraRig({ fit, view, azimuth, elevation }: { fit: number; view: "orig
     if (view === "front") viewDir.current.set(0, 0, 1);
     else if (view === "overhead") viewDir.current.set(0.01, 1, 0.01).normalize();
     else viewDir.current.copy(dir.current);
+    const frontal = studio && view === "original" && dir.current.z > FRONTAL_COS;
     spherical.current.setFromVector3(viewDir.current);
-    spherical.current.theta += MathUtils.degToRad(azimuth);
-    spherical.current.phi = MathUtils.clamp(spherical.current.phi - MathUtils.degToRad(elevation), 0.05, Math.PI - 0.05);
+    spherical.current.theta += MathUtils.degToRad(azimuth + (frontal ? STUDIO_AZIMUTH : 0));
+    spherical.current.phi = MathUtils.clamp(spherical.current.phi - MathUtils.degToRad(elevation + (frontal ? STUDIO_ELEVATION : 0)), 0.05, Math.PI - 0.05);
     viewDir.current.setFromSpherical(spherical.current);
     since.current += dt;
     if (state.frameloop === "demand" || since.current > 0.4 || !settled.current || changed) {

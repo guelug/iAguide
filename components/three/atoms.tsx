@@ -2,6 +2,7 @@
 
 import { Html, Line, RoundedBox } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
+import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import {
   useEffect,
   useLayoutEffect,
@@ -22,7 +23,7 @@ import {
   Quaternion,
   Vector3,
 } from "three";
-import { P } from "@/lib/palette";
+import { P, mixHex } from "@/lib/palette";
 import { useViewer } from "./ViewerContext";
 import { useStage } from "./Stage";
 
@@ -75,6 +76,7 @@ export function Node3D({
 }) {
   const ref = useRef<Mesh>(null);
   const { still } = useStage();
+  const { studio } = useViewer();
 
   useFrame(({ clock }) => {
     if (!ref.current || !pulse) return;
@@ -119,6 +121,15 @@ export function Node3D({
       )}
       {matte ? (
         <meshBasicMaterial color={color} />
+      ) : studio ? (
+        <meshPhysicalMaterial
+          color={color}
+          roughness={faceted ? 0.42 : 0.34}
+          metalness={0}
+          clearcoat={0.65}
+          clearcoatRoughness={0.18}
+          flatShading={faceted}
+        />
       ) : (
         <meshStandardMaterial
           color={color}
@@ -159,6 +170,12 @@ export function Slab({
   children?: ReactNode;
 }) {
   const [w, h, d] = size;
+  const { studio } = useViewer();
+  /* A face-on panel big enough to be "a component of the system" is drawn
+     as a physical module: a pale body, a tinted face and an accent band
+     along the top. Thin layers, tiles and bars stay frosted acrylic. */
+  const asModule = studio && fill < 0.6 && w >= 0.9 && h >= 0.7 && d <= 0.3;
+  const band = Math.min(0.13, h * 0.1);
   const edgeLoops = useMemo(() => {
     const x = w / 2;
     const y = h / 2;
@@ -213,21 +230,60 @@ export function Slab({
         args={[w, h, d]}
         radius={Math.min(0.05, d / 2.2)}
         smoothness={3}
-        castShadow={fill > 0.7}
+        castShadow={fill > 0.7 || asModule}
         receiveShadow
       >
-        <meshStandardMaterial
-          color={color}
-          transparent={fill < 1}
-          opacity={fill}
-          roughness={0.4}
-          metalness={0.03}
-          envMapIntensity={0.82}
-          depthWrite={fill > 0.85}
-          polygonOffset={fill < 1}
-          polygonOffsetFactor={-1}
-        />
+        {asModule ? (
+          <meshPhysicalMaterial
+            color={mixHex(P.surface, color, 0.05 + fill * 0.18)}
+            roughness={0.5}
+            metalness={0}
+            clearcoat={0.35}
+            clearcoatRoughness={0.3}
+          />
+        ) : studio && fill < 1 ? (
+          /* Frosted acrylic: a faint accent at low opacity is mostly the
+             environment's reflection, which read as mint rather than teal.
+             Mixing the tint toward paper and raising opacity keeps the hue
+             and gives the plate a body the shadow and AO can describe. */
+          <meshPhysicalMaterial
+            color={mixHex(P.paper, color, 0.3 + fill * 0.75)}
+            transparent
+            opacity={Math.min(0.92, 0.5 + fill * 0.8)}
+            roughness={0.42}
+            metalness={0}
+            clearcoat={0.4}
+            clearcoatRoughness={0.3}
+            depthWrite={false}
+            polygonOffset
+            polygonOffsetFactor={-1}
+          />
+        ) : (
+          <meshStandardMaterial
+            color={color}
+            transparent={fill < 1}
+            opacity={fill}
+            roughness={0.4}
+            metalness={0.03}
+            envMapIntensity={0.82}
+            depthWrite={fill > 0.85}
+            polygonOffset={fill < 1}
+            polygonOffsetFactor={-1}
+          />
+        )}
       </RoundedBox>
+      {asModule ? (
+        <>
+          <mesh position={[0, -band / 2, d / 2 + 0.002]} receiveShadow>
+            <planeGeometry args={[w - 0.14, h - band - 0.14]} />
+            <meshStandardMaterial color={mixHex(P.paper, color, 0.07 + fill * 0.34)} roughness={0.7} metalness={0} />
+          </mesh>
+          <mesh position={[0, h / 2 - band / 2 - 0.035, d / 2 + 0.003]}>
+            <planeGeometry args={[w - 0.14, band]} />
+            <meshStandardMaterial color={color} roughness={0.45} metalness={0} />
+          </mesh>
+        </>
+      ) : null}
       <Line
         points={edgeLoops.front}
         color={color}
@@ -323,6 +379,10 @@ export function Flow({
   const phase = useRef(((offset % 1) + 1) % 1);
   const previousOffset = useRef(offset);
   const { still } = useStage();
+  const { studio } = useViewer();
+  /* A comet tail makes direction legible at a glance; a lone dot on a
+     loop could be going either way. */
+  const trail = studio ? 4 : 0;
 
   const curve = useMemo(
     () =>
@@ -352,12 +412,21 @@ export function Flow({
       if (phase.current < 0) phase.current += 1;
     }
     const base = phase.current;
-    g.children.forEach((child, i) => {
-      const t = (base + i / count) % 1;
+    const stride = trail + 1;
+    g.children.forEach((child, j) => {
+      const i = Math.floor(j / stride);
+      const k = j % stride;
+      const head = (base + i / count) % 1;
+      const t = head - k * 0.016;
+      if (t < 0) {
+        child.visible = false;
+        return;
+      }
+      child.visible = true;
       curve.getPointAt(t, tmpVec);
       child.position.copy(tmpVec);
-      const fade = Math.sin(t * Math.PI);
-      child.scale.setScalar(0.6 + fade * 0.7);
+      const fade = Math.sin(head * Math.PI);
+      child.scale.setScalar((0.6 + fade * 0.7) * (1 - k * 0.19));
     });
   });
 
@@ -372,12 +441,20 @@ export function Flow({
         depthWrite={false}
       />
       <group ref={group}>
-        {Array.from({ length: count }, (_, i) => (
-          <mesh key={i}>
-            <sphereGeometry args={[size, 12, 12]} />
-            <meshBasicMaterial color={color} />
-          </mesh>
-        ))}
+        {Array.from({ length: count * (trail + 1) }, (_, j) => {
+          const k = j % (trail + 1);
+          return (
+            <mesh key={j}>
+              <sphereGeometry args={[size, 14, 12]} />
+              <meshBasicMaterial
+                color={color}
+                transparent={k > 0}
+                opacity={1 - k * 0.22}
+                depthWrite={k === 0}
+              />
+            </mesh>
+          );
+        })}
       </group>
     </group>
   );
@@ -395,19 +472,22 @@ export function Ribbon({
   radius?: number;
   opacity?: number;
 }) {
+  const { studio } = useViewer();
   const curve = useMemo(
     () => new CatmullRomCurve3(points.map((p) => new Vector3(...p))),
     [points],
   );
   return (
     <mesh castShadow receiveShadow>
-      <tubeGeometry args={[curve, 64, radius, 10, false]} />
-      <meshStandardMaterial
+      <tubeGeometry args={[curve, studio ? 128 : 64, radius, studio ? 16 : 10, false]} />
+      <meshPhysicalMaterial
         color={color}
         transparent={opacity < 1}
         opacity={opacity}
-        roughness={0.36}
-        metalness={0.06}
+        roughness={studio ? 0.3 : 0.36}
+        metalness={studio ? 0 : 0.06}
+        clearcoat={studio ? 0.6 : 0}
+        clearcoatRoughness={0.2}
         envMapIntensity={0.9}
         depthWrite={opacity >= 0.98}
       />
@@ -440,6 +520,7 @@ export function Lattice({
 }) {
   const ref = useRef<InstancedMesh>(null);
   const count = cells.length;
+  const { studio } = useViewer();
 
   useLayoutEffect(() => {
     const mesh = ref.current;
@@ -466,7 +547,7 @@ export function Lattice({
       castShadow
       receiveShadow
     >
-      <boxGeometry args={[size, size, size]} />
+      {studio ? <RoundedBoxGeometryCell size={size} /> : <boxGeometry args={[size, size, size]} />}
       {matte ? (
         <meshBasicMaterial
           transparent={opacity < 1}
@@ -474,9 +555,11 @@ export function Lattice({
           depthWrite={opacity >= 0.98}
         />
       ) : (
-        <meshStandardMaterial
-          roughness={0.36}
-          metalness={0.06}
+        <meshPhysicalMaterial
+          roughness={studio ? 0.4 : 0.36}
+          metalness={studio ? 0 : 0.06}
+          clearcoat={studio ? 0.45 : 0}
+          clearcoatRoughness={0.25}
           envMapIntensity={0.9}
           transparent={opacity < 1}
           opacity={opacity}
@@ -485,6 +568,13 @@ export function Lattice({
       )}
     </instancedMesh>
   );
+}
+
+/** A cube with softened edges, so instanced grids catch a highlight on every cell. */
+function RoundedBoxGeometryCell({ size }: { size: number }) {
+  const geometry = useMemo(() => new RoundedBoxGeometry(size, size, size, 2, size * 0.14), [size]);
+  useEffect(() => () => geometry.dispose(), [geometry]);
+  return <primitive object={geometry} attach="geometry" />;
 }
 
 /** Ambient dust. Depth cues that cost nothing. */
@@ -626,7 +716,7 @@ export function Tag({
   /** Paper chip behind the text so it stays legible over geometry. */
   plate?: boolean;
 }) {
-  const { labels } = useViewer();
+  const { labels, studio } = useViewer();
   if (!labels) return null;
   const tones: Record<string, string> = {
     teal: "text-teal",
@@ -658,7 +748,11 @@ export function Tag({
         className={`whitespace-nowrap font-mono font-medium uppercase tracking-[0.13em] ${
           size === "xs" ? "text-[0.56rem]" : "text-[0.64rem]"
         } ${tones[tone]} ${
-          plate ? "rounded-full border border-line bg-surface/92 px-1.5 py-0.5" : ""
+          plate
+            ? studio
+              ? "rounded-full border border-line-strong/60 bg-surface/88 px-2 py-0.5 shadow-[0_1px_2px_rgba(20,23,27,0.07),0_4px_10px_-6px_rgba(20,23,27,0.22)] backdrop-blur-[3px]"
+              : "rounded-full border border-line bg-surface/92 px-1.5 py-0.5"
+            : ""
         }`}
       >
         {children}
@@ -860,6 +954,7 @@ export function Bars({
   const span = (bars.length - 1) * pitch;
   const refs = useRef<(Mesh | null)[]>([]);
   const { still } = useStage();
+  const { studio } = useViewer();
 
   // Grow on mount so the comparison reads as a measurement being taken.
   useFrame((_, dt) => {
@@ -892,10 +987,12 @@ export function Bars({
               castShadow
               receiveShadow
             >
-              <meshStandardMaterial
+              <meshPhysicalMaterial
                 color={color}
-                roughness={0.32}
-                metalness={0.06}
+                roughness={studio ? 0.34 : 0.32}
+                metalness={studio ? 0 : 0.06}
+                clearcoat={studio ? 0.55 : 0}
+                clearcoatRoughness={0.2}
                 envMapIntensity={0.92}
               />
             </RoundedBox>

@@ -105,9 +105,12 @@ export function Figure({
           so none of them are hidden with it. */}
       <div
         aria-hidden
-        className={`relative w-full ${expanded ? "h-[65vh]" : lab ? "h-[480px] md:h-[min(65vh,760px)] md:min-h-[540px]" : height} ${flush ? "" : "bg-paper"}`}
+        className={`relative w-full ${expanded ? "h-[65vh]" : lab ? "h-[480px] md:h-[min(65vh,760px)] md:min-h-[540px]" : height} ${flush || es ? "" : "bg-paper"}`}
       >
-        <ViewerContext.Provider value={{paused, labels, detail, zoom, view, azimuth, elevation, studio: es}}>{children}</ViewerContext.Provider>
+        {es && !flush ? <PlateBackdrop /> : null}
+        <div className="relative z-[1] h-full w-full">
+          <ViewerContext.Provider value={{paused, labels, detail, zoom, view, azimuth, elevation, studio: es}}>{children}</ViewerContext.Provider>
+        </div>
       </div>
 
       {/* A div, not a p: callers pass readouts and lists in here, and a
@@ -142,6 +145,41 @@ export function Figure({
           {controls ? <div className="flex flex-wrap items-center gap-2">{controls}</div> : null}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * The drafting table behind a studio plate: a lit centre falling off to the
+ * edges, a dot grid that fades before it reaches them, and registration
+ * marks. The canvas above it is transparent, so every scene sits on the
+ * same surface without any of them drawing it.
+ */
+function PlateBackdrop() {
+  const corner = "absolute h-3.5 w-3.5 border-ink/25";
+  return (
+    <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(ellipse 75% 70% at 50% 42%, #FFFEFB 0%, #FAF8F3 45%, #EFECE4 100%)",
+        }}
+      />
+      <div
+        className="absolute inset-0"
+        style={{
+          backgroundImage: "radial-gradient(rgba(20,23,27,0.11) 0.8px, transparent 1.2px)",
+          backgroundSize: "22px 22px",
+          backgroundPosition: "11px 11px",
+          maskImage: "radial-gradient(ellipse 70% 65% at 50% 45%, #000 30%, transparent 85%)",
+          WebkitMaskImage: "radial-gradient(ellipse 70% 65% at 50% 45%, #000 30%, transparent 85%)",
+        }}
+      />
+      <span className={`${corner} left-3 top-3 border-l border-t`} />
+      <span className={`${corner} right-3 top-3 border-r border-t`} />
+      <span className={`${corner} bottom-3 left-3 border-b border-l`} />
+      <span className={`${corner} bottom-3 right-3 border-b border-r`} />
     </div>
   );
 }
