@@ -5,10 +5,20 @@ import { Stage } from "@/components/three/Stage";
 import { Motes, Node3D, PointerTilt, Ribbon, Slab, Tag } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
 import { useCopy } from "@/lib/useCopy";
+import { useLocale } from "next-intl";
+
+export default function Visual() {
+  return useLocale() === "es" ? <SpanishVisual /> : <LegacyVisual />;
+}
 type Mode="jsonrpc"|"session"|"permissions";
 const COPY={en:{label:"ACP is a narrow bridge, not magic",hint:"json-rpc · session · permissions",jsonrpc:"json-rpc",session:"session",permissions:"permissions",client:"client",server:"server",request:"request",response:"response",init:"initialize",prompt:"prompt",cancel:"cancel",allow:"allow",deny:"deny"},es:{label:"ACP es un puente estrecho, no magia",hint:"json-rpc · sesión · permisos",jsonrpc:"json-rpc",session:"sesión",permissions:"permisos",client:"cliente",server:"servidor",request:"request",response:"response",init:"inicializa",prompt:"prompt",cancel:"cancela",allow:"permite",deny:"deniega"}};
-export default function Visual(){const t=useCopy(COPY);const [mode,setMode]=useState<Mode>("jsonrpc");return <Figure label={t.label} hint={t.hint} legend={[{color:P.teal,label:t.request},{color:P.violet,label:t.response},{color:P.rose,label:t.deny}]} controls={<Switcher value={mode} onChange={setMode} options={[{value:"jsonrpc",label:t.jsonrpc,tone:P.teal},{value:"session",label:t.session,tone:P.violet},{value:"permissions",label:t.permissions,tone:P.rose}]} ariaLabel={t.label}/>}> <Stage className="h-full w-full" camera={{position:[0,.3,8.6],fov:37}}><Motes count={100} radius={7} opacity={.3}/><PointerTilt amount={.07}>
+function LegacyVisual(){const t=useCopy(COPY);const [mode,setMode]=useState<Mode>("jsonrpc");return <Figure label={t.label} hint={t.hint} legend={[{color:P.teal,label:t.request},{color:P.violet,label:t.response},{color:P.rose,label:t.deny}]} controls={<Switcher value={mode} onChange={setMode} options={[{value:"jsonrpc",label:t.jsonrpc,tone:P.teal},{value:"session",label:t.session,tone:P.violet},{value:"permissions",label:t.permissions,tone:P.rose}]} ariaLabel={t.label}/>}> <Stage className="h-full w-full" camera={{position:[0,.3,8.6],fov:37}}><Motes count={100} radius={7} opacity={.3}/><PointerTilt amount={.07}>
 {mode==="jsonrpc"&&<><Slab position={[-1.8,.5,0]} size={[1.5,.8,.12]} color={P.teal} fill={.22}/><Tag position={[-1.8,1.05,.15]} tone="teal">{t.client}</Tag><Ribbon points={[[-.8,.7,0],[.8,.7,0]]} color={P.teal} radius={.04} opacity={.85}/><Ribbon points={[[.8,.3,0],[-.8,.3,0]]} color={P.violet} radius={.04} opacity={.85}/><Slab position={[1.8,.5,0]} size={[1.5,.8,.12]} color={P.violet} fill={.22}/><Tag position={[1.8,1.05,.15]} tone="violet">{t.server}</Tag><Tag position={[0,1.15,.15]} tone="teal" size="xs">{t.request}</Tag><Tag position={[0,-.1,.15]} tone="violet" size="xs">{t.response}</Tag></>}
 {mode==="session"&&<>{[[t.init,P.teal,-2],[t.prompt,P.violet,0],[t.cancel,P.rose,2]].map(([lab,col,x],i)=><group key={lab as string}><Slab position={[x as number,.5,0]} size={[1.5,.75,.12]} color={col as string} fill={.24}/><Tag position={[x as number,1.0,.15]} tone={(["teal","violet","rose"] as const)[i]} size="xs">{lab as string}</Tag>{i<2&&<Ribbon points={[[x as number+.75,.5,0],[(x as number)+1,.5,0]]} color={P.lineStrong} radius={.03} opacity={.7}/>}</group>)}</>}
 {mode==="permissions"&&<><Slab position={[-1.8,.5,0]} size={[1.7,.8,.12]} color={P.teal} fill={.24}/><Tag position={[-1.8,1.05,.15]} tone="teal">capability map</Tag><Ribbon points={[[-.8,.5,0],[.8,.5,0]]} color={P.rose} radius={.05} opacity={.85}/><Node3D position={[1.6,.5,0]} color={P.rose} radius={.2} pulse={.5}/><Tag position={[1.6,1.0,.15]} tone="rose">{t.deny}</Tag></>}
 </PointerTilt></Stage></Figure>}
+
+/* ES-PLATE */
+function SpanishVisual() {
+  return <LegacyVisual />;
+}
