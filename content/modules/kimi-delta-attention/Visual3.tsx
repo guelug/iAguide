@@ -1,7 +1,9 @@
 "use client";
 
+import { RoundedBox } from "@react-three/drei";
+import { useLocale } from "next-intl";
 import { useState } from "react";
-import { Figure, Switcher } from "@/components/three/Figure";
+import { Figure, Knob, Readout, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import {
   Flow,
@@ -11,11 +13,12 @@ import {
   Node3D,
   PointerTilt,
   Ribbon,
+  ShadowBlob,
   Slab,
   Tag,
   Wire,
 } from "@/components/three/atoms";
-import { P } from "@/lib/palette";
+import { P, mixHex } from "@/lib/palette";
 import { useCopy } from "@/lib/useCopy";
 
 /* Kimi Linear is a hybrid stack; NoPE leaves position to KDA; a 75% smaller KV
@@ -55,7 +58,7 @@ const COPY = {
   },
 };
 
-export default function Visual() {
+function LegacyVisual() {
   const t = useCopy(COPY);
   const [mode, setMode] = useState<Mode>("hybrid");
 
@@ -167,6 +170,212 @@ export default function Visual() {
         )}
 
         </PointerTilt>
+      </Stage>
+    </Figure>
+  );
+}
+
+export default function Visual() {
+  return useLocale() === "es" ? <SpanishVisual /> : <LegacyVisual />;
+}
+
+/* ------------------------------------------------------------------ ES */
+
+/*
+ * Lámina ES: el sándwich KDA:MLA sobre el modelo de 16 capas de la
+ * ablación (Tabla 1 del paper). El control elige la proporción; la torre
+ * se recompone, la caché KV es proporcional al número de capas MLA y las
+ * barras muestran la perplejidad de validación medida para cada proporción.
+ * NoPE/RoPE cambia las capas MLA y la cifra RULER de contexto largo.
+ */
+
+type Pos = "nope" | "rope";
+
+const LAYERS = 16;
+const RATIOS = [
+  { r: 0, label: "0:1", val: 5.77, train: "9,45", name: "MLA puro" },
+  { r: 1, label: "1:1", val: 5.66, train: "9,29", name: "1:1" },
+  { r: 3, label: "3:1", val: 5.65, train: "9,23", name: "3:1" },
+  { r: 7, label: "7:1", val: 5.7, train: "9,23", name: "7:1" },
+  { r: 15, label: "15:1", val: 5.82, train: "—", name: "15:1" },
+];
+const RULER = { nope: 84.3, rope: 78.8 };
+const PLATE_DY = 0.19;
+
+const isMla = (r: number, layer: number) => (layer + 1) % (r + 1) === 0;
+
+function Sandwich({ r, pos }: { r: number; pos: Pos }) {
+  const y = (l: number) => 0.5 + l * PLATE_DY;
+  return (
+    <group>
+      {Array.from({ length: LAYERS }, (_, l) => {
+        const mla = isMla(r, l);
+        return (
+          <group key={l} position={[0, y(l), 0]}>
+            <RoundedBox args={[1.7, 0.11, 1.15]} radius={0.035} smoothness={2} castShadow receiveShadow>
+              <meshPhysicalMaterial color={mla ? mixHex(P.paper, P.amber, 0.8) : mixHex(P.paper, P.teal, 0.7)} roughness={0.4} clearcoat={0.45} clearcoatRoughness={0.28} />
+            </RoundedBox>
+            {mla ? (
+              pos === "rope" ? (
+                <mesh position={[0.55, 0, 0.6]}>
+                  <torusGeometry args={[0.055, 0.018, 10, 28]} />
+                  <meshStandardMaterial color={P.rose} roughness={0.4} />
+                </mesh>
+              ) : null
+            ) : (
+              <mesh position={[0.55, 0, 0.59]} rotation={[Math.PI / 2, 0, 0]}>
+                <cylinderGeometry args={[0.045, 0.045, 0.04, 18]} />
+                <meshStandardMaterial color={P.tealDeep} roughness={0.4} />
+              </mesh>
+            )}
+          </group>
+        );
+      })}
+      {[-0.78, 0.78].flatMap((dx) =>
+        [-0.5, 0.5].map((dz) => (
+          <mesh key={`${dx}:${dz}`} position={[dx, y(LAYERS / 2) - 0.1, dz]} castShadow>
+            <cylinderGeometry args={[0.02, 0.02, LAYERS * PLATE_DY + 0.25, 8]} />
+            <meshStandardMaterial color="#8C9895" metalness={0.7} roughness={0.3} />
+          </mesh>
+        )),
+      )}
+      <Tag position={[0, y(LAYERS) + 0.2, 0]} tone="ink" size="xs" center>
+        16 capas
+      </Tag>
+    </group>
+  );
+}
+
+function KvColumn({ mla }: { mla: number }) {
+  const H = 3.0;
+  const h = Math.max(0.02, (mla / LAYERS) * H);
+  return (
+    <group position={[2.3, 0.3, 0]}>
+      <RoundedBox args={[0.9, 0.1, 0.9]} position={[0, 0.05, 0]} radius={0.03} smoothness={2} castShadow receiveShadow>
+        <meshStandardMaterial color="#8C9895" metalness={0.5} roughness={0.35} />
+      </RoundedBox>
+      <mesh position={[0, 0.1 + H / 2, 0]}>
+        <cylinderGeometry args={[0.36, 0.36, H, 40, 1, true]} />
+        <meshPhysicalMaterial color="#FFFFFF" transparent opacity={0.14} roughness={0.08} clearcoat={1} depthWrite={false} side={2} />
+      </mesh>
+      <mesh position={[0, 0.1 + h / 2, 0]} castShadow>
+        <cylinderGeometry args={[0.3, 0.3, h, 40]} />
+        <meshPhysicalMaterial color={P.amber} roughness={0.35} clearcoat={0.5} />
+      </mesh>
+      <Tag position={[0, 0.1 + H + 0.25, 0]} tone="amber" size="xs" center>
+        {`caché KV ${Math.round((mla / LAYERS) * 100)} %`}
+      </Tag>
+    </group>
+  );
+}
+
+function PplBars({ idx }: { idx: number }) {
+  const bx = (i: number) => -4.3 + i * 0.5;
+  const hOf = (v: number) => (v - 5.55) * 7;
+  return (
+    <group>
+      <RoundedBox args={[2.8, 0.1, 1.0]} position={[bx(2), 0.35, 0]} radius={0.03} smoothness={2} castShadow receiveShadow>
+        <meshStandardMaterial color="#2C3332" roughness={0.42} metalness={0.2} />
+      </RoundedBox>
+      {RATIOS.map((q, i) => (
+        <group key={q.label}>
+          <RoundedBox args={[0.34, hOf(q.val), 0.34]} position={[bx(i), 0.4 + hOf(q.val) / 2, 0]} radius={0.03} smoothness={2} castShadow>
+            <meshPhysicalMaterial color={i === idx ? P.violet : mixHex(P.paper, P.violet, 0.4)} roughness={0.35} clearcoat={0.5} />
+          </RoundedBox>
+          <Tag position={[bx(i), 0.3, 0.62]} tone={i === idx ? "ink" : "muted"} size="xs" center plate={false}>
+            {q.label}
+          </Tag>
+        </group>
+      ))}
+      <Tag position={[bx(idx), 0.4 + hOf(RATIOS[idx].val) + 0.22, 0]} tone="violet" size="xs" center>
+        {`val ${String(RATIOS[idx].val).replace(".", ",")}`}
+      </Tag>
+      <Tag position={[bx(2), 2.25, 0]} tone="muted" size="xs" center plate={false}>
+        perplejidad
+      </Tag>
+    </group>
+  );
+}
+
+function SpanishVisual() {
+  const [idx, setIdx] = useState(2);
+  const [pos, setPos] = useState<Pos>("nope");
+  const q = RATIOS[idx];
+  const mla = Array.from({ length: LAYERS }, (_, l) => isMla(q.r, l)).filter(Boolean).length;
+  const kda = LAYERS - mla;
+  const saving = 1 - mla / LAYERS;
+
+  const comment: Record<number, string> = {
+    0: "MLA puro: todas las capas guardan caché KV. En la corrida justa de 1,4T perdía (val 5,77).",
+    1: "1:1 gasta la mitad de la pila en capas globales y apenas gana calidad (val 5,66): mucho presupuesto de decode por poco.",
+    3: "3:1 es el mejor equilibrio de la Tabla 1 (val 5,65): una capa MLA cada cuatro, y la caché KV cae un 75 %.",
+    7: "7:1 entrena igual (9,23) pero generaliza peor (val 5,70).",
+    15: "15:1 deja demasiadas pocas capas globales para copiar y recuperar (val 5,82).",
+  };
+
+  const note = (
+    <div className="space-y-3">
+      <div className="grid grid-cols-3 gap-3 border-b border-line pb-3">
+        {[
+          ["Capas KDA : MLA", `${kda} : ${mla}`],
+          ["Caché KV frente a MLA puro", `−${Math.round(saving * 100)} %`],
+          ["PPL val · train", `${String(q.val).replace(".", ",")} · ${q.train}`],
+        ].map(([label, value]) => (
+          <div key={label}>
+            <span className="block text-xs text-muted">{label}</span>
+            <strong className="mt-1 block font-display text-xl text-ink">{value}</strong>
+          </div>
+        ))}
+      </div>
+      <p>{comment[q.r]}</p>
+      <p>
+        {pos === "nope"
+          ? `NoPE: las capas MLA no llevan RoPE; la posición y la recencia las cargan las capas KDA (su transición con puerta ya es una señal posicional). RULER a contexto largo: ${String(RULER.nope).replace(".", ",")}.`
+          : `Con RoPE en las capas MLA (anillos rosas) el híbrido rendía peor en contexto largo: RULER ${String(RULER.rope).replace(".", ",")} frente a ${String(RULER.nope).replace(".", ",")} con NoPE. No añadas RoPE «por si acaso».`}
+      </p>
+      <p className="text-xs text-muted">
+        Perplejidades del modelo de scaling law de 16 capas (Tabla 1 del paper Kimi Linear); el eje de las barras empieza en 5,55 para que se vean las
+        diferencias. Caché KV relativa = capas MLA / 16, ignorando el estado fijo de KDA.
+      </p>
+    </div>
+  );
+
+  return (
+    <Figure
+      label="El sándwich KDA:MLA y la caché que queda"
+      hint="16 capas · Tabla 1 del paper · NoPE en MLA"
+      height="h-[520px] md:h-[600px]"
+      legend={[
+        { color: P.teal, label: "capa KDA" },
+        { color: P.amber, label: "capa MLA / caché KV" },
+        { color: P.violet, label: "perplejidad val" },
+      ]}
+      note={note}
+      controls={
+        <>
+          <Knob label="KDA:MLA" min={0} max={RATIOS.length - 1} value={idx} onChange={setIdx} format={(i) => RATIOS[i].label} tone={P.teal} />
+          <Switcher
+            ariaLabel="Posición en MLA"
+            value={pos}
+            onChange={setPos}
+            options={[
+              { value: "nope", label: "NoPE", tone: P.teal },
+              { value: "rope", label: "RoPE", tone: P.rose },
+            ]}
+          />
+          <Readout items={[{ label: "KV", value: `${Math.round((mla / LAYERS) * 100)} %`, tone: P.amber }]} />
+        </>
+      }
+    >
+      <Stage className="h-full w-full" camera={{ position: [-3, 4.8, 10], fov: 34 }} fit={1.08}>
+        <ShadowBlob position={[-0.9, 0.004, 0]} scale={8} opacity={0.1} />
+        <RoundedBox args={[8.4, 0.24, 2.4]} position={[-0.9, 0.12, 0.1]} radius={0.12} smoothness={4} castShadow receiveShadow>
+          <meshPhysicalMaterial color="#DDD5C6" roughness={0.4} clearcoat={0.3} clearcoatRoughness={0.35} />
+        </RoundedBox>
+        <Sandwich r={q.r} pos={pos} />
+        <KvColumn mla={mla} />
+        <PplBars idx={idx} />
+        <Flow points={[[0.9, 0.5 + 15 * PLATE_DY, 0], [1.6, 3.2, 0], [2.3, 0.4 + (mla / LAYERS) * 3.0 + 0.1, 0]]} color={P.amber} count={2} size={0.04} speed={0.4} lineOpacity={0.25} />
       </Stage>
     </Figure>
   );

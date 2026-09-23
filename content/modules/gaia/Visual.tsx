@@ -307,7 +307,7 @@ function ExamBench({ exam, p, output, cursor }: { exam: Exam; p: number; output:
   const target: V3 = atGate ? [gateX + 0.75, BASE_Y + 0.35, 0.25] : [sx(cursor), BASE_Y + 0.62, 0.25];
   return (
     <group>
-      <ShadowBlob position={[0, 0.004, 0]} scale={width + 1} opacity={0.12} />
+      <ShadowBlob position={[(x0 + gateX + 0.9) / 2, 0.004, 0]} scale={width * 0.8} opacity={0.1} />
       <RoundedBox args={[width, 0.24, 2.6]} position={[(x0 + gateX + 0.9) / 2, 0.12, -0.05]} radius={0.12} smoothness={4} castShadow receiveShadow>
         <meshPhysicalMaterial color="#DDD5C6" roughness={0.4} clearcoat={0.3} clearcoatRoughness={0.35} />
       </RoundedBox>
@@ -388,7 +388,7 @@ function DampedColumn({ x, height, color }: { x: number; height: number; color: 
 
 function SpanishVisual() {
   const [exam, setExam] = useState<Exam>("gaia");
-  const [p, setP] = useState(0.9);
+  const [p, setP] = useState(0.85);
   const [output, setOutput] = useState<Output>("clean");
   const [cursor, setCursor] = useState(0);
   const steps = EXAMS[exam].stations.length;

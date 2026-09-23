@@ -383,7 +383,7 @@ function EvalScene({ n }: { n: number }) {
         {Array.from({ length: trainCards }, (_, i) => (
           <Card key={i} position={[0, 0.05 + i * 0.055, 0]} h={0.04} w={1.2} d={0.8} color={mixHex(P.paper, P.teal, 0.3 + (i % 3) * 0.06)} />
         ))}
-        <Tag position={[0, 0.25 + trainCards * 0.055, 0]} tone="teal" size="xs" center>{"train · " + (DATASET - n)}</Tag>
+        <Tag position={[0, 0.25 + trainCards * 0.055, 0]} tone="teal" size="xs" center>{"entreno · " + (DATASET - n)}</Tag>
       </group>
       {/* Held-out: sealed glass case with a brass band. */}
       <group position={[1.9, 0, -0.6]}>
@@ -394,10 +394,12 @@ function EvalScene({ n }: { n: number }) {
           <boxGeometry args={[1.5, 0.9, 1.1]} />
           <meshPhysicalMaterial color={P.violetWash} transparent opacity={0.22} roughness={0.1} clearcoat={1} depthWrite={false} />
         </mesh>
-        <mesh position={[0, 0.9, 0]}>
-          <boxGeometry args={[1.54, 0.035, 1.14]} />
-          <meshStandardMaterial color={F2.brass} metalness={0.8} roughness={0.25} />
-        </mesh>
+        {[[0, 0.55, 1.54, 0.05], [0, -0.55, 1.54, 0.05], [0.75, 0, 0.05, 1.14], [-0.75, 0, 0.05, 1.14]].map(([x, z, w, d]) => (
+          <mesh key={x + ":" + z} position={[x, 0.9, z]}>
+            <boxGeometry args={[w, 0.05, d]} />
+            <meshStandardMaterial color={F2.brass} metalness={0.8} roughness={0.25} />
+          </mesh>
+        ))}
         <Tag position={[0, 1.15, 0]} tone="violet" size="xs" center>{"reservado · " + n}</Tag>
       </group>
       {/* Seam that training never crosses. */}

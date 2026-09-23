@@ -189,7 +189,7 @@ function SpanishVisual() {
       : `stdout queda reservado al transporte JSON-RPC: ${io.stdout} frames. Los ${io.stderr} logs legibles salen por stderr, que el editor no parsea. El arranque ya lo configura así en acp_adapter.entry.main().`,
     events: fifo
       ? "AIAgent corre en un hilo worker; sus callbacks saltan al event loop con asyncio.run_coroutine_threadsafe y salen como session_update. Dos llamadas terminal en el mismo paso: la cola FIFO por nombre engancha cada completion a su propia llamada."
-      : `Con un solo id por nombre, la segunda llamada terminal pisa a la primera. ${wrong} de 2 completions se enganchan a la invocación equivocada. La corrección documentada es una cola FIFO por nombre, no prohibir tools en paralelo.`,
+      : `Con un solo id por nombre, la segunda llamada terminal pisa a la primera. ${wrong} de 2 completions ${wrong === 1 ? "se engancha" : "se enganchan"} a la invocación equivocada. La corrección documentada es una cola FIFO por nombre, no prohibir tools en paralelo.`,
     perms: perm.runs
       ? `El editor responde ${perm.label}; el puente lo traduce a «${perm.hermes}» y el comando peligroso se ejecuta.`
       : answer === "timeout"
@@ -238,7 +238,7 @@ function SpanishVisual() {
         </div>
       }
     >
-      <Stage className="h-full w-full" camera={{ position: [4, 6, 10.5], fov: 34 }} fit={1.06}>
+      <Stage className="h-full w-full" camera={{ position: [3, 7.5, 9], fov: 34 }} fit={1.0}>
         <AcpBench mode={mode} leak={leak} fifo={fifo} answer={answer} edits={edits} />
       </Stage>
     </Figure>
@@ -249,8 +249,8 @@ function SpanishVisual() {
 const CH_X = 0.3;
 const LOOP_Z = 0.75;
 const WORK_Z = -0.75;
-const STDOUT: V3[] = [[CH_X - 2.35, 0.45, LOOP_Z], [-3.1, 0.7, 0.6], [-3.75, 0.95, 0.25]];
-const STDERR: V3[] = [[CH_X + 2.35, 0.35, WORK_Z], [3.3, 0.35, -0.95], [3.85, 0.3, -1.05]];
+const STDOUT: V3[] = [[CH_X - 2.35, 0.45, LOOP_Z], [-2.9, 0.7, 0.6], [-3.45, 0.95, 0.25]];
+const STDERR: V3[] = [[CH_X + 2.35, 0.35, WORK_Z], [3.1, 0.35, -0.95], [3.5, 0.3, -1.05]];
 
 function Block({ p, s, color, coat = 0.4, rough = 0.42, metal = 0.05 }: { p: V3; s: V3; color: string; coat?: number; rough?: number; metal?: number }) {
   return (
@@ -266,11 +266,11 @@ function AcpBench({ mode, leak, fifo, answer, edits }: { mode: AcpMode; leak: bo
   return (
     <group>
       <ShadowBlob position={[0, -0.25, 0]} scale={11} opacity={0.08} />
-      <Block p={[0, -0.13, -0.1]} s={[10.6, 0.22, 4]} color="#40362D" rough={0.6} coat={0.3} />
-      <Block p={[0, 0.0, -0.1]} s={[10.3, 0.05, 3.7]} color="#6B513A" rough={0.55} coat={0} />
+      <Block p={[0, -0.13, -0.1]} s={[9.6, 0.22, 4]} color="#40362D" rough={0.6} coat={0.3} />
+      <Block p={[0, 0.0, -0.1]} s={[9.3, 0.05, 3.7]} color="#6B513A" rough={0.55} coat={0} />
 
       {/* The ACP client: an editor screen that parses every stdout line. */}
-      <group position={[-4.3, 0, 0.1]} rotation={[0, 0.55, 0]}>
+      <group position={[-3.95, 0, 0.1]} rotation={[0, 0.55, 0]}>
         <Block p={[0, 0.06, 0]} s={[0.9, 0.08, 0.6]} color="#2E3438" metal={0.3} />
         <mesh position={[0, 0.45, -0.1]} castShadow>
           <cylinderGeometry args={[0.05, 0.06, 0.75, 12]} />
@@ -309,9 +309,9 @@ function AcpBench({ mode, leak, fifo, answer, edits }: { mode: AcpMode; leak: bo
           <cylinderGeometry args={[0.05, 0.05, 4.4, 14]} />
           <meshStandardMaterial color={P.violet} roughness={0.35} metalness={0.3} />
         </mesh>
-        <Tag position={[-1.75, 0.34, LOOP_Z + 0.32]} tone="teal" size="xs">event loop</Tag>
-        <Tag position={[-1.75, 0.34, WORK_Z - 0.32]} tone="violet" size="xs">hilo worker</Tag>
-        <Tag position={[0, 0.9, -1.6]} tone="ink" center>hermes acp</Tag>
+        <Tag position={[1.2, 0.62, 1.58]} tone="teal" size="xs" center>event loop</Tag>
+        <Tag position={[-1.2, 0.62, -1.58]} tone="violet" size="xs" center>hilo worker</Tag>
+        <Tag position={[1.4, 0.95, -1.6]} tone="ink" center>hermes acp</Tag>
         {mode === "stdio" ? <StdioInsert leak={leak} /> : null}
         {mode === "events" ? <EventsInsert fifo={fifo} /> : null}
         {mode === "perms" ? <PermsInsert answer={answer} /> : null}
@@ -321,8 +321,8 @@ function AcpBench({ mode, leak, fifo, answer, edits }: { mode: AcpMode; leak: bo
       {/* The two exits. */}
       <Ribbon points={STDOUT} color={P.teal} radius={0.07} opacity={0.35} />
       <Ribbon points={STDERR} color={P.faint} radius={0.07} opacity={0.35} />
-      <Tag position={[-3.1, 1.05, 0.6]} tone="teal" size="xs" center>stdout</Tag>
-      <group position={[4.3, 0, -1.1]}>
+      <Tag position={[-2.9, 1.05, 0.6]} tone="teal" size="xs" center>stdout</Tag>
+      <group position={[3.95, 0, -1.1]}>
         <Block p={[0, 0.1, 0]} s={[0.95, 0.12, 1.1]} color="#D9D3C6" rough={0.6} coat={0.1} />
         {Array.from({ length: mode === "stdio" ? io.stderr + 2 : 3 }, (_, k) => (
           <mesh key={k} position={[0, 0.18 + k * 0.035, 0]} rotation={[0, (k - 1) * 0.06, 0]} castShadow>
@@ -360,7 +360,7 @@ function StdioInsert({ leak }: { leak: boolean }) {
 
 function EventsInsert({ fifo }: { fifo: boolean }) {
   const matches = fifoModel(fifo);
-  const callX = (id: string) => (id === "call_a" ? -1.1 : -0.3);
+  const callX = (id: string) => (id === "call_a" ? -1.75 : -0.95);
   return (
     <group>
       {["call_a", "call_b"].map((id) => (
@@ -370,8 +370,8 @@ function EventsInsert({ fifo }: { fifo: boolean }) {
         </group>
       ))}
       {/* Thread-safe hop from the worker to the event loop. */}
-      <Flow points={[[0.5, 0.45, WORK_Z], [0.75, 1.35, 0], [1.0, 0.45, LOOP_Z]]} color={P.violet} count={3} size={0.045} speed={0.4} />
-      <Tag position={[0.75, 1.55, 0]} tone="violet" size="xs" center>salto entre hilos</Tag>
+      <Flow points={[[0.5, 0.45, WORK_Z], [0.7, 1.25, 0], [0.9, 0.45, LOOP_Z]]} color={P.violet} count={3} size={0.045} speed={0.4} />
+      <Tag position={[0.9, 1.25, 0.35]} tone="violet" size="xs" center>salto entre hilos</Tag>
       <group position={[1.55, 0, LOOP_Z]}>
         <Block p={[0, 0.3, 0]} s={[1.2, 0.2, 0.55]} color={fifo ? mixHex(P.paper, P.teal, 0.3) : mixHex(P.paper, P.rose, 0.3)} />
         {matches.map((m, k) => (
@@ -439,15 +439,15 @@ function ForkInsert({ edits }: { edits: number }) {
       <group position={[-1.1, 0, 0]}>
         <Block p={[0, 0.22, 0]} s={[1.1, 0.12, 0.85]} color="#3A4745" metal={0.3} />
         {stack(PARENT_HISTORY, 0)}
-        <Tag position={[0, 0.25 + PARENT_HISTORY * 0.07 + 0.35, 0]} tone="teal" size="xs" center>{`s1 · ${PARENT_HISTORY} mensajes`}</Tag>
+        <Tag position={[0, 0.3, 0.7]} tone="teal" size="xs" center>{`s1 · ${PARENT_HISTORY} mensajes`}</Tag>
       </group>
       <group position={[1.1, 0, 0]}>
         <Block p={[0, 0.22, 0]} s={[1.1, 0.12, 0.85]} color="#3A4745" metal={0.3} />
         {stack(PARENT_HISTORY, edits)}
-        <Tag position={[0, 0.25 + (PARENT_HISTORY + edits) * 0.07 + 0.35, 0]} tone={edits ? "amber" : "teal"} size="xs" center>{`s2 · ${PARENT_HISTORY + edits} mensajes`}</Tag>
+        <Tag position={[0, 0.3, 0.7]} tone={edits ? "amber" : "teal"} size="xs" center>{`s2 · ${PARENT_HISTORY + edits} mensajes`}</Tag>
       </group>
       <Flow points={[[-0.6, 0.55, 0], [0, 1.2, 0], [0.6, 0.55, 0]]} color={P.teal} count={3} size={0.045} speed={0.4} />
-      <Tag position={[0, 1.35, 0.35]} tone="muted" size="xs" center>copia profunda</Tag>
+      <Tag position={[0, 1.45, 0]} tone="muted" size="xs" center>copia profunda</Tag>
     </group>
   );
 }

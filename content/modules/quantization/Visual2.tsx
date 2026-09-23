@@ -251,7 +251,7 @@ function SpanishVisual() {
         </>
       }
     >
-      <Stage className="h-full w-full" camera={{ position: [1, 2.2, 11.5], fov: 35 }} fit={1.02}>
+      <Stage className="h-full w-full" camera={{ position: [2.4, 2.6, 11.5], fov: 35 }} fit={1.0}>
         <BlockScene m={m} block={block} bits={Number(bits)} />
       </Stage>
     </Figure>
@@ -259,7 +259,92 @@ function SpanishVisual() {
 }
 
 type QM = ReturnType<typeof quantize>;
+const PITCH = 0.22;
+const Y0 = 0.35;
+const HS = 0.78;
+const barX = (i: number) => (i - (COUNT - 1) / 2) * PITCH;
+
+function Bar({ i, target, color, z, width, opacity = 1 }: { i: number; target: number; color: string; z: number; width: number; opacity?: number }) {
+  const ref = useRef<Group>(null);
+  const { still } = useStage();
+  useFrame((_, dt) => {
+    const g = ref.current;
+    if (!g) return;
+    const h = still ? target : MathUtils.damp(g.scale.y, target, 6, dt);
+    g.scale.y = Math.abs(h) < 0.002 ? 0.002 : h;
+    g.position.y = Y0 + (g.scale.y * HS) / 2;
+  });
+  return (
+    <group ref={ref} position={[barX(i), Y0, z]}>
+      <mesh castShadow={opacity === 1}>
+        <boxGeometry args={[width, HS, width]} />
+        <meshPhysicalMaterial color={color} roughness={0.35} clearcoat={0.5} transparent={opacity < 1} opacity={opacity} depthWrite={opacity === 1} />
+      </mesh>
+    </group>
+  );
+}
+
 function BlockScene({ m, block, bits }: { m: QM; block: number; bits: number }) {
-  void m; void block; void bits;
-  return <group />;
+  const span = COUNT * PITCH;
+  const storage = useMemo<Cell[]>(() => {
+    const cells: Cell[] = [];
+    const rows = Math.min(bits, 8);
+    for (let i = 0; i < COUNT; i++)
+      for (let r = 0; r < rows; r++) cells.push({ position: [barX(i), -0.95 - r * 0.1, 0.55], color: mixHex(P.paper, P.teal, 0.35 + 0.6 * ((Math.abs(m.q[i]) >> r) & 1)) });
+    for (let b = 0; b < m.blocks; b++)
+      for (let k = 0; k < SCALE_BITS; k++) {
+        const x0 = barX(b * block) - PITCH / 2;
+        const w = block * PITCH;
+        cells.push({ position: [x0 + ((k + 0.5) / SCALE_BITS) * w, -0.95 - rows * 0.1 - 0.06, 0.55], scale: [Math.min(1, (w / SCALE_BITS) / 0.085) * 0.9, 1, 1], color: P.violet });
+      }
+    return cells;
+  }, [m, bits, block]);
+  return (
+    <group>
+      <ShadowBlob position={[0, -1.62, 0.1]} scale={9} opacity={0.1} />
+      <RoundedBox position={[0, -1.48, 0]} args={[span + 1.4, 0.24, 2.2]} radius={0.1} smoothness={4} castShadow receiveShadow>
+        <meshStandardMaterial color="#2D3436" roughness={0.5} metalness={0.2} />
+      </RoundedBox>
+      {/* zero plane */}
+      <RoundedBox position={[0, Y0 - 0.03, 0]} args={[span + 0.3, 0.05, 0.9]} radius={0.02} smoothness={2} receiveShadow>
+        <meshStandardMaterial color="#D9D3C5" roughness={0.55} />
+      </RoundedBox>
+      {/* rounding grid of each block: levels k × scale */}
+      {m.scales.map((sc, b) => {
+        const x0 = barX(b * block) - PITCH / 2;
+        const x1 = barX((b + 1) * block - 1) + PITCH / 2;
+        const levels = bits <= 4 ? Array.from({ length: 2 * m.qmax + 2 }, (_, k) => k - m.qmax - 1) : [];
+        return (
+          <group key={b}>
+            {levels.map((k) => {
+              const y = Y0 + k * sc * HS;
+              if (y < Y0 - 1.5 || y > Y0 + 2.2) return null;
+              return <Wire key={k} points={[[x0, y, -0.3], [x1, y, -0.3]]} color={k === 0 ? P.inkSoft : P.lineStrong} width={k === 0 ? 1.4 : 0.9} opacity={0.75} />;
+            })}
+            {b > 0 ? (
+              <mesh position={[x0, Y0 + 0.4, -0.05]} castShadow>
+                <boxGeometry args={[0.03, 2.4, 0.7]} />
+                <meshStandardMaterial color="#B7833E" metalness={0.6} roughness={0.3} transparent opacity={0.6} />
+              </mesh>
+            ) : null}
+            <Tag position={[(x0 + x1) / 2, Y0 + 2.1, -0.3]} tone="violet" size="xs" center>{"escala " + nf(sc, 3)}</Tag>
+          </group>
+        );
+      })}
+      {m.w.map((v, i) => (
+        <Bar key={"w" + i} i={i} target={v} color={P.amber} z={-0.14} width={0.17} opacity={0.45} />
+      ))}
+      {m.deq.map((v, i) => (
+        <Bar key={"q" + i} i={i} target={v} color={P.teal} z={0.1} width={0.12} />
+      ))}
+      {m.err.map((e, i) =>
+        Math.abs(e) > 0.004 ? (
+          <Wire key={"e" + i} points={[[barX(i), Y0 + m.w[i] * HS, 0.2], [barX(i), Y0 + m.deq[i] * HS, 0.2]]} color={P.rose} width={3.2} opacity={1} />
+        ) : null,
+      )}
+      <Lattice cells={storage} size={0.085} />
+      <Tag position={[-span / 2 - 0.35, -1.2, 0.6]} tone="teal" size="xs" center>{bits + " bits/peso"}</Tag>
+      <Tag position={[span / 2 + 0.4, -1.2, 0.6]} tone="violet" size="xs" center>+ escala</Tag>
+    </group>
+  );
 }

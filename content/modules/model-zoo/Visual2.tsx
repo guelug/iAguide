@@ -122,7 +122,7 @@ function CardStand({ rows }: { rows: ReturnType<typeof review>["rows"] }) {
         })}
       </group>
       {[-1.35, 1.35].map((x) => (
-        <mesh key={x} position={[x, -0.1, 0.25]} rotation={[0.32, 0, 0]}>
+        <mesh key={x} position={[x, -0.1, -0.55]} rotation={[-0.5, 0, 0]}>
           <cylinderGeometry args={[0.04, 0.04, 0.9, 10]} />
           <meshStandardMaterial color={MC.brass} metalness={0.75} roughness={0.28} />
         </mesh>
@@ -137,7 +137,7 @@ function EngineSocket({ engine, file }: { engine: Engine; file: FileFmt }) {
   const fits = want === file;
   const cart = useRef<Group>(null);
   const { still } = useStage();
-  const targetY = fits ? 0.12 : 0.95;
+  const targetY = fits ? 0.36 : 0.95;
   useFrame((_, dt) => {
     const g = cart.current;
     if (!g) return;
@@ -153,7 +153,7 @@ function EngineSocket({ engine, file }: { engine: Engine; file: FileFmt }) {
         <CMat2 color={MC.graphite} metal={0.3} />
       </RoundedBox>
       {/* hueco: silueta del formato que espera el motor */}
-      <group position={[0, 0.03, 0]} scale={[1.08, 0.1, 1.08]}>
+      <group position={[0, 0.085, 0]} scale={[1.12, 0.04, 1.12]}>
         <FormatShape fmt={want} color={mixHex(MC.graphite, FMT_COLOR[want], 0.45)} />
       </group>
       <group ref={cart} position={[0, 0.95, 0]}>
@@ -187,5 +187,51 @@ function CardBench({ card, engine, use }: { card: CardId; engine: Engine; use: U
 }
 
 function SpanishVisual() {
-  return <LegacyVisual />;
+  const [card, setCard] = useState<CardId>("base");
+  const [engine, setEngine] = useState<Engine>("llamacpp");
+  const [use, setUse] = useState<Use>("commercial");
+  const r = review(card, engine, use);
+  const c = CARDS[card];
+  return (
+    <Figure
+      label="La ficha en siete filas · ¿puedo servir este modelo?"
+      hint="licencia · plantilla · archivo frente a motor"
+      height="h-[440px] md:h-[540px]"
+      legend={[
+        { color: P.teal, label: "comprobado" },
+        { color: P.amber, label: "revísalo tú" },
+        { color: P.rose, label: "bloquea" },
+      ]}
+      controls={
+        <>
+          <Switcher value={card} onChange={setCard} ariaLabel="Ficha de ejemplo" options={(Object.keys(CARDS) as CardId[]).map((id) => ({ value: id, label: CARDS[id].label.split(" · ")[0], tone: P.inkSoft }))} />
+          <Switcher value={engine} onChange={setEngine} ariaLabel="Motor" options={(Object.keys(ENGINES) as Engine[]).map((id) => ({ value: id, label: ENGINES[id].label, tone: FMT_COLOR[ENGINES[id].wants] }))} />
+          <Switcher value={use} onChange={setUse} ariaLabel="Uso previsto" options={[{ value: "commercial", label: "Comercial", tone: P.amber }, { value: "research", label: "Investigación", tone: P.teal }]} />
+        </>
+      }
+      note={
+        <div className="space-y-3">
+          <p>
+            <strong>{c.label}.</strong>{" "}
+            {r.servable
+              ? `Nada bloquea: licencia compatible, plantilla presente y un ${c.file} que ${ENGINES[engine].label} carga. Las filas en ámbar siguen siendo trabajo tuyo.`
+              : `Bloquea: ${r.blocking.map((b) => b.item.toLowerCase()).join(", ")}.`}
+            {!c.template ? " Un modelo base en un chat completa el prompt en vez de seguir una plantilla: la UI parecerá rota." : ""}
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[22rem] border-collapse text-left text-xs">
+              <thead className="font-mono text-[0.6rem] uppercase tracking-widest text-muted"><tr><th className="border-b border-line px-2 py-1">#</th><th className="border-b border-line px-2 py-1">fila</th><th className="border-b border-line px-2 py-1">estado</th><th className="border-b border-line px-2 py-1">lectura</th></tr></thead>
+              <tbody>{r.rows.map((row) => <tr key={row.n}><td className="border-b border-line/60 px-2 py-1 font-mono">{row.n}</td><td className="border-b border-line/60 px-2 py-1">{row.item}</td><td className="border-b border-line/60 px-2 py-1 font-mono" style={{ color: STATUS_COLOR[row.status] }}>{row.status === "ok" ? "ok" : row.status === "fail" ? "bloquea" : "revisar"}</td><td className="border-b border-line/60 px-2 py-1">{row.why}</td></tr>)}</tbody>
+            </table>
+          </div>
+          <Readout items={[{ label: "archivo", value: c.file, tone: FMT_COLOR[c.file] }, { label: "motor espera", value: ENGINES[engine].wants, tone: FMT_COLOR[ENGINES[engine].wants] }, { label: "tipo", value: c.kind, tone: "var(--ink)" }]} />
+          <p className="text-xs text-muted">Fichas inventadas para practicar el orden de lectura; no describen modelos reales. Las evals publicadas nunca pasan de “revisar”: tu test de aceptación es el humo de cinco prompts escritos por ti.</p>
+        </div>
+      }
+    >
+      <Stage className="h-full w-full" camera={{ position: [0.4, 5.0, 8.8], fov: 34 }} fit={1.08}>
+        <CardBench card={card} engine={engine} use={use} />
+      </Stage>
+    </Figure>
+  );
 }

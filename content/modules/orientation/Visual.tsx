@@ -9,6 +9,14 @@ import { Stage } from "@/components/three/Stage";
 import { Flow, Halo, Motes, Node3D, PointerTilt, Ribbon, ShadowBlob, Slab, Tag, Wire } from "@/components/three/atoms";
 import { P } from "@/lib/palette";
 import { useCopy } from "@/lib/useCopy";
+import { useLocale } from "next-intl";
+import { useMemo } from "react";
+import { Readout } from "@/components/three/Figure";
+import { useStage } from "@/components/three/Stage";
+import { Lattice, type Cell, type V3 } from "@/components/three/atoms";
+import { mixHex } from "@/lib/palette";
+import { MODULES, type ModuleMeta } from "@/content/modules";
+import { TRACKS as TRACK_DATA, type TrackId } from "@/content/tracks";
 
 type Mode = "foundations" | "harness" | "training" | "metal";
 type Tone = "teal" | "violet" | "amber" | "rose";
@@ -142,6 +150,11 @@ function MetalIcon({ active }: { active: boolean }) {
 }
 
 export default function Visual() {
+  return useLocale() === "es" ? <SpanishVisual /> : <LegacyVisual />;
+}
+
+
+function LegacyVisual() {
   const t = useCopy(COPY);
   const [mode, setMode] = useState<Mode>("foundations");
   const note = t[`${mode}Note` as keyof typeof t];
@@ -216,6 +229,175 @@ export default function Visual() {
             {mode === "foundations" ? `${t.here} · ${note}` : note}
           </Tag>
         </PointerTilt>
+      </Stage>
+    </Figure>
+  );
+}
+
+/* ------------------------------------------------------------------ ES */
+
+/*
+ * Mesa del mapa. Cada loseta es un módulo real del curso (MODULES), en su
+ * orden y su vía; la altura sale de durationMin. Las particularidades de
+ * frameworks (Hermes, OpenClaw, smolagents, LlamaIndex, LangGraph) se
+ * colocan en una bandeja hundida DENTRO del arnés: no son una quinta vía.
+ */
+
+const FRAMEWORK_PREFIX = ["hermes-", "openclaw-", "smolagents", "llamaindex", "langgraph"];
+const isFramework = (m: ModuleMeta) => FRAMEWORK_PREFIX.some((p) => m.slug.startsWith(p));
+
+type Group5 = "foundations" | "harness" | "frameworks" | "training" | "metal";
+const GROUP_X: Record<Group5, number> = { foundations: -3.7, harness: -2.05, frameworks: -0.35, training: 1.55, metal: 3.25 };
+const GROUP_COLS: Record<Group5, number> = { foundations: 3, harness: 3, frameworks: 5, training: 3, metal: 3 };
+const PITCH = 0.34;
+const Z_FRONT = 1.5;
+
+function mapModel() {
+  const byGroup: Record<Group5, ModuleMeta[]> = { foundations: [], harness: [], frameworks: [], training: [], metal: [] };
+  for (const m of MODULES) {
+    if (m.slug === "orientation") continue;
+    const g: Group5 = m.track === "harness" && isFramework(m) ? "frameworks" : m.track;
+    byGroup[g].push(m);
+  }
+  const tiles: { m: ModuleMeta; group: Group5; position: V3; h: number }[] = [];
+  (Object.keys(byGroup) as Group5[]).forEach((g) => {
+    const cols = GROUP_COLS[g];
+    byGroup[g].forEach((m, i) => {
+      const c = i % cols;
+      const r = Math.floor(i / cols);
+      const h = 0.05 + (m.durationMin / 45) * 0.32;
+      tiles.push({ m, group: g, h, position: [GROUP_X[g] + (c - (cols - 1) / 2) * PITCH, -1.0 + h / 2, Z_FRONT - r * PITCH] });
+    });
+  });
+  const stats = (id: TrackId) => {
+    const mods = MODULES.filter((m) => m.track === id && m.slug !== "orientation");
+    return { count: mods.length, minutes: mods.reduce((n, m) => n + m.durationMin, 0), frameworks: mods.filter(isFramework).length, first: mods.slice(0, 3) };
+  };
+  return { byGroup, tiles, stats };
+}
+
+const MAP = mapModel();
+const trackOf = (g: Group5): TrackId => (g === "frameworks" ? "harness" : g);
+const colorOf = (id: TrackId) => TRACK_DATA.find((t) => t.id === id)?.color ?? P.teal;
+
+function OMat({ color, rough = 0.45, coat = 0.4, metal = 0 }: { color: string; rough?: number; coat?: number; metal?: number }) {
+  return <meshPhysicalMaterial color={color} roughness={rough} metalness={metal} clearcoat={coat} clearcoatRoughness={0.3} />;
+}
+
+function stripSpan(g: Group5) {
+  const cols = GROUP_COLS[g];
+  const rows = Math.ceil(MAP.byGroup[g].length / cols);
+  return { w: cols * PITCH + 0.12, d: rows * PITCH + 0.12, zc: Z_FRONT - ((rows - 1) * PITCH) / 2, rows };
+}
+
+function MapTable({ active }: { active: TrackId }) {
+  const cells = useMemo<Cell[]>(
+    () =>
+      MAP.tiles.map((t) => {
+        const id = trackOf(t.group);
+        const on = id === active;
+        const base = colorOf(id);
+        const tint = t.group === "frameworks" ? mixHex(base, P.inkSoft, 0.25) : base;
+        return { position: [t.position[0], on ? t.position[1] + 0.05 : t.position[1], t.position[2]] as V3, scale: [0.27, t.h, 0.27] as V3, color: mixHex(P.paper, tint, on ? 0.8 : 0.22) };
+      }),
+    [active],
+  );
+  const hs = stripSpan("harness");
+  const fs = stripSpan("frameworks");
+  const harnessX0 = GROUP_X.harness - hs.w / 2 - 0.08;
+  const harnessX1 = GROUP_X.frameworks + fs.w / 2 + 0.08;
+  const harnessD = Math.max(hs.d, fs.d) + 0.16;
+  return (
+    <PointerTilt amount={0.04}>
+      <group>
+        <ShadowBlob position={[0, -1.46, 0.3]} scale={10} opacity={0.12} />
+        <RoundedBox args={[9.4, 0.3, 5.6]} position={[-0.2, -1.3, 0.4]} radius={0.16} smoothness={4} castShadow receiveShadow>
+          <OMat color="#40362d" rough={0.62} coat={0.2} />
+        </RoundedBox>
+        <RoundedBox args={[9.1, 0.08, 5.3]} position={[-0.2, -1.12, 0.4]} radius={0.04} smoothness={2} receiveShadow>
+          <OMat color="#6b513a" rough={0.5} coat={0.25} />
+        </RoundedBox>
+        {(["foundations", "training", "metal"] as Group5[]).map((g) => {
+          const s = stripSpan(g);
+          const id = trackOf(g);
+          return (
+            <RoundedBox key={g} args={[s.w, 0.06, s.d]} position={[GROUP_X[g], -1.04, s.zc]} radius={0.03} smoothness={2} receiveShadow castShadow>
+              <OMat color={mixHex(P.paper, colorOf(id), id === active ? 0.3 : 0.08)} rough={0.5} />
+            </RoundedBox>
+          );
+        })}
+        {/* harness plate, with the frameworks bay sunk into it */}
+        <RoundedBox args={[harnessX1 - harnessX0, 0.06, harnessD]} position={[(harnessX0 + harnessX1) / 2, -1.04, Z_FRONT - (Math.max(hs.rows, fs.rows) - 1) * PITCH / 2]} radius={0.03} smoothness={2} receiveShadow castShadow>
+          <OMat color={mixHex(P.paper, colorOf("harness"), active === "harness" ? 0.3 : 0.08)} rough={0.5} />
+        </RoundedBox>
+        <RoundedBox args={[fs.w, 0.03, fs.d]} position={[GROUP_X.frameworks, -1.0, fs.zc]} radius={0.02} smoothness={2} receiveShadow>
+          <OMat color={mixHex(colorOf("harness"), P.inkSoft, active === "harness" ? 0.35 : 0.6)} rough={0.55} />
+        </RoundedBox>
+        <Lattice cells={cells} size={1} />
+        {/* porch: where every route starts */}
+        <group position={[-0.2, -1.0, 2.55]}>
+          <mesh castShadow receiveShadow>
+            <cylinderGeometry args={[0.42, 0.5, 0.14, 40]} />
+            <OMat color="#b68442" metal={0.55} rough={0.3} coat={0.2} />
+          </mesh>
+          <RoundedBox args={[0.34, 0.42, 0.34]} position={[0, 0.28, 0]} radius={0.04} smoothness={2} castShadow>
+            <OMat color={colorOf("foundations")} rough={0.4} coat={0.5} />
+          </RoundedBox>
+          <Tag position={[0, 0.85, 0]} tone="ink" center>porche</Tag>
+        </group>
+        {(["foundations", "harness", "training", "metal"] as TrackId[]).map((id) => {
+          const x = id === "harness" ? GROUP_X.harness : GROUP_X[id];
+          const on = id === active;
+          return (
+            <group key={id}>
+              <Ribbon points={[[-0.2, -0.93, 2.4], [(x - 0.2) / 2, -0.9, 2.2], [x, -0.95, Z_FRONT + 0.3]]} color={on ? colorOf(id) : mixHex(P.paper, colorOf(id), 0.4)} radius={on ? 0.03 : 0.018} />
+              {on ? <Flow points={[[-0.2, -0.86, 2.4], [(x - 0.2) / 2, -0.83, 2.2], [x, -0.88, Z_FRONT + 0.3]]} color={colorOf(id)} count={2} speed={0.35} size={0.04} lineOpacity={0} /> : null}
+            </group>
+          );
+        })}
+        {(["foundations", "harness", "frameworks", "training", "metal"] as Group5[]).map((g) => {
+          const s = stripSpan(g);
+          const id = trackOf(g);
+          const label = g === "frameworks" ? "frameworks" : TRACK_DATA.find((t) => t.id === id)?.name.es ?? g;
+          const tone = id === "foundations" ? "teal" : id === "harness" ? "amber" : id === "training" ? "violet" : "rose";
+          return (
+            <Tag key={g} position={[GROUP_X[g], -0.62, Z_FRONT - (s.rows - 1) * PITCH - 0.45]} tone={id === active ? tone : "muted"} size={g === "frameworks" ? "xs" : "sm"} center>
+              {label}
+            </Tag>
+          );
+        })}
+      </group>
+    </PointerTilt>
+  );
+}
+
+function SpanishVisual() {
+  const [active, setActive] = useState<TrackId>("foundations");
+  const st = MAP.stats(active);
+  const track = TRACK_DATA.find((t) => t.id === active)!;
+  const all = MODULES.length;
+  return (
+    <Figure
+      label="Mesa del mapa · cuatro vías y un porche"
+      hint="cada loseta es un módulo; la altura, su duración"
+      legend={TRACK_DATA.map((t) => ({ color: t.color, label: t.name.es }))}
+      note={
+        <div className="space-y-2">
+          <p><strong>{track.numeral} · {track.name.es}.</strong> {track.blurb.es}{active === "harness" ? ` De sus ${st.count} módulos, ${st.frameworks} son particularidades de frameworks y están en la bandeja hundida: viven dentro del arnés, no forman una quinta vía.` : ""}</p>
+          <Readout items={[
+            { label: "módulos", value: String(st.count), tone: track.color },
+            { label: "minutos", value: `${st.minutes} (≈ ${(st.minutes / 60).toLocaleString("es-ES", { maximumFractionDigits: 1 })} h)`, tone: track.color },
+            { label: "empieza por", value: st.first.map((m) => m.title.es).join(" · "), tone: "var(--ink)" },
+          ]} />
+          <p className="text-xs text-muted">Datos leídos del registro del curso ({all} módulos contando este porche). La bandeja de frameworks agrupa los módulos cuyo identificador empieza por hermes-, openclaw-, smolagents, llamaindex o langgraph.</p>
+        </div>
+      }
+      controls={
+        <Switcher value={active} onChange={setActive} options={TRACK_DATA.map((t) => ({ value: t.id, label: t.name.es, tone: t.color }))} ariaLabel="Vía del curso" />
+      }
+    >
+      <Stage className="h-full w-full" camera={{ position: [0.6, 6.2, 8.4], fov: 34 }} fit={1.04}>
+        <MapTable active={active} />
       </Stage>
     </Figure>
   );

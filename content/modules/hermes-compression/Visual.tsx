@@ -139,11 +139,11 @@ const MIN_W = 0.035;
 const GAP = 0.012;
 
 const ROLE_STYLE: Record<Role, { color: string; h: number }> = {
-  system: { color: P.teal, h: 0.52 },
-  user: { color: P.amber, h: 0.42 },
-  assistant: { color: P.violet, h: 0.32 },
-  call: { color: "#6F7A86", h: 0.24 },
-  tool: { color: "#B9B3A4", h: 0.3 },
+  system: { color: P.teal, h: 0.8 },
+  user: { color: P.amber, h: 0.64 },
+  assistant: { color: P.violet, h: 0.5 },
+  call: { color: "#6F7A86", h: 0.36 },
+  tool: { color: "#B9B3A4", h: 0.46 },
 };
 
 type Placed = { key: string; role: Role; x: number; w: number; y: number; z: number; summary?: boolean };
@@ -176,7 +176,7 @@ function layout(p: Plan, ctx: number, step: number): { blocks: Placed[]; summary
   const blocks = opened.map((b, k) => {
     if (k >= p.headEnd && k < p.tailStart) {
       const col = k - p.headEnd;
-      return { ...b, x: -3.6 + (col % 11) * 0.3, w: 0.22, y: -0.55 - Math.floor(col / 11) * 0.0, z: 1.25 + Math.floor(col / 11) * 0.34 };
+      return { ...b, x: -3.7 + (col % 12) * 0.3, w: 0.22, y: -0.12 - 0.2, z: 1.45 + Math.floor(col / 12) * 0.5 };
     }
     return byKey.get(b.key) ?? b;
   });
@@ -185,11 +185,11 @@ function layout(p: Plan, ctx: number, step: number): { blocks: Placed[]; summary
 
 function Block({ b, dim = false }: { b: Placed; dim?: boolean }) {
   const st = ROLE_STYLE[b.role];
-  const h = b.summary ? 0.46 : st.h;
+  const h = b.summary ? 0.7 : st.h;
   const color = b.summary ? P.violetDeep : st.color;
   return (
     <Ease to={[b.x, b.y + h / 2 + 0.06, b.z]} sx={b.w}>
-      <RoundedBox args={[1, h, 0.62]} radius={0.012} smoothness={2} castShadow receiveShadow>
+      <RoundedBox args={[1, h, 0.9]} radius={0.012} smoothness={2} castShadow receiveShadow>
         <Physical color={dim ? mixHex(P.paper, color, 0.35) : color} rough={0.4} coat={0.5} />
       </RoundedBox>
     </Ease>
@@ -200,29 +200,29 @@ function Rail({ ctx, fill, threshold, gateway }: { ctx: number; fill: number; th
   const s = RAIL / ctx;
   const gate = (x: number, color: string) => (
     <group position={[x, 0, 0]}>
-      <mesh position={[0, 0.55, -0.42]} castShadow><boxGeometry args={[0.035, 1.1, 0.035]} /><meshStandardMaterial color={color} roughness={0.35} metalness={0.3} /></mesh>
+      <mesh position={[0, 0.75, -0.6]} castShadow><boxGeometry args={[0.035, 1.5, 0.035]} /><meshStandardMaterial color={color} roughness={0.35} metalness={0.3} /></mesh>
       <mesh position={[0, 0.02, 0]}><boxGeometry args={[0.02, 0.02, 0.9]} /><meshBasicMaterial color={color} /></mesh>
     </group>
   );
   return (
     <group>
       <ShadowBlob position={[0, -0.3, 0.3]} scale={11} opacity={0.08} />
-      <RoundedBox args={[RAIL + 0.6, 0.14, 1.2]} position={[0, -0.07, 0]} radius={0.05} smoothness={3} castShadow receiveShadow>
+      <RoundedBox args={[RAIL + 0.6, 0.14, 1.3]} position={[0, -0.07, 0]} radius={0.05} smoothness={3} castShadow receiveShadow>
         <Physical color="#263532" rough={0.4} coat={0.3} metal={0.3} />
       </RoundedBox>
-      <RoundedBox args={[RAIL + 1.0, 0.18, 3.2]} position={[0, -0.25, 0.6]} radius={0.06} smoothness={3} receiveShadow>
+      <RoundedBox args={[RAIL + 2.2, 0.18, 3.6]} position={[-0.5, -0.25, 0.85]} radius={0.06} smoothness={3} receiveShadow>
         <Physical color="#6E5440" rough={0.6} coat={0.15} />
       </RoundedBox>
       {/* ruler ticks every 10 % of the window */}
       {Array.from({ length: 11 }, (_, k) => (
-        <mesh key={k} position={[X0 + (k * RAIL) / 10, 0.005, 0.55]}><boxGeometry args={[0.012, 0.01, k % 5 === 0 ? 0.14 : 0.07]} /><meshBasicMaterial color="#C9C3B5" /></mesh>
+        <mesh key={k} position={[X0 + (k * RAIL) / 10, 0.005, 0.6]}><boxGeometry args={[0.012, 0.01, k % 5 === 0 ? 0.14 : 0.07]} /><meshBasicMaterial color="#C9C3B5" /></mesh>
       ))}
       {/* fill: how much of the window the prompt occupies */}
-      <mesh position={[X0 + (Math.min(fill, ctx) * s) / 2, 0.004, 0.5]}><boxGeometry args={[Math.min(fill, ctx) * s, 0.008, 0.05]} /><meshBasicMaterial color={fill >= gateway ? P.rose : fill >= threshold ? P.amber : P.teal} /></mesh>
+      <mesh position={[X0 + (Math.min(fill, ctx) * s) / 2, 0.004, 0.6]}><boxGeometry args={[Math.min(fill, ctx) * s, 0.012, 0.08]} /><meshBasicMaterial color={fill >= gateway ? P.rose : fill >= threshold ? P.amber : P.teal} /></mesh>
       {gate(X0 + threshold * s, P.amber)}
       {gate(X0 + gateway * s, P.rose)}
-      <Tag position={[X0 + threshold * s, 1.25, -0.42]} tone="amber" size="xs" center>bucle 50 %</Tag>
-      <Tag position={[X0 + gateway * s, 1.25, -0.42]} tone="rose" size="xs" center>gateway 85 %</Tag>
+      <Tag position={[X0 + threshold * s, 1.65, -0.6]} tone="amber" size="xs" center>bucle 50 %</Tag>
+      <Tag position={[X0 + gateway * s, 1.65, -0.6]} tone="rose" size="xs" center>gateway 85 %</Tag>
       <Tag position={[X0 + RAIL, -0.1, 0.75]} tone="muted" size="xs" center>{`ventana ${fmtK(ctx)}`}</Tag>
     </group>
   );
@@ -236,21 +236,21 @@ function SessionChip({ id, position, tone, dim = false }: { id: string; position
         <Physical color={dim ? mixHex(P.paper, color, 0.3) : color} coat={0.55} />
       </RoundedBox>
       <mesh position={[0, 0.72, 0.07]}><circleGeometry args={[0.07, 20]} /><meshStandardMaterial color="#B68442" metalness={0.7} roughness={0.3} /></mesh>
-      <Tag position={[0, 1.15, 0]} tone={tone} size="xs" center>{id}</Tag>
+      <Tag position={[0, -0.15, 0.35]} tone={tone} size="xs" center>{id}</Tag>
     </group>
   );
 }
 
 function ArchiveTray({ label }: { label: string }) {
   return (
-    <group position={[-2.1, -0.62, 1.42]}>
-      <RoundedBox args={[3.6, 0.1, 0.95]} radius={0.04} smoothness={2} receiveShadow castShadow>
+    <group position={[-2.05, -0.1, 1.7]}>
+      <RoundedBox args={[3.8, 0.08, 1.2]} radius={0.04} smoothness={2} receiveShadow castShadow>
         <Physical color="#DAD4C6" rough={0.6} coat={0.2} />
       </RoundedBox>
-      {[-0.46, 0.46].map((z) => (
-        <mesh key={z} position={[0, 0.1, z]}><boxGeometry args={[3.6, 0.12, 0.03]} /><meshStandardMaterial color="#B9B3A4" roughness={0.6} /></mesh>
+      {[-0.59, 0.59].map((z) => (
+        <mesh key={z} position={[0, 0.1, z]}><boxGeometry args={[3.8, 0.12, 0.03]} /><meshStandardMaterial color="#B9B3A4" roughness={0.6} /></mesh>
       ))}
-      <Tag position={[0, -0.2, 0.62]} tone="muted" size="xs" center>{label}</Tag>
+      <Tag position={[0, 0.05, 0.85]} tone="muted" size="xs" center>{label}</Tag>
     </group>
   );
 }
@@ -280,40 +280,35 @@ function BenchScene({ mode, ctx, step, growth, inPlace, p }: { mode: BenchMode; 
       {mode === "thresholds" && growth > 0 && <Tag position={[X0 + sum(CONVERSATION) * s + (growth * s) / 2, 0.85, 0.3]} tone="rose" size="xs" center>noche en Discord</Tag>}
       {opened && (
         <>
-          <Tag position={[headX, 0.85, 0.35]} tone="teal" size="xs" center>cabeza</Tag>
-          {shown === 2 && <Tag position={[midX + 1.0, 0.85, 0.35]} tone="violet" size="xs" center>medio</Tag>}
-          <Tag position={[shown === 2 ? tailX + 0.6 : X0 + sum(p.after) * s * 0.75, 0.85, 0.35]} tone="amber" size="xs" center>cola intacta</Tag>
+          <Tag position={[headX, 1.15, 0.35]} tone="teal" size="xs" center>cabeza</Tag>
+          {shown === 2 && <Tag position={[midX + 1.0, 1.15, 0.35]} tone="violet" size="xs" center>medio</Tag>}
+          <Tag position={[shown === 2 ? tailX + 0.6 : X0 + sum(p.after) * s * 0.75, 1.15, 0.35]} tone="amber" size="xs" center>cola intacta</Tag>
         </>
       )}
+      {shown === 4 && summary && <Tag position={[summary.x, 1.05, 0.1]} tone="violet" size="xs" center>resumen</Tag>}
       {shown === 3 && summary && (
         <>
-          <Flow points={[[-2.2, -0.45, 1.3], [summary.x - 0.6, 0.4, 0.8], [summary.x, 0.62, 0.1]]} color={P.violet} count={4} size={0.045} speed={0.4} lineOpacity={0.3} />
-          <Tag position={[summary.x, 1.0, 0.1]} tone="violet" size="xs" center>resumen</Tag>
+          <Flow points={[[-2.2, 0.1, 1.6], [summary.x - 0.6, 0.6, 0.9], [summary.x, 0.8, 0.1]]} color={P.violet} count={4} size={0.045} speed={0.4} lineOpacity={0.3} />
+          <Tag position={[summary.x, 1.05, 0.1]} tone="violet" size="xs" center>resumen</Tag>
         </>
       )}
       {shown === 1 && <Tag position={[X0 + 1.2, 0.8, 0.3]} tone="muted" size="xs" center>salidas podadas</Tag>}
       {shown >= 3 && <ArchiveTray label={mode === "inplace" && !inPlace ? "sesión padre" : "archivados · active=0"} />}
       {mode === "inplace" ? (
         inPlace ? (
-          <SessionChip id="sesión a1b2" position={[X0 - 0.75, -0.05, 0]} tone="teal" />
+          <SessionChip id="sesión a1b2" position={[X0 - 1.25, -0.05, 0]} tone="teal" />
         ) : (
           <>
-            <SessionChip id="sesión c3d4" position={[X0 - 0.75, -0.05, 0]} tone="violet" />
-            <SessionChip id="padre a1b2" position={[X0 - 0.75, -0.05, 1.45]} tone="muted" dim />
-            <Arrow from={[X0 - 0.75, 0.3, 0.25]} to={[X0 - 0.75, 0.3, 1.3]} color={P.violet} width={1.4} />
+            <SessionChip id="sesión c3d4" position={[X0 - 1.25, -0.05, 0]} tone="violet" />
+            <SessionChip id="padre a1b2" position={[X0 - 1.25, -0.05, 1.45]} tone="muted" dim />
+            <Arrow from={[X0 - 1.25, 0.3, 0.25]} to={[X0 - 1.25, 0.3, 1.3]} color={P.violet} width={1.4} />
           </>
         )
       ) : (
-        <SessionChip id="sesión a1b2" position={[X0 - 0.75, -0.05, 0]} tone="teal" />
+        <SessionChip id="sesión a1b2" position={[X0 - 1.25, -0.05, 0]} tone="teal" />
       )}
     </group>
   );
-}
-
-function StillProbe({ onChange }: { onChange: (still: boolean) => void }) {
-  const { still } = useStage();
-  useLayoutEffect(() => onChange(still), [still, onChange]);
-  return null;
 }
 
 const CTX_OPTIONS = [128_000, 200_000, 262_144];
@@ -324,7 +319,6 @@ function SpanishVisual() {
   const [growth, setGrowth] = useState(15_000);
   const [inPlace, setInPlace] = useState(true);
   const [step, setStep] = useState(0);
-  const [, setStill] = useState(false);
   const ctx = Number(ctxKey);
   const p = useMemo(() => plan(ctx), [ctx]);
   const before = sum(CONVERSATION);
@@ -406,7 +400,6 @@ function SpanishVisual() {
       }
     >
       <Stage className="h-full w-full" camera={{ position: [0.5, 4.2, 10.5], fov: 34 }} fit={1.05}>
-        <StillProbe onChange={setStill} />
         <BenchScene mode={mode} ctx={ctx} step={step} growth={growth} inPlace={inPlace} p={p} />
       </Stage>
     </Figure>

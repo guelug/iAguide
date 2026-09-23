@@ -336,7 +336,7 @@ function SequenceTray({ imageTokens }: { imageTokens: number }) {
       </RoundedBox>
       <Lattice cells={cells} size={1} />
       <Tag position={[SEQ.x0 + 0.8, -0.55, SEQ.z0 - 0.35]} tone="teal" size="xs" center>texto</Tag>
-      <Tag position={[SEQ.x0 + (SEQ.cols * SEQ.cell) / 2, -0.7, SEQ.z0 + rows * SEQ.cell + 0.25]} tone="amber" size="xs" center>{`${NUM.format(imageTokens)} tokens imagen`}</Tag>
+      <Tag position={[SEQ.x0 + (SEQ.cols * SEQ.cell) / 2, -0.8, SEQ.z0 + rows * SEQ.cell + 0.5]} tone="amber" size="xs" center>{`${NUM.format(imageTokens)} tokens imagen`}</Tag>
       <Tag position={[SEQ.x0 + 1.6, -0.2, -0.95]} tone="ink" center>una secuencia</Tag>
     </group>
   );
@@ -387,11 +387,12 @@ function WindowGauge({ tokens }: { tokens: number }) {
         <boxGeometry args={[1.0, 1, 1.0]} />
         <meshPhysicalMaterial color={over ? P.rose : P.amber} roughness={0.35} clearcoat={0.5} />
       </mesh>
-      <mesh position={[x, y0 + H, 0.2]}>
-        <boxGeometry args={[1.35, 0.03, 1.35]} />
-        <meshBasicMaterial color={P.ink} />
+      <Wire points={[[x - 0.7, y0 + H, -0.5], [x + 0.7, y0 + H, -0.5], [x + 0.7, y0 + H, 0.9], [x - 0.7, y0 + H, 0.9], [x - 0.7, y0 + H, -0.5]]} color={P.ink} width={2} />
+      <mesh position={[x, y0 + H / 2, 0.2]}>
+        <boxGeometry args={[1.4, H, 1.4]} />
+        <meshPhysicalMaterial color={P.paper} transparent opacity={0.14} roughness={0.1} clearcoat={1} depthWrite={false} />
       </mesh>
-      <Tag position={[x + 1.25, y0 + H, 0.2]} tone="ink" size="xs" center>ventana 128k</Tag>
+      <Tag position={[x + 1.35, y0 + H, 0.9]} tone="ink" size="xs" center>ventana 128k</Tag>
       <Tag position={[x, y0 + Math.max(h, H) + 0.4, 0.2]} tone={over ? "rose" : "amber"} center>{`${NUM.format(tokens)} tokens`}</Tag>
     </group>
   );
