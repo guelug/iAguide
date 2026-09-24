@@ -93,7 +93,7 @@ function SpanishVisual() {
             {[
               ["En disco", mb(c.disk)],
               ["Blobs", String(c.kept.length)],
-              ["Recuperable", step === 3 ? mb(c.reclaim) : "—"],
+              [step === 3 && !dryRun ? "Recuperado" : "Recuperable", step === 3 ? mb(c.reclaim) : "—"],
             ].map(([label, value]) => (
               <div key={label}>
                 <span className="block text-xs text-muted">{label}</span>

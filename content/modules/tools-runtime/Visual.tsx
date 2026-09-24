@@ -291,7 +291,7 @@ function PolicyGate({ approval }: { approval: boolean }) {
 
 function HostScene({ backend, reach, approval }: { backend: Backend; reach: Set<ResId>; approval: boolean }) {
   const term: V3 = [BACKEND_X, HOST_Y + 0.45, 0];
-  const remote: V3 = [2.35, HOST_Y + 0.9, -2.3];
+  const remote: V3 = [2.35, HOST_Y + 1.3, -1.55];
   return (
     <PointerTilt amount={0.05}>
       <group>
@@ -359,7 +359,11 @@ function HostScene({ backend, reach, approval }: { backend: Backend; reach: Set<
         {backend === "ssh" ? (
           <group>
             <Flow points={[term, [1.0, HOST_Y + 1.6, -1.2], remote]} color={P.violet} count={2} size={0.04} speed={0.25} paused={approval} lineOpacity={0.5} />
-            <RoundedBox position={remote} args={[1.9, 0.14, 1.1]} radius={0.05} smoothness={2} castShadow>
+            <mesh position={[remote[0], (remote[1] + HOST_Y - 0.24) / 2, remote[2]]} castShadow>
+              <cylinderGeometry args={[0.06, 0.06, remote[1] - HOST_Y + 0.24, 12]} />
+              <meshStandardMaterial color="#8C9895" metalness={0.55} roughness={0.34} />
+            </mesh>
+            <RoundedBox position={remote} args={[1.9, 0.14, 0.7]} radius={0.05} smoothness={2} castShadow>
               <meshPhysicalMaterial color={mixHex(P.paper, P.violet, 0.25)} roughness={0.45} clearcoat={0.4} />
             </RoundedBox>
             {[-0.55, 0, 0.55].map((dx) => (

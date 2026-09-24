@@ -5,7 +5,7 @@ import { RoundedBox } from "@react-three/drei";
 import { Figure, Knob, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import { Flow, Node3D, Slab, Tag, Turntable, Wire, hash, type V3 } from "@/components/three/atoms";
-import { P, mixHex } from "@/lib/palette";
+import { P } from "@/lib/palette";
 import { useCopy } from "@/lib/useCopy";
 import { useLocale } from "next-intl";
 

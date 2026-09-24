@@ -1,11 +1,10 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useState } from "react";
 import { Figure, Knob, Switcher } from "@/components/three/Figure";
 import { Stage } from "@/components/three/Stage";
 import { Flow, Halo, Lattice, Motes, Node3D, PointerTilt, Ribbon, ShadowBlob, Slab, Tag, Wire, type V3 } from "@/components/three/atoms";
 import { RoundedBox } from "@react-three/drei";
-import { Color, InstancedMesh, Object3D } from "three";
 import { P, mixHex } from "@/lib/palette";
 import { useCopy } from "@/lib/useCopy";
 import { useLocale } from "next-intl";
